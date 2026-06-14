@@ -38,10 +38,32 @@ def test_db_connection(settings: Settings | None = None) -> dict:
     with engine.begin() as connection:
         database_name = connection.execute(text("SELECT current_database();")).scalar_one()
         connection.execute(text("SELECT current_schema();")).scalar_one()
+        connection.execute(text("CREATE EXTENSION IF NOT EXISTS postgis;"))
+        connection.execute(text("CREATE EXTENSION IF NOT EXISTS postgis_topology;"))
         postgis_version = connection.execute(text("SELECT PostGIS_Version();")).scalar_one()
 
         connection.execute(text(f"CREATE SCHEMA IF NOT EXISTS {quoted_schema};"))
         connection.execute(text(f"SET search_path TO {quoted_schema}, public;"))
+        connection.execute(
+            text(
+                f"""
+                CREATE TABLE IF NOT EXISTS {quoted_schema}.project_database_check (
+                    id serial PRIMARY KEY,
+                    project_name text NOT NULL,
+                    created_at timestamptz DEFAULT now()
+                );
+                """
+            )
+        )
+        connection.execute(
+            text(
+                f"""
+                INSERT INTO {quoted_schema}.project_database_check (project_name)
+                VALUES ('automaps')
+                ON CONFLICT DO NOTHING;
+                """
+            )
+        )
         active_schema = connection.execute(text("SELECT current_schema();")).scalar_one()
 
     return {
@@ -49,6 +71,7 @@ def test_db_connection(settings: Settings | None = None) -> dict:
         "database_name": database_name,
         "postgis_version": postgis_version,
         "automap_schema": active_schema,
+        "health_check_table": f"{schema_name}.project_database_check",
         "message": (
             f"Connected to database '{database_name}' with AutoMap schema "
             f"'{active_schema}'."

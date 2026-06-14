@@ -54,7 +54,7 @@ python -m pytest
 
 ## PostGIS Setup
 
-AutoMap uses its own database called `automaps` and its own schema called `automap`. This is separate from CFS and should use separate credentials.
+AutoMap uses its own local dev database called `automaps_dev` and its own schema called `automap`. This is separate from CFS and should use separate credentials. CFS uses the separate `cfs_dev` database and must not be modified by AutoMap setup.
 
 Create a local environment file from the template:
 
@@ -65,8 +65,9 @@ cp .env.example .env
 Then edit `.env` so `DATABASE_URL` points to AutoMap's own PostGIS database:
 
 ```text
-DATABASE_URL=postgresql+psycopg2://automap_user:your_password@localhost:5432/automaps
+DATABASE_URL=postgresql+psycopg2://postgres:YOUR_LOCAL_POSTGRES_PASSWORD@localhost:5433/automaps_dev
 AUTOMAP_DB_SCHEMA=automap
+POSTGRES_ADMIN_URL=postgresql+psycopg2://postgres:YOUR_LOCAL_POSTGRES_PASSWORD@localhost:5433/postgres
 ```
 
 To check the configured database connection:
@@ -75,7 +76,7 @@ To check the configured database connection:
 python -m app.main --check-db
 ```
 
-The check connects to the configured database, verifies PostGIS is available, creates the `automap` schema if it does not already exist, and reports the active schema. It does not create application tables, ingest county data, or create ArcGIS web maps.
+The check connects only to the configured AutoMap database, enables PostGIS extensions if permissions allow, creates the `automap` schema if it does not already exist, creates the `automap.project_database_check` health table, and reports the active schema. It refuses the protected CFS database name `cfs_dev`. It does not ingest county data or create ArcGIS web maps.
 
 ## Notes
 
