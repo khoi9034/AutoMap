@@ -1,0 +1,2 @@
+"""AutoMap application package."""
+

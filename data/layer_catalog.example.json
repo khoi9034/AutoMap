@@ -1,0 +1,24 @@
+[
+  {
+    "id": "parcels",
+    "name": "Parcels",
+    "description": "Example parcel boundary layer for local testing only.",
+    "approved": true,
+    "source": "mock"
+  },
+  {
+    "id": "zoning",
+    "name": "Zoning",
+    "description": "Example zoning district layer for local testing only.",
+    "approved": true,
+    "source": "mock"
+  },
+  {
+    "id": "floodplain",
+    "name": "Floodplain",
+    "description": "Example floodplain layer for local testing only.",
+    "approved": true,
+    "source": "mock"
+  }
+]
+

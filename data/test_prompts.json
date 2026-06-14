@@ -1,0 +1,11 @@
+[
+  {
+    "id": "parcel-zoning-basic",
+    "prompt": "Show parcels with zoning districts."
+  },
+  {
+    "id": "floodplain-review",
+    "prompt": "Create a map of floodplain areas near parcels."
+  }
+]
+
