@@ -8,7 +8,7 @@ from sqlalchemy.engine import make_url
 
 
 DEFAULT_AUTOMAP_SCHEMA = "automap"
-AUTOMAP_DEV_DATABASE = "automaps_dev"
+AUTOMAP_DEV_DATABASE = "automap"
 PROTECTED_DATABASE_NAMES = {"cfs_dev"}
 PLACEHOLDER_PASSWORDS = {
     "YOUR_LOCAL_POSTGRES_PASSWORD",
@@ -55,7 +55,7 @@ def validate_settings(settings: Settings) -> None:
     if database_name in PROTECTED_DATABASE_NAMES:
         raise ValueError(
             "DATABASE_URL points to protected CFS database 'cfs_dev'. AutoMap "
-            "must use its own database 'automaps_dev'."
+            "must use its own database 'automap'."
         )
 
     if database_name != AUTOMAP_DEV_DATABASE:

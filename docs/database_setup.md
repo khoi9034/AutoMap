@@ -6,9 +6,9 @@ Project: AutoMap
 
 - Host: `localhost`
 - Port: `5433`
-- Database: `automaps_dev`
+- Database: `automap`
 - Schema: `automap`
-- PostGIS enabled: no (not verified; local PostgreSQL password is still a placeholder)
+- PostGIS enabled: yes
 - Health check table: `automap.project_database_check`
 
 ## CFS Boundary

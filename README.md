@@ -54,7 +54,7 @@ python -m pytest
 
 ## PostGIS Setup
 
-AutoMap uses its own local dev database called `automaps_dev` and its own schema called `automap`. This is separate from CFS and should use separate credentials. CFS uses the separate `cfs_dev` database and must not be modified by AutoMap setup.
+AutoMap uses its own local dev database called `automap` and its own schema called `automap`. This is separate from CFS and should use separate credentials. CFS uses the separate `cfs_dev` database and must not be modified by AutoMap setup.
 
 Create a local environment file from the template:
 
@@ -65,7 +65,7 @@ cp .env.example .env
 Then edit `.env` so `DATABASE_URL` points to AutoMap's own PostGIS database:
 
 ```text
-DATABASE_URL=postgresql+psycopg2://postgres:YOUR_LOCAL_POSTGRES_PASSWORD@localhost:5433/automaps_dev
+DATABASE_URL=postgresql+psycopg2://postgres:YOUR_LOCAL_POSTGRES_PASSWORD@localhost:5433/automap
 AUTOMAP_DB_SCHEMA=automap
 POSTGRES_ADMIN_URL=postgresql+psycopg2://postgres:YOUR_LOCAL_POSTGRES_PASSWORD@localhost:5433/postgres
 ```

@@ -56,7 +56,7 @@ def test_validate_settings_rejects_non_automap_database():
         DATABASE_URL="postgresql+psycopg2://postgres:secret@localhost:5433/other_db"
     )
 
-    with pytest.raises(ValueError, match="automaps_dev"):
+    with pytest.raises(ValueError, match="automap"):
         validate_settings(settings)
 
 
@@ -64,7 +64,7 @@ def test_validate_settings_rejects_placeholder_password():
     settings = Settings(
         DATABASE_URL=(
             "postgresql+psycopg2://postgres:YOUR_LOCAL_POSTGRES_PASSWORD"
-            "@localhost:5433/automaps_dev"
+            "@localhost:5433/automap"
         )
     )
 
