@@ -10,9 +10,17 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app.catalog_builder import build_catalog_records, inspect_services
 from app.config import get_settings
+from app.data_gap_registry import list_data_gaps
 from app.db import test_db_connection
+from app.field_profiler import (
+    log_recipe_validation,
+    profile_catalog_fields,
+    profile_layer_fields,
+)
+from app.filter_planner import validate_filter_plan
 from app.layer_catalog_store import (
     export_layer_catalog_json,
+    load_catalog_records,
     list_layers,
     search_layers,
     upsert_layer_records,
@@ -146,6 +154,51 @@ def _make_recipe(prompt: str, save_recipe: bool = False) -> int:
     return 0
 
 
+def _profile_layer_fields(layer_key: str | None) -> int:
+    if not layer_key:
+        print("--profile-layer-fields requires --layer-key")
+        return 1
+    records = load_catalog_records()
+    layer_record = next((record for record in records if record.get("layer_key") == layer_key), None)
+    if not layer_record:
+        print(f"Layer key not found in AutoMap catalog: {layer_key}")
+        return 1
+    result = profile_layer_fields(layer_record)
+    print(json.dumps({
+        "layer_key": result["layer_key"],
+        "field_profiles": len(result["field_profiles"]),
+        "value_profiles": len(result["value_profiles"]),
+    }, indent=2))
+    return 0
+
+
+def _profile_catalog_fields(category: str | None = None) -> int:
+    categories = [category] if category else None
+    result = profile_catalog_fields(categories=categories)
+    print(json.dumps(result, indent=2))
+    return 0
+
+
+def _validate_recipe(prompt: str) -> int:
+    recipe = build_recipe(prompt)
+    validation = validate_filter_plan(recipe)
+    recipe["validation"] = validation
+    log_recipe_validation(recipe, validation)
+    print(json.dumps(recipe, indent=2, default=str))
+    return 0
+
+
+def _list_data_gaps() -> int:
+    gaps = list_data_gaps()
+    for gap in gaps:
+        print(
+            f"{gap['gap_key']} | {gap['topic']} | {gap['status']} | "
+            f"{gap['missing_layer_type']} | {gap['reason']}"
+        )
+    print(f"data gaps: {len(gaps)}")
+    return 0
+
+
 def main() -> int:
     """Run the AutoMap command-line interface."""
     parser = argparse.ArgumentParser(description="AutoMap command-line tools")
@@ -194,6 +247,34 @@ def main() -> int:
         action="store_true",
         help="Save --make-recipe JSON to outputs/sample_recipes/.",
     )
+    parser.add_argument(
+        "--profile-layer-fields",
+        action="store_true",
+        help="Profile fields and small value samples for one catalog layer.",
+    )
+    parser.add_argument(
+        "--layer-key",
+        help="Layer key to use with --profile-layer-fields.",
+    )
+    parser.add_argument(
+        "--profile-catalog-fields",
+        action="store_true",
+        help="Profile fields for active verified catalog layers.",
+    )
+    parser.add_argument(
+        "--category",
+        help="Optional category filter for --profile-catalog-fields.",
+    )
+    parser.add_argument(
+        "--validate-recipe",
+        metavar="PROMPT",
+        help="Create, validate, and log a recipe with filter intelligence.",
+    )
+    parser.add_argument(
+        "--list-data-gaps",
+        action="store_true",
+        help="List missing-data topics recorded from recipe runs.",
+    )
     args = parser.parse_args()
 
     try:
@@ -213,6 +294,14 @@ def main() -> int:
             return _export_layer_catalog_json()
         if args.make_recipe:
             return _make_recipe(args.make_recipe, args.save_recipe)
+        if args.profile_layer_fields:
+            return _profile_layer_fields(args.layer_key)
+        if args.profile_catalog_fields:
+            return _profile_catalog_fields(args.category)
+        if args.validate_recipe:
+            return _validate_recipe(args.validate_recipe)
+        if args.list_data_gaps:
+            return _list_data_gaps()
     except ValueError as exc:
         print(f"Configuration error: {exc}")
         return 1

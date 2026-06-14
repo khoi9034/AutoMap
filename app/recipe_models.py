@@ -18,6 +18,7 @@ RECIPE_REQUIRED_KEYS = {
     "confidence_score",
     "needs_review",
     "missing_data_needed",
+    "filter_plan",
 }
 
 SELECTED_LAYER_KEYS = {
@@ -73,4 +74,3 @@ def rejected_layer_from_match(match: dict[str, Any]) -> dict[str, Any]:
 def recipe_has_required_keys(recipe: dict[str, Any]) -> bool:
     """Validate the top-level recipe JSON shape."""
     return RECIPE_REQUIRED_KEYS.issubset(recipe)
-

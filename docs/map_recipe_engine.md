@@ -33,6 +33,8 @@ Recipes include selected layers, rejected lower-scoring layers, filters, spatial
 
 AutoMap does not invent layer names, URLs, fields, or data sources. If a requested topic is not in the verified catalog, it appears in `missing_data_needed`.
 
+In v0.3, recipes also include a `filter_plan` built from real layer field profiles and small non-geometry value samples. If fields or values are uncertain, the plan marks `needs_review` instead of guessing.
+
 ## Safety Boundaries
 
 - No feature geometries are downloaded.
@@ -53,4 +55,3 @@ Optional local save:
 ```bash
 python -m app.main --make-recipe "Show school districts for parcels in Harrisburg." --save-recipe
 ```
-

@@ -2,7 +2,7 @@ from app.recipe_engine import build_recipe
 from app.recipe_models import recipe_has_required_keys
 
 
-def record(layer_key, layer_name, category, *, aliases=None, priority=1, status="active", service_name=None, layer_id=0, historical_year=None):
+def record(layer_key, layer_name, category, *, aliases=None, priority=1, status="active", service_name=None, layer_id=0, historical_year=None, fields=None):
     return {
         "layer_key": layer_key,
         "layer_name": layer_name,
@@ -25,13 +25,14 @@ def record(layer_key, layer_name, category, *, aliases=None, priority=1, status=
         "is_historical": historical_year is not None,
         "historical_year": historical_year,
         "record_count": 1,
+        "fields": fields or [],
     }
 
 
 def sample_catalog():
     return [
-        record("parcels", "Tax Parcels", "parcel", aliases=["parcel", "parcels", "tax parcel"], service_name="Tax_Parcels", layer_id=1),
-        record("municipal", "MunicipalDistrict", "jurisdiction", aliases=["municipal", "municipality", "jurisdiction"], service_name="MunicipalDistrict"),
+        record("parcels", "Tax Parcels", "parcel", aliases=["parcel", "parcels", "tax parcel"], service_name="Tax_Parcels", layer_id=1, fields=[{"name": "PIN14", "type": "esriFieldTypeString", "alias": "Parcel PIN"}]),
+        record("municipal", "MunicipalDistrict", "jurisdiction", aliases=["municipal", "municipality", "jurisdiction"], service_name="MunicipalDistrict", fields=[{"name": "Municipal", "type": "esriFieldTypeString", "alias": "Municipality"}]),
         record("flood100", "FloodPlain100year", "flood", aliases=["flood", "floodplain", "100 year flood"], service_name="Flood_Hazard_Areas", layer_id=2),
         record("elem", "Elementary School District", "schools", service_name="School_Districts"),
         record("middle", "Middle School District", "schools", service_name="School_Districts", layer_id=2),
@@ -44,23 +45,25 @@ def sample_catalog():
 
 
 def test_build_recipe_returns_required_json_shape():
-    recipe = build_recipe("Show parcels in Concord that are in the 100-year floodplain.", sample_catalog())
+    recipe = build_recipe("Show parcels in Concord that are in the 100-year floodplain.", sample_catalog(), persist_data_gaps=False)
 
     assert recipe_has_required_keys(recipe)
     assert recipe["parsed_request"]["topic_details"]["flood_frequency"] == "100_year"
     assert {layer["layer_key"] for layer in recipe["selected_layers"]} >= {"parcels", "municipal", "flood100"}
     assert any(operation["operation"] == "intersect" for operation in recipe["spatial_operations"])
+    assert "filter_plan" in recipe
+    assert recipe["filter_plan"]["flood100"]["draft_where_clause"] is None
 
 
 def test_build_recipe_school_request_selects_three_school_layers():
-    recipe = build_recipe("Show school districts for parcels in Harrisburg.", sample_catalog())
+    recipe = build_recipe("Show school districts for parcels in Harrisburg.", sample_catalog(), persist_data_gaps=False)
     selected_keys = {layer["layer_key"] for layer in recipe["selected_layers"]}
 
     assert {"elem", "middle", "high", "parcels", "municipal"}.issubset(selected_keys)
 
 
 def test_build_recipe_reports_missing_development_data():
-    recipe = build_recipe("Map recent permits and planning cases near Kannapolis.", sample_catalog())
+    recipe = build_recipe("Map recent permits and planning cases near Kannapolis.", sample_catalog(), persist_data_gaps=False)
 
     assert recipe["needs_review"] is True
     assert "planning cases" in recipe["missing_data_needed"]
@@ -68,10 +71,9 @@ def test_build_recipe_reports_missing_development_data():
 
 
 def test_build_recipe_historical_year_prefers_historical_layers():
-    recipe = build_recipe("Show 2014 parcels and zoning.", sample_catalog())
+    recipe = build_recipe("Show 2014 parcels and zoning.", sample_catalog(), persist_data_gaps=False)
     selected_keys = {layer["layer_key"] for layer in recipe["selected_layers"]}
 
     assert "legacy_parcels_2014" in selected_keys
     assert "legacy_zoning_2014" in selected_keys
     assert "parcels" not in selected_keys
-

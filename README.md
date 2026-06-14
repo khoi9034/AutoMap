@@ -105,6 +105,18 @@ python -m app.main --make-recipe "Show 2014 parcels and zoning."
 
 Use `--save-recipe` with `--make-recipe` to write a local JSON recipe under `outputs/sample_recipes/`. Generated outputs are local artifacts and are not committed.
 
+## Field Intelligence And Filter Planning
+
+AutoMap v0.3 profiles real ArcGIS REST fields and small non-geometry value samples so recipes can include executable filter plans. Sampling uses `returnGeometry=false`; AutoMap still does not ingest full geometries or generate ArcGIS web maps.
+
+```bash
+python -m app.main --profile-layer-fields --layer-key cabarrus_new_cabarrus_county_zoning_0_cabarrus_county_zoning
+python -m app.main --profile-catalog-fields
+python -m app.main --profile-catalog-fields --category zoning
+python -m app.main --validate-recipe "Show parcels in Concord that are in the 100-year floodplain."
+python -m app.main --list-data-gaps
+```
+
 ## Notes
 
 - Approved GIS layers will come from a local layer catalog.

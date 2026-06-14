@@ -5,6 +5,8 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any
 
+from app.data_gap_registry import upsert_data_gaps_from_recipe
+from app.filter_planner import build_filter_plan, validate_filter_plan
 from app.layer_matcher import match_layers
 from app.prompt_parser import parse_prompt
 from app.recipe_models import rejected_layer_from_match, selected_layer_from_match
@@ -149,7 +151,12 @@ def _review_flags(parsed_request: dict[str, Any], matching: dict[str, Any]) -> l
     return flags
 
 
-def build_recipe(prompt: str, layer_catalog: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+def build_recipe(
+    prompt: str,
+    layer_catalog: list[dict[str, Any]] | None = None,
+    include_filter_intelligence: bool = True,
+    persist_data_gaps: bool = True,
+) -> dict[str, Any]:
     """Build a structured map recipe from a plain-English GIS request."""
     parsed_request = parse_prompt(prompt)
     matching = match_layers(parsed_request, layer_catalog)
@@ -157,7 +164,7 @@ def build_recipe(prompt: str, layer_catalog: list[dict[str, Any]] | None = None)
     rejected_layers = [rejected_layer_from_match(layer) for layer in matching["rejected_layers"]]
     review_flags = _review_flags(parsed_request, matching)
 
-    return {
+    recipe = {
         "map_title": _title_from_prompt(parsed_request),
         "user_intent": parsed_request["raw_prompt"],
         "parsed_request": parsed_request,
@@ -171,6 +178,8 @@ def build_recipe(prompt: str, layer_catalog: list[dict[str, Any]] | None = None)
         "needs_review": bool(review_flags),
         "review_reasons": review_flags,
         "missing_data_needed": matching["missing_data_needed"],
+        "filter_plan": {},
+        "validation": {},
         "created_at": datetime.now(UTC).isoformat(),
         "notes": [
             "Recipe uses verified AutoMap layer catalog metadata only.",
@@ -178,3 +187,15 @@ def build_recipe(prompt: str, layer_catalog: list[dict[str, Any]] | None = None)
         ],
     }
 
+    if include_filter_intelligence:
+        recipe["filter_plan"] = build_filter_plan(recipe, catalog_records=layer_catalog)
+        validation = validate_filter_plan(recipe)
+        recipe["validation"] = validation
+        if validation["warnings"]:
+            recipe["review_reasons"] = sorted(set([*recipe["review_reasons"], *validation["warnings"]]))
+            recipe["needs_review"] = True
+
+    if persist_data_gaps and recipe["missing_data_needed"]:
+        upsert_data_gaps_from_recipe(recipe)
+
+    return recipe
