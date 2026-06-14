@@ -1,6 +1,9 @@
 """Command-line entry point for AutoMap."""
 
 import argparse
+from datetime import UTC, datetime
+import json
+from pathlib import Path
 import sys
 
 from sqlalchemy.exc import SQLAlchemyError
@@ -15,6 +18,8 @@ from app.layer_catalog_store import (
     upsert_layer_records,
     verify_catalog_layers,
 )
+from app.layer_semantics import slugify
+from app.recipe_engine import build_recipe
 from app.rest_sources import load_rest_sources
 
 
@@ -128,6 +133,19 @@ def _export_layer_catalog_json() -> int:
     return 0
 
 
+def _make_recipe(prompt: str, save_recipe: bool = False) -> int:
+    recipe = build_recipe(prompt)
+    print(json.dumps(recipe, indent=2, default=str))
+    if save_recipe:
+        output_dir = Path("outputs/sample_recipes")
+        output_dir.mkdir(parents=True, exist_ok=True)
+        timestamp = datetime.now(UTC).strftime("%Y%m%d%H%M%S")
+        output_path = output_dir / f"{timestamp}_{slugify(prompt)[:80]}.json"
+        output_path.write_text(json.dumps(recipe, indent=2, default=str), encoding="utf-8")
+        print(f"recipe saved: {output_path}", file=sys.stderr)
+    return 0
+
+
 def main() -> int:
     """Run the AutoMap command-line interface."""
     parser = argparse.ArgumentParser(description="AutoMap command-line tools")
@@ -166,6 +184,16 @@ def main() -> int:
         action="store_true",
         help="Export the AutoMap layer catalog to outputs/layer_catalog_export.json.",
     )
+    parser.add_argument(
+        "--make-recipe",
+        metavar="PROMPT",
+        help="Create a map recipe from a plain-English GIS request.",
+    )
+    parser.add_argument(
+        "--save-recipe",
+        action="store_true",
+        help="Save --make-recipe JSON to outputs/sample_recipes/.",
+    )
     args = parser.parse_args()
 
     try:
@@ -183,6 +211,8 @@ def main() -> int:
             return _search_layers(args.search_layers)
         if args.export_layer_catalog_json:
             return _export_layer_catalog_json()
+        if args.make_recipe:
+            return _make_recipe(args.make_recipe, args.save_recipe)
     except ValueError as exc:
         print(f"Configuration error: {exc}")
         return 1

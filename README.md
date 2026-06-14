@@ -91,6 +91,20 @@ python -m app.main --verify-layer-catalog
 python -m app.main --search-layers flood
 ```
 
+## Map Recipe Engine
+
+AutoMap v0.2 creates structured map recipes from plain-English GIS requests using only verified records in `automap.layer_catalog`.
+
+```bash
+python -m app.main --make-recipe "Show parcels in Concord that are in the 100-year floodplain."
+python -m app.main --make-recipe "Map recent permits and planning cases near Kannapolis."
+python -m app.main --make-recipe "Show school districts for parcels in Harrisburg."
+python -m app.main --make-recipe "Show commercial zoning around Concord."
+python -m app.main --make-recipe "Show 2014 parcels and zoning."
+```
+
+Use `--save-recipe` with `--make-recipe` to write a local JSON recipe under `outputs/sample_recipes/`. Generated outputs are local artifacts and are not committed.
+
 ## Notes
 
 - Approved GIS layers will come from a local layer catalog.

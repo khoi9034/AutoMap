@@ -243,6 +243,37 @@ def search_layers(query: str, schema_name: str = "automap", limit: int = 25) -> 
     return sort_layer_candidates(records)[:limit]
 
 
+def load_catalog_records(schema_name: str = "automap") -> list[dict[str, Any]]:
+    """Load trusted layer catalog records for prompt-to-recipe matching."""
+    ensure_layer_catalog_table(schema_name)
+    table_name = _table_name(schema_name)
+    engine = get_engine()
+    with engine.connect() as connection:
+        rows = connection.execute(
+            text(
+                f"""
+                SELECT layer_key, layer_name, rest_url, category, aliases,
+                       description, geometry_type, date_fields, common_filters,
+                       planning_use_cases, recommended_symbology, known_limitations,
+                       is_public, is_active, source_key, source_priority,
+                       source_status, service_name, service_url, layer_id,
+                       layer_url, layer_type, parent_layer_id, sublayer_ids,
+                       is_group_layer, is_feature_layer, spatial_reference, extent,
+                       supported_query_formats, capabilities, max_record_count,
+                       object_id_field, display_field, type_id_field, fields,
+                       drawing_info, service_item_id, record_count, is_verified,
+                       verification_status, verification_error, verified_at,
+                       is_historical, historical_year, canonical_topic,
+                       superseded_by_layer_key, source_notes
+                FROM {table_name}
+                WHERE is_public = true
+                ORDER BY source_priority NULLS LAST, service_name, layer_id;
+                """
+            )
+        ).mappings()
+        return [dict(row) for row in rows]
+
+
 def verify_catalog_layers(schema_name: str = "automap") -> dict[str, Any]:
     """Re-check every catalog layer_url and update verification fields."""
     ensure_layer_catalog_table(schema_name)
