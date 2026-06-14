@@ -78,6 +78,19 @@ python -m app.main --check-db
 
 The check connects only to the configured AutoMap database, enables PostGIS extensions if permissions allow, creates the `automap` schema if it does not already exist, creates the `automap.project_database_check` health table, and reports the active schema. It refuses the protected CFS database name `cfs_dev`. It does not ingest county data or create ArcGIS web maps.
 
+## ArcGIS REST Catalog Inspector
+
+AutoMap uses verified ArcGIS REST metadata from Cabarrus County OpenData services to build `automap.layer_catalog`. New separated OpenData services are preferred. The legacy monolithic OpenData service is retained as fallback and historical metadata.
+
+No full geometries are ingested yet, and no ArcGIS web maps are created. CFS is separate and was not touched.
+
+```bash
+python -m app.main --inspect-rest-sources
+python -m app.main --build-catalog-from-rest
+python -m app.main --verify-layer-catalog
+python -m app.main --search-layers flood
+```
+
 ## Notes
 
 - Approved GIS layers will come from a local layer catalog.

@@ -1,0 +1,17 @@
+[
+  {
+    "source_key": "cabarrus_new_opendata",
+    "source_type": "arcgis_folder",
+    "base_url": "https://location.cabarruscounty.us/arcgisservices/rest/services/OpenData",
+    "priority": 1,
+    "status": "active"
+  },
+  {
+    "source_key": "cabarrus_legacy_opendata",
+    "source_type": "arcgis_mapserver",
+    "base_url": "https://location.cabarruscounty.us/arcgisservices/rest/services/opendata/MapServer",
+    "priority": 2,
+    "status": "legacy"
+  }
+]
+
