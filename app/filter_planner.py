@@ -237,7 +237,10 @@ def _plan_for_layer(layer: dict[str, Any], parsed_request: dict[str, Any]) -> di
         plan = choose_date_filter_field(layer, parsed_request.get("time_references") or [])
     else:
         fields = layer.get("field_profiles", [])
-        field, confidence = _choose_field(fields, ["is_name_candidate"], ["parcel", "pin", "account", "owner", "name"])
+        if category == "parcel":
+            field, confidence = _choose_field(fields, [], ["pin14", "pin", "parcel", "account", "owner", "property"])
+        else:
+            field, confidence = _choose_field(fields, ["is_name_candidate"], ["name", "label", "title"])
         plan = {
             "candidate_fields": _field_names(fields),
             "selected_field": field.get("field_name") if field else None,
