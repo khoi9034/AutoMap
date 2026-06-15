@@ -3,6 +3,7 @@ from pathlib import Path
 
 from app import analysis_report_exporter as exporter
 from app import analysis_summary_engine as summary_engine
+from app import spatial_query_client
 from app.analysis_summary_models import ANALYSIS_REPORT_REQUIRED_FILES
 
 
@@ -162,6 +163,25 @@ def test_unsupported_statistics_query_is_handled_safely(monkeypatch):
 
     assert any(row.get("status") == "unsupported" for row in report.grouped_summaries)
     assert report.geometry_downloaded is False
+
+
+def test_spatial_query_client_caps_grouped_statistics_rows(monkeypatch):
+    def fake_fetch(layer_url, params, timeout=30, prefer_post=False):
+        features = [{"attributes": {"ZONING_GEN": f"group_{index}", "feature_count": index}} for index in range(20)]
+        return {"features": features}, {"request_method": "GET"}
+
+    monkeypatch.setattr(spatial_query_client, "_fetch_layer_query", fake_fetch)
+
+    result = spatial_query_client.SpatialQueryClient().query_grouped_statistics(
+        "https://example.test/layer/0",
+        "ZONING_GEN",
+        max_groups=5,
+    )
+
+    assert result["return_geometry"] is False
+    assert result["group_count"] == 5
+    assert result["server_row_count"] == 20
+    assert result["truncated"] is True
 
 
 def test_report_exporter_creates_required_files_and_preserves_warnings(monkeypatch, tmp_path):

@@ -457,6 +457,7 @@ class SpatialQueryClient:
     ) -> dict[str, Any]:
         """Return grouped count statistics without feature geometry."""
         statistic_field = "*"
+        row_limit = max(1, min(max_groups, 200))
         params = {
             "f": "pjson",
             "where": where or "1=1",
@@ -470,11 +471,12 @@ class SpatialQueryClient:
             "groupByFieldsForStatistics": field_name,
             "orderByFields": "feature_count DESC",
             "returnGeometry": "false",
-            "resultRecordCount": min(max_groups, 200),
+            "resultRecordCount": row_limit,
         }
         data, request_metadata = _fetch_layer_query(layer_url, params, timeout=60)
         rows: list[dict[str, Any]] = []
-        for feature in data.get("features") or []:
+        features = data.get("features") or []
+        for feature in features[:row_limit]:
             attributes = feature.get("attributes") or {}
             rows.append(
                 {
@@ -488,6 +490,8 @@ class SpatialQueryClient:
             "return_geometry": False,
             "rows": rows,
             "group_count": len(rows),
+            "server_row_count": len(features),
+            "truncated": len(features) > row_limit,
             **request_metadata,
         }
 
