@@ -7,6 +7,11 @@
   {% if template_path %}<p><strong>Adjustment file:</strong> <code>{{ template_path }}</code></p>{% endif %}
   {% if adjusted_path %}<p><strong>Adjusted packet:</strong> <code>{{ adjusted_path }}</code></p>{% endif %}
   {% if validation %}<p><strong>Adjusted packet validation:</strong> {{ validation.is_valid }} | <strong>Publish ready:</strong> {{ validation.publish_ready }}</p>{% endif %}
+  <div class="button-row">
+    {% if preview_url %}<a class="button-link" href="{{ preview_url }}">Preview Adjusted Map</a>{% endif %}
+    {% if webmap_file_url %}<a class="button-link secondary" href="{{ webmap_file_url }}">Open WebMap JSON</a>{% endif %}
+    {% if adjusted_review_file_url %}<a class="button-link secondary" href="{{ adjusted_review_file_url }}">Back To Review</a>{% endif %}
+  </div>
 </section>
 
 {% if adjustment_yaml %}

@@ -135,6 +135,18 @@ textarea {
   align-items: center;
 }
 
+.section-heading-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.top-spaced {
+  margin-top: 12px;
+}
+
 table {
   width: 100%;
   border-collapse: collapse;
@@ -179,9 +191,91 @@ pre {
   color: #5f6b7a;
 }
 
+.preview-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 380px);
+  gap: 16px;
+  align-items: stretch;
+  min-height: calc(100vh - 190px);
+}
+
+.preview-map-panel,
+.preview-side-panel {
+  background: #ffffff;
+  border: 1px solid #d8dde6;
+  border-radius: 8px;
+}
+
+.preview-map-panel {
+  display: grid;
+  grid-template-rows: auto auto minmax(420px, 1fr);
+  min-width: 0;
+}
+
+.preview-toolbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px;
+  border-bottom: 1px solid #d8dde6;
+}
+
+.preview-toolbar h2 {
+  margin-bottom: 4px;
+}
+
+.preview-status {
+  padding: 8px 14px;
+  background: #edf5ff;
+  border-bottom: 1px solid #c9dffc;
+  color: #153f69;
+  font-weight: 700;
+}
+
+.preview-status.warning {
+  background: #fff8df;
+  border-color: #e8dcae;
+  color: #4f3b00;
+}
+
+.preview-map {
+  width: 100%;
+  min-height: 520px;
+}
+
+.preview-side-panel {
+  padding: 16px;
+  overflow: auto;
+  max-height: calc(100vh - 190px);
+}
+
+.preview-layer-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.preview-layer-list li {
+  border: 1px solid #d8dde6;
+  border-radius: 6px;
+  padding: 10px;
+}
+
+.preview-layer-list span,
+.preview-layer-list code {
+  display: block;
+  margin-top: 4px;
+  overflow-wrap: anywhere;
+}
+
 @media (max-width: 760px) {
   .topbar,
-  .two-column {
+  .two-column,
+  .preview-shell,
+  .preview-toolbar,
+  .section-heading-row {
     display: block;
   }
 
@@ -192,5 +286,14 @@ pre {
 
   .inline-form {
     grid-template-columns: 1fr;
+  }
+
+  .preview-side-panel {
+    max-height: none;
+    margin-top: 16px;
+  }
+
+  .preview-map {
+    min-height: 420px;
   }
 }

@@ -1,9 +1,11 @@
 import subprocess
 import sys
 from pathlib import Path
+import json
 
 from fastapi.testclient import TestClient
 
+from app import packet_index
 from app.web_ui import create_app
 
 
@@ -41,6 +43,41 @@ def sample_recipe():
     }
 
 
+def sample_webmap():
+    return {
+        "title": "Parcel Flood in Concord",
+        "initialState": {"viewpoint": {"targetGeometry": {"xmin": -80.8, "ymin": 35.1, "xmax": -80.4, "ymax": 35.6}}},
+        "operationalLayers": [
+            {
+                "id": "automap_flood",
+                "title": "FloodPlain100year",
+                "url": "https://location.example.com/arcgis/rest/services/OpenData/Flood_Hazard_Areas/MapServer/2",
+                "serviceUrl": "https://location.example.com/arcgis/rest/services/OpenData/Flood_Hazard_Areas/MapServer",
+                "layerUrl": "https://location.example.com/arcgis/rest/services/OpenData/Flood_Hazard_Areas/MapServer/2",
+                "layerId": 2,
+                "visibility": True,
+                "opacity": 0.45,
+                "layerDefinition": {"definitionExpression": "ZONE = 'AE'"},
+                "autoMapRole": "constraint_overlay",
+                "autoMapLayerKey": "floodplain",
+                "autoMapSourceStatus": "active",
+                "autoMapSourcePriority": 1,
+                "autoMapConfidence": 0.9,
+            }
+        ],
+    }
+
+
+def write_ui_packet(root: Path, name="ui_packet") -> Path:
+    folder = root / "review_packets" / name
+    folder.mkdir(parents=True)
+    (folder / "recipe.json").write_text(json.dumps(sample_recipe()), encoding="utf-8")
+    (folder / "webmap.json").write_text(json.dumps(sample_webmap()), encoding="utf-8")
+    (folder / "warnings.json").write_text(json.dumps({"preview_warnings": ["Draft only."]}), encoding="utf-8")
+    (folder / "review.html").write_text("<html>review</html>", encoding="utf-8")
+    return folder
+
+
 def test_app_starts_and_health_loads():
     client = TestClient(create_app())
     response = client.get("/health")
@@ -57,6 +94,18 @@ def test_homepage_loads():
     assert response.status_code == 200
     assert "AutoMap: County GIS Request Engine" in response.text
     assert "Show parcels in Concord" in response.text
+
+
+def test_homepage_lists_latest_drafts(monkeypatch, tmp_path):
+    monkeypatch.setattr(packet_index, "OUTPUTS_ROOT", tmp_path)
+    write_ui_packet(tmp_path, name="latest_ui_packet")
+    client = TestClient(create_app())
+
+    response = client.get("/")
+
+    assert response.status_code == 200
+    assert "Latest Drafts" in response.text
+    assert "/preview/latest_ui_packet" in response.text
 
 
 def test_recipe_route_works_with_sample_prompt(monkeypatch):
@@ -141,6 +190,72 @@ def test_dry_run_publish_route_does_not_create_real_item(monkeypatch):
     assert called["dry_run"] is True
     assert called["confirm_publish"] is False
     assert "Created item:</strong> False" in response.text
+    assert "Preview Adjusted Map" in response.text
+
+
+def test_preview_route_loads(monkeypatch, tmp_path):
+    monkeypatch.setattr(packet_index, "OUTPUTS_ROOT", tmp_path)
+    write_ui_packet(tmp_path, name="preview_ui_packet")
+    client = TestClient(create_app())
+
+    response = client.get("/preview/preview_ui_packet")
+
+    assert response.status_code == 200
+    assert "automap-preview-map" in response.text
+    assert "Review Details" in response.text
+    assert "Open WebMap JSON" in response.text
+
+
+def test_preview_config_endpoint_is_sanitized(monkeypatch, tmp_path):
+    monkeypatch.setattr(packet_index, "OUTPUTS_ROOT", tmp_path)
+    write_ui_packet(tmp_path, name="config_ui_packet")
+    client = TestClient(create_app())
+
+    response = client.get("/api/preview-config?packet_id=config_ui_packet")
+    serialized = json.dumps(response.json()).lower()
+
+    assert response.status_code == 200
+    assert response.json()["operational_layers"][0]["preview_type"] == "map_image_sublayer"
+    assert response.json()["operational_layers"][0]["layer_id"] == 2
+    assert "arcgis_password" not in serialized
+    assert "database_url" not in serialized
+    assert ".env" not in serialized
+
+
+def test_review_packet_page_includes_preview_link(monkeypatch):
+    monkeypatch.setattr(
+        "app.ui_routes.build_review_packet",
+        lambda prompt: {
+            "recipe": sample_recipe(),
+            "webmap_json": sample_webmap(),
+            "warnings": {"preview_warnings": ["Draft only."]},
+        },
+    )
+    monkeypatch.setattr("app.ui_routes.save_review_packet", lambda prompt, recipe, webmap: Path("outputs/review_packets/sample_packet"))
+    monkeypatch.setattr("app.ui_routes.validate_review_packet", lambda path: {"is_valid": True})
+    monkeypatch.setattr("app.ui_routes.build_layer_review_table", lambda recipe, webmap: [])
+    client = TestClient(create_app())
+
+    response = client.post("/review-packet", data={"prompt": "Show parcels in Concord that are in the 100-year floodplain."})
+
+    assert response.status_code == 200
+    assert "Preview Map" in response.text
+    assert "/preview?path=outputs%2Freview_packets%2Fsample_packet" in response.text
+
+
+def test_preview_route_does_not_publish(monkeypatch, tmp_path):
+    monkeypatch.setattr(packet_index, "OUTPUTS_ROOT", tmp_path)
+    write_ui_packet(tmp_path, name="no_publish_preview")
+
+    def fail_publish(*_args, **_kwargs):
+        raise AssertionError("Preview route must not publish.")
+
+    monkeypatch.setattr("app.ui_routes.publish_webmap_draft", fail_publish)
+    client = TestClient(create_app())
+
+    response = client.get("/preview/no_publish_preview")
+
+    assert response.status_code == 200
 
 
 def test_ui_does_not_require_arcgis_login_or_expose_secrets():
@@ -158,6 +273,9 @@ def test_ui_does_not_require_arcgis_login_or_expose_secrets():
 def test_ui_does_not_reference_cfs_on_main_pages(monkeypatch):
     monkeypatch.setattr("app.ui_routes.search_layers", lambda query: [])
     monkeypatch.setattr("app.ui_routes.list_data_gaps", lambda: [])
+    monkeypatch.setattr("app.ui_routes.list_review_packets", lambda: [])
+    monkeypatch.setattr("app.ui_routes.list_adjusted_packets", lambda: [])
+    monkeypatch.setattr("app.ui_routes.find_latest_packet", lambda: None)
     client = TestClient(create_app())
 
     combined = "\n".join(

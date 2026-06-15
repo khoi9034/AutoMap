@@ -23,6 +23,43 @@
   </ul>
 </section>
 
+<section class="panel">
+  <div class="section-heading-row">
+    <h2>Latest Drafts</h2>
+    {% if latest_packet %}
+      <a class="button-link" href="{{ latest_packet.preview_url }}">Preview Latest Map</a>
+    {% endif %}
+  </div>
+  <div class="two-column">
+    <div>
+      <h3>Review Packets</h3>
+      <ul class="compact-list">
+        {% for packet in review_packets %}
+          <li>
+            <a href="{{ packet.preview_url }}">{{ packet.map_title }}</a>
+            <span class="muted">{{ packet.updated_at }}</span>
+          </li>
+        {% else %}
+          <li>No review packets found yet.</li>
+        {% endfor %}
+      </ul>
+    </div>
+    <div>
+      <h3>Adjusted Packets</h3>
+      <ul class="compact-list">
+        {% for packet in adjusted_packets %}
+          <li>
+            <a href="{{ packet.preview_url }}">{{ packet.map_title }}</a>
+            <span class="muted">{{ packet.updated_at }}</span>
+          </li>
+        {% else %}
+          <li>No adjusted packets found yet.</li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+</section>
+
 <section class="two-column">
   <div class="panel">
     <h2>Search Layer Catalog</h2>

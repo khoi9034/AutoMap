@@ -5,7 +5,12 @@
   <h2>Review Packet</h2>
   <p><strong>Packet folder:</strong> <code>{{ packet_path }}</code></p>
   <p><strong>Validation:</strong> {{ validation.is_valid }}</p>
-  <form method="post" action="/adjustment-template">
+  <div class="button-row">
+    {% if preview_url %}<a class="button-link" href="{{ preview_url }}">Preview Map</a>{% endif %}
+    {% if webmap_file_url %}<a class="button-link secondary" href="{{ webmap_file_url }}">Open WebMap JSON</a>{% endif %}
+    {% if review_file_url %}<a class="button-link secondary" href="{{ review_file_url }}">Back To Review</a>{% endif %}
+  </div>
+  <form method="post" action="/adjustment-template" class="top-spaced">
     <input type="hidden" name="packet_folder" value="{{ packet_path }}">
     <button type="submit">Create Adjustment Template</button>
   </form>

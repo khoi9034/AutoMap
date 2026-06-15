@@ -4,7 +4,7 @@ AutoMap converts plain-English county GIS map requests into structured map recip
 
 ## Current Phase
 
-v0.8 local web UI.
+v0.9 live local map preview.
 
 This repository is intentionally independent. It does not connect to CFS or import CFS code. AutoMap uses its own local PostGIS database and trusted layer catalog.
 
@@ -196,8 +196,27 @@ python -m app.main --serve-ui --ui-port 8001
 
 The UI can create recipes, review packets, WebMap drafts, adjustment templates, adjusted packets, catalog searches, data gap views, and dry-run publish receipts. The UI is local only. It does not real-publish ArcGIS items, does not require ArcGIS login, and does not ingest geometries.
 
+## Live Local Map Preview
+
+AutoMap v0.9 adds a browser map preview for local draft WebMap JSON files.
+
+```bash
+python -m app.main --serve-ui --ui-port 8001
+python -m app.main --list-packets
+python -m app.main --preview-packet outputs/review_packets/<packet-folder> --ui-port 8001
+```
+
+Preview routes:
+
+```text
+http://127.0.0.1:8001/preview
+http://127.0.0.1:8001/preview/<packet-id>
+```
+
+The preview uses draft WebMap JSON and verified ArcGIS REST layer URLs. It does not publish anything, does not require ArcGIS login, and is for human GIS review only.
+
 ## Notes
 
 - Approved GIS layers come from AutoMap's local `automap.layer_catalog`.
 - Generated recipes, WebMap drafts, review packets, and adjusted packets are local artifacts and are not committed.
-- ArcGIS Online or Portal publishing is dry-run only by default in v0.8.
+- ArcGIS Online or Portal publishing is dry-run only by default in v0.9.

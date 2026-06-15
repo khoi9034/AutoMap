@@ -17,6 +17,9 @@
       <input type="hidden" name="prompt" value="{{ prompt }}">
       <button type="submit">Generate WebMap Draft</button>
     </form>
+    {% if preview_url %}
+      <a class="button-link" href="{{ preview_url }}">Preview Map</a>
+    {% endif %}
     <a class="button-link secondary" href="/">Back to Home</a>
   </div>
 </section>

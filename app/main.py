@@ -37,6 +37,12 @@ from app.layer_catalog_store import (
     verify_catalog_layers,
 )
 from app.layer_semantics import slugify
+from app.packet_index import (
+    build_preview_config,
+    find_latest_packet,
+    list_adjusted_packets,
+    list_review_packets,
+)
 from app.recipe_engine import build_recipe
 from app.review_packet_builder import (
     build_review_packet,
@@ -340,6 +346,41 @@ def _serve_ui(port: int | None = None) -> int:
     return 0
 
 
+def _list_packets() -> int:
+    review_packets = list_review_packets()
+    adjusted_packets = list_adjusted_packets()
+    print("review packets:")
+    for packet in review_packets:
+        print(f"- {packet['packet_id']} | {packet['map_title']} | {packet['preview_url']}")
+    if not review_packets:
+        print("- none")
+    print("adjusted packets:")
+    for packet in adjusted_packets:
+        print(f"- {packet['packet_id']} | {packet['map_title']} | {packet['preview_url']}")
+    if not adjusted_packets:
+        print("- none")
+    latest = find_latest_packet()
+    if latest:
+        print(f"latest: {latest['packet_id']} | {latest['preview_url']}")
+    print(f"review packet count: {len(review_packets)}")
+    print(f"adjusted packet count: {len(adjusted_packets)}")
+    return 0
+
+
+def _preview_packet(path: str, port: int | None = None) -> int:
+    try:
+        config = build_preview_config(path)
+    except (FileNotFoundError, ValueError) as exc:
+        print(f"Preview packet error: {exc}")
+        return 1
+    selected_port = port or int(os.getenv("AUTOMAP_UI_PORT", "8000"))
+    print(f"preview source: {config['packet_path']}")
+    print(f"preview URL: http://127.0.0.1:{selected_port}/preview?path={config['packet_path']}")
+    print("Start the local UI first if it is not already running:")
+    print(f"python -m app.main --serve-ui --ui-port {selected_port}")
+    return 0
+
+
 def main() -> int:
     """Run the AutoMap command-line interface."""
     parser = argparse.ArgumentParser(description="AutoMap command-line tools")
@@ -482,6 +523,16 @@ def main() -> int:
         type=int,
         help="Optional local UI port override when 8000 is already in use.",
     )
+    parser.add_argument(
+        "--list-packets",
+        action="store_true",
+        help="List local review and adjusted packets with preview URLs.",
+    )
+    parser.add_argument(
+        "--preview-packet",
+        metavar="PACKET_FOLDER_OR_WEBMAP_JSON",
+        help="Print a local UI preview URL for a packet or generated WebMap JSON path.",
+    )
     args = parser.parse_args()
 
     try:
@@ -534,6 +585,10 @@ def main() -> int:
             return _publish_draft_webmap(args.publish_draft_webmap, dry_run=dry_run, confirm_publish=args.confirm_publish)
         if args.serve_ui:
             return _serve_ui(args.ui_port)
+        if args.list_packets:
+            return _list_packets()
+        if args.preview_packet:
+            return _preview_packet(args.preview_packet, args.ui_port)
     except ValueError as exc:
         print(f"Configuration error: {exc}")
         return 1

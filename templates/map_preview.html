@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}Map Preview - AutoMap{% endblock %}
+{% block head %}
+<link rel="stylesheet" href="https://js.arcgis.com/4.30/esri/themes/light/main.css">
+<script src="https://js.arcgis.com/4.30/"></script>
+{% endblock %}
+{% block content %}
+<section class="preview-shell" data-preview-config-url="{{ preview_config_url }}">
+  <div class="preview-map-panel">
+    <div class="preview-toolbar">
+      <div>
+        <h2>{{ preview_config.map_title }}</h2>
+        <p class="muted">Local draft preview. Nothing is published from this page.</p>
+      </div>
+      <div class="button-row">
+        <a class="button-link" href="{{ webmap_file_url }}">Open WebMap JSON</a>
+        {% if review_file_url %}
+          <a class="button-link secondary" href="{{ review_file_url }}">Back To Review</a>
+        {% elif adjusted_review_file_url %}
+          <a class="button-link secondary" href="{{ adjusted_review_file_url }}">Back To Review</a>
+        {% else %}
+          <a class="button-link secondary" href="/">Back To Home</a>
+        {% endif %}
+      </div>
+    </div>
+    <div id="preview-status" class="preview-status">Loading preview...</div>
+    <div id="automap-preview-map" class="preview-map" aria-label="AutoMap live draft map preview"></div>
+  </div>
+
+  <aside class="preview-side-panel">
+    <h3>Review Details</h3>
+    <p><strong>Draft status:</strong> {{ preview_config.draft_status }}</p>
+    <p><strong>Packet:</strong> <code>{{ preview_config.packet_path }}</code></p>
+    {% if preview_config.publish_ready is not none %}
+      <p><strong>Publish ready:</strong> {{ preview_config.publish_ready }}</p>
+    {% endif %}
+    {% if preview_config.original_prompt %}
+      <h4>Original Prompt</h4>
+      <p>{{ preview_config.original_prompt }}</p>
+    {% endif %}
+
+    <h4>Selected Layers</h4>
+    <ul class="preview-layer-list">
+      {% for layer in preview_config.operational_layers %}
+        <li>
+          <strong>{{ layer.title }}</strong>
+          <span>{{ layer.role or "reference_layer" }} | {{ layer.source_status or "unknown" }}</span>
+          <span>Confidence: {{ layer.confidence_score if layer.confidence_score is not none else "n/a" }}</span>
+          {% if layer.definition_expression %}
+            <code>{{ layer.definition_expression }}</code>
+          {% endif %}
+        </li>
+      {% else %}
+        <li>No operational layers found.</li>
+      {% endfor %}
+    </ul>
+
+    <h4>Warnings</h4>
+    {% for group, group_warnings in preview_config.warnings.items() %}
+      {% if group_warnings is mapping %}
+        {% for nested_group, nested_warnings in group_warnings.items() %}
+          <p><strong>{{ nested_group.replace("_", " ").title() }}</strong></p>
+          <ul class="compact-list">
+            {% for warning in nested_warnings %}
+              <li>{{ warning }}</li>
+            {% else %}
+              <li>None.</li>
+            {% endfor %}
+          </ul>
+        {% endfor %}
+      {% elif group_warnings is iterable and group_warnings is not string %}
+        <p><strong>{{ group.replace("_", " ").title() }}</strong></p>
+        <ul class="compact-list">
+          {% for warning in group_warnings %}
+            <li>{{ warning }}</li>
+          {% else %}
+            <li>None.</li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+    {% endfor %}
+
+    <h4>Missing Data</h4>
+    <ul class="compact-list">
+      {% for missing in preview_config.missing_data %}
+        <li>{{ missing }}</li>
+      {% else %}
+        <li>No missing data reported.</li>
+      {% endfor %}
+    </ul>
+
+    <h4>Data Gaps</h4>
+    <ul class="compact-list">
+      {% for gap in preview_config.data_gaps %}
+        <li>{{ gap.gap_key }}: {{ gap.reason }}</li>
+      {% else %}
+        <li>No data gaps recorded for this draft.</li>
+      {% endfor %}
+    </ul>
+  </aside>
+</section>
+<script>
+  window.AUTOMAP_PREVIEW_CONFIG_URL = "{{ preview_config_url }}";
+</script>
+<script src="/static/automap_preview.js"></script>
+{% endblock %}
