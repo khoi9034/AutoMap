@@ -138,6 +138,7 @@ export type PreviewLayer = {
   role?: string;
   source_status?: string;
   source_priority?: number;
+  confidence_score?: number;
   url?: string;
   layer_url?: string;
   service_url?: string;

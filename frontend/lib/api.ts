@@ -50,25 +50,38 @@ export function redactProtected<T>(value: T): T {
 }
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    ...init,
-    cache: "no-store",
-    headers: {
-      "Content-Type": "application/json",
-      ...(init?.headers || {}),
-    },
-  });
-  if (!response.ok) {
-    let detail = `${response.status} ${response.statusText}`;
-    try {
-      const body = (await response.json()) as { detail?: string };
-      detail = body.detail || detail;
-    } catch {
-      // Keep HTTP status detail.
+  const controller = new AbortController();
+  const timeout: ReturnType<typeof setTimeout> = setTimeout(() => controller.abort(), 15000);
+
+  try {
+    const response = await fetch(`${API_BASE_URL}${path}`, {
+      ...init,
+      cache: "no-store",
+      signal: controller.signal,
+      headers: {
+        "Content-Type": "application/json",
+        ...(init?.headers || {}),
+      },
+    });
+    if (!response.ok) {
+      let detail = `${response.status} ${response.statusText}`;
+      try {
+        const body = (await response.json()) as { detail?: string };
+        detail = body.detail || detail;
+      } catch {
+        // Keep HTTP status detail.
+      }
+      throw new Error(detail);
     }
-    throw new Error(detail);
+    return redactProtected((await response.json()) as T);
+  } catch (exc) {
+    if (exc instanceof Error && exc.name === "AbortError") {
+      throw new Error("Backend API request timed out. Confirm AutoMap is running on http://127.0.0.1:8010.");
+    }
+    throw exc;
+  } finally {
+    clearTimeout(timeout);
   }
-  return redactProtected((await response.json()) as T);
 }
 
 export async function getSystemStatus(): Promise<SystemStatus> {
@@ -84,7 +97,7 @@ export async function getStatusOrFallback(): Promise<SystemStatus> {
     return await getSystemStatus();
   } catch {
     return {
-      version: "1.5.0",
+      version: "1.6.0",
       database_connected: false,
       catalog: {},
       profiles: {},

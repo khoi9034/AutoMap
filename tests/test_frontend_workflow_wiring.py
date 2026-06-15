@@ -66,3 +66,74 @@ def test_publish_center_is_dry_run_only():
     assert "Real publish remains CLI-only" in source
     assert "confirm-publish" not in source.lower()
     assert "publish-draft-webmap" not in source.lower()
+
+
+def test_v16_dashboard_has_operations_and_safety_cards():
+    source = read("app/dashboard/page.tsx")
+
+    assert "dashboard-hero" in source
+    assert "Demo scenarios" in source
+    assert "Latest workflow activity" in source
+    assert "Latest packets" in source
+    assert "Safety status" in source
+    assert "Frontend 3010" in source
+    assert "Backend/API 8010" in source
+    assert "CFS ports 3000 and 8000 are reserved" in source
+
+
+def test_map_preview_uses_safe_frontend_preview_components():
+    preview = read("components/map-preview-client.tsx")
+    shell = read("components/arcgis-map-preview.tsx")
+
+    assert "ArcGISMapPreview" in preview
+    assert "No ArcGIS login" in preview
+    assert "getPreviewConfig" in shell
+    assert "LayerPanel" in shell
+    assert "WarningPanel" in shell
+    assert "No ArcGIS login" in shell
+    assert "No publish" in shell
+    assert "iframe" in shell
+    assert "confirm-publish" not in shell.lower()
+    assert "publish-draft-webmap" not in shell.lower()
+
+
+def test_layer_panel_renders_review_metadata_without_assuming_layer_zero():
+    source = read("components/layer-panel.tsx")
+
+    assert "visibility" in source
+    assert "opacity" in source
+    assert "definition_expression" in source
+    assert "confidence_score" in source
+    assert "review_warnings" in source
+    assert "service_url" in source
+    assert "layer_id" in source
+    assert '"/0"' not in source
+
+
+def test_warning_panel_groups_human_review_warnings():
+    source = read("components/warning-panel.tsx")
+
+    assert "missing_data" in source
+    assert "filter_review" in source
+    assert "layer_selection" in source
+    assert "publishing_blockers" in source
+    assert "historical_data" in source
+    assert "safety_warnings" in source
+
+
+def test_data_gaps_page_explains_missing_sources_not_failures():
+    source = read("app/data-gaps/page.tsx")
+
+    assert "These are not AutoMap failures" in source
+    assert "current_permits" in source
+    assert "current_planning_cases" in source
+    assert "current_development_pipeline" in source
+
+
+def test_api_client_has_timeout_and_sanitized_fallback_version():
+    source = read("lib/api.ts")
+
+    assert "Backend API request timed out" in source
+    assert "http://127.0.0.1:8010" in source
+    assert 'version: "1.6.0"' in source
+    assert "redactProtected" in source

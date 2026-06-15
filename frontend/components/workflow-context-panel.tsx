@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 
 import {
   clearWorkflowState,
+  getWorkflowStepStates,
   loadWorkflowState,
   primaryAdjustedPacketPath,
   primaryApprovedPacketPath,
@@ -34,6 +35,13 @@ export function WorkflowContextPanel() {
   const reviewPacket = primaryReviewPacketPath(workflow);
   const adjustedPacket = primaryAdjustedPacketPath(workflow);
   const approvedPacket = primaryApprovedPacketPath(workflow);
+  const stepStates = getWorkflowStepStates(workflow);
+  const blockedStep = stepStates.find((step) => step.status === "blocked");
+  const nextStep =
+    blockedStep ||
+    stepStates.find((step) => step.status === "active") ||
+    stepStates.find((step) => step.status === "pending") ||
+    stepStates.at(-1);
 
   return (
     <aside className="workflow-context-panel">
@@ -75,9 +83,18 @@ export function WorkflowContextPanel() {
           <p>{workflow.missingData.join(", ")}</p>
         </div>
       ) : null}
+      {nextStep ? (
+        <div className={blockedStep ? "notice notice-warning" : "notice"}>
+          <strong>{blockedStep ? "Blocked step" : "Next action"}</strong>
+          <p>
+            {nextStep.label}
+            {nextStep.reason ? `: ${nextStep.reason}` : " is ready for review."}
+          </p>
+        </div>
+      ) : null}
       <div className="button-row">
-        <Link className="button button-secondary" href="/map-request">
-          Request
+        <Link className="button button-secondary" href={nextStep?.href || "/map-request"}>
+          Open Next Step
         </Link>
         <Link className="button button-secondary" href="/publish-center">
           Publish Center

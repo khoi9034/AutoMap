@@ -35,8 +35,11 @@ export function WorkflowStepper({ activeStep }: WorkflowStepperProps) {
       {getWorkflowStepStates(workflow).map((step, index) => (
         <Link className={`workflow-step workflow-step-${step.status}`} href={step.href} key={step.id} title={step.reason || step.label}>
           <span>{index + 1}</span>
-          <strong>{step.label}</strong>
-          <em>{step.status}</em>
+          <div>
+            <strong>{step.label}</strong>
+            <em>{step.status}</em>
+            {step.reason ? <small>{step.reason}</small> : null}
+          </div>
         </Link>
       ))}
     </section>

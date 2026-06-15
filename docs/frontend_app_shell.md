@@ -1,6 +1,6 @@
 # AutoMap Frontend Workflow Shell
 
-AutoMap v1.5 wires the Next.js + TypeScript workflow shell end to end while keeping the FastAPI backend as the API and workflow engine.
+AutoMap v1.6 provides a polished Next.js + TypeScript workflow shell while keeping the FastAPI backend as the API and workflow engine.
 
 ## URLs
 
@@ -70,9 +70,23 @@ The frontend presents a local, draft-only workflow:
 6. Reviewer approval that records local readiness only
 7. Dry-run publish and dry-run portal smoke-test receipts
 
-The shell uses compact cards, status chips, scan-friendly tables, and explicit draft-only labels. It does not expose real ArcGIS publishing.
+The shell uses compact cards, status chips, scan-friendly tables, grouped warning panels, layer review panels, and explicit draft-only labels. It does not expose real ArcGIS publishing.
 
 Workflow state is stored in browser localStorage under an AutoMap-specific key. It tracks the prompt, recipe, WebMap draft, review packet, adjustment template, adjusted packet, approval template, approved packet, dry-run receipt, smoke-test receipt, active step, warnings, missing data, and selected packet ids. Protected markers such as database URLs, passwords, tokens, and ArcGIS credential keys are redacted before storage.
+
+## v1.6 UX Polish
+
+v1.6 improves the product shell with:
+
+- a stronger dashboard hero and system health summary
+- quick prompt entry and demo scenario cards
+- a safety status card for dry-run-only publishing and AutoMap/CFS port separation
+- clearer workflow stepper blockers and next-step guidance
+- better empty, loading, backend-offline, and timeout states
+- a data-gap page that explains missing approved sources instead of treating them as failures
+- reusable layer and warning panels for map preview review
+
+The current frontend map preview uses the existing local backend preview route inside a draft-only shell. It reads preview config from `/api/preview-config/{packet_id}`, displays operational layer metadata, honors recorded visibility, opacity, and definition expression metadata in the review panel, and links to REST layer endpoints for human inspection. No ArcGIS login or publish operation is required.
 
 ## API Coverage
 
