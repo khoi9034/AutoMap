@@ -28,6 +28,11 @@ from app.layer_catalog_store import (
 )
 from app.layer_semantics import slugify
 from app.recipe_engine import build_recipe
+from app.review_packet_builder import (
+    build_review_packet,
+    save_review_packet,
+    validate_review_packet,
+)
 from app.rest_sources import load_rest_sources
 from app.webmap_builder import validate_webmap_json
 from app.webmap_exporter import export_recipe_and_webmap
@@ -241,6 +246,42 @@ def _validate_webmap_draft(path: str) -> int:
     return 0 if validation["is_valid"] else 1
 
 
+def _make_review_packet(prompt: str) -> int:
+    packet = build_review_packet(prompt)
+    packet_path = save_review_packet(prompt, packet["recipe"], packet["webmap_json"])
+    validation = validate_review_packet(packet_path)
+    print(f"review packet saved: {packet_path}")
+    print(f"validation passed: {validation['is_valid']}")
+    print("selected layers:")
+    for layer in packet["recipe"]["selected_layers"]:
+        print(
+            f"- {layer['layer_key']} | {layer['layer_name']} | "
+            f"{layer['role']} | {layer['layer_url']}"
+        )
+    warning_report = packet["warnings"]
+    any_warnings = False
+    for group_name, warnings in warning_report.items():
+        if not warnings:
+            continue
+        any_warnings = True
+        print(f"{group_name}:")
+        for warning in warnings:
+            print(f"- {warning}")
+    if not any_warnings:
+        print("warnings: none")
+    if validation["errors"]:
+        print("validation errors:")
+        for error in validation["errors"]:
+            print(f"- {error}")
+    return 0 if validation["is_valid"] else 1
+
+
+def _validate_review_packet(path: str) -> int:
+    validation = validate_review_packet(path)
+    print(json.dumps(validation, indent=2))
+    return 0 if validation["is_valid"] else 1
+
+
 def main() -> int:
     """Run the AutoMap command-line interface."""
     parser = argparse.ArgumentParser(description="AutoMap command-line tools")
@@ -327,6 +368,16 @@ def main() -> int:
         metavar="PATH",
         help="Validate a generated AutoMap WebMap draft JSON file.",
     )
+    parser.add_argument(
+        "--make-review-packet",
+        metavar="PROMPT",
+        help="Create a local human-review packet for a draft map request.",
+    )
+    parser.add_argument(
+        "--validate-review-packet",
+        metavar="PATH",
+        help="Validate a generated AutoMap review packet folder.",
+    )
     args = parser.parse_args()
 
     try:
@@ -358,6 +409,10 @@ def main() -> int:
             return _make_webmap_draft(args.make_webmap_draft)
         if args.validate_webmap_draft:
             return _validate_webmap_draft(args.validate_webmap_draft)
+        if args.make_review_packet:
+            return _make_review_packet(args.make_review_packet)
+        if args.validate_review_packet:
+            return _validate_review_packet(args.validate_review_packet)
     except ValueError as exc:
         print(f"Configuration error: {exc}")
         return 1

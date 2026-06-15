@@ -4,7 +4,7 @@ AutoMap converts plain-English county GIS map requests into structured map recip
 
 ## Current Phase
 
-v0.4 ArcGIS WebMap draft generator.
+v0.5 draft review packets and local preview dashboard.
 
 This repository is intentionally independent. It does not connect to CFS or import CFS code. AutoMap uses its own local PostGIS database and trusted layer catalog.
 
@@ -131,8 +131,24 @@ python -m app.main --validate-webmap-draft outputs/webmaps/<generated-file>.json
 
 Generated WebMap drafts are local files under `outputs/webmaps/`, which is ignored by Git.
 
+## Draft Review Packets
+
+AutoMap v0.5 creates human-reviewable local packets for draft map requests. Each packet includes the recipe JSON, draft WebMap JSON, warning report, layer review table, Markdown summary, and a simple `review.html` dashboard. Packets help GIS staff approve or adjust map drafts before any future publishing phase.
+
+Packets are local only. Nothing is published to ArcGIS Online, Enterprise, or Portal, and no ArcGIS login is required.
+
+```bash
+python -m app.main --make-review-packet "Show parcels in Concord that are in the 100-year floodplain."
+python -m app.main --make-review-packet "Show commercial zoning around Concord."
+python -m app.main --make-review-packet "Map recent permits and planning cases near Kannapolis."
+python -m app.main --make-review-packet "Show 2014 parcels and zoning."
+python -m app.main --validate-review-packet outputs/review_packets/<packet-folder>
+```
+
+Generated review packets are local files under `outputs/review_packets/`, which is ignored by Git.
+
 ## Notes
 
 - Approved GIS layers come from AutoMap's local `automap.layer_catalog`.
 - Generated recipes and WebMap drafts are local artifacts and are not committed.
-- ArcGIS Online or Portal publishing is not part of v0.4.
+- ArcGIS Online or Portal publishing is not part of v0.5.
