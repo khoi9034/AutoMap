@@ -11,14 +11,16 @@ python -m app.main --serve-ui
 Then open:
 
 ```text
-http://127.0.0.1:8000
+http://127.0.0.1:8010
 ```
 
-If another local service is already using port `8000`, use a temporary local override:
+AutoMap should use port `8010` for this backend/API UI:
 
 ```bash
-python -m app.main --serve-ui --ui-port 8001
+python -m app.main --serve-ui --ui-port 8010
 ```
+
+Ports `3000` and `8000` are reserved for Cabarrus FutureScape and must not be used by AutoMap.
 
 ## What The UI Supports
 

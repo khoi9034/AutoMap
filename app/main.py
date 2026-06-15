@@ -51,6 +51,7 @@ from app.packet_index import (
     list_approved_packets,
     list_review_packets,
 )
+from app.ports import AUTOMAP_BACKEND_PORT, CFS_RESERVED_WARNING
 from app.portal_item_verifier import verify_portal_item
 from app.portal_smoke_test import run_publish_smoke_test
 from app.recipe_engine import build_recipe
@@ -403,11 +404,24 @@ def _verify_portal_item(item_id: str, approved_packet: str | None = None) -> int
     return 0 if result.get("verified") else 1
 
 
+def _default_backend_port() -> int:
+    return int(
+        os.getenv(
+            "AUTOMAP_BACKEND_PORT",
+            os.getenv("BACKEND_PORT", os.getenv("AUTOMAP_UI_PORT", str(AUTOMAP_BACKEND_PORT))),
+        )
+    )
+
+
 def _serve_ui(port: int | None = None) -> int:
     from app.web_ui import run_ui
 
-    selected_port = port or int(os.getenv("AUTOMAP_UI_PORT", "8000"))
-    run_ui(host="127.0.0.1", port=selected_port)
+    selected_port = port or _default_backend_port()
+    try:
+        run_ui(host="127.0.0.1", port=selected_port)
+    except ValueError as exc:
+        print(str(exc))
+        return 1
     return 0
 
 
@@ -445,7 +459,7 @@ def _preview_packet(path: str, port: int | None = None) -> int:
     except (FileNotFoundError, ValueError) as exc:
         print(f"Preview packet error: {exc}")
         return 1
-    selected_port = port or int(os.getenv("AUTOMAP_UI_PORT", "8000"))
+    selected_port = port or _default_backend_port()
     print(f"preview source: {config['packet_path']}")
     print(f"preview URL: http://127.0.0.1:{selected_port}/preview?path={config['packet_path']}")
     print("Start the local UI first if it is not already running:")
@@ -460,7 +474,7 @@ def _system_status() -> int:
 
 
 def _run_demo_workflow(ui_port: int | None = None) -> int:
-    selected_port = ui_port or int(os.getenv("AUTOMAP_UI_PORT", "8001"))
+    selected_port = ui_port or _default_backend_port()
     result = run_demo_workflow(ui_port=selected_port)
     print(json.dumps(result, indent=2, default=str))
     publish_result = result.get("publish_result") or {}
@@ -643,12 +657,12 @@ def main() -> int:
     parser.add_argument(
         "--serve-ui",
         action="store_true",
-        help="Start the local AutoMap web UI at http://127.0.0.1:8000.",
+        help="Start the local AutoMap backend/API at http://127.0.0.1:8010.",
     )
     parser.add_argument(
         "--ui-port",
         type=int,
-        help="Optional local UI port override when 8000 is already in use.",
+        help=f"Optional local backend/API port override. Defaults to {AUTOMAP_BACKEND_PORT}. {CFS_RESERVED_WARNING}",
     )
     parser.add_argument(
         "--list-packets",

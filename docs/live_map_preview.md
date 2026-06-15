@@ -5,13 +5,13 @@ AutoMap v0.9 adds a local browser preview for draft WebMap JSON artifacts.
 Start the local UI:
 
 ```bash
-python -m app.main --serve-ui --ui-port 8001
+python -m app.main --serve-ui --ui-port 8010
 ```
 
 Then open:
 
 ```text
-http://127.0.0.1:8001
+http://127.0.0.1:8010
 ```
 
 ## What It Previews
@@ -47,7 +47,7 @@ python -m app.main --list-packets
 Print a preview URL for a packet or generated WebMap JSON:
 
 ```bash
-python -m app.main --preview-packet outputs/review_packets/<packet-folder> --ui-port 8001
+python -m app.main --preview-packet outputs/review_packets/<packet-folder> --ui-port 8010
 ```
 
 ## Project Boundary

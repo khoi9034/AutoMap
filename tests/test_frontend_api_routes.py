@@ -37,13 +37,13 @@ def test_cors_allows_local_next_frontend():
     response = client.options(
         "/api/status",
         headers={
-            "Origin": "http://localhost:3000",
+            "Origin": "http://localhost:3010",
             "Access-Control-Request-Method": "GET",
         },
     )
 
     assert response.status_code == 200
-    assert response.headers["access-control-allow-origin"] == "http://localhost:3000"
+    assert response.headers["access-control-allow-origin"] == "http://localhost:3010"
 
 
 def test_no_real_publish_endpoint_exposed():

@@ -19,6 +19,7 @@ from app.webmap_exporter import save_webmap_json
 
 
 DEMO_PROMPT = "Show parcels in Concord that are in the 100-year floodplain."
+AUTOMAP_DEMO_BACKEND_PORT = 8010
 
 
 def _record_history_safely(**kwargs: Any) -> None:
@@ -29,7 +30,7 @@ def _record_history_safely(**kwargs: Any) -> None:
         return
 
 
-def run_demo_workflow(prompt: str = DEMO_PROMPT, ui_port: int = 8001) -> dict[str, Any]:
+def run_demo_workflow(prompt: str = DEMO_PROMPT, ui_port: int = AUTOMAP_DEMO_BACKEND_PORT) -> dict[str, Any]:
     """Run the safe local demo flow without real publishing."""
     recipe = build_recipe(prompt)
     _record_history_safely(

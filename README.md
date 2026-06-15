@@ -94,10 +94,10 @@ python -m pytest
 
 AutoMap v1.4 adds a separate Next.js + TypeScript frontend app under `frontend/`. The FastAPI backend remains the API and workflow engine, and the existing FastAPI/Jinja UI is preserved.
 
-Start the backend API on port `8001`:
+Start the backend API on port `8010`:
 
 ```bash
-python -m app.main --serve-ui --ui-port 8001
+python -m app.main --serve-ui --ui-port 8010
 ```
 
 Start the frontend:
@@ -111,22 +111,27 @@ npm run dev
 Open:
 
 ```text
-http://localhost:3000
+http://localhost:3010
 ```
 
 Backend API:
 
 ```text
-http://127.0.0.1:8001
+http://127.0.0.1:8010
 ```
 
 `frontend/.env.example` contains:
 
 ```text
-NEXT_PUBLIC_AUTOMAP_API_BASE_URL=http://127.0.0.1:8001
+NEXT_PUBLIC_AUTOMAP_API_BASE_URL=http://127.0.0.1:8010
 ```
 
 Do not commit `frontend/.env.local` or `frontend/node_modules/`.
+
+AutoMap must not use the CFS reserved ports:
+
+- CFS frontend: `http://localhost:3000`
+- CFS backend: `http://127.0.0.1:8000`
 
 Frontend pages:
 
@@ -271,7 +276,7 @@ python -m app.main --publish-draft-webmap outputs/review_packets_approved/<appro
 The local UI includes an approval page:
 
 ```text
-http://127.0.0.1:8001/approval
+http://127.0.0.1:8010/approval
 ```
 
 Only approved packets with `final_publish_ready = true` show the UI dry-run publish and smoke-test actions. Real Portal publishing is CLI-only.
@@ -369,13 +374,13 @@ python -m app.main --serve-ui
 Open:
 
 ```text
-http://127.0.0.1:8000
+http://127.0.0.1:8010
 ```
 
-If port `8000` is already occupied by another local service, use a temporary local override:
+AutoMap defaults to backend/API port `8010`. Ports `3000` and `8000` are reserved for Cabarrus FutureScape and must not be used by AutoMap.
 
 ```bash
-python -m app.main --serve-ui --ui-port 8001
+python -m app.main --serve-ui --ui-port 8010
 ```
 
 The UI can create recipes, review packets, WebMap drafts, adjustment templates, adjusted packets, catalog searches, data gap views, dry-run publish receipts, and dry-run smoke-test receipts. The UI is local only. It does not real-publish ArcGIS items, does not require ArcGIS login, and does not ingest geometries.
@@ -385,16 +390,16 @@ The UI can create recipes, review packets, WebMap drafts, adjustment templates, 
 AutoMap v0.9 adds a browser map preview for local draft WebMap JSON files.
 
 ```bash
-python -m app.main --serve-ui --ui-port 8001
+python -m app.main --serve-ui --ui-port 8010
 python -m app.main --list-packets
-python -m app.main --preview-packet outputs/review_packets/<packet-folder> --ui-port 8001
+python -m app.main --preview-packet outputs/review_packets/<packet-folder> --ui-port 8010
 ```
 
 Preview routes:
 
 ```text
-http://127.0.0.1:8001/preview
-http://127.0.0.1:8001/preview/<packet-id>
+http://127.0.0.1:8010/preview
+http://127.0.0.1:8010/preview/<packet-id>
 ```
 
 The preview uses draft WebMap JSON and verified ArcGIS REST layer URLs. It does not publish anything, does not require ArcGIS login, and is for human GIS review only.
@@ -416,17 +421,17 @@ python -m app.main --system-status
 Start the v1 local UI:
 
 ```bash
-python -m app.main --serve-ui --ui-port 8001
+python -m app.main --serve-ui --ui-port 8010
 ```
 
 Useful pages:
 
 ```text
-http://127.0.0.1:8001/demo
-http://127.0.0.1:8001/status
-http://127.0.0.1:8001/history
-http://127.0.0.1:8001/approval
-http://127.0.0.1:8001/preview
+http://127.0.0.1:8010/demo
+http://127.0.0.1:8010/status
+http://127.0.0.1:8010/history
+http://127.0.0.1:8010/approval
+http://127.0.0.1:8010/preview
 ```
 
 ## Architecture

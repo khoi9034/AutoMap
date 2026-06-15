@@ -10,7 +10,7 @@ import type {
 
 export const API_BASE_URL =
   process.env.NEXT_PUBLIC_AUTOMAP_API_BASE_URL?.replace(/\/$/, "") ||
-  "http://127.0.0.1:8001";
+  "http://127.0.0.1:8010";
 
 const PROTECTED_MARKERS = [
   ".env",

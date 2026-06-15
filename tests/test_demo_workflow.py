@@ -44,11 +44,11 @@ def test_demo_workflow_runs_without_real_publishing(monkeypatch, tmp_path):
 
     monkeypatch.setattr(demo_workflow, "publish_webmap_draft", fake_publish)
 
-    result = demo_workflow.run_demo_workflow(ui_port=8001)
+    result = demo_workflow.run_demo_workflow(ui_port=8010)
 
     assert result["real_publish_attempted"] is False
     assert result["publish_result"]["created_item"] is False
     assert result["publish_result"]["published"] is False
     assert called["dry_run"] is True
     assert called["confirm_publish"] is False
-    assert result["preview_url"].startswith("http://127.0.0.1:8001/preview")
+    assert result["preview_url"].startswith("http://127.0.0.1:8010/preview")

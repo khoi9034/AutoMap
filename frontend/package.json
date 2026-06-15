@@ -3,8 +3,8 @@
   "version": "1.4.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "start": "next start",
+    "dev": "node scripts/guard-ports.mjs && node scripts/clean-dev-cache.mjs && next dev -p 3010",
+    "start": "node scripts/guard-ports.mjs && next start -p 3010",
     "build": "next build",
     "typecheck": "tsc --noEmit",
     "lint": "eslint ."

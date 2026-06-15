@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.api_routes import api_router
+from app.ports import AUTOMAP_BACKEND_PORT, validate_automap_port
 from app.ui_models import PROJECT_TITLE, repo_root
 from app.ui_routes import router
 
@@ -20,7 +21,7 @@ def create_app() -> FastAPI:
     )
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["http://127.0.0.1:3000", "http://localhost:3000"],
+        allow_origins=["http://127.0.0.1:3010", "http://localhost:3010"],
         allow_credentials=False,
         allow_methods=["GET", "POST", "OPTIONS"],
         allow_headers=["*"],
@@ -36,8 +37,11 @@ def create_app() -> FastAPI:
 app = create_app()
 
 
-def run_ui(host: str = "127.0.0.1", port: int = 8000) -> None:
+def run_ui(host: str = "127.0.0.1", port: int = AUTOMAP_BACKEND_PORT) -> None:
     """Run the local UI server bound to localhost by default."""
     import uvicorn
 
+    warnings = validate_automap_port(port, service_name="backend/API", host=host)
+    for warning in warnings:
+        print(f"Warning: {warning}")
     uvicorn.run("app.web_ui:app", host=host, port=port, reload=False)

@@ -7,19 +7,19 @@ AutoMap v1.4 adds a Next.js + TypeScript frontend while keeping the FastAPI back
 Backend API and existing FastAPI/Jinja UI:
 
 ```text
-http://127.0.0.1:8001
+http://127.0.0.1:8010
 ```
 
 Next.js frontend:
 
 ```text
-http://localhost:3000
+http://localhost:3010
 ```
 
 ## Start Backend
 
 ```bash
-python -m app.main --serve-ui --ui-port 8001
+python -m app.main --serve-ui --ui-port 8010
 ```
 
 The backend exposes JSON routes under `/api/*`, keeps the existing Jinja pages, and still runs all workflow logic locally.
@@ -35,10 +35,12 @@ npm run dev
 `frontend/.env.example` points the frontend at the backend:
 
 ```text
-NEXT_PUBLIC_AUTOMAP_API_BASE_URL=http://127.0.0.1:8001
+NEXT_PUBLIC_AUTOMAP_API_BASE_URL=http://127.0.0.1:8010
 ```
 
 Do not commit `.env.local`.
+
+Cabarrus FutureScape keeps `http://localhost:3000` and `http://127.0.0.1:8000`. AutoMap must not bind to those ports.
 
 ## Pages
 

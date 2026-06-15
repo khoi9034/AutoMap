@@ -5,13 +5,13 @@ AutoMap v1.0 is a local demo application for turning plain-English county GIS re
 ## Start The Local UI
 
 ```bash
-python -m app.main --serve-ui --ui-port 8001
+python -m app.main --serve-ui --ui-port 8010
 ```
 
 Open:
 
 ```text
-http://127.0.0.1:8001
+http://127.0.0.1:8010
 ```
 
 ## Main Demo Prompt

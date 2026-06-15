@@ -104,13 +104,13 @@ The receipt records reviewer identity, decision, block reasons, warning decision
 Start the UI:
 
 ```bash
-python -m app.main --serve-ui --ui-port 8001
+python -m app.main --serve-ui --ui-port 8010
 ```
 
 Open:
 
 ```text
-http://127.0.0.1:8001/approval
+http://127.0.0.1:8010/approval
 ```
 
 The UI can create an approval template, let the reviewer edit YAML, apply the approval, show the approved packet path, display the approval receipt, and show the dry-run publish button only when the approved packet is publish-ready.
