@@ -62,6 +62,40 @@ def test_map_request_and_recipe_review_store_workflow_state():
     assert "detected_intents" in intelligence_panel
     assert "clarifying_questions" in intelligence_panel
     assert "Analysis plan" in intelligence_panel
+    assert "Answer Clarifying Questions" in map_request
+    assert "clarificationQuestionCount" in map_request
+    assert "Clarifications applied" in recipe_review
+    assert "RefinementSummary" in recipe_review
+
+
+def test_clarification_page_components_and_workflow_state_exist():
+    navigation = read("components/navigation.ts")
+    page = read("app/clarify/page.tsx")
+    panel = read("components/clarification-panel.tsx")
+    question_card = read("components/clarification-question-card.tsx")
+    summary = read("components/refinement-summary.tsx")
+    store = read("lib/workflow-store.ts")
+    api = read("lib/api.ts")
+
+    assert 'href: "/clarify"' in navigation
+    assert "Clarify Request" in page
+    assert "Start Clarification" in panel
+    assert "Submit Answers" in panel
+    assert "Refine Recipe" in panel
+    assert "Continue with Refined Recipe" in panel
+    assert "single_choice" in question_card
+    assert "multi_choice" in question_card
+    assert "distance" in question_card
+    assert "Layers added" in summary
+    assert "warnings_remaining" in summary
+    assert 'id: "clarify"' in store
+    assert "clarificationSessionId" in store
+    assert "refinedRecipe" in store
+    assert "startClarification" in api
+    assert "answerClarificationSession" in api
+    assert "refineClarificationSession" in api
+    assert "confirm-publish" not in panel.lower()
+    assert "publish-draft-webmap" not in panel.lower()
 
 
 def test_publish_center_is_dry_run_only():
@@ -141,7 +175,7 @@ def test_api_client_has_timeout_and_sanitized_fallback_version():
 
     assert "Backend API request timed out" in source
     assert "http://127.0.0.1:8010" in source
-    assert 'version: "1.7.0"' in source
+    assert 'version: "1.8.0"' in source
     assert "redactProtected" in source
 
 

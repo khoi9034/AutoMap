@@ -1,7 +1,13 @@
-import type { MapRecipe } from "@/types/automap";
+import type {
+  ClarificationAnswerModel,
+  ClarificationQuestionModel,
+  ClarificationSession,
+  MapRecipe,
+} from "@/types/automap";
 
 export type WorkflowStepId =
   | "request"
+  | "clarify"
   | "recipe"
   | "webmap"
   | "review_packet"
@@ -26,6 +32,14 @@ export type WorkflowStepState = WorkflowStepDefinition & {
 export type WorkflowState = {
   rawPrompt: string;
   recipe: MapRecipe | null;
+  initialRecipe: MapRecipe | null;
+  refinedRecipe: MapRecipe | null;
+  clarificationSessionId: string;
+  clarificationSession: ClarificationSession | null;
+  clarificationQuestions: ClarificationQuestionModel[];
+  clarificationAnswers: ClarificationAnswerModel[];
+  appliedRefinements: Record<string, unknown> | null;
+  remainingQuestions: ClarificationQuestionModel[];
   webmapDraft: Record<string, unknown> | null;
   reviewPacket: Record<string, unknown> | null;
   adjustmentTemplate: Record<string, unknown> | null;

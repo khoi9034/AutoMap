@@ -1,4 +1,6 @@
 import type {
+  ClarificationAnswerModel,
+  ClarificationSession,
   DataGap,
   HistoryRow,
   LayerRecord,
@@ -100,7 +102,7 @@ export async function getStatusOrFallback(): Promise<SystemStatus> {
     return await getSystemStatus();
   } catch {
     return {
-      version: "1.7.0",
+      version: "1.8.0",
       database_connected: false,
       catalog: {},
       profiles: {},
@@ -148,6 +150,38 @@ export async function generateReport(packetFolder: string): Promise<GenerateRepo
   return apiFetch<GenerateReportResponse>("/api/generate-report", {
     method: "POST",
     body: JSON.stringify({ packet_folder: packetFolder }),
+  });
+}
+
+export async function startClarification(prompt: string): Promise<ClarificationSession> {
+  return apiFetch<ClarificationSession>("/api/clarification/start", {
+    method: "POST",
+    body: JSON.stringify({ prompt }),
+  });
+}
+
+export async function getClarificationSession(sessionId: string): Promise<ClarificationSession> {
+  return apiFetch<ClarificationSession>(`/api/clarification/${encodeURIComponent(sessionId)}`);
+}
+
+export async function listClarificationSessions(): Promise<{ sessions: ClarificationSession[] }> {
+  return apiFetch<{ sessions: ClarificationSession[] }>("/api/clarification");
+}
+
+export async function answerClarificationSession(
+  sessionId: string,
+  answers: ClarificationAnswerModel[],
+): Promise<ClarificationSession> {
+  return apiFetch<ClarificationSession>(`/api/clarification/${encodeURIComponent(sessionId)}/answer`, {
+    method: "POST",
+    body: JSON.stringify({ answers }),
+  });
+}
+
+export async function refineClarificationSession(sessionId: string): Promise<ClarificationSession> {
+  return apiFetch<ClarificationSession>(`/api/clarification/${encodeURIComponent(sessionId)}/refine`, {
+    method: "POST",
+    body: JSON.stringify({}),
   });
 }
 

@@ -22,6 +22,13 @@ from app.approval_engine import (
     validate_approved_packet,
 )
 from app.arcgis_publisher import publish_webmap_draft
+from app.clarification_engine import (
+    answer_clarification_session,
+    create_clarification_session,
+    get_clarification_session,
+    list_clarification_sessions,
+    refine_recipe_from_answers,
+)
 from app.data_gap_registry import data_gap_records_from_recipe, list_data_gaps
 from app.layer_catalog_store import search_layers
 from app.packet_index import (
@@ -66,6 +73,22 @@ class PromptRequest(BaseModel):
     """Prompt payload from the frontend."""
 
     prompt: str
+
+
+class ClarificationAnswerPayload(BaseModel):
+    """One frontend answer to a clarification question."""
+
+    question_id: str
+    answer_value: Any
+    answer_label: str | None = None
+    answered_by: str | None = None
+
+
+class ClarificationAnswerRequest(BaseModel):
+    """Clarification answer payload from the frontend."""
+
+    answers: list[ClarificationAnswerPayload]
+    answered_by: str | None = "local_reviewer"
 
 
 class PacketPathRequest(BaseModel):
@@ -291,6 +314,75 @@ def api_generate_report(payload: ReportRequest) -> Any:
             "validation": package.validation,
         }
     )
+
+
+@api_router.get("/clarification")
+def api_clarification_sessions(limit: int = Query(default=50, ge=1, le=200)) -> Any:
+    """List recent local clarification sessions."""
+    return _json_response({"sessions": list_clarification_sessions(limit=limit)})
+
+
+@api_router.post("/clarification/start")
+def api_clarification_start(payload: PromptRequest) -> Any:
+    """Start an interactive clarification session from a prompt."""
+    try:
+        session = create_clarification_session(payload.prompt)
+    except ValueError as exc:
+        raise _handle_value_error(exc) from exc
+    _record_history_safely(
+        raw_prompt=payload.prompt,
+        workflow_step="clarification",
+        map_title=session.get("initial_recipe", {}).get("map_title"),
+        status=session.get("status"),
+        notes={"question_count": len(session.get("questions") or [])},
+    )
+    return _json_response(session)
+
+
+@api_router.get("/clarification/{session_id}")
+def api_clarification_detail(session_id: str) -> Any:
+    """Return one clarification session."""
+    try:
+        return _json_response(get_clarification_session(session_id))
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@api_router.post("/clarification/{session_id}/answer")
+def api_clarification_answer(session_id: str, payload: ClarificationAnswerRequest) -> Any:
+    """Save clarification answers."""
+    try:
+        answers = [answer.model_dump() for answer in payload.answers]
+        session = answer_clarification_session(
+            session_id,
+            answers,
+            answered_by=payload.answered_by or "local_reviewer",
+        )
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise _handle_value_error(exc) from exc
+    return _json_response(session)
+
+
+@api_router.post("/clarification/{session_id}/refine")
+def api_clarification_refine(session_id: str) -> Any:
+    """Refine a recipe using saved clarification answers."""
+    try:
+        session = refine_recipe_from_answers(session_id)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise _handle_value_error(exc) from exc
+    refined_recipe = session.get("refined_recipe") or {}
+    _record_history_safely(
+        raw_prompt=session.get("raw_prompt"),
+        workflow_step="clarification_refined",
+        map_title=refined_recipe.get("map_title"),
+        status=session.get("status"),
+        notes={"session_id": session_id, "changes_summary": session.get("changes_summary") or {}},
+    )
+    return _json_response(session)
 
 
 @api_router.get("/preview-config/{packet_id}")

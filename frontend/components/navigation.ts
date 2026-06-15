@@ -1,6 +1,7 @@
 export const navigationItems = [
   { href: "/dashboard", label: "Dashboard" },
   { href: "/map-request", label: "Map Request" },
+  { href: "/clarify", label: "Clarify Request" },
   { href: "/recipe-review", label: "Recipe Review" },
   { href: "/map-preview", label: "Map Preview" },
   { href: "/adjustments", label: "Adjustments" },
@@ -23,6 +24,7 @@ export const samplePrompts = [
 
 export const workflowSteps = [
   { href: "/map-request", label: "Map Request", description: "Prompt to draft recipe." },
+  { href: "/clarify", label: "Clarify Request", description: "Answer GIS review questions." },
   { href: "/recipe-review", label: "Recipe Review", description: "Layers, filters, gaps, and operations." },
   { href: "/map-preview", label: "Map Preview", description: "Local WebMap JSON preview." },
   { href: "/adjustments", label: "Adjustments", description: "Human YAML adjustment loop." },

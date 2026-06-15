@@ -12,6 +12,7 @@ export type StorageLike = Pick<Storage, "getItem" | "setItem" | "removeItem">;
 
 export const workflowSteps: WorkflowStepDefinition[] = [
   { id: "request", label: "Request", href: "/map-request" },
+  { id: "clarify", label: "Clarify", href: "/clarify" },
   { id: "recipe", label: "Recipe", href: "/recipe-review" },
   { id: "webmap", label: "WebMap Draft", href: "/recipe-review" },
   { id: "review_packet", label: "Review Packet", href: "/recipe-review" },
@@ -61,6 +62,14 @@ export function createInitialWorkflowState(): WorkflowState {
   return {
     rawPrompt: "",
     recipe: null,
+    initialRecipe: null,
+    refinedRecipe: null,
+    clarificationSessionId: "",
+    clarificationSession: null,
+    clarificationQuestions: [],
+    clarificationAnswers: [],
+    appliedRefinements: null,
+    remainingQuestions: [],
     webmapDraft: null,
     reviewPacket: null,
     adjustmentTemplate: null,
@@ -188,6 +197,9 @@ function blockedReasonForStep(step: WorkflowStepId, state: WorkflowState): strin
   if (step === "review_packet" && state.recipe && state.missingData.length && !state.reviewPacket) {
     return "Missing data requires review before packet creation.";
   }
+  if (step === "recipe" && state.clarificationQuestions.length && !state.refinedRecipe && state.activeStep === "clarify") {
+    return "Clarifying questions can improve this recipe.";
+  }
   if (step === "approval" && state.adjustedPacket && adjustedWarnings(state).publish_ready === false) {
     return "Adjusted packet publish_ready is false.";
   }
@@ -207,8 +219,11 @@ function isStepCompleted(step: WorkflowStepId, state: WorkflowState): boolean {
   if (step === "request") {
     return Boolean(state.rawPrompt);
   }
+  if (step === "clarify") {
+    return Boolean(state.clarificationSessionId || state.refinedRecipe);
+  }
   if (step === "recipe") {
-    return Boolean(state.recipe);
+    return Boolean(state.recipe || state.refinedRecipe);
   }
   if (step === "webmap") {
     return Boolean(state.webmapDraft);

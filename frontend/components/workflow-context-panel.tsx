@@ -62,7 +62,11 @@ export function WorkflowContextPanel() {
         </div>
         <div>
           <dt>Recipe</dt>
-          <dd>{workflow.recipe ? "ready" : "none"}</dd>
+          <dd>{workflow.refinedRecipe ? "refined" : workflow.recipe ? "ready" : "none"}</dd>
+        </div>
+        <div>
+          <dt>Clarification</dt>
+          <dd>{workflow.clarificationSessionId ? workflow.clarificationSession?.status || "started" : "none"}</dd>
         </div>
         <div>
           <dt>Review packet</dt>

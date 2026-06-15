@@ -70,6 +70,11 @@ def test_frontend_workflow_api_routes_exist():
         "/api/packets",
         "/api/reports",
         "/api/reports/{report_id}",
+        "/api/clarification",
+        "/api/clarification/start",
+        "/api/clarification/{session_id}",
+        "/api/clarification/{session_id}/answer",
+        "/api/clarification/{session_id}/refine",
         "/api/preview-config/{packet_id}",
         "/api/recipe",
         "/api/review-packet",
@@ -84,6 +89,101 @@ def test_frontend_workflow_api_routes_exist():
     }
 
     assert expected_paths.issubset(set(paths))
+
+
+def test_api_clarification_routes_are_json_and_sanitized(monkeypatch):
+    calls = []
+
+    def fake_start(prompt):
+        calls.append(("start", prompt))
+        return {
+            "session_id": "clarify-1",
+            "raw_prompt": prompt,
+            "status": "open",
+            "initial_recipe": {
+                "map_title": "Development pressure near schools",
+                "request_intelligence": {"detected_intents": ["development_pressure", "school_district_lookup"]},
+            },
+            "questions": [
+                {
+                    "question_id": "near_distance",
+                    "question_text": "What distance should count as near?",
+                    "question_type": "distance",
+                    "options": [{"value": "0.5_miles", "label": "0.5 miles"}],
+                }
+            ],
+            "answers": [],
+        }
+
+    def fake_answer(session_id, answers, answered_by="local_reviewer"):
+        calls.append(("answer", session_id, answers, answered_by))
+        return {
+            "session_id": session_id,
+            "status": "answered",
+            "answers": answers,
+            "questions": [],
+        }
+
+    def fake_refine(session_id):
+        calls.append(("refine", session_id))
+        return {
+            "session_id": session_id,
+            "status": "refined",
+            "refined_request_context": {"proximity": {"distance": {"label": "0.5 miles"}}},
+            "refined_recipe": {
+                "map_title": "Development pressure near schools",
+                "clarification": {
+                    "session_id": session_id,
+                    "applied_refinements": {"proximity": {"distance": {"label": "0.5 miles"}}},
+                },
+            },
+            "changes_summary": {"filters_improved": ["Near schools distance set to 0.5 miles."]},
+        }
+
+    monkeypatch.setattr("app.api_routes.create_clarification_session", fake_start)
+    monkeypatch.setattr("app.api_routes.answer_clarification_session", fake_answer)
+    monkeypatch.setattr("app.api_routes.refine_recipe_from_answers", fake_refine)
+    monkeypatch.setattr("app.api_routes.get_clarification_session", lambda session_id: fake_refine(session_id))
+    monkeypatch.setattr("app.api_routes.list_clarification_sessions", lambda limit=50: [fake_refine("clarify-1")])
+    monkeypatch.setattr("app.api_routes.record_request_history", lambda **kwargs: 1)
+    client = TestClient(create_app())
+
+    started = client.post("/api/clarification/start", json={"prompt": "Show development pressure near schools"})
+    answered = client.post(
+        "/api/clarification/clarify-1/answer",
+        json={
+            "answers": [
+                {
+                    "question_id": "near_distance",
+                    "answer_value": "0.5_miles",
+                    "answer_label": "0.5 miles",
+                }
+            ]
+        },
+    )
+    refined = client.post("/api/clarification/clarify-1/refine", json={})
+    listed = client.get("/api/clarification")
+
+    serialized = json.dumps(
+        {
+            "started": started.json(),
+            "answered": answered.json(),
+            "refined": refined.json(),
+            "listed": listed.json(),
+        }
+    ).lower()
+
+    assert started.status_code == 200
+    assert answered.status_code == 200
+    assert refined.status_code == 200
+    assert listed.status_code == 200
+    assert started.json()["session_id"] == "clarify-1"
+    assert refined.json()["refined_recipe"]["clarification"]["session_id"] == "clarify-1"
+    assert ("start", "Show development pressure near schools") in calls
+    assert "confirm-publish" not in serialized
+    assert "publish-draft-webmap" not in serialized
+    assert "database_url" not in serialized
+    assert "cfs" not in serialized
 
 
 def test_api_status_includes_sanitized_port_separation(monkeypatch):

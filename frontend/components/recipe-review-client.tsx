@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 
 import { JsonPanel } from "@/components/json-panel";
 import { RequestIntelligencePanel } from "@/components/request-intelligence-panel";
+import { RefinementSummary } from "@/components/refinement-summary";
 import { StatusChip } from "@/components/status-chip";
 import { ToastMessage } from "@/components/toast";
 import { makeReviewPacket, makeWebmapDraft } from "@/lib/api";
@@ -97,6 +98,7 @@ export function RecipeReviewClient() {
 
   const workflow = loadWorkflowState();
   const reviewPacketPath = primaryReviewPacketPath(workflow) || (typeof packetResult?.packet_path === "string" ? packetResult.packet_path : "");
+  const clarification = recipe.clarification;
 
   return (
     <div className="page-stack">
@@ -136,7 +138,25 @@ export function RecipeReviewClient() {
         <ToastMessage toast={toast} />
       </section>
 
+      {clarification ? (
+        <section className="panel">
+          <div className="panel-title-row">
+            <div>
+              <h3>Clarified request</h3>
+              <p className="muted">This recipe includes reviewer answers from clarification session {clarification.session_id}.</p>
+            </div>
+            <StatusChip tone={clarification.remaining_questions?.length ? "warning" : "success"}>
+              {clarification.remaining_questions?.length ? "Questions remain" : "Clarifications applied"}
+            </StatusChip>
+          </div>
+          <h4>Applied clarifications</h4>
+          <pre className="json-panel">{JSON.stringify(clarification.applied_refinements || {}, null, 2)}</pre>
+        </section>
+      ) : null}
+
       <RequestIntelligencePanel recipe={recipe} />
+
+      {clarification ? <RefinementSummary changes={clarification.changes_from_initial_recipe || {}} /> : null}
 
       <section className="panel">
         <h3>Selected layers</h3>

@@ -1,6 +1,6 @@
 # AutoMap Frontend Workflow Shell
 
-AutoMap v1.7 provides a polished Next.js + TypeScript workflow shell while keeping the FastAPI backend as the API and workflow engine.
+AutoMap v1.8 provides a polished Next.js + TypeScript workflow shell with an interactive clarification loop while keeping the FastAPI backend as the API and workflow engine.
 
 ## URLs
 
@@ -46,6 +46,7 @@ Cabarrus FutureScape keeps `http://localhost:3000` and `http://127.0.0.1:8000`. 
 
 - `/dashboard`
 - `/map-request`
+- `/clarify`
 - `/recipe-review`
 - `/map-preview`
 - `/adjustments`
@@ -65,16 +66,23 @@ The frontend presents a local, draft-only workflow:
 
 1. Dashboard quick prompt and system snapshot
 2. Map request recipe generation
-3. Recipe review with selected layers, filters, operations, warnings, and gaps
-4. Local WebMap preview through the backend preview route
-5. Human YAML adjustments that create separate adjusted packets
-6. Reviewer approval that records local readiness only
-7. Dry-run publish and dry-run portal smoke-test receipts
-8. Local report/export packages for GIS review
+3. Interactive clarification when the request needs distance, time range, flood scope, zoning, or missing-data decisions
+4. Recipe review with selected layers, filters, operations, warnings, and gaps
+5. Local WebMap preview through the backend preview route
+6. Human YAML adjustments that create separate adjusted packets
+7. Reviewer approval that records local readiness only
+8. Dry-run publish and dry-run portal smoke-test receipts
+9. Local report/export packages for GIS review
 
 The shell uses compact cards, status chips, scan-friendly tables, grouped warning panels, layer review panels, and explicit draft-only labels. It does not expose real ArcGIS publishing.
 
-Workflow state is stored in browser localStorage under an AutoMap-specific key. It tracks the prompt, recipe, WebMap draft, review packet, adjustment template, adjusted packet, approval template, approved packet, dry-run receipt, smoke-test receipt, active step, warnings, missing data, and selected packet ids. Protected markers such as database URLs, passwords, tokens, and ArcGIS credential keys are redacted before storage.
+Workflow state is stored in browser localStorage under an AutoMap-specific key. It tracks the prompt, initial recipe, refined recipe, clarification session, clarification answers, WebMap draft, review packet, adjustment template, adjusted packet, approval template, approved packet, dry-run receipt, smoke-test receipt, active step, warnings, missing data, and selected packet ids. Protected markers such as database URLs, passwords, tokens, and ArcGIS credential keys are redacted before storage.
+
+## v1.8 Clarification Loop
+
+v1.8 adds a `/clarify` page for answering AutoMap's deterministic GIS review questions. The page supports single choice, multi choice, text, number, distance, year, and date-range question types. Answers are saved to the local backend, converted into an explicit refinement context, and used to regenerate the request intelligence, analysis plan, selected layers, filter plan, warnings, and map recipe.
+
+The original recipe is preserved for comparison. The refined recipe records the local clarification session id, questions, answers, applied refinements, remaining questions, unresolved blockers, and a changes summary.
 
 ## v1.6 UX Polish
 
@@ -101,6 +109,11 @@ The frontend uses JSON-only backend API routes:
 - `GET /api/packets`
 - `GET /api/reports`
 - `GET /api/reports/{report_id}`
+- `GET /api/clarification`
+- `POST /api/clarification/start`
+- `GET /api/clarification/{session_id}`
+- `POST /api/clarification/{session_id}/answer`
+- `POST /api/clarification/{session_id}/refine`
 - `GET /api/preview-config/{packet_id}`
 - `POST /api/recipe`
 - `POST /api/review-packet`

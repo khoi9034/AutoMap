@@ -109,6 +109,52 @@ export type AnalysisPlan = {
   review_questions?: ClarifyingQuestion[];
 };
 
+export type ClarificationQuestionOption = {
+  value?: JsonValue;
+  label?: string;
+  distance?: {
+    value?: number;
+    unit?: string;
+  };
+};
+
+export type ClarificationQuestionModel = {
+  question_id?: string;
+  question_text?: string;
+  question_type?: "single_choice" | "multi_choice" | "text" | "number" | "distance" | "year" | "date_range";
+  options?: ClarificationQuestionOption[];
+  default_answer?: JsonValue;
+  required?: boolean;
+  related_intent?: string | null;
+  related_layer_key?: string | null;
+  related_filter?: string | null;
+  blocking_level?: "optional" | "review_needed" | "blocks_recipe" | "blocks_publish";
+  help_text?: string | null;
+};
+
+export type ClarificationAnswerModel = {
+  question_id?: string;
+  answer_value?: JsonValue;
+  answer_label?: string | null;
+  answered_by?: string;
+  answered_at?: string;
+};
+
+export type ClarificationSession = {
+  session_id?: string;
+  raw_prompt?: string;
+  initial_recipe?: MapRecipe;
+  questions?: ClarificationQuestionModel[];
+  answers?: ClarificationAnswerModel[];
+  refined_prompt?: string | null;
+  refined_request_context?: Record<string, JsonValue>;
+  refined_recipe?: MapRecipe | null;
+  changes_summary?: Record<string, JsonValue>;
+  status?: string;
+  created_at?: string;
+  updated_at?: string;
+};
+
 export type MapRecipe = {
   map_title?: string;
   user_intent?: string;
@@ -121,6 +167,15 @@ export type MapRecipe = {
   };
   request_intelligence?: RequestIntelligence;
   analysis_plan?: AnalysisPlan;
+  clarification?: {
+    session_id?: string;
+    questions?: ClarificationQuestionModel[];
+    answers?: ClarificationAnswerModel[];
+    applied_refinements?: Record<string, JsonValue>;
+    changes_from_initial_recipe?: Record<string, JsonValue>;
+    remaining_questions?: ClarificationQuestionModel[];
+    unresolved_blockers?: string[];
+  };
   selected_layers?: SelectedLayer[];
   rejected_layers?: JsonValue[];
   filter_plan?: Record<string, JsonValue>;

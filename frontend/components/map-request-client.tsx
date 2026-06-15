@@ -32,6 +32,13 @@ function textList(values: unknown[] | undefined): string {
   return values.map((value) => (typeof value === "string" ? value : JSON.stringify(value))).join(", ");
 }
 
+function clarificationQuestionCount(recipe: MapRecipe | undefined): number {
+  return (
+    (recipe?.request_intelligence?.clarifying_questions || []).length +
+    (recipe?.analysis_plan?.review_questions || []).length
+  );
+}
+
 export function MapRequestClient() {
   const searchParams = useSearchParams();
   const initialPrompt = useMemo(() => searchParams.get("prompt") || samplePrompts[0], [searchParams]);
@@ -65,6 +72,14 @@ export function MapRequestClient() {
       mergeWorkflowState({
         rawPrompt: prompt,
         recipe: response.recipe,
+        initialRecipe: response.recipe,
+        refinedRecipe: null,
+        clarificationSessionId: "",
+        clarificationSession: null,
+        clarificationQuestions: [],
+        clarificationAnswers: [],
+        appliedRefinements: null,
+        remainingQuestions: [],
         warnings: workflowWarningsFromRecipe(response.recipe),
         missingData: workflowMissingDataFromRecipe(response.recipe),
         activeStep: "recipe",
@@ -133,6 +148,11 @@ export function MapRequestClient() {
               Continue to Recipe Review
             </Link>
           ) : null}
+          {recipe && clarificationQuestionCount(recipe) ? (
+            <Link className="button button-secondary" href="/clarify">
+              Answer Clarifying Questions
+            </Link>
+          ) : null}
           {recipe ? (
             <button className="button button-secondary" type="button" onClick={onCreatePacket} disabled={loading}>
               Continue to Review Packet
@@ -179,6 +199,23 @@ export function MapRequestClient() {
           </section>
 
           <RequestIntelligencePanel recipe={recipe} />
+
+          {clarificationQuestionCount(recipe) ? (
+            <section className="panel">
+              <div className="panel-title-row">
+                <div>
+                  <h3>AutoMap has questions that can improve this map.</h3>
+                  <p className="muted">
+                    Answering them can refine distances, flood scope, missing-data decisions, filters, and warnings before review.
+                  </p>
+                </div>
+                <StatusChip tone="warning">{clarificationQuestionCount(recipe)} question(s)</StatusChip>
+              </div>
+              <Link className="button" href="/clarify">
+                Answer Clarifying Questions
+              </Link>
+            </section>
+          ) : null}
 
           <section className="panel">
             <h3>Selected layers</h3>
