@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Request History - AutoMap{% endblock %}
+{% block content %}
+<section class="panel">
+  <h2>Request History</h2>
+  <p class="muted">Recent local workflow activity recorded in the AutoMap schema.</p>
+  {% if history_error %}
+    <div class="warning-box">{{ history_error }}</div>
+  {% endif %}
+</section>
+
+<section class="panel">
+  <table>
+    <thead>
+      <tr>
+        <th>Created</th>
+        <th>Step</th>
+        <th>Status</th>
+        <th>Map Title</th>
+        <th>Prompt</th>
+        <th>Packet</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+        <tr>
+          <td>{{ row.created_at }}</td>
+          <td>{{ row.workflow_step }}</td>
+          <td>{{ row.status }}</td>
+          <td>{{ row.map_title or "" }}</td>
+          <td>{{ row.raw_prompt or "" }}</td>
+          <td>
+            {% if row.adjusted_packet_path %}
+              <a href="/preview?path={{ row.adjusted_packet_path }}">{{ row.adjusted_packet_path }}</a>
+            {% elif row.packet_path %}
+              <a href="/preview?path={{ row.packet_path }}">{{ row.packet_path }}</a>
+            {% else %}
+              <span class="muted">None</span>
+            {% endif %}
+          </td>
+        </tr>
+      {% else %}
+        <tr><td colspan="6">No request history has been recorded yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

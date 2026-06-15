@@ -1,26 +1,44 @@
 {% extends "base.html" %}
 {% block title %}AutoMap Local UI{% endblock %}
 {% block content %}
-<section class="panel">
-  <h2>Draft Map Request</h2>
+<section class="hero-panel">
+  <div>
+    <p class="eyebrow">AutoMap v{{ automap_version }}</p>
+    <h2>Local GIS request engine for draft map review</h2>
+    <p>Turn plain-English county GIS requests into reviewed recipes, packets, WebMap JSON, and local previews without publishing anything.</p>
+  </div>
   <form method="post" action="/recipe" class="prompt-form">
     <label for="prompt">Plain-English GIS request</label>
     <textarea id="prompt" name="prompt" rows="4" required>Show parcels in Concord that are in the 100-year floodplain.</textarea>
     <div class="button-row">
-      <button type="submit" formaction="/recipe">Make Recipe</button>
-      <button type="submit" formaction="/review-packet">Make Review Packet</button>
+      <button type="submit" formaction="/recipe">Create Recipe</button>
+      <button type="submit" formaction="/review-packet">Generate Review Packet</button>
       <button type="submit" formaction="/webmap-draft">Make WebMap Draft</button>
     </div>
   </form>
 </section>
 
-<section class="panel">
-  <h2>Example Prompts</h2>
-  <ul class="compact-list">
-    {% for prompt in example_prompts %}
-      <li>{{ prompt }}</li>
-    {% endfor %}
-  </ul>
+<section class="workflow-grid">
+  <article class="workflow-card">
+    <strong>1. Create Recipe</strong>
+    <span>Parse geography, topics, filters, layer roles, and confidence.</span>
+  </article>
+  <article class="workflow-card">
+    <strong>2. Generate Review Packet</strong>
+    <span>Write local recipe, WebMap JSON, warning, and review files.</span>
+  </article>
+  <article class="workflow-card">
+    <strong>3. Preview Map</strong>
+    <span>Inspect the draft in a local browser map before any publish step.</span>
+  </article>
+  <article class="workflow-card">
+    <strong>4. Apply Adjustments</strong>
+    <span>Edit YAML adjustments and preserve the original packet.</span>
+  </article>
+  <article class="workflow-card">
+    <strong>5. Dry-Run Publish</strong>
+    <span>Create a receipt only. No ArcGIS item is created from the UI.</span>
+  </article>
 </section>
 
 <section class="panel">
@@ -58,6 +76,43 @@
       </ul>
     </div>
   </div>
+</section>
+
+<section class="status-grid">
+  <article class="status-card">
+    <span>Verified Layers</span>
+    <strong>{{ system_status.catalog.verified_layer_count }}</strong>
+  </article>
+  <article class="status-card">
+    <span>Field Profiles</span>
+    <strong>{{ system_status.profiles.field_profile_count }}</strong>
+  </article>
+  <article class="status-card">
+    <span>Value Profiles</span>
+    <strong>{{ system_status.profiles.value_profile_count }}</strong>
+  </article>
+  <article class="status-card">
+    <span>Data Gaps</span>
+    <strong>{{ system_status.data_gap_count }}</strong>
+  </article>
+  <article class="status-card">
+    <span>Review Packets</span>
+    <strong>{{ system_status.packets.review_packet_count }}</strong>
+  </article>
+  <article class="status-card">
+    <span>Adjusted Packets</span>
+    <strong>{{ system_status.packets.adjusted_packet_count }}</strong>
+  </article>
+</section>
+
+<section class="panel">
+  <h2>Approved Demo Prompts</h2>
+  <ul class="compact-list">
+    {% for prompt in example_prompts %}
+      <li>{{ prompt }}</li>
+    {% endfor %}
+  </ul>
+  <p><a class="button-link secondary" href="/demo">Open Demo Scenarios</a></p>
 </section>
 
 <section class="two-column">

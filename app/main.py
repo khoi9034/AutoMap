@@ -22,6 +22,7 @@ from app.catalog_builder import build_catalog_records, inspect_services
 from app.config import get_settings
 from app.data_gap_registry import list_data_gaps
 from app.db import test_db_connection
+from app.demo_workflow import run_demo_workflow
 from app.field_profiler import (
     log_recipe_validation,
     profile_catalog_fields,
@@ -50,13 +51,15 @@ from app.review_packet_builder import (
     validate_review_packet,
 )
 from app.rest_sources import load_rest_sources
+from app.system_status import format_system_status, get_system_status
+from app.version import AUTOMAP_VERSION
 from app.webmap_builder import validate_webmap_json
 from app.webmap_exporter import export_recipe_and_webmap
 
 
 def _print_project_banner() -> None:
     print("AutoMap: County GIS Request Engine")
-    print("v0.0 repo setup only")
+    print(f"version {AUTOMAP_VERSION}")
 
 
 def _check_db() -> int:
@@ -381,6 +384,25 @@ def _preview_packet(path: str, port: int | None = None) -> int:
     return 0
 
 
+def _system_status() -> int:
+    status = get_system_status()
+    print(format_system_status(status))
+    return 0 if status.get("database_connected") else 1
+
+
+def _run_demo_workflow(ui_port: int | None = None) -> int:
+    selected_port = ui_port or int(os.getenv("AUTOMAP_UI_PORT", "8001"))
+    result = run_demo_workflow(ui_port=selected_port)
+    print(json.dumps(result, indent=2, default=str))
+    publish_result = result.get("publish_result") or {}
+    no_real_publish = (
+        publish_result.get("created_item") is False
+        and publish_result.get("published") is False
+        and result.get("real_publish_attempted") is False
+    )
+    return 0 if no_real_publish else 1
+
+
 def main() -> int:
     """Run the AutoMap command-line interface."""
     parser = argparse.ArgumentParser(description="AutoMap command-line tools")
@@ -533,6 +555,16 @@ def main() -> int:
         metavar="PACKET_FOLDER_OR_WEBMAP_JSON",
         help="Print a local UI preview URL for a packet or generated WebMap JSON path.",
     )
+    parser.add_argument(
+        "--system-status",
+        action="store_true",
+        help="Print sanitized AutoMap v1 local system status.",
+    )
+    parser.add_argument(
+        "--run-demo-workflow",
+        action="store_true",
+        help="Run the safe local v1 demo workflow without real publishing.",
+    )
     args = parser.parse_args()
 
     try:
@@ -589,6 +621,10 @@ def main() -> int:
             return _list_packets()
         if args.preview_packet:
             return _preview_packet(args.preview_packet, args.ui_port)
+        if args.system_status:
+            return _system_status()
+        if args.run_demo_workflow:
+            return _run_demo_workflow(args.ui_port)
     except ValueError as exc:
         print(f"Configuration error: {exc}")
         return 1

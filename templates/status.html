@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}System Status - AutoMap{% endblock %}
+{% block content %}
+<section class="panel">
+  <h2>System Status</h2>
+  <p class="muted">Sanitized local status. Credentials and environment values are not displayed.</p>
+  {% if status.errors %}
+    <div class="warning-box">
+      <strong>Status warnings</strong>
+      <ul class="compact-list">
+        {% for error in status.errors %}
+          <li>{{ error }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+  {% endif %}
+</section>
+
+<section class="status-grid">
+  <article class="status-card"><span>DB Connected</span><strong>{{ status.database_connected }}</strong></article>
+  <article class="status-card"><span>Database</span><strong>{{ status.database_name or "Unavailable" }}</strong></article>
+  <article class="status-card"><span>Schema</span><strong>{{ status.automap_schema }}</strong></article>
+  <article class="status-card"><span>Layer Catalog</span><strong>{{ status.catalog.layer_count }}</strong></article>
+  <article class="status-card"><span>Verified Layers</span><strong>{{ status.catalog.verified_layer_count }}</strong></article>
+  <article class="status-card"><span>New OpenData</span><strong>{{ status.catalog.new_opendata_layer_count }}</strong></article>
+  <article class="status-card"><span>Legacy Layers</span><strong>{{ status.catalog.legacy_layer_count }}</strong></article>
+  <article class="status-card"><span>Historical Layers</span><strong>{{ status.catalog.historical_layer_count }}</strong></article>
+  <article class="status-card"><span>Field Profiles</span><strong>{{ status.profiles.field_profile_count }}</strong></article>
+  <article class="status-card"><span>Value Profiles</span><strong>{{ status.profiles.value_profile_count }}</strong></article>
+  <article class="status-card"><span>Data Gaps</span><strong>{{ status.data_gap_count }}</strong></article>
+  <article class="status-card"><span>History Rows</span><strong>{{ status.request_history_count }}</strong></article>
+  <article class="status-card"><span>Review Packets</span><strong>{{ status.packets.review_packet_count }}</strong></article>
+  <article class="status-card"><span>Adjusted Packets</span><strong>{{ status.packets.adjusted_packet_count }}</strong></article>
+</section>
+
+<section class="panel">
+  <h3>PostGIS</h3>
+  <p>{{ status.postgis_version or "Unavailable" }}</p>
+  <h3>ArcGIS Publisher Mode</h3>
+  <p>{{ status.arcgis_publisher_mode }}</p>
+  <h3>Protected Database Boundary</h3>
+  <p>{{ status.protected_database_status }}</p>
+</section>
+{% endblock %}

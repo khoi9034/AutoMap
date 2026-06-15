@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Demo Scenarios - AutoMap{% endblock %}
+{% block content %}
+<section class="panel">
+  <h2>Approved Demo Scenarios</h2>
+  <p class="muted">These prompts are safe local examples for v1.0 review. Running them creates local draft artifacts only.</p>
+</section>
+
+<section class="scenario-grid">
+  {% for scenario in scenarios %}
+    <article class="scenario-card">
+      <h3>{{ scenario.prompt }}</h3>
+      <h4>Expected Layer Selection</h4>
+      <ul class="compact-list">
+        {% for layer in scenario.expected_layers %}
+          <li>{{ layer }}</li>
+        {% endfor %}
+      </ul>
+      <h4>Expected Warnings</h4>
+      <ul class="compact-list">
+        {% for warning in scenario.expected_warnings %}
+          <li>{{ warning }}</li>
+        {% else %}
+          <li>No special warnings expected.</li>
+        {% endfor %}
+      </ul>
+      <p><strong>Missing data expected:</strong> {{ scenario.missing_data_expected }}</p>
+      <div class="button-row">
+        <form method="post" action="/recipe">
+          <input type="hidden" name="prompt" value="{{ scenario.prompt }}">
+          <button type="submit">Run Prompt</button>
+        </form>
+        <form method="post" action="/review-packet">
+          <input type="hidden" name="prompt" value="{{ scenario.prompt }}">
+          <button type="submit">Generate Packet</button>
+        </form>
+        {% if scenario.preview_url %}
+          <a class="button-link secondary" href="{{ scenario.preview_url }}">Preview Latest Matching Packet</a>
+        {% else %}
+          <span class="empty-note">No matching packet yet.</span>
+        {% endif %}
+      </div>
+    </article>
+  {% endfor %}
+</section>
+{% endblock %}

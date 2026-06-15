@@ -94,6 +94,38 @@ def test_homepage_loads():
     assert response.status_code == 200
     assert "AutoMap: County GIS Request Engine" in response.text
     assert "Show parcels in Concord" in response.text
+    assert "Create Recipe" in response.text
+    assert "Verified Layers" in response.text
+
+
+def test_demo_page_loads():
+    client = TestClient(create_app())
+    response = client.get("/demo")
+
+    assert response.status_code == 200
+    assert "Approved Demo Scenarios" in response.text
+    assert "Show commercial zoning around Concord" in response.text
+
+
+def test_status_page_loads_without_secrets():
+    client = TestClient(create_app())
+    response = client.get("/status")
+    lowered = response.text.lower()
+
+    assert response.status_code == 200
+    assert "System Status" in response.text
+    assert "ArcGIS Publisher Mode" in response.text
+    assert "database_url" not in lowered
+    assert "arcgis_password" not in lowered
+    assert ".env" not in lowered
+
+
+def test_history_page_loads():
+    client = TestClient(create_app())
+    response = client.get("/history")
+
+    assert response.status_code == 200
+    assert "Request History" in response.text
 
 
 def test_homepage_lists_latest_drafts(monkeypatch, tmp_path):
@@ -276,6 +308,15 @@ def test_ui_does_not_reference_cfs_on_main_pages(monkeypatch):
     monkeypatch.setattr("app.ui_routes.list_review_packets", lambda: [])
     monkeypatch.setattr("app.ui_routes.list_adjusted_packets", lambda: [])
     monkeypatch.setattr("app.ui_routes.find_latest_packet", lambda: None)
+    monkeypatch.setattr(
+        "app.ui_routes.get_system_status",
+        lambda: {
+            "catalog": {"verified_layer_count": 0},
+            "profiles": {"field_profile_count": 0, "value_profile_count": 0},
+            "data_gap_count": 0,
+            "packets": {"review_packet_count": 0, "adjusted_packet_count": 0},
+        },
+    )
     client = TestClient(create_app())
 
     combined = "\n".join(
@@ -283,6 +324,7 @@ def test_ui_does_not_reference_cfs_on_main_pages(monkeypatch):
             client.get("/").text,
             client.get("/catalog?q=flood").text,
             client.get("/data-gaps").text,
+            client.get("/status").text,
         ]
     ).lower()
 
@@ -290,7 +332,7 @@ def test_ui_does_not_reference_cfs_on_main_pages(monkeypatch):
     assert "cfs_dev" not in combined
 
 
-def test_serve_command_exists():
+def test_cli_commands_exist():
     result = subprocess.run(
         [sys.executable, "-m", "app.main", "--help"],
         cwd=Path(__file__).resolve().parent.parent,
@@ -300,3 +342,6 @@ def test_serve_command_exists():
     )
 
     assert "--serve-ui" in result.stdout
+    assert "--system-status" in result.stdout
+    assert "--run-demo-workflow" in result.stdout
+    assert "--list-packets" in result.stdout

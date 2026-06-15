@@ -26,6 +26,7 @@ from app.packet_index import (
     list_review_packets,
 )
 from app.recipe_engine import build_recipe
+from app.request_history import list_request_history, record_request_history
 from app.review_packet_builder import (
     build_layer_review_table,
     build_review_packet,
@@ -34,12 +35,15 @@ from app.review_packet_builder import (
 )
 from app.ui_models import (
     CATALOG_SEARCH_EXAMPLES,
+    DEMO_SCENARIOS,
     EXAMPLE_PROMPTS,
+    AUTOMAP_VERSION,
     PROJECT_TITLE,
     SAFETY_BANNER,
     output_file_url,
     repo_root,
 )
+from app.system_status import get_system_status
 from app.webmap_exporter import export_recipe_and_webmap
 
 
@@ -52,6 +56,7 @@ def _base_context(request: Request, **extra: Any) -> dict[str, Any]:
         "request": request,
         "project_title": PROJECT_TITLE,
         "safety_banner": SAFETY_BANNER,
+        "automap_version": AUTOMAP_VERSION,
         "example_prompts": EXAMPLE_PROMPTS,
         "catalog_search_examples": CATALOG_SEARCH_EXAMPLES,
     }
@@ -92,6 +97,13 @@ def _safe_local_output_path(path: str) -> Path:
     return resolved
 
 
+def _record_history_safely(**kwargs: Any) -> None:
+    try:
+        record_request_history(**kwargs)
+    except Exception:
+        return
+
+
 def _preview_url_for_source(source: str | Path) -> str:
     text = Path(source).as_posix()
     if "/" in text or "\\" in text or text.endswith(".json"):
@@ -106,6 +118,17 @@ def _preview_config_url(*, packet_id: str | None = None, path: str | None = None
     elif packet_id:
         query["packet_id"] = packet_id
     return "/api/preview-config" if not query else f"/api/preview-config?{urlencode(query)}"
+
+
+def _latest_matching_preview_url(prompt: str) -> str | None:
+    from app.layer_semantics import slugify
+
+    slug = slugify(prompt)[:90]
+    for packet in [*list_adjusted_packets(), *list_review_packets()]:
+        packet_id = packet.get("packet_id") or ""
+        if slug and slug in packet_id:
+            return packet.get("preview_url")
+    return None
 
 
 def _preview_context(request: Request, *, packet_id: str | None = None, path: str | None = None) -> dict[str, Any]:
@@ -136,6 +159,7 @@ def index(request: Request):
     review_packets = list_review_packets()[:5]
     adjusted_packets = list_adjusted_packets()[:5]
     latest_packet = find_latest_packet()
+    system_status = get_system_status()
     return templates.TemplateResponse(
         request,
         "index.html",
@@ -144,6 +168,7 @@ def index(request: Request):
             review_packets=review_packets,
             adjusted_packets=adjusted_packets,
             latest_packet=latest_packet,
+            system_status=system_status,
         ),
     )
 
@@ -163,6 +188,46 @@ def health() -> dict[str, Any]:
 def local_file(path: str):
     """Serve generated output files from the local outputs directory."""
     return FileResponse(_safe_local_output_path(path))
+
+
+@router.get("/demo")
+def demo(request: Request):
+    """Render approved v1 demo scenarios."""
+    scenarios = [
+        {**scenario, "preview_url": _latest_matching_preview_url(scenario["prompt"])}
+        for scenario in DEMO_SCENARIOS
+    ]
+    return templates.TemplateResponse(
+        request,
+        "demo.html",
+        _base_context(request, scenarios=scenarios),
+    )
+
+
+@router.get("/status")
+def status(request: Request):
+    """Render sanitized AutoMap local system status."""
+    return templates.TemplateResponse(
+        request,
+        "status.html",
+        _base_context(request, status=get_system_status()),
+    )
+
+
+@router.get("/history")
+def history(request: Request):
+    """Render recent local request history."""
+    try:
+        rows = list_request_history(limit=50)
+        history_error = None
+    except Exception as exc:
+        rows = []
+        history_error = str(exc)
+    return templates.TemplateResponse(
+        request,
+        "history.html",
+        _base_context(request, rows=rows, history_error=history_error),
+    )
 
 
 @router.get("/preview")
@@ -195,6 +260,13 @@ def preview_config(
 def make_recipe(request: Request, prompt: str = Form(...)):
     """Create and display a recipe for a plain-English request."""
     recipe = build_recipe(prompt)
+    _record_history_safely(
+        raw_prompt=prompt,
+        workflow_step="recipe",
+        map_title=recipe.get("map_title"),
+        status="created",
+        notes={"selected_layer_count": len(recipe.get("selected_layers") or [])},
+    )
     data_gaps = data_gap_records_from_recipe(recipe)
     return templates.TemplateResponse(
         request,
@@ -208,6 +280,14 @@ def make_review_packet(request: Request, prompt: str = Form(...)):
     """Create a local review packet and display its summary."""
     packet = build_review_packet(prompt)
     packet_path = save_review_packet(prompt, packet["recipe"], packet["webmap_json"])
+    _record_history_safely(
+        raw_prompt=prompt,
+        workflow_step="review_packet",
+        map_title=packet["recipe"].get("map_title"),
+        status="created",
+        packet_path=str(packet_path),
+        notes={"selected_layer_count": len(packet["recipe"].get("selected_layers") or [])},
+    )
     validation = validate_review_packet(packet_path)
     layer_review = build_layer_review_table(packet["recipe"], packet["webmap_json"])
     files = _packet_file_links(
@@ -283,6 +363,16 @@ def apply_adjustments(
     adjustment_path.write_text(adjustment_yaml, encoding="utf-8")
     adjusted_path = apply_adjustments_to_review_packet(packet_folder, adjustment_path)
     validation = validate_adjusted_packet(adjusted_path)
+    recipe_for_history = _read_json(Path(adjusted_path) / "adjusted_recipe.json")
+    _record_history_safely(
+        raw_prompt=recipe_for_history.get("user_intent"),
+        workflow_step="adjustment",
+        map_title=recipe_for_history.get("map_title"),
+        status="created",
+        packet_path=packet_folder,
+        adjusted_packet_path=str(adjusted_path),
+        notes={"validation": validation},
+    )
     files = _packet_file_links(
         adjusted_path,
         [
@@ -319,6 +409,23 @@ def apply_adjustments(
 def publish_dry_run(request: Request, adjusted_packet_folder: str = Form(...)):
     """Run dry-run publishing only; never real publish from the UI."""
     result = publish_webmap_draft(adjusted_packet_folder, dry_run=True, confirm_publish=False)
+    recipe_for_history = {}
+    recipe_path = Path(adjusted_packet_folder) / "adjusted_recipe.json"
+    if recipe_path.exists():
+        recipe_for_history = _read_json(recipe_path)
+    _record_history_safely(
+        raw_prompt=recipe_for_history.get("user_intent"),
+        workflow_step="dry_run_publish",
+        map_title=recipe_for_history.get("map_title"),
+        status=str(result.get("status") or "dry_run"),
+        adjusted_packet_path=adjusted_packet_folder,
+        notes={
+            "created_item": result.get("created_item"),
+            "published": result.get("published"),
+            "shared_public": result.get("shared_public"),
+            "shared_organization": result.get("shared_organization"),
+        },
+    )
     return templates.TemplateResponse(
         request,
         "adjusted_packet.html",

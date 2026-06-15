@@ -2,13 +2,36 @@
 
 AutoMap converts plain-English county GIS map requests into structured map recipes using only approved GIS layers from a local layer catalog.
 
+Version: `1.0.0`
+
 ## Current Phase
 
-v0.9 live local map preview.
+v1.0 local demo application.
 
 This repository is intentionally independent. It does not connect to CFS or import CFS code. AutoMap uses its own local PostGIS database and trusted layer catalog.
 
-## Future Phases
+## What AutoMap Does
+
+AutoMap helps GIS and planning staff turn plain-English county map requests into draft review artifacts:
+
+- prompt parsing and topic/geography detection
+- verified ArcGIS REST layer matching
+- field-aware filter planning
+- structured map recipe JSON
+- local ArcGIS WebMap JSON drafts
+- review packets for human approval
+- YAML-based human adjustment loop
+- live local browser map preview
+- dry-run publish receipts
+- local request history and system status
+
+## What AutoMap Does Not Do Yet
+
+AutoMap does not ingest full feature geometries, does not download full feature datasets, does not publish from the local UI, does not require ArcGIS login for review/preview, and does not use an external LLM API.
+
+ArcGIS publishing remains dry-run by default unless a guarded CLI path is explicitly confirmed.
+
+## Version Roadmap
 
 1. Prompt-to-map-recipe engine
 2. Semantic layer catalog
@@ -17,6 +40,8 @@ This repository is intentionally independent. It does not connect to CFS or impo
 5. ArcGIS web map generator
 6. Human review/edit loop
 7. PDF/export tools
+8. Local UI and preview
+9. v1.0 demo polish and QA hardening
 
 ## Project Structure
 
@@ -215,8 +240,55 @@ http://127.0.0.1:8001/preview/<packet-id>
 
 The preview uses draft WebMap JSON and verified ArcGIS REST layer URLs. It does not publish anything, does not require ArcGIS login, and is for human GIS review only.
 
+## v1 Demo Workflow
+
+Run the full safe local demo flow:
+
+```bash
+python -m app.main --run-demo-workflow
+```
+
+Check local system status:
+
+```bash
+python -m app.main --system-status
+```
+
+Start the v1 local UI:
+
+```bash
+python -m app.main --serve-ui --ui-port 8001
+```
+
+Useful pages:
+
+```text
+http://127.0.0.1:8001/demo
+http://127.0.0.1:8001/status
+http://127.0.0.1:8001/history
+http://127.0.0.1:8001/preview
+```
+
+## Architecture
+
+```text
+Prompt -> Parser -> Layer Matcher -> Recipe Engine
+       -> Field/Filter Intelligence -> Draft WebMap JSON
+       -> Review Packet -> Human Adjustment -> Local Preview
+       -> Dry-Run Publish Receipt
+```
+
+The trusted source for layer selection is `automap.layer_catalog`. Generated artifacts live under `outputs/`, which is ignored by Git.
+
+See:
+
+- `docs/v1_demo_workflow.md`
+- `docs/project_architecture.md`
+- `docs/safety_model.md`
+
 ## Notes
 
 - Approved GIS layers come from AutoMap's local `automap.layer_catalog`.
 - Generated recipes, WebMap drafts, review packets, and adjusted packets are local artifacts and are not committed.
-- ArcGIS Online or Portal publishing is dry-run only by default in v0.9.
+- ArcGIS Online or Portal publishing is dry-run only by default in v1.0.
+- CFS uses a separate database and remains untouched by AutoMap.

@@ -78,6 +78,31 @@ main {
   padding: 24px;
 }
 
+.hero-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(340px, 1.1fr);
+  gap: 24px;
+  align-items: start;
+  background: #ffffff;
+  border: 1px solid #d8dde6;
+  border-radius: 8px;
+  padding: 22px;
+  margin-bottom: 16px;
+}
+
+.hero-panel h2 {
+  font-size: 1.55rem;
+  margin-bottom: 8px;
+}
+
+.eyebrow {
+  margin: 0 0 8px;
+  color: #1f6feb;
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 0.78rem;
+}
+
 .panel {
   background: #ffffff;
   border: 1px solid #d8dde6;
@@ -91,6 +116,57 @@ main {
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 16px;
   align-items: start;
+}
+
+.workflow-grid,
+.status-grid,
+.scenario-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.workflow-card,
+.status-card,
+.scenario-card {
+  background: #ffffff;
+  border: 1px solid #d8dde6;
+  border-radius: 8px;
+  padding: 14px;
+}
+
+.workflow-card {
+  display: grid;
+  gap: 6px;
+}
+
+.workflow-card strong,
+.status-card strong {
+  color: #17202a;
+}
+
+.workflow-card span,
+.status-card span,
+.empty-note {
+  color: #5f6b7a;
+}
+
+.status-card {
+  display: grid;
+  gap: 6px;
+}
+
+.status-card strong {
+  font-size: 1.35rem;
+}
+
+.scenario-grid {
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+}
+
+.scenario-card h3 {
+  font-size: 1rem;
 }
 
 h2,
@@ -191,6 +267,25 @@ pre {
   color: #5f6b7a;
 }
 
+.warning-box {
+  background: #fff8df;
+  border: 1px solid #e8dcae;
+  border-radius: 8px;
+  color: #4f3b00;
+  padding: 12px;
+  margin: 10px 0;
+}
+
+.footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 28px;
+  border-top: 1px solid #d8dde6;
+  background: #ffffff;
+  color: #5f6b7a;
+}
+
 .preview-shell {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(320px, 380px);
@@ -273,9 +368,11 @@ pre {
 @media (max-width: 760px) {
   .topbar,
   .two-column,
+  .hero-panel,
   .preview-shell,
   .preview-toolbar,
-  .section-heading-row {
+  .section-heading-row,
+  .footer {
     display: block;
   }
 

@@ -15,6 +15,9 @@
     </div>
     <nav>
       <a href="/">Home</a>
+      <a href="/demo">Demo</a>
+      <a href="/status">Status</a>
+      <a href="/history">History</a>
       <a href="/catalog?q=flood">Catalog</a>
       <a href="/data-gaps">Data Gaps</a>
       <a href="/health">Health</a>
@@ -24,5 +27,9 @@
   <main>
     {% block content %}{% endblock %}
   </main>
+  <footer class="footer">
+    <span>AutoMap v{{ automap_version }}</span>
+    <span>Local review app. Draft outputs are not official maps.</span>
+  </footer>
 </body>
 </html>
