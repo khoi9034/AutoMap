@@ -7,6 +7,13 @@ from typing import Any
 
 from app.layer_catalog_store import load_catalog_records
 from app.layer_semantics import sort_layer_candidates
+from app.request_explainer import (
+    intent_reasons_for_layer,
+    rejected_layer_reason,
+    review_notes_for_layer,
+    why_not_legacy,
+    why_selected,
+)
 
 
 TOPIC_CATEGORIES = {
@@ -23,6 +30,7 @@ TOPIC_CATEGORIES = {
     "civic": {"civic"},
     "public_facilities": {"public_facilities"},
     "jurisdiction": {"jurisdiction", "boundary"},
+    "utility": {"utility", "infrastructure"},
 }
 
 ROLE_BY_TOPIC = {
@@ -39,6 +47,7 @@ ROLE_BY_TOPIC = {
     "terrain": "reference_layer",
     "civic": "reference_layer",
     "public_facilities": "reference_layer",
+    "utility": "reference_layer",
 }
 
 TOPIC_SEARCH_TERMS = {
@@ -55,6 +64,7 @@ TOPIC_SEARCH_TERMS = {
     "civic": ["polling", "voting", "precinct"],
     "public_facilities": ["facilities", "government buildings"],
     "jurisdiction": ["municipal", "municipality", "jurisdiction", "etj", "boundary"],
+    "utility": ["utility", "utilities", "infrastructure", "water", "sewer", "capacity"],
 }
 
 
@@ -81,6 +91,14 @@ def _contains(text: str, term: str) -> bool:
     return term.lower() in text
 
 
+def _split_intelligence(intelligence: dict[str, Any] | None) -> tuple[dict[str, Any], dict[str, Any]]:
+    if not intelligence:
+        return {}, {}
+    if "request_intelligence" in intelligence or "analysis_plan" in intelligence:
+        return intelligence.get("request_intelligence") or {}, intelligence.get("analysis_plan") or {}
+    return intelligence, intelligence.get("analysis_plan") or {}
+
+
 def _candidate_matches_topic(record: dict[str, Any], topic: str) -> bool:
     categories = TOPIC_CATEGORIES.get(topic, {topic})
     if record.get("category") in categories or record.get("canonical_topic") in categories:
@@ -92,7 +110,22 @@ def _candidate_matches_topic(record: dict[str, Any], topic: str) -> bool:
     return any(_contains(blob, term) for term in TOPIC_SEARCH_TERMS.get(topic, [topic]))
 
 
-def _score_record(record: dict[str, Any], parsed_request: dict[str, Any], topic: str) -> tuple[float, list[str]]:
+def _topic_satisfied_by_selected(topic: str, selected_layers: list[dict[str, Any]]) -> bool:
+    categories = TOPIC_CATEGORIES.get(topic, {topic})
+    return any(
+        layer.get("matched_topic") == topic
+        or layer.get("category") in categories
+        or layer.get("canonical_topic") in categories
+        for layer in selected_layers
+    )
+
+
+def _score_record(
+    record: dict[str, Any],
+    parsed_request: dict[str, Any],
+    topic: str,
+    request_intelligence: dict[str, Any] | None = None,
+) -> tuple[float, list[str]]:
     score = 0.0
     reasons: list[str] = []
     prompt_text = parsed_request["normalized_prompt"]
@@ -104,6 +137,9 @@ def _score_record(record: dict[str, Any], parsed_request: dict[str, Any], topic:
     description = str(record.get("description") or "").lower()
     use_cases = " ".join(str(item).lower() for item in _as_list(record.get("planning_use_cases")))
     aliases = [str(alias).lower() for alias in _as_list(record.get("aliases"))]
+    intelligence, analysis_plan = _split_intelligence(request_intelligence)
+    required_layers = set(analysis_plan.get("required_layers") or [])
+    optional_layers = set(analysis_plan.get("optional_layers") or [])
 
     if record.get("category") in TOPIC_CATEGORIES.get(topic, {topic}):
         score += 60
@@ -111,6 +147,24 @@ def _score_record(record: dict[str, Any], parsed_request: dict[str, Any], topic:
     if record.get("canonical_topic") in TOPIC_CATEGORIES.get(topic, {topic}):
         score += 30
         reasons.append(f"canonical topic matches {topic}")
+
+    if topic in required_layers or record.get("category") in required_layers:
+        score += 25
+        reasons.append(f"required by request intent: {topic}")
+    elif topic in optional_layers or record.get("category") in optional_layers:
+        score += 10
+        reasons.append(f"supports request intent: {topic}")
+
+    if intelligence.get("detected_intents"):
+        category = record.get("category")
+        constraints = intelligence.get("extracted_constraints") or []
+        opportunities = intelligence.get("extracted_opportunities") or []
+        if category in {"flood", "environmental", "zoning"} and constraints:
+            score += 8
+            reasons.append("matches detected constraint context")
+        if category in {"parcel", "zoning", "transportation"} and opportunities:
+            score += 8
+            reasons.append("matches detected opportunity context")
 
     for alias in aliases:
         if alias and alias in prompt_text:
@@ -212,22 +266,33 @@ def _match_topic(
     catalog_records: list[dict[str, Any]],
     topic: str,
     limit: int = 1,
+    request_intelligence: dict[str, Any] | None = None,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     scored: list[dict[str, Any]] = []
+    intelligence, analysis_plan = _split_intelligence(request_intelligence)
     for record in catalog_records:
         if not _candidate_matches_topic(record, topic):
             continue
-        score, reasons = _score_record(record, parsed_request, topic)
+        score, reasons = _score_record(record, parsed_request, topic, request_intelligence)
         if score <= 0:
             continue
-        scored.append({**deepcopy(record), "confidence_score": min(score / 200, 0.99), "raw_score": score, "match_reasons": reasons, "role": ROLE_BY_TOPIC.get(topic, "reference_layer"), "matched_topic": topic})
+        candidate = {**deepcopy(record), "confidence_score": min(score / 200, 0.99), "raw_score": score, "match_score": round(score, 1), "match_reasons": reasons, "role": ROLE_BY_TOPIC.get(topic, "reference_layer"), "matched_topic": topic}
+        candidate["intent_reasons"] = intent_reasons_for_layer(candidate, topic, intelligence, analysis_plan)
+        candidate["why_selected"] = why_selected(candidate, topic, intelligence)
+        candidate["why_not_legacy"] = why_not_legacy(candidate, intelligence)
+        candidate["review_notes"] = review_notes_for_layer(candidate, topic)
+        scored.append(candidate)
 
     scored = sort_layer_candidates(scored)
     scored = sorted(scored, key=lambda item: item.get("raw_score", 0), reverse=True)
     return scored[:limit], scored[limit:limit + 5]
 
 
-def _select_school_layers(parsed_request: dict[str, Any], catalog_records: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+def _select_school_layers(
+    parsed_request: dict[str, Any],
+    catalog_records: list[dict[str, Any]],
+    request_intelligence: dict[str, Any] | None = None,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     levels = parsed_request.get("topic_details", {}).get("school_levels") or ["elementary", "middle", "high"]
     selected: list[dict[str, Any]] = []
     rejected: list[dict[str, Any]] = []
@@ -237,7 +302,7 @@ def _select_school_layers(parsed_request: dict[str, Any], catalog_records: list[
             record for record in catalog_records
             if _candidate_matches_topic(record, "schools") and level in str(record.get("layer_name", "")).lower()
         ]
-        topic_selected, topic_rejected = _match_topic(parsed_request, level_records, "schools", 1)
+        topic_selected, topic_rejected = _match_topic(parsed_request, level_records, "schools", 1, request_intelligence)
         for item in topic_selected:
             if item["layer_key"] not in used_keys:
                 selected.append(item)
@@ -246,16 +311,20 @@ def _select_school_layers(parsed_request: dict[str, Any], catalog_records: list[
     return selected, rejected
 
 
-def _select_zoning_layers(parsed_request: dict[str, Any], catalog_records: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+def _select_zoning_layers(
+    parsed_request: dict[str, Any],
+    catalog_records: list[dict[str, Any]],
+    request_intelligence: dict[str, Any] | None = None,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     geography_names = {geo["name"].lower() for geo in parsed_request.get("geography_terms", [])}
-    selected, rejected = _match_topic(parsed_request, catalog_records, "zoning", 1)
+    selected, rejected = _match_topic(parsed_request, catalog_records, "zoning", 1, request_intelligence)
     if geography_names:
         geography_records = [
             record for record in catalog_records
             if _candidate_matches_topic(record, "zoning")
             and any(geo_name in str(record.get("layer_name", "")).lower() for geo_name in geography_names)
         ]
-        geo_selected, geo_rejected = _match_topic(parsed_request, geography_records, "zoning", 1)
+        geo_selected, geo_rejected = _match_topic(parsed_request, geography_records, "zoning", 1, request_intelligence)
         if geo_selected:
             selected = geo_selected
             rejected.extend(geo_rejected)
@@ -264,15 +333,18 @@ def _select_zoning_layers(parsed_request: dict[str, Any], catalog_records: list[
             if _candidate_matches_topic(record, "zoning")
             and "county zoning" in str(record.get("layer_name", "")).lower()
         ]
-        county_selected, county_rejected = _match_topic(parsed_request, county_records, "zoning", 1)
+        county_selected, county_rejected = _match_topic(parsed_request, county_records, "zoning", 1, request_intelligence)
         selected_keys = {item["layer_key"] for item in selected}
         selected.extend(item for item in county_selected if item["layer_key"] not in selected_keys)
         rejected.extend(county_rejected)
     return selected, rejected
 
 
-def _target_topics(parsed_request: dict[str, Any]) -> list[str]:
+def _target_topics(parsed_request: dict[str, Any], request_intelligence: dict[str, Any] | None = None) -> list[str]:
     topics = list(parsed_request.get("topics", []))
+    _, analysis_plan = _split_intelligence(request_intelligence)
+    for topic in analysis_plan.get("required_layers") or []:
+        topics.append(topic)
     if parsed_request.get("geography_terms") and any(
         geo["type"] not in {"county", "countywide"} for geo in parsed_request["geography_terms"]
     ):
@@ -281,10 +353,14 @@ def _target_topics(parsed_request: dict[str, Any]) -> list[str]:
     return [topic for topic in topics if not (topic in seen or seen.add(topic))]
 
 
-def match_layers(parsed_request: dict[str, Any], layer_catalog: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+def match_layers(
+    parsed_request: dict[str, Any],
+    layer_catalog: list[dict[str, Any]] | None = None,
+    request_intelligence: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     """Match parsed request topics to trusted AutoMap catalog layers."""
     catalog_records = layer_catalog if layer_catalog is not None else load_catalog_records()
-    topics = _target_topics(parsed_request)
+    topics = _target_topics(parsed_request, request_intelligence)
     selected_layers: list[dict[str, Any]] = []
     rejected_layers: list[dict[str, Any]] = []
     missing_data_needed: list[str] = []
@@ -292,17 +368,17 @@ def match_layers(parsed_request: dict[str, Any], layer_catalog: list[dict[str, A
 
     for topic in topics:
         if topic == "schools":
-            topic_selected, topic_rejected = _select_school_layers(parsed_request, catalog_records)
+            topic_selected, topic_rejected = _select_school_layers(parsed_request, catalog_records, request_intelligence)
         elif topic == "zoning":
-            topic_selected, topic_rejected = _select_zoning_layers(parsed_request, catalog_records)
+            topic_selected, topic_rejected = _select_zoning_layers(parsed_request, catalog_records, request_intelligence)
         elif topic == "flood" and parsed_request.get("topic_details", {}).get("flood_frequency"):
-            topic_selected, topic_rejected = _match_topic(parsed_request, catalog_records, topic, 1)
+            topic_selected, topic_rejected = _match_topic(parsed_request, catalog_records, topic, 1, request_intelligence)
         else:
             limit = 3 if topic == "flood" else 1
-            topic_selected, topic_rejected = _match_topic(parsed_request, catalog_records, topic, limit)
+            topic_selected, topic_rejected = _match_topic(parsed_request, catalog_records, topic, limit, request_intelligence)
 
         new_items = [item for item in topic_selected if item["layer_key"] not in selected_keys]
-        if not new_items:
+        if not new_items and not _topic_satisfied_by_selected(topic, selected_layers):
             missing_data_needed.append(topic)
         for item in new_items:
             selected_layers.append(item)
@@ -317,12 +393,18 @@ def match_layers(parsed_request: dict[str, Any], layer_catalog: list[dict[str, A
                 missing_data_needed.append("planning cases")
             if term == "permits" and "permit" not in selected_blob:
                 missing_data_needed.append("permits")
+            if term in {"subdivision_activity", "development_pipeline"} and "subdivision" not in selected_blob and "development" not in selected_blob:
+                missing_data_needed.append("subdivision activity" if term == "subdivision_activity" else "development")
+            if term == "construction_activity" and "construction" not in selected_blob and "permit" not in selected_blob:
+                missing_data_needed.append("permits")
 
     rejected_layers = sorted(
         rejected_layers,
         key=lambda item: item.get("raw_score", 0),
         reverse=True,
     )[:12]
+    for item in rejected_layers:
+        item.update(rejected_layer_reason(item, selected_layers))
 
     confidence = 0.0
     if selected_layers:

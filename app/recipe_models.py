@@ -19,6 +19,8 @@ RECIPE_REQUIRED_KEYS = {
     "needs_review",
     "missing_data_needed",
     "filter_plan",
+    "request_intelligence",
+    "analysis_plan",
 }
 
 SELECTED_LAYER_KEYS = {
@@ -33,7 +35,12 @@ SELECTED_LAYER_KEYS = {
     "geometry_type",
     "layer_id",
     "confidence_score",
+    "match_score",
     "match_reasons",
+    "intent_reasons",
+    "why_selected",
+    "why_not_legacy",
+    "review_notes",
     "role",
 }
 
@@ -52,7 +59,12 @@ def selected_layer_from_match(match: dict[str, Any]) -> dict[str, Any]:
         "geometry_type": match.get("geometry_type"),
         "layer_id": match.get("layer_id"),
         "confidence_score": round(float(match.get("confidence_score") or 0), 3),
+        "match_score": match.get("match_score", match.get("raw_score")),
         "match_reasons": match.get("match_reasons", []),
+        "intent_reasons": match.get("intent_reasons", []),
+        "why_selected": match.get("why_selected"),
+        "why_not_legacy": match.get("why_not_legacy"),
+        "review_notes": match.get("review_notes", []),
         "role": match.get("role", "reference_layer"),
     }
 
@@ -67,7 +79,11 @@ def rejected_layer_from_match(match: dict[str, Any]) -> dict[str, Any]:
         "source_priority": match.get("source_priority"),
         "layer_url": match.get("layer_url") or match.get("rest_url"),
         "confidence_score": round(float(match.get("confidence_score") or 0), 3),
-        "rejection_reason": "Lower scoring match than selected catalog layer.",
+        "score": match.get("match_score", match.get("raw_score")),
+        "reason_rejected": match.get("reason_rejected", match.get("rejection_reason", "Lower scoring match than selected catalog layer.")),
+        "rejection_reason": match.get("reason_rejected", match.get("rejection_reason", "Lower scoring match than selected catalog layer.")),
+        "is_legacy_or_historical": bool(match.get("is_legacy_or_historical")),
+        "superseded_by_new_opendata": bool(match.get("superseded_by_new_opendata")),
     }
 
 

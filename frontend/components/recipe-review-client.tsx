@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { JsonPanel } from "@/components/json-panel";
+import { RequestIntelligencePanel } from "@/components/request-intelligence-panel";
 import { StatusChip } from "@/components/status-chip";
 import { ToastMessage } from "@/components/toast";
 import { makeReviewPacket, makeWebmapDraft } from "@/lib/api";
@@ -134,6 +135,8 @@ export function RecipeReviewClient() {
         {error ? <p className="error-text">{error}</p> : null}
         <ToastMessage toast={toast} />
       </section>
+
+      <RequestIntelligencePanel recipe={recipe} />
 
       <section className="panel">
         <h3>Selected layers</h3>

@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 import { samplePrompts } from "@/components/navigation";
+import { RequestIntelligencePanel } from "@/components/request-intelligence-panel";
 import { StatusChip } from "@/components/status-chip";
 import { ToastMessage } from "@/components/toast";
 import { makeRecipe, makeReviewPacket } from "@/lib/api";
@@ -176,6 +177,8 @@ export function MapRequestClient() {
               </StatusChip>
             </div>
           </section>
+
+          <RequestIntelligencePanel recipe={recipe} />
 
           <section className="panel">
             <h3>Selected layers</h3>

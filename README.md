@@ -6,7 +6,7 @@ Version: `1.7.0`
 
 ## Current Phase
 
-v1.7 Report and Export Center.
+v1.7 Report and Export Center plus deterministic Request Intelligence Brain.
 
 This repository is intentionally independent. It does not connect to CFS or import CFS code. AutoMap uses its own local PostGIS database and trusted layer catalog.
 
@@ -30,6 +30,7 @@ AutoMap helps GIS and planning staff turn plain-English county map requests into
 - persistent end-to-end frontend workflow state
 - local request history and system status
 - local report/export packages for GIS review
+- deterministic request intelligence with intent classification, spatial planning, clarifying questions, and layer-selection explanations
 
 ## What AutoMap Does Not Do Yet
 
@@ -55,6 +56,7 @@ ArcGIS publishing and smoke testing remain dry-run by default unless a guarded C
 14. v1.5 end-to-end frontend workflow wiring
 15. v1.6 frontend UX polish and map preview upgrade
 16. v1.7 report and export center
+17. v1.7 request intelligence brain
 
 ## Project Structure
 
@@ -157,6 +159,8 @@ The frontend can run dry-run publish and portal smoke-test dry-run actions only.
 
 The workflow shell includes an operations dashboard, quick prompt bar, demo scenarios, recipe review workspace, local map preview, layer panel, grouped warning panel, human adjustment editor, approval gate, dry-run publish center, report/export center, catalog search, data gaps, history, and sanitized system status.
 
+The Map Request and Recipe Review pages now show request intelligence details: detected intents, confidence by intent, spatial relationships, ambiguity flags, clarifying questions, unsupported parts, and the analysis plan. This is deterministic rule-based interpretation only; AutoMap does not call external LLM APIs.
+
 AutoMap persists the active local workflow in browser storage so staff can move from prompt to recipe review, preview, adjustments, approval, and dry-run publishing without losing context on refresh. The stored workflow state is sanitized and does not include secrets.
 
 v1.6 improves the map preview page with a draft-only preview shell, packet selector, layer review panel, warning group panel, clearer empty/loading/error states, and explicit safety labels. The frontend preview uses the backend preview config and existing local preview route. It does not require ArcGIS login and does not publish.
@@ -215,13 +219,20 @@ python -m app.main --search-layers flood
 
 AutoMap v0.2 creates structured map recipes from plain-English GIS requests using only verified records in `automap.layer_catalog`.
 
+The v1.7 request intelligence brain improves recipe interpretation with deterministic intent classification, richer synonym handling, spatial operation planning, clarifying questions, and plain-language explanations for selected and rejected layers. AutoMap still never invents layer names, URLs, fields, or data sources. If a requested source is missing, such as current permits, active planning cases, or a current development pipeline layer, AutoMap records missing data and asks for review instead of hallucinating a source.
+
 ```bash
 python -m app.main --make-recipe "Show parcels in Concord that are in the 100-year floodplain."
+python -m app.main --make-recipe "Show development pressure near schools and flood zones in Concord."
+python -m app.main --make-recipe "Make a planning map for commercial growth but avoid flood areas."
+python -m app.main --make-recipe "Show current permits near Kannapolis."
 python -m app.main --make-recipe "Map recent permits and planning cases near Kannapolis."
 python -m app.main --make-recipe "Show school districts for parcels in Harrisburg."
 python -m app.main --make-recipe "Show commercial zoning around Concord."
 python -m app.main --make-recipe "Show 2014 parcels and zoning."
 ```
+
+Recipe JSON now includes `request_intelligence` and `analysis_plan`. See `docs/request_intelligence_brain.md`.
 
 Use `--save-recipe` with `--make-recipe` to write a local JSON recipe under `outputs/sample_recipes/`. Generated outputs are local artifacts and are not committed.
 

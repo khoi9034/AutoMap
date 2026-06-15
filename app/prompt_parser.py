@@ -21,12 +21,12 @@ GEOGRAPHY_PATTERNS = [
 
 TOPIC_PATTERNS = [
     ("parcel", ["parcels", "parcel", "property", "properties", "tax parcels", "tax parcel"]),
-    ("zoning", ["zoning", "zone districts", "zoning districts", "commercial zoning"]),
-    ("flood", ["floodplain", "flood plain", "floodway", "flood way", "flood hazard", "flood"]),
-    ("schools", ["school districts", "school district", "schools", "elementary", "middle school", "high school"]),
-    ("transportation", ["roads", "road", "streets", "street", "centerlines", "centerline"]),
-    ("traffic", ["traffic", "aadt", "annual average daily traffic"]),
-    ("development", ["development", "permit", "permits", "planning case", "planning cases"]),
+    ("zoning", ["zoning", "zone districts", "zoning districts", "commercial zoning", "allowed use", "land use regulation"]),
+    ("flood", ["floodplain", "flood plain", "floodway", "flood way", "flood hazard", "flood zone", "flood zones", "fema", "flood"]),
+    ("schools", ["school districts", "school district", "school zones", "attendance zones", "schools", "elementary", "middle school", "high school"]),
+    ("transportation", ["roads", "road", "streets", "street", "centerlines", "centerline", "corridors", "corridor", "road access", "highway", "highways", "major roads"]),
+    ("traffic", ["traffic", "aadt", "annual average daily traffic", "high traffic"]),
+    ("development", ["development", "development pressure", "growth pressure", "new construction", "buildout", "permit", "permits", "planning case", "planning cases", "planning activity", "subdivision", "subdivisions", "development pipeline", "construction activity"]),
     ("addresses", ["addresses", "address", "address points", "site address"]),
     ("environmental", ["hydrology", "streams", "stream", "creeks", "creek", "water", "watershed"]),
     ("terrain", ["contours", "contour", "elevation", "terrain", "topography"]),
@@ -40,7 +40,7 @@ TIME_PATTERNS = {
     "historical": [r"\bhistorical\b", r"\bhistory\b", r"\bpast\b", r"\barchive\b", r"\barchived\b"],
 }
 
-HISTORICAL_YEAR_RE = re.compile(r"(?<!\d)(2010|2011|2012|2013|2014|2015)(?!\d)")
+HISTORICAL_YEAR_RE = re.compile(r"(?<!\d)(2004|2005|2006|2007|2008|2009|2010|2011|2012|2013|2014|2015)(?!\d)")
 
 
 def _contains_phrase(text: str, phrase: str) -> bool:
@@ -96,9 +96,17 @@ def _extract_topics(text: str) -> tuple[list[str], dict[str, Any]]:
             details["development_terms"].append("permits")
         if re.search(r"\bplanning cases?\b", text):
             details["development_terms"].append("planning_cases")
+        if re.search(r"\bsubdivisions?\b", text):
+            details["development_terms"].append("subdivision_activity")
+        if re.search(r"\bdevelopment pipeline\b", text):
+            details["development_terms"].append("development_pipeline")
+        if re.search(r"\bconstruction activity\b|\bnew construction\b", text):
+            details["development_terms"].append("construction_activity")
 
-    if "zoning" in topics and re.search(r"\bcommercial\b", text):
-        details["zoning_modifiers"].append("commercial")
+    if "zoning" in topics:
+        for modifier in ["commercial", "industrial", "residential"]:
+            if re.search(rf"\b{modifier}\b", text):
+                details["zoning_modifiers"].append(modifier)
 
     return topics, details
 
@@ -156,4 +164,3 @@ def parse_prompt(prompt: str) -> dict[str, Any]:
         "requested_output_type": _requested_output_type(normalized),
         "analysis_intent": _analysis_intent(normalized),
     }
-

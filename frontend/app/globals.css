@@ -474,6 +474,17 @@ button {
   align-items: flex-start;
 }
 
+.panel-compact {
+  padding: 14px;
+}
+
+.review-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding-left: 18px;
+}
+
 .filter-row label {
   display: grid;
   gap: 6px;

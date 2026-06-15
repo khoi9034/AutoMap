@@ -66,7 +66,47 @@ export type SelectedLayer = {
   source_priority?: number;
   geometry_type?: string;
   confidence_score?: number;
+  match_score?: number;
   match_reasons?: string[];
+  intent_reasons?: string[];
+  why_selected?: string | null;
+  why_not_legacy?: string | null;
+  review_notes?: string[];
+};
+
+export type ClarifyingQuestion = {
+  question?: string;
+  reason?: string;
+  examples?: string[];
+  trigger?: string;
+};
+
+export type RequestIntelligence = {
+  detected_intents?: string[];
+  confidence_by_intent?: Record<string, number>;
+  primary_intent?: string;
+  secondary_intents?: string[];
+  extracted_constraints?: string[];
+  extracted_opportunities?: string[];
+  spatial_relationships?: Array<Record<string, JsonValue>>;
+  ambiguity_flags?: string[];
+  clarifying_questions?: ClarifyingQuestion[];
+  reasoning_summary?: string;
+  unsupported_parts?: string[];
+  matched_phrases_by_intent?: Record<string, string[]>;
+  quality_score?: number;
+  understood?: boolean;
+};
+
+export type AnalysisPlan = {
+  goal?: string;
+  required_layers?: string[];
+  optional_layers?: string[];
+  spatial_steps?: Array<Record<string, JsonValue>>;
+  attribute_steps?: Array<Record<string, JsonValue>>;
+  assumptions?: string[];
+  blockers?: string[];
+  review_questions?: ClarifyingQuestion[];
 };
 
 export type MapRecipe = {
@@ -79,6 +119,8 @@ export type MapRecipe = {
     time_references?: string[];
     historical_year?: number | null;
   };
+  request_intelligence?: RequestIntelligence;
+  analysis_plan?: AnalysisPlan;
   selected_layers?: SelectedLayer[];
   rejected_layers?: JsonValue[];
   filter_plan?: Record<string, JsonValue>;

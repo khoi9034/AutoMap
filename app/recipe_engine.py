@@ -10,6 +10,7 @@ from app.filter_planner import build_filter_plan, validate_filter_plan
 from app.layer_matcher import match_layers
 from app.prompt_parser import parse_prompt
 from app.recipe_models import rejected_layer_from_match, selected_layer_from_match
+from app.request_intelligence import build_request_intelligence
 
 
 def _title_from_prompt(parsed_request: dict[str, Any]) -> str:
@@ -67,7 +68,11 @@ def _filters(parsed_request: dict[str, Any]) -> list[dict[str, Any]]:
     return filters
 
 
-def _spatial_operations(parsed_request: dict[str, Any], selected_layers: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def _spatial_operations(
+    parsed_request: dict[str, Any],
+    selected_layers: list[dict[str, Any]],
+    analysis_plan: dict[str, Any] | None = None,
+) -> list[dict[str, Any]]:
     layer_by_category = {layer["category"]: layer for layer in selected_layers}
     operations: list[dict[str, Any]] = []
     geographies = parsed_request.get("geography_terms", [])
@@ -101,6 +106,13 @@ def _spatial_operations(parsed_request: dict[str, Any], selected_layers: list[di
                 "notes": "Needs review because the prompt does not provide a distance threshold.",
             }
         )
+
+    existing_operations = {operation["operation"] for operation in operations}
+    for planned_step in (analysis_plan or {}).get("spatial_steps") or []:
+        operation_name = planned_step.get("operation")
+        if operation_name and operation_name not in existing_operations:
+            operations.append(planned_step)
+            existing_operations.add(operation_name)
 
     return operations
 
@@ -136,7 +148,12 @@ def _suggested_extent(parsed_request: dict[str, Any]) -> dict[str, Any]:
     return {"type": "countywide", "value": "Cabarrus County", "notes": "Default countywide extent."}
 
 
-def _review_flags(parsed_request: dict[str, Any], matching: dict[str, Any]) -> list[str]:
+def _review_flags(
+    parsed_request: dict[str, Any],
+    matching: dict[str, Any],
+    request_intelligence: dict[str, Any] | None = None,
+    analysis_plan: dict[str, Any] | None = None,
+) -> list[str]:
     flags: list[str] = []
     if matching["missing_data_needed"]:
         flags.append("Missing requested data from verified layer catalog.")
@@ -148,6 +165,13 @@ def _review_flags(parsed_request: dict[str, Any], matching: dict[str, Any]) -> l
         flags.append("Commercial zoning field/code needs review.")
     if matching["confidence_score"] < 0.65:
         flags.append("Overall match confidence is below review threshold.")
+    for flag in (request_intelligence or {}).get("ambiguity_flags") or []:
+        flags.append(f"Ambiguity needs review: {flag}.")
+    for part in (request_intelligence or {}).get("unsupported_parts") or []:
+        flags.append(f"Unsupported or missing request part: {part}.")
+    for question in (analysis_plan or {}).get("review_questions") or []:
+        if isinstance(question, dict) and question.get("question"):
+            flags.append(f"Clarifying question: {question['question']}")
     return flags
 
 
@@ -159,19 +183,30 @@ def build_recipe(
 ) -> dict[str, Any]:
     """Build a structured map recipe from a plain-English GIS request."""
     parsed_request = parse_prompt(prompt)
-    matching = match_layers(parsed_request, layer_catalog)
+    initial_intelligence = build_request_intelligence(prompt, parsed_request)
+    matching = match_layers(parsed_request, layer_catalog, request_intelligence=initial_intelligence)
     selected_layers = [selected_layer_from_match(layer) for layer in matching["selected_layers"]]
     rejected_layers = [rejected_layer_from_match(layer) for layer in matching["rejected_layers"]]
-    review_flags = _review_flags(parsed_request, matching)
+    intelligence_bundle = build_request_intelligence(
+        prompt,
+        parsed_request,
+        missing_data=matching["missing_data_needed"],
+        selected_layers=selected_layers,
+    )
+    request_intelligence = intelligence_bundle["request_intelligence"]
+    analysis_plan = intelligence_bundle["analysis_plan"]
+    review_flags = _review_flags(parsed_request, matching, request_intelligence, analysis_plan)
 
     recipe = {
         "map_title": _title_from_prompt(parsed_request),
         "user_intent": parsed_request["raw_prompt"],
         "parsed_request": parsed_request,
+        "request_intelligence": request_intelligence,
+        "analysis_plan": analysis_plan,
         "selected_layers": selected_layers,
         "rejected_layers": rejected_layers,
         "filters": _filters(parsed_request),
-        "spatial_operations": _spatial_operations(parsed_request, selected_layers),
+        "spatial_operations": _spatial_operations(parsed_request, selected_layers, analysis_plan),
         "symbology_recommendations": _symbology(selected_layers),
         "suggested_extent": _suggested_extent(parsed_request),
         "confidence_score": matching["confidence_score"],

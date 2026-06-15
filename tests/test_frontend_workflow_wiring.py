@@ -48,14 +48,20 @@ def test_packet_picker_supports_resume_workflows():
 def test_map_request_and_recipe_review_store_workflow_state():
     map_request = read("components/map-request-client.tsx")
     recipe_review = read("components/recipe-review-client.tsx")
+    intelligence_panel = read("components/request-intelligence-panel.tsx")
 
     assert "makeRecipe" in map_request
     assert "mergeWorkflowState" in map_request
     assert "workflowMissingDataFromRecipe" in map_request
     assert "Continue to Recipe Review" in map_request
+    assert "RequestIntelligencePanel" in map_request
     assert "makeReviewPacket" in recipe_review
     assert "selectedPacketId" in recipe_review
     assert "Create Adjustment Template" in recipe_review
+    assert "RequestIntelligencePanel" in recipe_review
+    assert "detected_intents" in intelligence_panel
+    assert "clarifying_questions" in intelligence_panel
+    assert "Analysis plan" in intelligence_panel
 
 
 def test_publish_center_is_dry_run_only():
@@ -172,3 +178,14 @@ def test_report_api_client_functions_are_typed_and_safe():
     assert "ReportSummary" in types
     assert "ReportDetail" in types
     assert "GenerateReportResponse" in types
+
+
+def test_frontend_types_include_request_intelligence_recipe_fields():
+    types = read("types/automap.ts")
+
+    assert "RequestIntelligence" in types
+    assert "AnalysisPlan" in types
+    assert "request_intelligence" in types
+    assert "analysis_plan" in types
+    assert "why_selected" in types
+    assert "why_not_legacy" in types

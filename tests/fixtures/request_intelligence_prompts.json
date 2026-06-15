@@ -1,0 +1,159 @@
+[
+  {
+    "prompt": "Show parcels in Concord that are in the 100-year floodplain.",
+    "expected_intents": ["property_lookup", "flood_exposure"],
+    "expected_topics": ["parcel", "flood"]
+  },
+  {
+    "prompt": "Show commercial zoning around Concord.",
+    "expected_intents": ["zoning_review", "growth_suitability"],
+    "expected_topics": ["zoning"]
+  },
+  {
+    "prompt": "Show school districts for parcels in Harrisburg.",
+    "expected_intents": ["school_district_lookup", "property_lookup"],
+    "expected_topics": ["schools", "parcel"]
+  },
+  {
+    "prompt": "Show 2014 parcels and zoning.",
+    "expected_intents": ["historical_comparison", "property_lookup", "zoning_review"],
+    "expected_topics": ["parcel", "zoning"]
+  },
+  {
+    "prompt": "Show roads in Kannapolis.",
+    "expected_intents": ["transportation_corridor"],
+    "expected_topics": ["transportation"]
+  },
+  {
+    "prompt": "Show parcels near floodplain and schools in Concord.",
+    "expected_intents": ["property_lookup", "flood_exposure", "school_district_lookup"],
+    "expected_topics": ["parcel", "flood", "schools"]
+  },
+  {
+    "prompt": "Map development pressure near schools.",
+    "expected_intents": ["development_pressure", "school_district_lookup"],
+    "expected_missing": ["development"]
+  },
+  {
+    "prompt": "Show properties near high traffic corridors.",
+    "expected_intents": ["property_lookup", "transportation_corridor", "growth_suitability"],
+    "expected_topics": ["parcel", "traffic"]
+  },
+  {
+    "prompt": "Find parcels constrained by floodplain and zoning.",
+    "expected_intents": ["property_lookup", "flood_exposure", "zoning_review", "environmental_constraint"],
+    "expected_topics": ["parcel", "flood", "zoning"]
+  },
+  {
+    "prompt": "Map commercial growth opportunities near major roads.",
+    "expected_intents": ["growth_suitability", "transportation_corridor"],
+    "expected_topics": ["transportation"]
+  },
+  {
+    "prompt": "I need a map of places around Concord where development might be risky because of flood zones.",
+    "expected_intents": ["development_activity", "flood_exposure", "environmental_constraint"],
+    "expected_topics": ["development", "flood"]
+  },
+  {
+    "prompt": "Can you show me properties that may have school district concerns and flood issues?",
+    "expected_intents": ["property_lookup", "school_district_lookup", "flood_exposure"],
+    "expected_topics": ["parcel", "schools", "flood"]
+  },
+  {
+    "prompt": "Make a planning map for commercial growth but avoid flood areas.",
+    "expected_intents": ["growth_suitability", "flood_exposure", "environmental_constraint"]
+  },
+  {
+    "prompt": "Show old zoning compared to current zoning around Harrisburg.",
+    "expected_intents": ["historical_comparison", "zoning_review"],
+    "expected_topics": ["zoning"]
+  },
+  {
+    "prompt": "Find areas that are good for development but not in floodplain and close to roads.",
+    "expected_intents": ["growth_suitability", "development_activity", "flood_exposure", "transportation_corridor"]
+  },
+  {
+    "prompt": "Show current permits near Kannapolis.",
+    "expected_intents": ["development_activity"],
+    "expected_missing": ["development", "permits"]
+  },
+  {
+    "prompt": "Show active planning cases around Concord.",
+    "expected_intents": ["development_activity"],
+    "expected_missing": ["development", "planning cases"]
+  },
+  {
+    "prompt": "Show subdivisions under review.",
+    "expected_intents": ["development_activity"],
+    "expected_missing": ["development", "subdivision activity"]
+  },
+  {
+    "prompt": "Show development pipeline near schools.",
+    "expected_intents": ["development_activity", "school_district_lookup"],
+    "expected_missing": ["development"]
+  },
+  {
+    "prompt": "Show construction activity in the last 6 months.",
+    "expected_intents": ["development_activity"],
+    "expected_missing": ["development", "permits"]
+  },
+  {
+    "prompt": "Map flood risk for properties in Midland.",
+    "expected_intents": ["flood_exposure", "property_lookup"],
+    "expected_topics": ["flood", "parcel"]
+  },
+  {
+    "prompt": "Show ETJ boundaries and municipal limits.",
+    "expected_intents": ["civic_boundary_lookup"],
+    "expected_topics": []
+  },
+  {
+    "prompt": "Map polling places and voting precincts.",
+    "expected_intents": ["civic_boundary_lookup"],
+    "expected_topics": ["civic"]
+  },
+  {
+    "prompt": "Show county facilities near major roads.",
+    "expected_intents": ["public_facility_lookup", "transportation_corridor"],
+    "expected_topics": ["public_facilities", "transportation"]
+  },
+  {
+    "prompt": "Find parcels with road access but avoid FEMA flood zones.",
+    "expected_intents": ["property_lookup", "transportation_corridor", "flood_exposure", "environmental_constraint"]
+  },
+  {
+    "prompt": "Show terrain and contours around Mount Pleasant.",
+    "expected_intents": ["general_reference_map"],
+    "expected_topics": ["terrain"]
+  },
+  {
+    "prompt": "Map streams near schools in Locust.",
+    "expected_intents": ["environmental_constraint", "school_district_lookup"],
+    "expected_topics": ["environmental", "schools"]
+  },
+  {
+    "prompt": "Show industrial zoning near highways.",
+    "expected_intents": ["zoning_review", "transportation_corridor", "growth_suitability"],
+    "expected_topics": ["zoning", "transportation"]
+  },
+  {
+    "prompt": "Compare 2014 parcels to current zoning.",
+    "expected_intents": ["historical_comparison", "property_lookup", "zoning_review"],
+    "expected_topics": ["parcel", "zoning"]
+  },
+  {
+    "prompt": "Where are good commercial sites outside floodplain and close to streets?",
+    "expected_intents": ["growth_suitability", "flood_exposure", "transportation_corridor"],
+    "expected_topics": ["flood", "transportation"]
+  },
+  {
+    "prompt": "Show address points in Cabarrus County.",
+    "expected_intents": ["property_lookup"],
+    "expected_topics": ["addresses"]
+  },
+  {
+    "prompt": "Map utility capacity for development sites.",
+    "expected_intents": ["infrastructure_access", "development_activity"],
+    "expected_missing": ["utility"]
+  }
+]
