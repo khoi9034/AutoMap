@@ -40,12 +40,12 @@ python -m app.main --make-review-packet "Show parcels in Concord that are in the
 python -m app.main --create-adjustment-template outputs/review_packets/<packet-folder>
 ```
 
-3. Edit `adjustments.template.yaml`.
+3. Edit the generated template under `outputs/adjustment_templates/`.
 
 4. Apply the adjustments:
 
 ```bash
-python -m app.main --apply-adjustments outputs/review_packets/<packet-folder> outputs/review_packets/<packet-folder>/adjustments.template.yaml
+python -m app.main --apply-adjustments outputs/review_packets/<packet-folder> outputs/adjustment_templates/<packet-folder>_adjustments.template.yaml
 ```
 
 5. Validate the adjusted packet:
@@ -56,7 +56,13 @@ python -m app.main --validate-adjusted-packet outputs/review_packets_adjusted/<a
 
 ## Output
 
-AutoMap never modifies the original review packet in place. Adjusted packets are written to:
+AutoMap never modifies the original review packet in place. Adjustment templates are written outside the packet under:
+
+```text
+outputs/adjustment_templates/
+```
+
+Adjusted packets are written to:
 
 ```text
 outputs/review_packets_adjusted/

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlencode
@@ -16,6 +17,12 @@ from app.adjustment_engine import (
     create_adjustment_template,
     validate_adjusted_packet,
 )
+from app.approval_engine import (
+    apply_approval_to_adjusted_packet,
+    create_approval_template,
+    list_approval_history,
+    validate_approved_packet,
+)
 from app.arcgis_publisher import publish_webmap_draft
 from app.data_gap_registry import data_gap_records_from_recipe, list_data_gaps
 from app.layer_catalog_store import search_layers
@@ -23,6 +30,7 @@ from app.packet_index import (
     build_preview_config,
     find_latest_packet,
     list_adjusted_packets,
+    list_approved_packets,
     list_review_packets,
 )
 from app.recipe_engine import build_recipe
@@ -79,6 +87,14 @@ def _packet_file_links(packet_path: str | Path, file_names: list[str]) -> list[d
 
 def _read_json(path: str | Path) -> Any:
     return json.loads(Path(path).read_text(encoding="utf-8"))
+
+
+def _write_ignored_helper_file(folder_name: str, file_name: str, content: str) -> Path:
+    root = repo_root() / "outputs" / folder_name
+    root.mkdir(parents=True, exist_ok=True)
+    helper_path = root / file_name
+    helper_path.write_text(content, encoding="utf-8")
+    return helper_path
 
 
 def _safe_local_output_path(path: str) -> Path:
@@ -150,6 +166,9 @@ def _preview_context(request: Request, *, packet_id: str | None = None, path: st
         adjusted_review_file_url=output_file_url(Path(config["packet_path"]) / "adjusted_review.html")
         if config["draft_status"] == "adjusted_review"
         else None,
+        approved_review_file_url=output_file_url(Path(config["packet_path"]) / "approved_review.html")
+        if config["draft_status"] == "approved_review"
+        else None,
     )
 
 
@@ -158,6 +177,7 @@ def index(request: Request):
     """Render the local UI home page."""
     review_packets = list_review_packets()[:5]
     adjusted_packets = list_adjusted_packets()[:5]
+    approved_packets = list_approved_packets()[:5]
     latest_packet = find_latest_packet()
     system_status = get_system_status()
     return templates.TemplateResponse(
@@ -167,6 +187,7 @@ def index(request: Request):
             request,
             review_packets=review_packets,
             adjusted_packets=adjusted_packets,
+            approved_packets=approved_packets,
             latest_packet=latest_packet,
             system_status=system_status,
         ),
@@ -226,7 +247,30 @@ def history(request: Request):
     return templates.TemplateResponse(
         request,
         "history.html",
-        _base_context(request, rows=rows, history_error=history_error),
+        _base_context(request, rows=rows, history_error=history_error, status=get_system_status()),
+    )
+
+
+@router.get("/approval")
+def approval(request: Request):
+    """Render the local reviewer approval gate."""
+    try:
+        approval_rows = list_approval_history(limit=50)
+        approval_error = None
+    except Exception as exc:
+        approval_rows = []
+        approval_error = str(exc)
+    return templates.TemplateResponse(
+        request,
+        "approval.html",
+        _base_context(
+            request,
+            approval_rows=approval_rows,
+            approval_error=approval_error,
+            adjusted_packets=list_adjusted_packets()[:10],
+            approved_packets=list_approved_packets()[:10],
+            status=get_system_status(),
+        ),
     )
 
 
@@ -358,9 +402,12 @@ def apply_adjustments(
     adjustment_yaml: str = Form(...),
 ):
     """Save edited adjustment YAML and create a separate adjusted packet."""
-    packet_path = Path(packet_folder)
-    adjustment_path = packet_path / "adjustments.ui.yaml"
-    adjustment_path.write_text(adjustment_yaml, encoding="utf-8")
+    timestamp = datetime.now(UTC).strftime("%Y%m%d%H%M%S")
+    adjustment_path = _write_ignored_helper_file(
+        "adjustment_templates",
+        f"{Path(packet_folder).name}_adjustments_ui_{timestamp}.yaml",
+        adjustment_yaml,
+    )
     adjusted_path = apply_adjustments_to_review_packet(packet_folder, adjustment_path)
     validation = validate_adjusted_packet(adjusted_path)
     recipe_for_history = _read_json(Path(adjusted_path) / "adjusted_recipe.json")
@@ -405,12 +452,97 @@ def apply_adjustments(
     )
 
 
+@router.post("/approval-template")
+def approval_template(request: Request, adjusted_packet_folder: str = Form(...)):
+    """Create and display an editable approval YAML template."""
+    template_path = create_approval_template(adjusted_packet_folder)
+    approval_text = template_path.read_text(encoding="utf-8")
+    return templates.TemplateResponse(
+        request,
+        "approved_packet.html",
+        _base_context(
+            request,
+            adjusted_path=adjusted_packet_folder,
+            template_path=str(template_path),
+            approval_yaml=approval_text,
+        ),
+    )
+
+
+@router.post("/apply-approval")
+def apply_approval(
+    request: Request,
+    adjusted_packet_folder: str = Form(...),
+    approval_yaml: str = Form(...),
+):
+    """Apply reviewer approval and create a separate approved packet."""
+    timestamp = datetime.now(UTC).strftime("%Y%m%d%H%M%S")
+    approval_path = _write_ignored_helper_file(
+        "approval_templates",
+        f"{Path(adjusted_packet_folder).name}_approval_ui_{timestamp}.yaml",
+        approval_yaml,
+    )
+    approved_path = apply_approval_to_adjusted_packet(adjusted_packet_folder, approval_path)
+    validation = validate_approved_packet(approved_path)
+    receipt = _read_json(Path(approved_path) / "approval_receipt.json")
+    approved_warnings = _read_json(Path(approved_path) / "approved_warnings.json")
+    layer_review = _read_json(Path(approved_path) / "approved_layer_review.json")
+    approved_recipe = _read_json(Path(approved_path) / "approved_recipe.json")
+    _record_history_safely(
+        raw_prompt=approved_recipe.get("user_intent"),
+        workflow_step="approval",
+        map_title=approved_recipe.get("map_title"),
+        status="publish_ready" if receipt.get("final_publish_ready") else "blocked",
+        adjusted_packet_path=adjusted_packet_folder,
+        notes={
+            "approved_packet_path": str(approved_path),
+            "final_publish_ready": receipt.get("final_publish_ready"),
+            "block_reasons": receipt.get("block_reasons") or [],
+        },
+    )
+    files = _packet_file_links(
+        approved_path,
+        [
+            "approved_recipe.json",
+            "approved_webmap.json",
+            "approval_file.json",
+            "approval_receipt.json",
+            "approved_warnings.json",
+            "approved_layer_review.json",
+            "approved_review_summary.md",
+            "approved_review.html",
+        ],
+    )
+    return templates.TemplateResponse(
+        request,
+        "approved_packet.html",
+        _base_context(
+            request,
+            adjusted_path=adjusted_packet_folder,
+            template_path=str(approval_path),
+            approval_yaml=approval_yaml,
+            approved_path=str(approved_path),
+            validation=validation,
+            approval_receipt=receipt,
+            approved_warnings=approved_warnings,
+            layer_review=layer_review,
+            files=files,
+            preview_url=_preview_url_for_source(approved_path),
+            webmap_file_url=output_file_url(Path(approved_path) / "approved_webmap.json"),
+            approved_review_file_url=output_file_url(Path(approved_path) / "approved_review.html"),
+        ),
+    )
+
+
 @router.post("/publish-dry-run")
 def publish_dry_run(request: Request, adjusted_packet_folder: str = Form(...)):
     """Run dry-run publishing only; never real publish from the UI."""
     result = publish_webmap_draft(adjusted_packet_folder, dry_run=True, confirm_publish=False)
     recipe_for_history = {}
-    recipe_path = Path(adjusted_packet_folder) / "adjusted_recipe.json"
+    packet_path = Path(adjusted_packet_folder)
+    recipe_path = packet_path / "approved_recipe.json"
+    if not recipe_path.exists():
+        recipe_path = packet_path / "adjusted_recipe.json"
     if recipe_path.exists():
         recipe_for_history = _read_json(recipe_path)
     _record_history_safely(
@@ -426,6 +558,39 @@ def publish_dry_run(request: Request, adjusted_packet_folder: str = Form(...)):
             "shared_organization": result.get("shared_organization"),
         },
     )
+    if (packet_path / "approved_webmap.json").exists():
+        receipt = _read_json(packet_path / "approval_receipt.json") if (packet_path / "approval_receipt.json").exists() else {}
+        validation = validate_approved_packet(packet_path)
+        files = _packet_file_links(
+            packet_path,
+            [
+                "approved_recipe.json",
+                "approved_webmap.json",
+                "approval_file.json",
+                "approval_receipt.json",
+                "approved_warnings.json",
+                "approved_layer_review.json",
+                "approved_review_summary.md",
+                "approved_review.html",
+                "publish_receipt.json",
+            ],
+        )
+        return templates.TemplateResponse(
+            request,
+            "approved_packet.html",
+            _base_context(
+                request,
+                approved_path=adjusted_packet_folder,
+                validation=validation,
+                approval_receipt=receipt,
+                publish_result=result,
+                publish_receipt=output_file_url(packet_path / "publish_receipt.json"),
+                files=files,
+                preview_url=_preview_url_for_source(adjusted_packet_folder),
+                webmap_file_url=output_file_url(packet_path / "approved_webmap.json"),
+                approved_review_file_url=output_file_url(packet_path / "approved_review.html"),
+            ),
+        )
     return templates.TemplateResponse(
         request,
         "adjusted_packet.html",

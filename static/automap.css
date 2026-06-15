@@ -204,6 +204,11 @@ textarea {
   grid-template-columns: minmax(180px, 1fr) auto;
 }
 
+.inline-button-form {
+  display: inline;
+  margin: 0;
+}
+
 .button-row {
   display: flex;
   flex-wrap: wrap;

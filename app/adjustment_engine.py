@@ -711,7 +711,7 @@ def validate_adjusted_packet(packet_folder: str | Path) -> dict[str, Any]:
 
 
 def create_adjustment_template(review_packet_folder: str | Path) -> Path:
-    """Create a YAML adjustment template inside an existing review packet folder."""
+    """Create a YAML adjustment template without mutating the review packet."""
     packet_path = Path(review_packet_folder)
     recipe = _load_json(packet_path / "recipe.json")
     webmap_json = _load_json(packet_path / "webmap.json")
@@ -754,6 +754,8 @@ def create_adjustment_template(review_packet_folder: str | Path) -> Path:
         "missing_data_notes": [],
         "publish_ready": False,
     }
-    template_path = packet_path / "adjustments.template.yaml"
+    root = Path("outputs/adjustment_templates")
+    root.mkdir(parents=True, exist_ok=True)
+    template_path = root / f"{packet_path.name}_adjustments.template.yaml"
     template_path.write_text(yaml.safe_dump(template, sort_keys=False), encoding="utf-8")
     return template_path

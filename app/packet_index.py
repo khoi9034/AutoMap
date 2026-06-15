@@ -14,6 +14,7 @@ from app.ui_models import repo_root
 OUTPUTS_ROOT = Path("outputs")
 REVIEW_PACKET_FOLDER = "review_packets"
 ADJUSTED_PACKET_FOLDER = "review_packets_adjusted"
+APPROVED_PACKET_FOLDER = "review_packets_approved"
 WEBMAP_FOLDER = "webmaps"
 
 PROTECTED_PREVIEW_MARKERS = {
@@ -42,7 +43,7 @@ def _safe_output_path(path: str | Path) -> Path:
         parts = candidate.parts
         if parts and parts[0].lower() == "outputs":
             candidate = output_root.joinpath(*parts[1:])
-        elif parts and parts[0] in {REVIEW_PACKET_FOLDER, ADJUSTED_PACKET_FOLDER, WEBMAP_FOLDER}:
+        elif parts and parts[0] in {REVIEW_PACKET_FOLDER, ADJUSTED_PACKET_FOLDER, APPROVED_PACKET_FOLDER, WEBMAP_FOLDER}:
             candidate = output_root / candidate
         else:
             candidate = repo_root() / candidate
@@ -76,12 +77,16 @@ def _folder_updated_at(path: Path) -> datetime:
 
 
 def _packet_json_name(packet_type: str, kind: str) -> str:
+    if packet_type == "approved":
+        return "approved_webmap.json" if kind == "webmap" else "approved_recipe.json"
     if packet_type == "adjusted":
         return "adjusted_webmap.json" if kind == "webmap" else "adjusted_recipe.json"
     return "webmap.json" if kind == "webmap" else "recipe.json"
 
 
 def _packet_type(path: Path) -> str | None:
+    if (path / "approved_webmap.json").exists():
+        return "approved"
     if (path / "adjusted_webmap.json").exists():
         return "adjusted"
     if (path / "webmap.json").exists():
@@ -129,6 +134,11 @@ def list_adjusted_packets() -> list[dict[str, Any]]:
     return _list_packet_dirs(ADJUSTED_PACKET_FOLDER, "adjusted")
 
 
+def list_approved_packets() -> list[dict[str, Any]]:
+    """List local approved packet folders newest first."""
+    return _list_packet_dirs(APPROVED_PACKET_FOLDER, "approved")
+
+
 def _list_webmap_files() -> list[dict[str, Any]]:
     root = _outputs_root() / WEBMAP_FOLDER
     if not root.exists():
@@ -157,7 +167,7 @@ def _list_webmap_files() -> list[dict[str, Any]]:
 
 def find_latest_packet() -> dict[str, Any] | None:
     """Return the latest adjusted, review, or generated WebMap draft."""
-    packets = [*list_adjusted_packets(), *list_review_packets(), *_list_webmap_files()]
+    packets = [*list_approved_packets(), *list_adjusted_packets(), *list_review_packets(), *_list_webmap_files()]
     if not packets:
         return None
     return sorted(packets, key=lambda item: item["updated_at"], reverse=True)[0]
@@ -177,7 +187,7 @@ def resolve_packet_id(packet_id: str | None) -> Path:
             return path
         raise FileNotFoundError(f"AutoMap preview source not found: {packet_id}")
 
-    for folder_name in (ADJUSTED_PACKET_FOLDER, REVIEW_PACKET_FOLDER):
+    for folder_name in (APPROVED_PACKET_FOLDER, ADJUSTED_PACKET_FOLDER, REVIEW_PACKET_FOLDER):
         path = _outputs_root() / folder_name / packet_id
         if path.exists():
             return path.resolve()
@@ -194,7 +204,7 @@ def get_packet_webmap_json(packet_folder: str | Path) -> dict[str, Any]:
     path = _safe_output_path(packet_folder)
     if path.is_file():
         return _load_json(path)
-    for file_name in ("adjusted_webmap.json", "webmap.json"):
+    for file_name in ("approved_webmap.json", "adjusted_webmap.json", "webmap.json"):
         candidate = path / file_name
         if candidate.exists():
             return _load_json(candidate)
@@ -206,7 +216,7 @@ def get_packet_recipe_json(packet_folder: str | Path) -> dict[str, Any]:
     path = _safe_output_path(packet_folder)
     if path.is_file():
         return {}
-    for file_name in ("adjusted_recipe.json", "recipe.json"):
+    for file_name in ("approved_recipe.json", "adjusted_recipe.json", "recipe.json"):
         candidate = path / file_name
         if candidate.exists():
             return _load_json(candidate)
@@ -216,6 +226,11 @@ def get_packet_recipe_json(packet_folder: str | Path) -> dict[str, Any]:
 def _packet_warnings(path: Path, webmap_json: dict[str, Any], recipe: dict[str, Any]) -> dict[str, Any]:
     if path.is_dir() and (path / "adjusted_warnings.json").exists():
         return _load_json(path / "adjusted_warnings.json")
+    if path.is_dir() and (path / "approved_warnings.json").exists():
+        approved_warnings = _load_json(path / "approved_warnings.json")
+        if "publish_ready" not in approved_warnings and "final_publish_ready" in approved_warnings:
+            approved_warnings["publish_ready"] = approved_warnings["final_publish_ready"]
+        return approved_warnings
     if path.is_dir() and (path / "warnings.json").exists():
         return _load_json(path / "warnings.json")
     warnings = [
@@ -365,8 +380,14 @@ def build_preview_config(packet_source: str | Path | None = None) -> dict[str, A
         "data_gaps": data_gap_records_from_recipe(recipe) if recipe else [],
         "packet_id": path.stem if path.is_file() else path.name,
         "packet_path": _output_relative_path(path),
-        "webmap_path": _output_relative_path(path if path.is_file() else path / _packet_json_name("adjusted" if packet_type == "adjusted" else "review", "webmap")),
-        "draft_status": "adjusted_review" if packet_type == "adjusted" else ("webmap_draft" if packet_type == "webmap_json" else "review_packet"),
+        "webmap_path": _output_relative_path(
+            path if path.is_file() else path / _packet_json_name(packet_type if packet_type in {"approved", "adjusted"} else "review", "webmap")
+        ),
+        "draft_status": (
+            "approved_review"
+            if packet_type == "approved"
+            else ("adjusted_review" if packet_type == "adjusted" else ("webmap_draft" if packet_type == "webmap_json" else "review_packet"))
+        ),
         "publish_ready": warnings.get("publish_ready") if isinstance(warnings, dict) else None,
         "preview_only": True,
     }

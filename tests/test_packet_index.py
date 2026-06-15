@@ -75,6 +75,23 @@ def write_adjusted_packet(root: Path, name="adjusted_one", title="Adjusted Flood
     return folder
 
 
+def write_approved_packet(root: Path, name="approved_one", title="Approved Flood Preview") -> Path:
+    folder = root / "review_packets_approved" / name
+    folder.mkdir(parents=True)
+    recipe = sample_recipe(title)
+    recipe["reviewer_approval"] = {"final_publish_ready": True, "local_approval_only": True}
+    (folder / "approved_recipe.json").write_text(json.dumps(recipe), encoding="utf-8")
+    webmap = sample_webmap(title)
+    webmap["autoMapApproval"] = {"finalPublishReady": True, "localApprovalOnly": True}
+    (folder / "approved_webmap.json").write_text(json.dumps(webmap), encoding="utf-8")
+    (folder / "approved_warnings.json").write_text(
+        json.dumps({"active": {}, "final_publish_ready": True}),
+        encoding="utf-8",
+    )
+    (folder / "approved_review.html").write_text("<html>approved</html>", encoding="utf-8")
+    return folder
+
+
 def set_tree_mtime(path: Path, timestamp: int) -> None:
     os.utime(path, (timestamp, timestamp))
     for item in path.iterdir():
@@ -105,6 +122,17 @@ def test_resolve_packet_id(monkeypatch, tmp_path):
     resolved = packet_index.resolve_packet_id("packet_by_id")
 
     assert resolved == folder.resolve()
+
+
+def test_preview_config_supports_approved_packets(monkeypatch, tmp_path):
+    monkeypatch.setattr(packet_index, "OUTPUTS_ROOT", tmp_path)
+    write_approved_packet(tmp_path, name="approved_packet")
+
+    config = packet_index.build_preview_config("approved_packet")
+
+    assert config["draft_status"] == "approved_review"
+    assert config["publish_ready"] is True
+    assert config["webmap_path"] == "outputs/review_packets_approved/approved_packet/approved_webmap.json"
 
 
 def test_preview_config_preserves_mapserver_sublayer(monkeypatch, tmp_path):

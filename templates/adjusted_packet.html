@@ -11,6 +11,12 @@
     {% if preview_url %}<a class="button-link" href="{{ preview_url }}">Preview Adjusted Map</a>{% endif %}
     {% if webmap_file_url %}<a class="button-link secondary" href="{{ webmap_file_url }}">Open WebMap JSON</a>{% endif %}
     {% if adjusted_review_file_url %}<a class="button-link secondary" href="{{ adjusted_review_file_url }}">Back To Review</a>{% endif %}
+    {% if adjusted_path %}
+      <form method="post" action="/approval-template" class="inline-button-form">
+        <input type="hidden" name="adjusted_packet_folder" value="{{ adjusted_path }}">
+        <button type="submit">Create Approval Template</button>
+      </form>
+    {% endif %}
   </div>
 </section>
 
@@ -45,10 +51,11 @@
     </table>
   </div>
   <div class="panel">
-    <h3>Dry-Run Publish</h3>
-    <form method="post" action="/publish-dry-run">
+    <h3>Reviewer Approval Gate</h3>
+    <p class="muted">Dry-run publishing from the UI is shown after a reviewer approval packet is publish-ready.</p>
+    <form method="post" action="/approval-template">
       <input type="hidden" name="adjusted_packet_folder" value="{{ adjusted_path }}">
-      <button type="submit">Run Dry-Run Publish</button>
+      <button type="submit">Create Approval Template</button>
     </form>
     {% if files %}
       <h4>Adjusted Files</h4>

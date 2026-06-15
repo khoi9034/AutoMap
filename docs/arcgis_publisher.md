@@ -1,13 +1,14 @@
 # Safe ArcGIS Draft Publisher
 
-AutoMap v0.7 adds a safe publisher for adjusted review packets.
+AutoMap v0.7 adds a safe publisher for adjusted and reviewer-approved packets.
 
-The default behavior is dry-run only. Dry-run validates the adjusted packet, builds the ArcGIS Web Map item properties, and writes `publish_receipt.json` inside the adjusted packet folder. It does not connect to ArcGIS and does not create any item.
+The default behavior is dry-run only. Dry-run validates the packet, builds the ArcGIS Web Map item properties, and writes `publish_receipt.json` inside the packet folder. It does not connect to ArcGIS and does not create any item.
 
 ## Safety Rules
 
-- Only adjusted packets can be published.
 - Raw review packets are blocked.
+- Approved packets are the preferred v1.1 dry-run target.
+- Adjusted packets can be dry-run tested only when their packet warning state is publish-ready.
 - Real publishing requires `--confirm-publish`.
 - Dry-run is the default.
 - Published items must remain private.
@@ -42,19 +43,20 @@ Dry-run a draft publish:
 
 ```bash
 python -m app.main --publish-draft-webmap outputs/review_packets_adjusted/<adjusted-packet-folder> --dry-run
+python -m app.main --publish-draft-webmap outputs/review_packets_approved/<approved-packet-folder> --dry-run
 ```
 
 Confirmed private draft publishing:
 
 ```bash
-python -m app.main --publish-draft-webmap outputs/review_packets_adjusted/<adjusted-packet-folder> --confirm-publish
+python -m app.main --publish-draft-webmap outputs/review_packets_approved/<approved-packet-folder> --confirm-publish
 ```
 
-Do not use confirmed publishing until the adjusted packet is approved for a private ArcGIS draft item.
+Do not use confirmed publishing until the adjusted packet has gone through reviewer approval and the approved packet receipt shows `final_publish_ready = true`.
 
 ## Publish Requirements
 
-The adjusted packet must include:
+Adjusted packets must include:
 
 - `adjusted_recipe.json`
 - `adjusted_webmap.json`
@@ -62,6 +64,16 @@ The adjusted packet must include:
 - `adjusted_warnings.json`
 
 The adjusted packet must have `publish_ready = true`, and unresolved warnings or publishing blockers must be cleared by human review. Warnings are not deleted; resolved warnings remain in the audit trail.
+
+Approved packets must include:
+
+- `approved_recipe.json`
+- `approved_webmap.json`
+- `approval_file.json`
+- `approval_receipt.json`
+- `approved_warnings.json`
+
+The approval receipt must have `final_publish_ready = true` and no remaining block reasons.
 
 ## Item Properties
 
@@ -77,4 +89,4 @@ Every dry-run or blocked publish writes `publish_receipt.json`. Receipts do not 
 
 ## Project Boundary
 
-The CFS database is separate and must not be touched by AutoMap publishing. AutoMap v0.7 works only with adjusted review packet files and ArcGIS item metadata.
+The CFS database is separate and must not be touched by AutoMap publishing. AutoMap v1.1 dry-run publishing works with adjusted or approved packet files and ArcGIS item metadata only.

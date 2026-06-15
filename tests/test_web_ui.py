@@ -126,6 +126,26 @@ def test_history_page_loads():
 
     assert response.status_code == 200
     assert "Request History" in response.text
+    assert "Approval history rows" in response.text
+
+
+def test_approval_page_loads(monkeypatch):
+    monkeypatch.setattr("app.ui_routes.list_approval_history", lambda limit=50: [])
+    monkeypatch.setattr("app.ui_routes.list_adjusted_packets", lambda: [])
+    monkeypatch.setattr("app.ui_routes.list_approved_packets", lambda: [])
+    monkeypatch.setattr(
+        "app.ui_routes.get_system_status",
+        lambda: {
+            "approval_history_count": 0,
+            "packets": {"adjusted_packet_count": 0, "approved_packet_count": 0},
+        },
+    )
+    client = TestClient(create_app())
+    response = client.get("/approval")
+
+    assert response.status_code == 200
+    assert "Reviewer Approval Gate" in response.text
+    assert "Create Approval Template" in response.text
 
 
 def test_homepage_lists_latest_drafts(monkeypatch, tmp_path):
@@ -225,6 +245,106 @@ def test_dry_run_publish_route_does_not_create_real_item(monkeypatch):
     assert "Preview Adjusted Map" in response.text
 
 
+def test_approval_template_route_displays_editable_yaml(monkeypatch, tmp_path):
+    template_path = tmp_path / "approval.template.yaml"
+    template_path.write_text("reviewer_name: Reviewer\ndecision: approved\npublish_ready_requested: true\n", encoding="utf-8")
+    monkeypatch.setattr("app.ui_routes.create_approval_template", lambda path: template_path)
+    client = TestClient(create_app())
+
+    response = client.post(
+        "/approval-template",
+        data={"adjusted_packet_folder": "outputs/review_packets_adjusted/sample"},
+    )
+
+    assert response.status_code == 200
+    assert "Edit Approval YAML" in response.text
+    assert "reviewer_name: Reviewer" in response.text
+
+
+def test_apply_approval_route_creates_approved_packet(monkeypatch, tmp_path):
+    approved_path = tmp_path / "approved_packet"
+    approved_path.mkdir()
+    receipt = {
+        "reviewer_name": "Reviewer",
+        "reviewer_role": "GIS Reviewer",
+        "decision": "approved",
+        "publish_ready_requested": True,
+        "final_publish_ready": True,
+        "block_reasons": [],
+        "reviewer_notes": ["Looks ready for dry-run."],
+        "local_approval_only": True,
+        "no_arcgis_item_created": True,
+    }
+    (approved_path / "approval_receipt.json").write_text(json.dumps(receipt), encoding="utf-8")
+    (approved_path / "approved_warnings.json").write_text(json.dumps({"final_publish_ready": True}), encoding="utf-8")
+    (approved_path / "approved_layer_review.json").write_text(json.dumps([]), encoding="utf-8")
+    (approved_path / "approved_recipe.json").write_text(json.dumps(sample_recipe()), encoding="utf-8")
+    (approved_path / "approved_webmap.json").write_text(json.dumps(sample_webmap()), encoding="utf-8")
+    (approved_path / "approval_file.json").write_text(json.dumps({}), encoding="utf-8")
+    (approved_path / "approved_review_summary.md").write_text("summary", encoding="utf-8")
+    (approved_path / "approved_review.html").write_text("<html>approved</html>", encoding="utf-8")
+    monkeypatch.setattr("app.ui_routes.apply_approval_to_adjusted_packet", lambda adjusted, approval: approved_path)
+    monkeypatch.setattr(
+        "app.ui_routes.validate_approved_packet",
+        lambda path: {"is_valid": True, "final_publish_ready": True, "block_reasons": []},
+    )
+    client = TestClient(create_app())
+
+    response = client.post(
+        "/apply-approval",
+        data={
+            "adjusted_packet_folder": "outputs/review_packets_adjusted/sample",
+            "approval_yaml": "reviewer_name: Reviewer\n",
+        },
+    )
+
+    assert response.status_code == 200
+    assert "Approved packet:" in response.text
+    assert "Final publish ready:</strong> True" in response.text
+    assert "Run Dry-Run Publish" in response.text
+
+
+def test_dry_run_publish_route_supports_approved_packet(monkeypatch, tmp_path):
+    approved_path = tmp_path / "approved_packet"
+    approved_path.mkdir()
+    (approved_path / "approved_recipe.json").write_text(json.dumps(sample_recipe()), encoding="utf-8")
+    (approved_path / "approved_webmap.json").write_text(json.dumps(sample_webmap()), encoding="utf-8")
+    (approved_path / "approval_receipt.json").write_text(
+        json.dumps(
+            {
+                "final_publish_ready": True,
+                "block_reasons": [],
+                "reviewer_notes": [],
+                "local_approval_only": True,
+                "no_arcgis_item_created": True,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    def fake_publish(path, dry_run=True, confirm_publish=False):
+        return {
+            "status": "dry_run",
+            "created_item": False,
+            "published": False,
+            "shared_public": False,
+            "shared_organization": False,
+        }
+
+    monkeypatch.setattr("app.ui_routes.publish_webmap_draft", fake_publish)
+    monkeypatch.setattr(
+        "app.ui_routes.validate_approved_packet",
+        lambda path: {"is_valid": True, "final_publish_ready": True, "block_reasons": []},
+    )
+    client = TestClient(create_app())
+
+    response = client.post("/publish-dry-run", data={"adjusted_packet_folder": str(approved_path)})
+
+    assert response.status_code == 200
+    assert "Dry-Run Publish Result" in response.text
+    assert "Created item:</strong> False" in response.text
+
+
 def test_preview_route_loads(monkeypatch, tmp_path):
     monkeypatch.setattr(packet_index, "OUTPUTS_ROOT", tmp_path)
     write_ui_packet(tmp_path, name="preview_ui_packet")
@@ -307,6 +427,7 @@ def test_ui_does_not_reference_cfs_on_main_pages(monkeypatch):
     monkeypatch.setattr("app.ui_routes.list_data_gaps", lambda: [])
     monkeypatch.setattr("app.ui_routes.list_review_packets", lambda: [])
     monkeypatch.setattr("app.ui_routes.list_adjusted_packets", lambda: [])
+    monkeypatch.setattr("app.ui_routes.list_approved_packets", lambda: [])
     monkeypatch.setattr("app.ui_routes.find_latest_packet", lambda: None)
     monkeypatch.setattr(
         "app.ui_routes.get_system_status",
@@ -314,7 +435,9 @@ def test_ui_does_not_reference_cfs_on_main_pages(monkeypatch):
             "catalog": {"verified_layer_count": 0},
             "profiles": {"field_profile_count": 0, "value_profile_count": 0},
             "data_gap_count": 0,
-            "packets": {"review_packet_count": 0, "adjusted_packet_count": 0},
+            "approval_history_count": 0,
+            "request_history_count": 0,
+            "packets": {"review_packet_count": 0, "adjusted_packet_count": 0, "approved_packet_count": 0},
         },
     )
     client = TestClient(create_app())
@@ -345,3 +468,7 @@ def test_cli_commands_exist():
     assert "--system-status" in result.stdout
     assert "--run-demo-workflow" in result.stdout
     assert "--list-packets" in result.stdout
+    assert "--create-approval-template" in result.stdout
+    assert "--apply-approval" in result.stdout
+    assert "--validate-approved-packet" in result.stdout
+    assert "--list-approvals" in result.stdout

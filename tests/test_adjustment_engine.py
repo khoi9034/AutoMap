@@ -274,7 +274,8 @@ def test_warning_resolution_and_publish_ready_blocker_behavior(tmp_path, monkeyp
     assert any("Publishing blocked" in item for item in warnings["active"]["publishing_blockers"])
 
 
-def test_create_adjustment_template(tmp_path):
+def test_create_adjustment_template(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
     packet_path = save_review_packet(
         "Show parcels in Concord that are in the 100-year floodplain.",
         sample_recipe(),
@@ -285,6 +286,8 @@ def test_create_adjustment_template(tmp_path):
     template_path = create_adjustment_template(packet_path)
 
     assert template_path.exists()
+    assert template_path.parent.name == "adjustment_templates"
+    assert not (packet_path / "adjustments.template.yaml").exists()
     loaded = load_adjustment_file(template_path)
     assert "MunicipalDistrict" in loaded["layer_adjustments"]
 

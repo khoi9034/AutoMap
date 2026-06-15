@@ -36,7 +36,11 @@
     <span>Edit YAML adjustments and preserve the original packet.</span>
   </article>
   <article class="workflow-card">
-    <strong>5. Dry-Run Publish</strong>
+    <strong>5. Approve Packet</strong>
+    <span>Reviewer sign-off creates a separate approved packet when warnings are addressed.</span>
+  </article>
+  <article class="workflow-card">
+    <strong>6. Dry-Run Publish</strong>
     <span>Create a receipt only. No ArcGIS item is created from the UI.</span>
   </article>
 </section>
@@ -75,6 +79,19 @@
         {% endfor %}
       </ul>
     </div>
+    <div>
+      <h3>Approved Packets</h3>
+      <ul class="compact-list">
+        {% for packet in approved_packets %}
+          <li>
+            <a href="{{ packet.preview_url }}">{{ packet.map_title }}</a>
+            <span class="muted">{{ packet.updated_at }}</span>
+          </li>
+        {% else %}
+          <li>No approved packets found yet.</li>
+        {% endfor %}
+      </ul>
+    </div>
   </div>
 </section>
 
@@ -102,6 +119,14 @@
   <article class="status-card">
     <span>Adjusted Packets</span>
     <strong>{{ system_status.packets.adjusted_packet_count }}</strong>
+  </article>
+  <article class="status-card">
+    <span>Approved Packets</span>
+    <strong>{{ system_status.packets.approved_packet_count }}</strong>
+  </article>
+  <article class="status-card">
+    <span>Approval Rows</span>
+    <strong>{{ system_status.approval_history_count }}</strong>
   </article>
 </section>
 

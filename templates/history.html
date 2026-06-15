@@ -4,6 +4,10 @@
 <section class="panel">
   <h2>Request History</h2>
   <p class="muted">Recent local workflow activity recorded in the AutoMap schema.</p>
+  {% if status %}
+    <p><strong>Request history rows:</strong> {{ status.request_history_count }} | <strong>Approval history rows:</strong> {{ status.approval_history_count }}</p>
+    <p><a class="button-link secondary" href="/approval">Open Approval Gate</a></p>
+  {% endif %}
   {% if history_error %}
     <div class="warning-box">{{ history_error }}</div>
   {% endif %}

@@ -12,7 +12,8 @@ from app.data_gap_registry import ensure_data_gap_registry_table
 from app.db import _quote_identifier, get_engine, test_db_connection
 from app.field_profiler import ensure_field_intelligence_tables
 from app.layer_catalog_store import ensure_layer_catalog_table
-from app.packet_index import list_adjusted_packets, list_review_packets
+from app.packet_index import list_adjusted_packets, list_approved_packets, list_review_packets
+from app.approval_engine import ensure_review_approval_history_table
 from app.request_history import ensure_request_history_table
 from app.version import AUTOMAP_VERSION
 
@@ -48,9 +49,11 @@ def get_system_status(schema_name: str | None = None) -> dict[str, Any]:
         },
         "data_gap_count": 0,
         "request_history_count": 0,
+        "approval_history_count": 0,
         "packets": {
             "review_packet_count": len(list_review_packets()),
             "adjusted_packet_count": len(list_adjusted_packets()),
+            "approved_packet_count": len(list_approved_packets()),
         },
         "arcgis_publisher_mode": "dry-run by default",
         "protected_database_status": "external project database was not accessed",
@@ -71,6 +74,7 @@ def get_system_status(schema_name: str | None = None) -> dict[str, Any]:
         ensure_field_intelligence_tables(schema)
         ensure_data_gap_registry_table(schema)
         ensure_request_history_table(schema)
+        ensure_review_approval_history_table(schema)
         engine = get_engine(settings)
         with engine.connect() as connection:
             catalog_table = _qualified(schema, "layer_catalog")
@@ -78,6 +82,7 @@ def get_system_status(schema_name: str | None = None) -> dict[str, Any]:
             value_table = _qualified(schema, "layer_value_profile")
             gaps_table = _qualified(schema, "data_gap_registry")
             history_table = _qualified(schema, "request_history")
+            approval_table = _qualified(schema, "review_approval_history")
             status["catalog"] = {
                 "layer_count": _scalar_count(connection, f"SELECT count(*) FROM {catalog_table};"),
                 "verified_layer_count": _scalar_count(connection, f"SELECT count(*) FROM {catalog_table} WHERE is_verified = true;"),
@@ -114,6 +119,7 @@ def get_system_status(schema_name: str | None = None) -> dict[str, Any]:
             }
             status["data_gap_count"] = _scalar_count(connection, f"SELECT count(*) FROM {gaps_table};")
             status["request_history_count"] = _scalar_count(connection, f"SELECT count(*) FROM {history_table};")
+            status["approval_history_count"] = _scalar_count(connection, f"SELECT count(*) FROM {approval_table};")
     except (SQLAlchemyError, ValueError) as exc:
         status["errors"].append(str(exc))
 
@@ -140,8 +146,10 @@ def format_system_status(status: dict[str, Any]) -> str:
         f"Value profiles: {profiles['value_profile_count']}",
         f"Data gaps: {status['data_gap_count']}",
         f"Request history rows: {status['request_history_count']}",
+        f"Approval history rows: {status['approval_history_count']}",
         f"Review packets: {packets['review_packet_count']}",
         f"Adjusted packets: {packets['adjusted_packet_count']}",
+        f"Approved packets: {packets['approved_packet_count']}",
         f"ArcGIS publisher mode: {status['arcgis_publisher_mode']}",
         f"Protected database reminder: {status['protected_database_status']}",
     ]

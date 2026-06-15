@@ -18,6 +18,8 @@
           <a class="button-link secondary" href="{{ review_file_url }}">Back To Review</a>
         {% elif adjusted_review_file_url %}
           <a class="button-link secondary" href="{{ adjusted_review_file_url }}">Back To Review</a>
+        {% elif approved_review_file_url %}
+          <a class="button-link secondary" href="{{ approved_review_file_url }}">Back To Review</a>
         {% else %}
           <a class="button-link secondary" href="/">Back To Home</a>
         {% endif %}

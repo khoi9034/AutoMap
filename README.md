@@ -2,11 +2,11 @@
 
 AutoMap converts plain-English county GIS map requests into structured map recipes using only approved GIS layers from a local layer catalog.
 
-Version: `1.0.0`
+Version: `1.1.0`
 
 ## Current Phase
 
-v1.0 local demo application.
+v1.1 local reviewer approval gate.
 
 This repository is intentionally independent. It does not connect to CFS or import CFS code. AutoMap uses its own local PostGIS database and trusted layer catalog.
 
@@ -21,6 +21,7 @@ AutoMap helps GIS and planning staff turn plain-English county map requests into
 - local ArcGIS WebMap JSON drafts
 - review packets for human approval
 - YAML-based human adjustment loop
+- local reviewer approval gate
 - live local browser map preview
 - dry-run publish receipts
 - local request history and system status
@@ -42,6 +43,7 @@ ArcGIS publishing remains dry-run by default unless a guarded CLI path is explic
 7. PDF/export tools
 8. Local UI and preview
 9. v1.0 demo polish and QA hardening
+10. v1.1 reviewer approval gate
 
 ## Project Structure
 
@@ -181,21 +183,44 @@ AutoMap v0.6 lets a reviewer edit a local YAML or JSON adjustment file to refine
 ```bash
 python -m app.main --make-review-packet "Show parcels in Concord that are in the 100-year floodplain."
 python -m app.main --create-adjustment-template outputs/review_packets/<packet-folder>
-python -m app.main --apply-adjustments outputs/review_packets/<packet-folder> outputs/review_packets/<packet-folder>/adjustments.template.yaml
+python -m app.main --apply-adjustments outputs/review_packets/<packet-folder> outputs/adjustment_templates/<packet-folder>_adjustments.template.yaml
 python -m app.main --validate-adjusted-packet outputs/review_packets_adjusted/<adjusted-packet-folder>
 ```
 
 Adjusted packets include original and adjusted recipe/WebMap JSON, applied adjustment audit details, adjusted warning status, layer review, and `adjusted_review.html`.
 
+## Reviewer Approval Gate
+
+AutoMap v1.1 adds a formal local approval step for adjusted packets. Reviewers can create an approval YAML template, mark warnings as resolved or accepted, document missing-data decisions, and create a separate approved packet under `outputs/review_packets_approved/`.
+
+Approval is local-only. `final_publish_ready = true` means the reviewer approved the packet for a future private draft publishing check; it is not official map approval and does not publish anything to ArcGIS Online, Enterprise, or Portal.
+
+```bash
+python -m app.main --create-approval-template outputs/review_packets_adjusted/<adjusted-packet-folder>
+python -m app.main --apply-approval outputs/review_packets_adjusted/<adjusted-packet-folder> outputs/approval_templates/<adjusted-packet-folder>_approval.template.yaml
+python -m app.main --validate-approved-packet outputs/review_packets_approved/<approved-packet-folder>
+python -m app.main --list-approvals
+python -m app.main --publish-draft-webmap outputs/review_packets_approved/<approved-packet-folder> --dry-run
+```
+
+The local UI includes an approval page:
+
+```text
+http://127.0.0.1:8001/approval
+```
+
+Only approved packets with `final_publish_ready = true` show the UI dry-run publish action. Real Portal publishing remains separately guarded by `--confirm-publish` and is not part of v1.1 verification.
+
 ## Safe ArcGIS Draft Publisher
 
-AutoMap v0.7 can validate an adjusted packet and prepare a private ArcGIS Web Map draft. The default is dry-run only, which writes `publish_receipt.json` and does not connect to ArcGIS or create an item.
+AutoMap v0.7 can validate an adjusted or approved packet and prepare a private ArcGIS Web Map draft. The default is dry-run only, which writes `publish_receipt.json` and does not connect to ArcGIS or create an item.
 
-Real publishing requires `--confirm-publish`, and only adjusted packets can be published. AutoMap does not publish publicly, does not share to the organization, and does not overwrite or delete existing ArcGIS items.
+Real publishing requires `--confirm-publish`, and raw review packets cannot be published. AutoMap does not publish publicly, does not share to the organization, and does not overwrite or delete existing ArcGIS items.
 
 ```bash
 python -m app.main --portal-check
 python -m app.main --publish-draft-webmap outputs/review_packets_adjusted/<adjusted-packet-folder> --dry-run
+python -m app.main --publish-draft-webmap outputs/review_packets_approved/<approved-packet-folder> --dry-run
 python -m app.main --publish-draft-webmap outputs/review_packets_adjusted/<adjusted-packet-folder> --confirm-publish
 ```
 
@@ -266,6 +291,7 @@ Useful pages:
 http://127.0.0.1:8001/demo
 http://127.0.0.1:8001/status
 http://127.0.0.1:8001/history
+http://127.0.0.1:8001/approval
 http://127.0.0.1:8001/preview
 ```
 
@@ -275,7 +301,7 @@ http://127.0.0.1:8001/preview
 Prompt -> Parser -> Layer Matcher -> Recipe Engine
        -> Field/Filter Intelligence -> Draft WebMap JSON
        -> Review Packet -> Human Adjustment -> Local Preview
-       -> Dry-Run Publish Receipt
+       -> Reviewer Approval -> Dry-Run Publish Receipt
 ```
 
 The trusted source for layer selection is `automap.layer_catalog`. Generated artifacts live under `outputs/`, which is ignored by Git.
@@ -290,5 +316,5 @@ See:
 
 - Approved GIS layers come from AutoMap's local `automap.layer_catalog`.
 - Generated recipes, WebMap drafts, review packets, and adjusted packets are local artifacts and are not committed.
-- ArcGIS Online or Portal publishing is dry-run only by default in v1.0.
+- ArcGIS Online or Portal publishing is dry-run only by default in v1.1.
 - CFS uses a separate database and remains untouched by AutoMap.

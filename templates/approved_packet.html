@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% block title %}Approved Packet - AutoMap{% endblock %}
+{% block content %}
+<section class="panel">
+  <h2>Reviewer Approval</h2>
+  {% if adjusted_path %}<p><strong>Adjusted packet:</strong> <code>{{ adjusted_path }}</code></p>{% endif %}
+  {% if template_path %}<p><strong>Approval file:</strong> <code>{{ template_path }}</code></p>{% endif %}
+  {% if approved_path %}<p><strong>Approved packet:</strong> <code>{{ approved_path }}</code></p>{% endif %}
+  {% if validation %}
+    <p><strong>Approved packet validation:</strong> {{ validation.is_valid }} | <strong>Final publish ready:</strong> {{ validation.final_publish_ready }}</p>
+  {% endif %}
+  <div class="button-row">
+    {% if preview_url %}<a class="button-link" href="{{ preview_url }}">Preview Approved Map</a>{% endif %}
+    {% if webmap_file_url %}<a class="button-link secondary" href="{{ webmap_file_url }}">Open WebMap JSON</a>{% endif %}
+    {% if approved_review_file_url %}<a class="button-link secondary" href="{{ approved_review_file_url }}">Open Approval Review</a>{% endif %}
+  </div>
+</section>
+
+{% if approval_yaml and not approved_path %}
+<section class="panel">
+  <h3>Edit Approval YAML</h3>
+  <form method="post" action="/apply-approval">
+    <input type="hidden" name="adjusted_packet_folder" value="{{ adjusted_path }}">
+    <textarea name="approval_yaml" rows="22">{{ approval_yaml }}</textarea>
+    <button type="submit">Apply Reviewer Approval</button>
+  </form>
+</section>
+{% endif %}
+
+{% if approval_receipt %}
+<section class="two-column">
+  <div class="panel">
+    <h3>Approval Receipt</h3>
+    <p><strong>Reviewer:</strong> {{ approval_receipt.reviewer_name }}</p>
+    <p><strong>Role:</strong> {{ approval_receipt.reviewer_role }}</p>
+    <p><strong>Decision:</strong> {{ approval_receipt.decision }}</p>
+    <p><strong>Publish ready requested:</strong> {{ approval_receipt.publish_ready_requested }}</p>
+    <p><strong>Final publish ready:</strong> {{ approval_receipt.final_publish_ready }}</p>
+    <p><strong>Local approval only:</strong> {{ approval_receipt.local_approval_only }}</p>
+    <p><strong>No ArcGIS item created:</strong> {{ approval_receipt.no_arcgis_item_created }}</p>
+  </div>
+  <div class="panel">
+    <h3>Block Reasons</h3>
+    <ul class="compact-list">
+      {% for reason in approval_receipt.block_reasons %}
+        <li>{{ reason }}</li>
+      {% else %}
+        <li>No block reasons remain.</li>
+      {% endfor %}
+    </ul>
+    <h3>Reviewer Notes</h3>
+    <ul class="compact-list">
+      {% for note in approval_receipt.reviewer_notes %}
+        <li>{{ note }}</li>
+      {% else %}
+        <li>No reviewer notes.</li>
+      {% endfor %}
+    </ul>
+  </div>
+</section>
+{% endif %}
+
+{% if approved_path %}
+<section class="two-column">
+  <div class="panel">
+    <h3>Approved Layers</h3>
+    <table>
+      <thead><tr><th>Layer</th><th>Role</th><th>Source</th><th>URL</th></tr></thead>
+      <tbody>
+        {% for row in layer_review %}
+          <tr>
+            <td>{{ row.title }}</td>
+            <td>{{ row.role }}</td>
+            <td>{{ row.source_status }}</td>
+            <td><code>{{ row.layer_url }}</code></td>
+          </tr>
+        {% else %}
+          <tr><td colspan="4">No layer review rows found.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="panel">
+    <h3>Dry-Run Publish</h3>
+    {% if approval_receipt and approval_receipt.final_publish_ready %}
+      <form method="post" action="/publish-dry-run">
+        <input type="hidden" name="adjusted_packet_folder" value="{{ approved_path }}">
+        <button type="submit">Run Dry-Run Publish</button>
+      </form>
+    {% else %}
+      <p class="muted">Dry-run publishing is hidden until final_publish_ready is true.</p>
+    {% endif %}
+    {% if files %}
+      <h4>Approved Files</h4>
+      <ul class="compact-list">
+        {% for file in files %}
+          <li><a href="{{ file.url }}">{{ file.name }}</a></li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+  </div>
+</section>
+{% endif %}
+
+{% if approved_warnings %}
+<section class="panel">
+  <h3>Approved Warning Status</h3>
+  <p><strong>Final publish ready:</strong> {{ approved_warnings.final_publish_ready }}</p>
+  <h4>Resolved Warnings</h4>
+  <ul class="compact-list">
+    {% for warning in approved_warnings.resolved_warnings %}
+      <li>{{ warning.warning_id }}: {{ warning.warning }}</li>
+    {% else %}
+      <li>None.</li>
+    {% endfor %}
+  </ul>
+  <h4>Accepted Warnings</h4>
+  <ul class="compact-list">
+    {% for warning in approved_warnings.accepted_warnings %}
+      <li>{{ warning.warning_id }}: {{ warning.warning }}</li>
+    {% else %}
+      <li>None.</li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+{% if publish_result %}
+<section class="panel">
+  <h3>Dry-Run Publish Result</h3>
+  <p><strong>Status:</strong> {{ publish_result.status }}</p>
+  <p><strong>Created item:</strong> {{ publish_result.created_item }} | <strong>Published:</strong> {{ publish_result.published }}</p>
+  <p><strong>Public:</strong> {{ publish_result.shared_public }} | <strong>Organization:</strong> {{ publish_result.shared_organization }}</p>
+  <p><strong>Receipt:</strong> <a href="{{ publish_receipt }}">publish_receipt.json</a></p>
+  <pre>{{ publish_result | tojson(indent=2) }}</pre>
+</section>
+{% endif %}
+{% endblock %}

@@ -14,6 +14,12 @@ from app.adjustment_engine import (
     create_adjustment_template,
     validate_adjusted_packet,
 )
+from app.approval_engine import (
+    apply_approval_to_adjusted_packet,
+    create_approval_template,
+    list_approval_history,
+    validate_approved_packet,
+)
 from app.arcgis_publisher import (
     check_arcgis_connection,
     publish_webmap_draft,
@@ -42,6 +48,7 @@ from app.packet_index import (
     build_preview_config,
     find_latest_packet,
     list_adjusted_packets,
+    list_approved_packets,
     list_review_packets,
 )
 from app.recipe_engine import build_recipe
@@ -326,6 +333,46 @@ def _validate_adjusted_packet(path: str) -> int:
     return 0 if validation["is_valid"] else 1
 
 
+def _create_approval_template(path: str) -> int:
+    template_path = create_approval_template(path)
+    print(f"approval template created: {template_path}")
+    return 0
+
+
+def _apply_approval(adjusted_packet_folder: str, approval_file: str) -> int:
+    approved_path = apply_approval_to_adjusted_packet(adjusted_packet_folder, approval_file)
+    validation = validate_approved_packet(approved_path)
+    print(f"approved packet saved: {approved_path}")
+    print(f"validation passed: {validation['is_valid']}")
+    print(f"final publish ready: {validation.get('final_publish_ready')}")
+    if validation["errors"]:
+        print("validation errors:")
+        for error in validation["errors"]:
+            print(f"- {error}")
+    if validation.get("block_reasons"):
+        print("block reasons:")
+        for reason in validation["block_reasons"]:
+            print(f"- {reason}")
+    return 0 if validation["is_valid"] else 1
+
+
+def _validate_approved_packet(path: str) -> int:
+    validation = validate_approved_packet(path)
+    print(json.dumps(validation, indent=2))
+    return 0 if validation["is_valid"] else 1
+
+
+def _list_approvals() -> int:
+    rows = list_approval_history()
+    for row in rows:
+        print(
+            f"{row['id']} | {row['decision']} | ready={row['final_publish_ready']} | "
+            f"{row['reviewer_name']} | {row['approved_packet_path']}"
+        )
+    print(f"approval history rows: {len(rows)}")
+    return 0
+
+
 def _portal_check() -> int:
     result = check_arcgis_connection()
     print(json.dumps(result, indent=2))
@@ -352,6 +399,7 @@ def _serve_ui(port: int | None = None) -> int:
 def _list_packets() -> int:
     review_packets = list_review_packets()
     adjusted_packets = list_adjusted_packets()
+    approved_packets = list_approved_packets()
     print("review packets:")
     for packet in review_packets:
         print(f"- {packet['packet_id']} | {packet['map_title']} | {packet['preview_url']}")
@@ -362,11 +410,17 @@ def _list_packets() -> int:
         print(f"- {packet['packet_id']} | {packet['map_title']} | {packet['preview_url']}")
     if not adjusted_packets:
         print("- none")
+    print("approved packets:")
+    for packet in approved_packets:
+        print(f"- {packet['packet_id']} | {packet['map_title']} | {packet['preview_url']}")
+    if not approved_packets:
+        print("- none")
     latest = find_latest_packet()
     if latest:
         print(f"latest: {latest['packet_id']} | {latest['preview_url']}")
     print(f"review packet count: {len(review_packets)}")
     print(f"adjusted packet count: {len(adjusted_packets)}")
+    print(f"approved packet count: {len(approved_packets)}")
     return 0
 
 
@@ -502,7 +556,7 @@ def main() -> int:
     parser.add_argument(
         "--create-adjustment-template",
         metavar="REVIEW_PACKET_FOLDER",
-        help="Create a YAML adjustment template inside a review packet folder.",
+        help="Create a YAML adjustment template for a review packet.",
     )
     parser.add_argument(
         "--apply-adjustments",
@@ -514,6 +568,27 @@ def main() -> int:
         "--validate-adjusted-packet",
         metavar="PATH",
         help="Validate a generated adjusted review packet folder.",
+    )
+    parser.add_argument(
+        "--create-approval-template",
+        metavar="ADJUSTED_PACKET_FOLDER",
+        help="Create a YAML approval template for an adjusted packet.",
+    )
+    parser.add_argument(
+        "--apply-approval",
+        nargs=2,
+        metavar=("ADJUSTED_PACKET_FOLDER", "APPROVAL_FILE"),
+        help="Apply a YAML or JSON approval file to an adjusted packet.",
+    )
+    parser.add_argument(
+        "--validate-approved-packet",
+        metavar="PATH",
+        help="Validate a generated approved review packet folder.",
+    )
+    parser.add_argument(
+        "--list-approvals",
+        action="store_true",
+        help="List local reviewer approval history.",
     )
     parser.add_argument(
         "--portal-check",
@@ -606,6 +681,14 @@ def main() -> int:
             return _apply_adjustments(args.apply_adjustments[0], args.apply_adjustments[1])
         if args.validate_adjusted_packet:
             return _validate_adjusted_packet(args.validate_adjusted_packet)
+        if args.create_approval_template:
+            return _create_approval_template(args.create_approval_template)
+        if args.apply_approval:
+            return _apply_approval(args.apply_approval[0], args.apply_approval[1])
+        if args.validate_approved_packet:
+            return _validate_approved_packet(args.validate_approved_packet)
+        if args.list_approvals:
+            return _list_approvals()
         if args.portal_check:
             return _portal_check()
         if args.publish_draft_webmap:

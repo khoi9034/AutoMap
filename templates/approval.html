@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}Approval Gate - AutoMap{% endblock %}
+{% block content %}
+<section class="panel">
+  <h2>Reviewer Approval Gate</h2>
+  <p class="muted">Approve adjusted packets locally before any dry-run publishing check. Nothing is published from this page.</p>
+  {% if approval_error %}
+    <div class="warning-box">{{ approval_error }}</div>
+  {% endif %}
+</section>
+
+<section class="status-grid">
+  <article class="status-card"><span>Approval History Rows</span><strong>{{ status.approval_history_count }}</strong></article>
+  <article class="status-card"><span>Adjusted Packets</span><strong>{{ status.packets.adjusted_packet_count }}</strong></article>
+  <article class="status-card"><span>Approved Packets</span><strong>{{ status.packets.approved_packet_count }}</strong></article>
+</section>
+
+<section class="two-column">
+  <div class="panel">
+    <h3>Create Approval Template</h3>
+    <form method="post" action="/approval-template" class="prompt-form">
+      <label for="adjusted_packet_folder">Adjusted packet folder</label>
+      <input id="adjusted_packet_folder" name="adjusted_packet_folder" placeholder="outputs/review_packets_adjusted/<packet-folder>" required>
+      <button type="submit">Create Approval Template</button>
+    </form>
+  </div>
+  <div class="panel">
+    <h3>Recent Adjusted Packets</h3>
+    <ul class="compact-list">
+      {% for packet in adjusted_packets %}
+        <li>
+          <code>{{ packet.packet_path }}</code>
+          <form method="post" action="/approval-template" class="top-spaced">
+            <input type="hidden" name="adjusted_packet_folder" value="{{ packet.packet_path }}">
+            <button type="submit">Review For Approval</button>
+          </form>
+        </li>
+      {% else %}
+        <li>No adjusted packets found yet.</li>
+      {% endfor %}
+    </ul>
+  </div>
+</section>
+
+<section class="two-column">
+  <div class="panel">
+    <h3>Recent Approval History</h3>
+    <table>
+      <thead><tr><th>Created</th><th>Decision</th><th>Ready</th><th>Reviewer</th><th>Approved Packet</th></tr></thead>
+      <tbody>
+        {% for row in approval_rows %}
+          <tr>
+            <td>{{ row.created_at }}</td>
+            <td>{{ row.decision }}</td>
+            <td>{{ row.final_publish_ready }}</td>
+            <td>{{ row.reviewer_name or "" }}</td>
+            <td><code>{{ row.approved_packet_path or "" }}</code></td>
+          </tr>
+        {% else %}
+          <tr><td colspan="5">No approval history has been recorded yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="panel">
+    <h3>Approved Packets</h3>
+    <ul class="compact-list">
+      {% for packet in approved_packets %}
+        <li>
+          <a href="{{ packet.preview_url }}">{{ packet.map_title }}</a>
+          <span class="muted">{{ packet.updated_at }}</span>
+        </li>
+      {% else %}
+        <li>No approved packets found yet.</li>
+      {% endfor %}
+    </ul>
+  </div>
+</section>
+{% endblock %}

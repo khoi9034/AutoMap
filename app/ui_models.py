@@ -10,7 +10,7 @@ from app.version import AUTOMAP_VERSION
 PROJECT_TITLE = "AutoMap: County GIS Request Engine"
 SAFETY_BANNER = (
     "AutoMap drafts are for GIS review only. They are not official maps and "
-    "are not published unless explicitly approved."
+    "local approval is not official publication."
 )
 EXAMPLE_PROMPTS = [
     "Show parcels in Concord that are in the 100-year floodplain.",

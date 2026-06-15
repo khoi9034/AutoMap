@@ -19,6 +19,14 @@ REQUIRED_ADJUSTED_PUBLISH_FILES = {
     "adjusted_warnings.json",
 }
 
+REQUIRED_APPROVED_PUBLISH_FILES = {
+    "approved_recipe.json",
+    "approved_webmap.json",
+    "approval_file.json",
+    "approval_receipt.json",
+    "approved_warnings.json",
+}
+
 PUBLISH_TAGS = [
     "AutoMap",
     "Draft",
@@ -84,6 +92,12 @@ def _contains_protected_reference(value: Any) -> str | None:
     return None
 
 
+def _packet_type(packet_path: Path) -> str:
+    if (packet_path / "approved_webmap.json").exists():
+        return "approved"
+    return "adjusted"
+
+
 def load_arcgis_publish_settings(load_env_file: bool = True) -> ArcGISPublishSettings:
     """Load ArcGIS publishing settings without printing or exposing secrets."""
     if load_env_file:
@@ -143,7 +157,7 @@ def check_arcgis_connection(settings: ArcGISPublishSettings | None = None) -> di
 
 
 def validate_publish_packet(adjusted_packet_folder: str | Path) -> dict[str, Any]:
-    """Validate an adjusted packet before dry-run or real publishing."""
+    """Validate an adjusted or approved packet before dry-run or real publishing."""
     packet_path = Path(adjusted_packet_folder)
     errors: list[str] = []
     warnings: list[str] = []
@@ -156,62 +170,76 @@ def validate_publish_packet(adjusted_packet_folder: str | Path) -> dict[str, Any
             "packet_path": str(packet_path),
         }
 
-    missing_files = sorted(file_name for file_name in REQUIRED_ADJUSTED_PUBLISH_FILES if not (packet_path / file_name).exists())
+    packet_type = _packet_type(packet_path)
+    required_files = REQUIRED_APPROVED_PUBLISH_FILES if packet_type == "approved" else REQUIRED_ADJUSTED_PUBLISH_FILES
+    missing_files = sorted(file_name for file_name in required_files if not (packet_path / file_name).exists())
     if missing_files:
-        errors.append(f"Missing required adjusted publish files: {', '.join(missing_files)}")
+        errors.append(f"Missing required {packet_type} publish files: {', '.join(missing_files)}")
     raw_review_files = {"recipe.json", "webmap.json"} & {path.name for path in packet_path.iterdir() if path.is_file()}
     if raw_review_files:
         errors.append("Only adjusted packets can be published; raw review packet files were found.")
 
-    adjusted_recipe: dict[str, Any] = {}
-    adjusted_webmap: dict[str, Any] = {}
-    adjusted_warnings: dict[str, Any] = {}
+    recipe: dict[str, Any] = {}
+    webmap: dict[str, Any] = {}
+    warnings_payload: dict[str, Any] = {}
+    approval_receipt: dict[str, Any] = {}
     if not missing_files:
         try:
-            adjusted_recipe = _load_json(packet_path / "adjusted_recipe.json")
-            adjusted_webmap = _load_json(packet_path / "adjusted_webmap.json")
-            _load_json(packet_path / "applied_adjustments.json")
-            adjusted_warnings = _load_json(packet_path / "adjusted_warnings.json")
+            if packet_type == "approved":
+                recipe = _load_json(packet_path / "approved_recipe.json")
+                webmap = _load_json(packet_path / "approved_webmap.json")
+                _load_json(packet_path / "approval_file.json")
+                warnings_payload = _load_json(packet_path / "approved_warnings.json")
+                approval_receipt = _load_json(packet_path / "approval_receipt.json")
+            else:
+                recipe = _load_json(packet_path / "adjusted_recipe.json")
+                webmap = _load_json(packet_path / "adjusted_webmap.json")
+                _load_json(packet_path / "applied_adjustments.json")
+                warnings_payload = _load_json(packet_path / "adjusted_warnings.json")
         except json.JSONDecodeError as exc:
-            errors.append(f"Adjusted packet JSON is invalid: {exc}")
+            errors.append(f"{packet_type.title()} packet JSON is invalid: {exc}")
 
-    if adjusted_webmap and not adjusted_webmap.get("operationalLayers"):
-        errors.append("adjusted_webmap.json has no operationalLayers.")
-    for index, layer in enumerate(adjusted_webmap.get("operationalLayers") or []):
+    webmap_file_name = "approved_webmap.json" if packet_type == "approved" else "adjusted_webmap.json"
+    if webmap and not webmap.get("operationalLayers"):
+        errors.append(f"{webmap_file_name} has no operationalLayers.")
+    for index, layer in enumerate(webmap.get("operationalLayers") or []):
         if not layer.get("title"):
             errors.append(f"Operational layer {index} is missing title.")
         if not layer.get("url"):
             errors.append(f"Operational layer {layer.get('title') or index} is missing URL.")
 
-    if adjusted_warnings:
-        if adjusted_warnings.get("publish_ready") is not True:
+    if packet_type == "approved":
+        if approval_receipt.get("final_publish_ready") is not True:
+            errors.append("Approved packet final_publish_ready must be true before publishing.")
+        if approval_receipt.get("block_reasons"):
+            errors.append("Publishing blocked because approval block reasons remain.")
+    elif warnings_payload:
+        if warnings_payload.get("publish_ready") is not True:
             errors.append("Adjusted packet publish_ready must be true before publishing.")
-        active = adjusted_warnings.get("active") or {}
-        unresolved = {
-            group: values
-            for group, values in active.items()
-            if values
-        }
+        active = warnings_payload.get("active") or {}
+        unresolved = {group: values for group, values in active.items() if values}
         if unresolved:
             errors.append("Publishing blocked because unresolved warnings or blockers remain.")
 
     protected_marker = _contains_protected_reference(
         {
-            "adjusted_recipe": adjusted_recipe,
-            "adjusted_webmap": adjusted_webmap,
-            "adjusted_warnings": adjusted_warnings,
+            "recipe": recipe,
+            "webmap": webmap,
+            "warnings": warnings_payload,
+            "approval_receipt": approval_receipt,
         }
     )
     if protected_marker:
-        errors.append(f"Adjusted packet contains protected reference: {protected_marker}")
+        errors.append(f"{packet_type.title()} packet contains protected reference: {protected_marker}")
 
     return {
         "is_valid": not errors,
         "errors": sorted(set(errors)),
         "warnings": sorted(set(warnings)),
         "packet_path": str(packet_path),
-        "publish_ready": adjusted_warnings.get("publish_ready"),
-        "operational_layer_count": len(adjusted_webmap.get("operationalLayers") or []),
+        "packet_type": packet_type,
+        "publish_ready": approval_receipt.get("final_publish_ready") if packet_type == "approved" else warnings_payload.get("publish_ready"),
+        "operational_layer_count": len(webmap.get("operationalLayers") or []),
     }
 
 
@@ -289,9 +317,12 @@ def publish_webmap_draft(
     """Publish an adjusted packet as a private draft, or dry-run by default."""
     packet_path = Path(adjusted_packet_folder)
     validation = validate_publish_packet(packet_path)
-    adjusted_recipe = _load_json(packet_path / "adjusted_recipe.json") if (packet_path / "adjusted_recipe.json").exists() else {}
-    adjusted_webmap = _load_json(packet_path / "adjusted_webmap.json") if (packet_path / "adjusted_webmap.json").exists() else {}
-    item_properties = build_item_properties(adjusted_recipe, adjusted_webmap)
+    packet_type = validation.get("packet_type") or _packet_type(packet_path)
+    recipe_file = "approved_recipe.json" if packet_type == "approved" else "adjusted_recipe.json"
+    webmap_file = "approved_webmap.json" if packet_type == "approved" else "adjusted_webmap.json"
+    recipe = _load_json(packet_path / recipe_file) if (packet_path / recipe_file).exists() else {}
+    webmap = _load_json(packet_path / webmap_file) if (packet_path / webmap_file).exists() else {}
+    item_properties = build_item_properties(recipe, webmap)
 
     if not validation["is_valid"]:
         result = {
