@@ -5,9 +5,11 @@ from pathlib import Path
 import pytest
 
 from app.analysis_executor import build_analysis_plan, execute_analysis
+from app.analysis_chunker import chunk_constraint_features, enforce_chunk_limits, split_extent_into_tiles
 from app.analysis_models import DEFAULT_MAX_FEATURES
 from app.geometry_utils import compute_basic_stats, intersect_features
 from app.spatial_query_client import SpatialQueryClient
+from app.spatial_query_optimizer import deduplicate_feature_ids, optimize_intersection_query_plan
 
 
 def feature(name: str, coords: list[list[float]], **props):
@@ -78,6 +80,8 @@ class FakeSpatialQueryClient:
     def __init__(self, *, block_target=False):
         self.block_target = block_target
         self.feature_queries: list[str] = []
+        self.object_id_queries: list[str] = []
+        self.object_id_feature_queries: list[str] = []
 
     def query_count(self, layer_url, **kwargs):
         if "parcels" in layer_url and kwargs.get("geometry"):
@@ -91,6 +95,41 @@ class FakeSpatialQueryClient:
         if "zoning" in layer_url:
             return {"count": 1, "return_geometry": False, "geometry_used": bool(kwargs.get("geometry"))}
         return {"count": 0, "return_geometry": False, "geometry_used": False}
+
+    def query_object_ids(self, layer_url, **kwargs):
+        self.object_id_queries.append(layer_url)
+        if "parcels" in layer_url:
+            if self.block_target:
+                return {
+                    "object_id_field": "OBJECTID",
+                    "object_ids": list(range(6001)),
+                    "object_id_count": 6001,
+                    "request_method": "POST" if kwargs.get("geometry") else "GET",
+                    "geometry_used": bool(kwargs.get("geometry")),
+                }
+            return {
+                "object_id_field": "OBJECTID",
+                "object_ids": [100, 100, 101],
+                "object_id_count": 3,
+                "request_method": "POST" if kwargs.get("geometry") else "GET",
+                "geometry_used": bool(kwargs.get("geometry")),
+            }
+        return {"object_id_field": "OBJECTID", "object_ids": [], "object_id_count": 0, "request_method": "GET"}
+
+    def query_features_by_object_ids(self, layer_url, **kwargs):
+        self.object_id_feature_queries.append(layer_url)
+        object_ids = set(kwargs.get("object_ids") or [])
+        features = []
+        if 100 in object_ids:
+            features.append(PARCEL_IN)
+        if 101 in object_ids:
+            features.append(PARCEL_OUT)
+        return {
+            "status": "ok",
+            "count": len(object_ids),
+            "features": features,
+            "query_metadata": {"request_methods": ["GET"], "object_id_count": len(object_ids)},
+        }
 
     def query_features(self, layer_url, **kwargs):
         self.feature_queries.append(layer_url)
@@ -121,6 +160,8 @@ def test_analysis_plan_created_for_flood_parcel_request():
 
     assert plan["executable"] is True
     assert plan["operation_type"] == "select_by_intersection"
+    assert plan["query_strategy"] in {"geometry_first", "chunked_geometry_first"}
+    assert plan["optimized_query_plan"]["optimized_candidate_count"] == 2
     assert plan["target_layer"]["layer_key"] == "parcels"
     assert plan["constraint_layer"]["layer_key"] == "flood100"
     assert "Write selected parcel GeoJSON" in " ".join(plan["recommended_execution_plan"])
@@ -137,8 +178,10 @@ def test_bounded_query_count_blocks_huge_requests_before_target_download(monkeyp
     )
 
     assert result["status"] == "blocked"
-    assert "exceeds max feature limit" in json.dumps(result["blocked_reasons"])
+    assert "Optimized candidate parcel count" in json.dumps(result["blocked_reasons"])
     assert not any("parcels" in url for url in fake.feature_queries)
+    assert fake.object_id_queries
+    assert not fake.object_id_feature_queries
 
 
 def test_intersection_execution_writes_receipt_and_valid_geojson(monkeypatch, tmp_path):
@@ -159,8 +202,37 @@ def test_intersection_execution_writes_receipt_and_valid_geojson(monkeypatch, tm
     assert result["output_count"] == 1
     assert data["type"] == "FeatureCollection"
     assert data["features"][0]["properties"]["PIN"] == "A"
+    assert receipt["query_strategy"] in {"geometry_first", "chunked_geometry_first"}
+    assert receipt["broad_count"] == 90000
+    assert receipt["optimized_candidate_count"] == 2
+    assert receipt["object_ids_selected_count"] == 2
     assert receipt["published"] is False
     assert receipt["protected_external_database_touched"] is False
+
+
+def test_optimizer_avoids_broad_parcel_download_and_deduplicates_ids():
+    fake = FakeSpatialQueryClient()
+    recipe = build_analysis_plan(
+        "Show parcels in Concord that are in the 100-year floodplain.",
+        catalog_records=sample_catalog(),
+        query_client=fake,
+    )["recipe"]
+
+    plan = optimize_intersection_query_plan(
+        recipe,
+        catalog_record("parcels", "Tax Parcels", "parcel"),
+        catalog_record("municipal", "MunicipalDistrict", "jurisdiction"),
+        catalog_record("flood100", "FloodPlain100year", "flood"),
+        query_client=fake,
+        include_object_ids=True,
+    )
+
+    assert plan["strategy"] in {"geometry_first", "chunked_geometry_first"}
+    assert plan["broad_count"] == 90000
+    assert plan["optimized_candidate_count"] == 2
+    assert plan["candidate_object_ids"] == [100, 101]
+    assert not any("parcels" in url for url in fake.feature_queries)
+    assert deduplicate_feature_ids([1, "1", 2, 2, 3]) == [1, 2, 3]
 
 
 def test_geometry_intersection_function_works_on_small_mock_features():
@@ -210,6 +282,41 @@ def test_spatial_query_client_blocks_over_limit_without_feature_download(monkeyp
     assert result["features"] == []
     assert len(calls) == 1
     assert "returnCountOnly" in calls[0]
+
+
+def test_post_query_is_used_for_large_geometry_payload(monkeypatch):
+    calls = []
+
+    def fake_fetch(url, **kwargs):
+        calls.append({"url": url, **kwargs})
+        return {"count": 1}
+
+    monkeypatch.setattr("app.spatial_query_client._fetch_json_or_geojson", fake_fetch)
+    huge_geometry = {
+        "type": "Polygon",
+        "coordinates": [[
+            [float(index), float(index % 7)]
+            for index in range(400)
+        ]],
+    }
+    huge_geometry["coordinates"][0].append(huge_geometry["coordinates"][0][0])
+    client = SpatialQueryClient(max_features=DEFAULT_MAX_FEATURES)
+
+    result = client.query_count("https://example.test/Layer/0", geometry=huge_geometry)
+
+    assert result["request_method"] == "POST"
+    assert calls[0]["data"]
+    assert calls[0]["url"].endswith("/query")
+
+
+def test_chunking_limits_are_enforced():
+    chunks = chunk_constraint_features([FLOOD100] * 26, max_features_per_chunk=2)
+    checks = enforce_chunk_limits(chunks, max_chunks=10, max_features_per_chunk=2)
+    tiles = split_extent_into_tiles({"xmin": 0, "ymin": 0, "xmax": 10, "ymax": 10}, max_tiles=9)
+
+    assert len(chunks) == 13
+    assert any(not check["passed"] and "analysis chunk" in check["label"] for check in checks)
+    assert len(tiles) == 9
 
 
 def test_analysis_outputs_have_no_secrets_or_protected_database_refs(monkeypatch, tmp_path):

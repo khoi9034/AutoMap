@@ -1,4 +1,4 @@
-"""Safe bounded spatial analysis execution for AutoMap v2.0."""
+"""Safe bounded spatial analysis execution for AutoMap v2.1."""
 
 from __future__ import annotations
 
@@ -36,6 +36,7 @@ from app.geometry_utils import (
 from app.layer_catalog_store import load_catalog_records
 from app.recipe_engine import build_recipe
 from app.spatial_query_client import SpatialQueryClient, SpatialQueryError
+from app.spatial_query_optimizer import optimize_intersection_query_plan
 from app.ui_models import repo_root
 
 
@@ -135,8 +136,9 @@ def _plan_steps(operation_type: AnalysisOperationType, geography_name: str | Non
         return [
             f"Filter MunicipalDistrict to {geography_name}.",
             f"Query {constraint_name} geometry using bounded REST requests.",
-            f"Query parcels within the {geography_name} / {constraint_name} working extent.",
-            f"Intersect parcels with {constraint_name} locally.",
+            f"Query parcel ObjectIDs using {constraint_name} geometry before downloading parcel geometry.",
+            "Deduplicate parcel ObjectIDs and enforce download limits.",
+            f"Download only selected parcels and intersect them with {constraint_name} locally.",
             "Write selected parcel GeoJSON under outputs/analysis.",
         ]
     if operation_type == AnalysisOperationType.ATTRIBUTE_FILTER_ONLY:
@@ -146,7 +148,7 @@ def _plan_steps(operation_type: AnalysisOperationType, geography_name: str | Non
             "Only fetch bounded matching features if the count is below the configured max.",
             "Write local GeoJSON only when feature download is safe.",
         ]
-    return ["Operation is not executable in v2.0; return review guidance only."]
+    return ["Operation is not executable in v2.1; return review guidance only."]
 
 
 def _count_or_unavailable(client: SpatialQueryClient, layer: AnalysisLayerRef | None, where: str | None = None) -> dict[str, Any] | None:
@@ -210,9 +212,9 @@ def build_analysis_plan(
     blocked_reasons: list[str] = []
     warnings: list[str] = []
     if operation_type == AnalysisOperationType.UNSUPPORTED_OPERATION:
-        blocked_reasons.append("This request is not supported for v2.0 spatial execution.")
+        blocked_reasons.append("This request is not supported for v2.1 spatial execution.")
     if _is_historical_request(recipe):
-        blocked_reasons.append("Historical comparison requests are planning-only in v2.0 unless reviewed and narrowed.")
+        blocked_reasons.append("Historical comparison requests are planning-only in v2.1 unless reviewed and narrowed.")
     if operation_type == AnalysisOperationType.SELECT_BY_INTERSECTION:
         missing = []
         if not target_layer:
@@ -231,6 +233,7 @@ def build_analysis_plan(
 
     client = query_client or SpatialQueryClient(max_features=max_features)
     counts: dict[str, Any] = {"max_features": max_features, "hard_max_features": HARD_MAX_FEATURES}
+    optimized_plan: dict[str, Any] | None = None
     if estimate_counts:
         for name, layer in {
             "target_unbounded": AnalysisLayerRef.from_layer(target_layer) if target_layer else None,
@@ -244,6 +247,26 @@ def build_analysis_plan(
         if operation_type == AnalysisOperationType.ATTRIBUTE_FILTER_ONLY and attribute_layer:
             where = _commercial_where(recipe, attribute_layer)
             counts["attribute_filtered"] = _count_or_unavailable(client, AnalysisLayerRef.from_layer(attribute_layer), where=where)
+        if operation_type == AnalysisOperationType.SELECT_BY_INTERSECTION and target_layer and geography_layer and constraint_layer:
+            optimized_plan = optimize_intersection_query_plan(
+                recipe,
+                target_layer,
+                geography_layer,
+                constraint_layer,
+                query_client=client,
+                max_features=max_features,
+                include_object_ids=False,
+            )
+            counts["optimized"] = {
+                "strategy": optimized_plan.get("strategy"),
+                "broad_count": optimized_plan.get("broad_count"),
+                "optimized_candidate_count": optimized_plan.get("optimized_candidate_count"),
+                "constraint_feature_count": optimized_plan.get("constraint_feature_count"),
+                "chunks_planned": optimized_plan.get("chunks_planned"),
+            }
+            for reason in optimized_plan.get("blocked_reasons") or []:
+                if reason not in blocked_reasons:
+                    blocked_reasons.append(reason)
 
     executable = operation_type in {
         AnalysisOperationType.SELECT_BY_INTERSECTION,
@@ -271,11 +294,21 @@ def build_analysis_plan(
     )
     result = plan.to_dict()
     result["recipe"] = recipe
+    if optimized_plan:
+        slim_optimized_plan = {
+            key: value
+            for key, value in optimized_plan.items()
+            if key not in {"candidate_object_ids", "geography_features", "constraint_features"}
+        }
+        result["optimized_query_plan"] = slim_optimized_plan
+        result["query_strategy"] = optimized_plan.get("strategy")
+        result["strategy_explanation"] = optimized_plan.get("strategy_explanation")
+        result["narrowing_suggestions"] = optimized_plan.get("narrowing_suggestions") or []
     return result
 
 
 def analysis_execution_for_recipe(recipe: dict[str, Any], catalog_records: list[dict[str, Any]] | None = None) -> dict[str, Any]:
-    """Return the recipe-level v2.0 analysis execution block without live queries."""
+    """Return the recipe-level v2.1 analysis execution block without live queries."""
     plan = build_analysis_plan(recipe, catalog_records=catalog_records, estimate_counts=False)
     return {
         "executable": plan["executable"],
@@ -284,6 +317,10 @@ def analysis_execution_for_recipe(recipe: dict[str, Any], catalog_records: list[
         "estimated_query_counts": plan["estimated_query_counts"],
         "recommended_execution_plan": plan["recommended_execution_plan"],
         "operation_type": plan["operation_type"],
+        "optimized_query_plan": plan.get("optimized_query_plan"),
+        "query_strategy": plan.get("query_strategy"),
+        "strategy_explanation": plan.get("strategy_explanation"),
+        "narrowing_suggestions": plan.get("narrowing_suggestions") or [],
         "analysis_run_id": None,
         "derived_outputs": [],
     }
@@ -325,7 +362,10 @@ def _blocked_execution(
 ) -> AnalysisExecutionResult:
     run_id = f"analysis_{datetime.now(UTC).strftime('%Y%m%d%H%M%S')}_{uuid4().hex[:8]}"
     warnings = list(plan.get("warnings") or [])
-    blocked = [*list(plan.get("blocked_reasons") or []), reason]
+    blocked = []
+    for item in [*list(plan.get("blocked_reasons") or []), reason]:
+        if item and item not in blocked:
+            blocked.append(item)
     receipt = {
         "analysis_run_id": run_id,
         "status": "blocked",
@@ -333,6 +373,10 @@ def _blocked_execution(
         "blocked_status": True,
         "blocked_reasons": blocked,
         "input_counts": input_counts or plan.get("estimated_query_counts") or {},
+        "query_strategy": plan.get("query_strategy"),
+        "optimized_query_plan": plan.get("optimized_query_plan"),
+        "strategy_explanation": plan.get("strategy_explanation"),
+        "narrowing_suggestions": plan.get("narrowing_suggestions") or [],
         "max_feature_limits": {
             "default_max_features": DEFAULT_MAX_FEATURES,
             "hard_max_features": HARD_MAX_FEATURES,
@@ -366,78 +410,68 @@ def _execute_intersection(
     geography_name = _requested_geography(recipe) or "requested geography"
     input_counts: dict[str, Any] = {}
     where_clauses: dict[str, str] = {
-        "geography": "1=1",
-        "constraint": "1=1",
-        "target": "spatial envelope from bounded constraint/geography",
+        "geography": "optimized geography filter",
+        "constraint": "server-side spatial filter against geography",
+        "target": "ObjectID query against constraint geometries",
     }
-
-    geography_result = _query_bounded_features(query_client, geography, where="1=1", max_features=max_features)
-    if geography_result.get("status") == "blocked":
-        raise SpatialQueryError(str(geography_result.get("blocked_reason")))
-    geography_features = [
-        feature for feature in geography_result.get("features") or []
-        if _properties_contain_value(feature, geography_name)
-    ]
-    input_counts["geography"] = {
-        "queried_count": geography_result.get("count"),
-        "matched_count": len(geography_features),
-        "where": "1=1",
-    }
-    if not geography_features:
-        raise SpatialQueryError(f"No geography boundary feature matched {geography_name}.")
-
-    constraint_envelope = geojson_envelope(geography_features)
-    constraint_result = _query_bounded_features(
-        query_client,
+    optimized_plan = optimize_intersection_query_plan(
+        recipe,
+        target,
+        geography,
         constraint,
-        geometry=constraint_envelope,
+        query_client=query_client,
         max_features=max_features,
+        include_object_ids=True,
     )
-    if constraint_result.get("status") == "blocked":
-        raise SpatialQueryError(str(constraint_result.get("blocked_reason")))
-    constraint_features = filter_features_by_polygon(constraint_result.get("features") or [], geography_features)
-    input_counts["constraint"] = {
-        "queried_count": constraint_result.get("count"),
-        "matched_count": len(constraint_features),
-        "where": "1=1",
-        "bounded_by_geography": True,
+    input_counts["optimizer"] = {
+        "broad_count": optimized_plan.get("broad_count"),
+        "optimized_candidate_count": optimized_plan.get("optimized_candidate_count"),
+        "constraint_feature_count": optimized_plan.get("constraint_feature_count"),
+        "chunks_planned": optimized_plan.get("chunks_planned"),
     }
-    if not constraint_features:
-        raise SpatialQueryError("No constraint features intersect the requested geography.")
-
-    target_envelope = geojson_envelope(constraint_features) or geojson_envelope(geography_features)
-    target_count = query_client.query_count(
-        target.layer_url or "",
-        geometry=target_envelope,
-        geometry_type=ENVELOPE_GEOMETRY_TYPE,
-        spatial_rel=SPATIAL_REL_INTERSECTS,
-    )
-    input_counts["target_bounded"] = target_count
-    if int(target_count["count"]) > max_features:
+    if optimized_plan.get("blocked_reasons"):
         blocked = _blocked_execution(
             recipe,
             plan,
-            f"Bounded target query count {target_count['count']} exceeds max feature limit {max_features}.",
+            "; ".join(optimized_plan["blocked_reasons"]),
             input_counts=input_counts,
+        )
+        blocked.analysis_receipt.update(
+            {
+                "query_strategy": optimized_plan.get("strategy"),
+                "strategy_explanation": optimized_plan.get("strategy_explanation"),
+                "optimized_query_plan": {
+                    key: value
+                    for key, value in optimized_plan.items()
+                    if key not in {"candidate_object_ids", "geography_features", "constraint_features"}
+                },
+                "narrowing_suggestions": optimized_plan.get("narrowing_suggestions") or [],
+            }
         )
         return write_analysis_outputs(blocked)
 
-    target_result = _query_bounded_features(
-        query_client,
-        target,
-        geometry=target_envelope,
-        max_features=max_features,
+    candidate_object_ids = optimized_plan.get("candidate_object_ids") or []
+    target_result = query_client.query_features_by_object_ids(
+        target.layer_url or "",
+        object_ids=candidate_object_ids,
+        out_fields="*",
+        return_geometry=True,
+        result_record_count=max_features,
     )
     if target_result.get("status") == "blocked":
         blocked = _blocked_execution(recipe, plan, str(target_result.get("blocked_reason")), input_counts=input_counts)
         return write_analysis_outputs(blocked)
+    geography_features = optimized_plan.get("geography_features") or []
+    constraint_features = optimized_plan.get("constraint_features") or []
     target_features = filter_features_by_polygon(target_result.get("features") or [], geography_features)
     selected_features = intersect_features(target_features, constraint_features)
     input_counts["target"] = {
         "queried_count": target_result.get("count"),
+        "candidate_object_id_count": len(candidate_object_ids),
+        "downloaded_feature_count": len(target_result.get("features") or []),
         "geography_filtered_count": len(target_features),
         "selected_count": len(selected_features),
-        "bounded_by_constraint_extent": True,
+        "bounded_by_constraint_geometry": True,
     }
 
     title = "Selected Parcels - 100-Year Floodplain"
@@ -454,6 +488,18 @@ def _execute_intersection(
         "constraint_layer": constraint.to_dict(),
         "where_clauses": where_clauses,
         "counts_before_after": input_counts,
+        "query_strategy": optimized_plan.get("strategy"),
+        "strategy_explanation": optimized_plan.get("strategy_explanation"),
+        "optimized_candidate_count": optimized_plan.get("optimized_candidate_count"),
+        "broad_count": optimized_plan.get("broad_count"),
+        "constraint_feature_count": optimized_plan.get("constraint_feature_count"),
+        "chunks_used": optimized_plan.get("chunks_planned"),
+        "object_ids_selected": candidate_object_ids,
+        "object_ids_selected_count": len(candidate_object_ids),
+        "features_downloaded": len(target_result.get("features") or []),
+        "chunk_receipts": optimized_plan.get("chunk_receipts") or [],
+        "safety_checks": (optimized_plan.get("safety") or {}).get("checks") or [],
+        "narrowing_suggestions": optimized_plan.get("narrowing_suggestions") or [],
         "max_feature_limits": {
             "default_max_features": DEFAULT_MAX_FEATURES,
             "run_max_features": max_features,
@@ -554,7 +600,8 @@ def execute_analysis(
     plan = build_analysis_plan(recipe, catalog_records=catalog_records, query_client=query_client, estimate_counts=True, max_features=max_features)
     client = query_client or SpatialQueryClient(max_features=max_features)
     if not plan.get("executable"):
-        result = _blocked_execution(recipe, plan, "Analysis plan is not executable.")
+        plan_reasons = list(plan.get("blocked_reasons") or [])
+        result = _blocked_execution(recipe, plan, plan_reasons[0] if plan_reasons else "Analysis plan is not executable.")
         result = write_analysis_outputs(result)
         record_analysis_run(result)
         return result.to_dict()
@@ -564,7 +611,7 @@ def execute_analysis(
         elif plan["operation_type"] == AnalysisOperationType.ATTRIBUTE_FILTER_ONLY.value:
             result = _execute_attribute_filter(recipe, plan, query_client=client, max_features=max_features)
         else:
-            result = _blocked_execution(recipe, plan, f"{plan['operation_type']} is stubbed in v2.0.")
+            result = _blocked_execution(recipe, plan, f"{plan['operation_type']} is stubbed in v2.1.")
             result = write_analysis_outputs(result)
     except (SpatialQueryError, GeometrySafetyError, ValueError) as exc:
         result = _blocked_execution(recipe, plan, str(exc))

@@ -175,7 +175,7 @@ def test_api_client_has_timeout_and_sanitized_fallback_version():
 
     assert "Backend API request timed out" in source
     assert "http://127.0.0.1:8010" in source
-    assert 'version: "2.0.0"' in source
+    assert 'version: "2.1.0"' in source
     assert "redactProtected" in source
 
 
@@ -193,6 +193,9 @@ def test_analysis_page_components_and_api_are_present():
     assert "Safe bounded spatial execution" in page
     assert "Plan Analysis" in client
     assert "Execute Analysis" in client
+    assert "Strategy" in client
+    assert "Optimized count" in client
+    assert "Narrowing suggestions" in client
     assert "Add result to map preview" in client
     assert "planAnalysis" in api
     assert "executeAnalysis" in api
@@ -202,6 +205,7 @@ def test_analysis_page_components_and_api_are_present():
     assert "analysisPlan" in store
     assert "analysisRun" in store
     assert "AnalysisExecutionPlan" in types
+    assert "optimized_query_plan" in types
     assert "AnalysisRun" in types
     assert "Derived Local Analysis Result" in preview
     assert "derived_local_analysis" in layer_panel

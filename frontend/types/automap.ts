@@ -118,6 +118,10 @@ export type AnalysisExecutionPlan = {
   warnings?: string[];
   estimated_query_counts?: Record<string, JsonValue>;
   recommended_execution_plan?: string[];
+  optimized_query_plan?: Record<string, JsonValue>;
+  query_strategy?: string;
+  strategy_explanation?: string;
+  narrowing_suggestions?: string[];
   analysis_run_id?: string | null;
   derived_outputs?: JsonValue[];
   target_layer?: Record<string, JsonValue> | null;

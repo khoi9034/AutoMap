@@ -30,11 +30,12 @@ AutoMap does not:
 
 ## Analysis Boundary
 
-AutoMap v2.0 can run bounded local spatial analysis for supported review workflows.
+AutoMap v2.1 can run bounded local spatial analysis for supported review workflows.
 
 Analysis execution:
 
 - runs count-only REST checks before fetching geometry
+- uses server-side spatial filtering and ObjectID deduplication before parcel geometry download
 - blocks oversized requests
 - writes local GeoJSON under `outputs/analysis/`
 - records receipts in AutoMap's own schema

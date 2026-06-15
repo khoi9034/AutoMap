@@ -1,6 +1,6 @@
 # Analysis Safety Limits
 
-AutoMap v2.0 spatial execution is count-first, bounded, local, and reviewable.
+AutoMap v2.1 spatial execution is count-first, ObjectID-first, bounded, local, and reviewable.
 
 ## Feature Limits
 
@@ -24,7 +24,9 @@ AutoMap:
 
 - uses `returnGeometry=false` for count and value checks
 - prefers `f=geojson` for bounded feature results
-- fetches geometry only after count checks pass
+- uses POST when large geometry filters would exceed safe URL length
+- queries target ObjectIDs before downloading target geometry
+- fetches geometry only after count and ObjectID checks pass
 - records where clauses and counts in the analysis receipt
 - blocks oversized target queries before feature download
 - never bulk-downloads full countywide parcel, zoning, flood, or similar datasets
@@ -44,7 +46,19 @@ automap.analysis_runs
 automap.analysis_result_features
 ```
 
-v2.0 prefers local GeoJSON output. Geometry table storage is optional and should only be used for small, safe results.
+v2.1 prefers local GeoJSON output. Geometry table storage is optional and should only be used for small, safe results.
+
+## Optimizer Limits
+
+Default optimizer limits:
+
+```text
+max chunks: 25
+max features per chunk: 1000
+max constraint features: 500
+```
+
+If the optimized candidate ObjectID count still exceeds the feature limit, AutoMap blocks and recommends narrowing the request.
 
 ## Publishing Rules
 

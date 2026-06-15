@@ -58,18 +58,23 @@ export function redactProtected<T>(value: T): T {
   return value;
 }
 
-async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
+type ApiFetchInit = RequestInit & { timeoutMs?: number };
+
+async function apiFetch<T>(path: string, init?: ApiFetchInit): Promise<T> {
   const controller = new AbortController();
-  const timeout: ReturnType<typeof setTimeout> = setTimeout(() => controller.abort(), 15000);
+  const timeoutMs = init?.timeoutMs ?? 15000;
+  const fetchInit: RequestInit = { ...(init || {}) };
+  delete (fetchInit as ApiFetchInit).timeoutMs;
+  const timeout: ReturnType<typeof setTimeout> = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     const response = await fetch(`${API_BASE_URL}${path}`, {
-      ...init,
+      ...fetchInit,
       cache: "no-store",
       signal: controller.signal,
       headers: {
         "Content-Type": "application/json",
-        ...(init?.headers || {}),
+        ...(fetchInit.headers || {}),
       },
     });
     if (!response.ok) {
@@ -106,7 +111,7 @@ export async function getStatusOrFallback(): Promise<SystemStatus> {
     return await getSystemStatus();
   } catch {
     return {
-      version: "2.0.0",
+      version: "2.1.0",
       database_connected: false,
       catalog: {},
       profiles: {},
@@ -150,6 +155,7 @@ export async function planAnalysis(
 ): Promise<{ prompt: string; analysis_plan: Record<string, unknown> }> {
   return apiFetch<{ prompt: string; analysis_plan: Record<string, unknown> }>("/api/analysis/plan", {
     method: "POST",
+    timeoutMs: 180000,
     body: JSON.stringify({ prompt }),
   });
 }
@@ -157,6 +163,7 @@ export async function planAnalysis(
 export async function executeAnalysis(prompt: string): Promise<{ prompt: string; analysis_result: AnalysisRun }> {
   return apiFetch<{ prompt: string; analysis_result: AnalysisRun }>("/api/analysis/execute", {
     method: "POST",
+    timeoutMs: 300000,
     body: JSON.stringify({ prompt }),
   });
 }

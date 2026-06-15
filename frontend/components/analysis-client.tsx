@@ -31,6 +31,10 @@ function runTitle(run: AnalysisRun): string {
   return `${run.operation_type || "analysis"} - ${run.status || "unknown"}`;
 }
 
+function numberText(value: unknown): string {
+  return typeof value === "number" ? value.toLocaleString() : String(value ?? "not available");
+}
+
 export function AnalysisClient() {
   const workflow = useMemo(() => loadWorkflowState(), []);
   const [prompt, setPrompt] = useState(
@@ -56,6 +60,13 @@ export function AnalysisClient() {
 
   const executable = Boolean(plan?.executable);
   const blockedReasons = (plan?.blocked_reasons as string[] | undefined) || [];
+  const optimizedPlan = asRecord(plan?.optimized_query_plan);
+  const estimatedCounts = asRecord(plan?.estimated_query_counts);
+  const optimizerCounts = asRecord(estimatedCounts.optimized);
+  const safetyLimits = asRecord(optimizedPlan.safety_limits);
+  const narrowingSuggestions =
+    ((plan?.narrowing_suggestions as string[] | undefined) || (optimizedPlan.narrowing_suggestions as string[] | undefined) || []);
+  const resultReceipt = asRecord(result?.analysis_receipt);
   const outputLink = localFileHref(result?.output_geojson_path || asRecord(result?.derived_layer).url);
 
   async function onPlan() {
@@ -105,12 +116,16 @@ export function AnalysisClient() {
           derived results.
         </p>
       </section>
+      <section className="notice">
+        <strong>Server-side narrowing enabled</strong>
+        <p>AutoMap narrowed this request using server-side spatial filtering before downloading geometry.</p>
+      </section>
 
       <section className="panel prompt-box">
         <div className="panel-title-row">
           <div>
             <h3>Analysis request</h3>
-            <p className="muted">v2.0 fully supports parcel selection by bounded flood/geography intersection.</p>
+            <p className="muted">v2.1 optimizes parcel selection with geometry-first ObjectID queries.</p>
           </div>
           <div className="chip-row">
             <StatusChip tone="success">No Portal login</StatusChip>
@@ -166,18 +181,43 @@ export function AnalysisClient() {
           ) : null}
           <div className="metric-grid">
             <div>
-              <span className="metric-label">Max features</span>
-              <strong>{String(plan.max_features || "2000")}</strong>
+              <span className="metric-label">Strategy</span>
+              <strong>{String(plan.query_strategy || optimizedPlan.strategy || "not selected")}</strong>
+            </div>
+            <div>
+              <span className="metric-label">Broad count</span>
+              <strong>{numberText(optimizedPlan.broad_count || optimizerCounts.broad_count)}</strong>
+            </div>
+            <div>
+              <span className="metric-label">Optimized count</span>
+              <strong>{numberText(optimizedPlan.optimized_candidate_count || optimizerCounts.optimized_candidate_count)}</strong>
+            </div>
+            <div>
+              <span className="metric-label">Chunks planned</span>
+              <strong>{numberText(optimizedPlan.chunks_planned || optimizerCounts.chunks_planned)}</strong>
+            </div>
+            <div>
+              <span className="metric-label">Feature limit</span>
+              <strong>{numberText(safetyLimits.max_download_features_per_layer || plan.max_features || "2000")}</strong>
             </div>
             <div>
               <span className="metric-label">Hard max</span>
-              <strong>{String(plan.hard_max_features || "5000")}</strong>
-            </div>
-            <div>
-              <span className="metric-label">Steps</span>
-              <strong>{((plan.recommended_execution_plan as string[] | undefined) || []).length}</strong>
+              <strong>{numberText(safetyLimits.hard_max_download_features || plan.hard_max_features || "5000")}</strong>
             </div>
           </div>
+          {plan.strategy_explanation || optimizedPlan.strategy_explanation ? (
+            <p className="muted">{String(plan.strategy_explanation || optimizedPlan.strategy_explanation)}</p>
+          ) : null}
+          {narrowingSuggestions.length ? (
+            <div className="inline-warning">
+              <strong>Narrowing suggestions</strong>
+              <ul className="plain-list">
+                {narrowingSuggestions.map((suggestion) => (
+                  <li key={suggestion}>{suggestion}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
           <ol className="plain-list">
             {((plan.recommended_execution_plan as string[] | undefined) || []).map((step) => (
               <li key={step}>{step}</li>
@@ -201,6 +241,18 @@ export function AnalysisClient() {
             <div>
               <span className="metric-label">Output count</span>
               <strong>{result.output_count ?? 0}</strong>
+            </div>
+            <div>
+              <span className="metric-label">Strategy</span>
+              <strong>{String(resultReceipt.query_strategy || "not recorded")}</strong>
+            </div>
+            <div>
+              <span className="metric-label">Optimized count</span>
+              <strong>{numberText(resultReceipt.optimized_candidate_count)}</strong>
+            </div>
+            <div>
+              <span className="metric-label">Broad count</span>
+              <strong>{numberText(resultReceipt.broad_count)}</strong>
             </div>
             <div>
               <span className="metric-label">Operation</span>

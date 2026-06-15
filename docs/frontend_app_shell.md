@@ -1,6 +1,6 @@
 # AutoMap Frontend Workflow Shell
 
-AutoMap v2.0 provides a polished Next.js + TypeScript workflow shell with interactive clarification, deterministic feedback learning, and safe bounded analysis while keeping the FastAPI backend as the API and workflow engine.
+AutoMap v2.1 provides a polished Next.js + TypeScript workflow shell with interactive clarification, deterministic feedback learning, safe bounded analysis, and query optimization while keeping the FastAPI backend as the API and workflow engine.
 
 ## URLs
 
@@ -82,9 +82,11 @@ The shell uses compact cards, status chips, scan-friendly tables, grouped warnin
 
 Workflow state is stored in browser localStorage under an AutoMap-specific key. It tracks the prompt, initial recipe, refined recipe, clarification session, clarification answers, WebMap draft, review packet, analysis plan, analysis run, adjustment template, adjusted packet, approval template, approved packet, dry-run receipt, smoke-test receipt, active step, warnings, missing data, and selected packet ids. Protected markers such as database URLs, passwords, tokens, and ArcGIS credential keys are redacted before storage.
 
-## v2.0 Analysis
+## v2.1 Analysis
 
-v2.0 adds an `/analysis` page for safe bounded local GIS execution. The page can plan feasibility, show count estimates and blockers, execute supported parcel/flood intersection or attribute-filter requests, and link to local GeoJSON results under `outputs/analysis/`.
+v2.1 includes an `/analysis` page for safe bounded local GIS execution. The page can plan feasibility, show broad and optimized counts, display the selected query strategy, show chunk and safety-limit metadata, execute supported parcel/flood intersection or attribute-filter requests, and link to local GeoJSON results under `outputs/analysis/`.
+
+For parcel/flood/geography requests, AutoMap uses server-side spatial filtering and ObjectID deduplication before downloading parcel geometry.
 
 The Map Preview layer panel can display a derived local analysis result badge when an execution result exists in workflow state. Derived results are not uploaded or published.
 
