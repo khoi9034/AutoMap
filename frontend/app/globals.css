@@ -204,6 +204,14 @@ button {
 .workflow-card {
   padding: 16px;
   min-height: 128px;
+  transition:
+    border-color 0.16s ease,
+    transform 0.16s ease;
+}
+
+.workflow-card:hover {
+  border-color: #8eb8e0;
+  transform: translateY(-1px);
 }
 
 .workflow-card span {
@@ -273,6 +281,13 @@ button {
   margin-top: 16px;
 }
 
+.notice-warning {
+  border: 1px solid #ffd69a;
+  background: #fff8ed;
+  color: #573306;
+  margin-top: 0;
+}
+
 .notice p {
   margin: 6px 0 0;
   color: var(--muted);
@@ -313,6 +328,49 @@ button {
 .form-grid {
   display: grid;
   gap: 12px;
+}
+
+.panel-title-row,
+.filter-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: flex-start;
+}
+
+.filter-row label {
+  display: grid;
+  gap: 6px;
+  flex: 1 1 220px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.result-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 10px;
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+
+.result-strip div {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f8fafc;
+  padding: 10px;
+}
+
+.result-strip span,
+.path-text {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.result-strip strong {
+  display: block;
+  margin-top: 4px;
 }
 
 .prompt-box textarea,
@@ -407,6 +465,12 @@ td {
   vertical-align: top;
 }
 
+.url-cell,
+.path-text {
+  max-width: 360px;
+  overflow-wrap: anywhere;
+}
+
 th {
   color: #475467;
   background: #f8fafc;
@@ -431,6 +495,15 @@ th {
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #eef3f8;
+}
+
+.compact-list {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.compact-list li + li {
+  margin-top: 6px;
 }
 
 .footer {
@@ -461,6 +534,11 @@ th {
   .content-grid {
     grid-template-columns: 1fr;
     padding: 18px;
+  }
+
+  .panel-title-row,
+  .filter-row {
+    display: grid;
   }
 
   .status-panel,

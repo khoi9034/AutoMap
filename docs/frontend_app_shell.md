@@ -1,6 +1,6 @@
 # AutoMap Frontend App Shell
 
-AutoMap v1.4 adds a Next.js + TypeScript frontend while keeping the FastAPI backend as the API and workflow engine.
+AutoMap v1.4 adds a Next.js + TypeScript workflow shell while keeping the FastAPI backend as the API and workflow engine.
 
 ## URLs
 
@@ -57,6 +57,20 @@ Cabarrus FutureScape keeps `http://localhost:3000` and `http://127.0.0.1:8000`. 
 - `/system-status`
 
 The root `/` redirects to `/dashboard`.
+
+## Workflow Shell
+
+The frontend presents a local, draft-only workflow:
+
+1. Dashboard quick prompt and system snapshot
+2. Map request recipe generation
+3. Recipe review with selected layers, filters, operations, warnings, and gaps
+4. Local WebMap preview through the backend preview route
+5. Human YAML adjustments that create separate adjusted packets
+6. Reviewer approval that records local readiness only
+7. Dry-run publish and dry-run portal smoke-test receipts
+
+The shell uses compact cards, status chips, scan-friendly tables, and explicit draft-only labels. It does not expose real ArcGIS publishing.
 
 ## API Coverage
 

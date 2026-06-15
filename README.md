@@ -92,7 +92,7 @@ python -m pytest
 
 ## Next.js Frontend
 
-AutoMap v1.4 adds a separate Next.js + TypeScript frontend app under `frontend/`. The FastAPI backend remains the API and workflow engine, and the existing FastAPI/Jinja UI is preserved.
+AutoMap v1.4 adds a separate Next.js + TypeScript workflow shell under `frontend/`. The FastAPI backend remains the API and workflow engine, and the existing FastAPI/Jinja UI is preserved.
 
 Start the backend API on port `8010`:
 
@@ -148,6 +148,8 @@ Frontend pages:
 - `/system-status`
 
 The frontend can run dry-run publish and portal smoke-test dry-run actions only. Real publish remains CLI-only.
+
+The workflow shell includes a dashboard quick prompt, recipe review workspace, local map preview, human adjustment editor, approval gate, dry-run publish center, catalog search, data gaps, history, and sanitized system status.
 
 ## PostGIS Setup
 

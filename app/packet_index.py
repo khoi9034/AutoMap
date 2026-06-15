@@ -99,6 +99,9 @@ def _packet_info(path: Path, packet_type: str) -> dict[str, Any]:
     recipe_path = path / _packet_json_name(packet_type, "recipe")
     webmap = _load_json(webmap_path) if webmap_path.exists() else {}
     recipe = _load_json(recipe_path) if recipe_path.exists() else {}
+    approval_receipt = _load_json(path / "approval_receipt.json") if (path / "approval_receipt.json").exists() else {}
+    publish_receipt = _load_json(path / "publish_receipt.json") if (path / "publish_receipt.json").exists() else {}
+    smoke_receipt = _load_json(path / "smoke_test_receipt.json") if (path / "smoke_test_receipt.json").exists() else {}
     updated_at = _folder_updated_at(path)
     return {
         "packet_id": path.name,
@@ -109,6 +112,21 @@ def _packet_info(path: Path, packet_type: str) -> dict[str, Any]:
         "map_title": recipe.get("map_title") or webmap.get("title") or path.name,
         "updated_at": updated_at.isoformat(),
         "preview_url": f"/preview/{path.name}",
+        "final_publish_ready": approval_receipt.get("final_publish_ready"),
+        "approval_block_reasons": approval_receipt.get("block_reasons") or [],
+        "latest_publish_receipt": {
+            "exists": bool(publish_receipt),
+            "status": publish_receipt.get("status"),
+            "published": publish_receipt.get("published"),
+            "created_item": publish_receipt.get("created_item"),
+            "real_publish_attempted": publish_receipt.get("real_publish_attempted"),
+        },
+        "latest_smoke_test_receipt": {
+            "exists": bool(smoke_receipt),
+            "dry_run": smoke_receipt.get("dry_run"),
+            "item_created": smoke_receipt.get("item_created"),
+            "blocked": smoke_receipt.get("blocked"),
+        },
     }
 
 

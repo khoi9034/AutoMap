@@ -31,6 +31,11 @@ export type SystemStatus = {
     adjusted_packet_count?: number;
     approved_packet_count?: number;
   };
+  ports?: {
+    frontend?: number;
+    backend_api?: number;
+    reserved?: number[];
+  };
   arcgis_publisher_mode?: string;
   arcgis_publish_profile?: string;
   real_publish_enabled?: boolean;
@@ -97,6 +102,21 @@ export type PacketSummary = {
   map_title?: string;
   updated_at?: string;
   preview_url?: string;
+  final_publish_ready?: boolean | null;
+  approval_block_reasons?: string[];
+  latest_publish_receipt?: {
+    exists?: boolean;
+    status?: string | null;
+    published?: boolean | null;
+    created_item?: boolean | null;
+    real_publish_attempted?: boolean | null;
+  };
+  latest_smoke_test_receipt?: {
+    exists?: boolean;
+    dry_run?: boolean | null;
+    item_created?: boolean | null;
+    blocked?: boolean | null;
+  };
 };
 
 export type PacketsResponse = {
@@ -150,6 +170,8 @@ export type DataGap = {
   reason?: string;
   suggested_source?: string | null;
   status?: string;
+  created_at?: string;
+  updated_at?: string;
 };
 
 export type HistoryRow = {

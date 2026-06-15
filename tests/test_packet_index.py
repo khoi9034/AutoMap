@@ -88,6 +88,10 @@ def write_approved_packet(root: Path, name="approved_one", title="Approved Flood
         json.dumps({"active": {}, "final_publish_ready": True}),
         encoding="utf-8",
     )
+    (folder / "approval_receipt.json").write_text(
+        json.dumps({"final_publish_ready": True, "block_reasons": []}),
+        encoding="utf-8",
+    )
     (folder / "approved_review.html").write_text("<html>approved</html>", encoding="utf-8")
     return folder
 
@@ -181,3 +185,32 @@ def test_preview_config_has_no_cfs_references(monkeypatch, tmp_path):
 
     assert "cfs" not in serialized
     assert "cfs_dev" not in serialized
+
+
+def test_packet_index_includes_approval_and_dry_run_receipts(monkeypatch, tmp_path):
+    monkeypatch.setattr(packet_index, "OUTPUTS_ROOT", tmp_path)
+    approved = write_approved_packet(tmp_path, name="receipt_packet")
+    (approved / "publish_receipt.json").write_text(
+        json.dumps(
+            {
+                "status": "dry_run",
+                "published": False,
+                "created_item": False,
+                "real_publish_attempted": False,
+            }
+        ),
+        encoding="utf-8",
+    )
+    (approved / "smoke_test_receipt.json").write_text(
+        json.dumps({"dry_run": True, "item_created": False, "blocked": False}),
+        encoding="utf-8",
+    )
+
+    packet = packet_index.list_approved_packets()[0]
+
+    assert packet["final_publish_ready"] is True
+    assert packet["latest_publish_receipt"]["exists"] is True
+    assert packet["latest_publish_receipt"]["status"] == "dry_run"
+    assert packet["latest_publish_receipt"]["real_publish_attempted"] is False
+    assert packet["latest_smoke_test_receipt"]["exists"] is True
+    assert packet["latest_smoke_test_receipt"]["item_created"] is False

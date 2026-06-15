@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
 
@@ -87,6 +88,11 @@ export function MapRequestClient() {
             {loading ? "Working..." : "Generate Recipe"}
           </button>
           {recipe ? (
+            <Link className="button button-secondary" href="/recipe-review">
+              Continue to Recipe Review
+            </Link>
+          ) : null}
+          {recipe ? (
             <button className="button button-secondary" type="button" onClick={onCreatePacket} disabled={loading}>
               Continue to Review Packet
             </button>
@@ -97,6 +103,18 @@ export function MapRequestClient() {
 
       {recipe ? (
         <>
+          <section className="panel">
+            <div className="panel-title-row">
+              <div>
+                <h3>{recipe.map_title || "Untitled map recipe"}</h3>
+                <p className="muted">{recipe.user_intent}</p>
+              </div>
+              <StatusChip tone={recipe.needs_review ? "warning" : "success"}>
+                {recipe.needs_review ? "Needs review" : "Ready for review"}
+              </StatusChip>
+            </div>
+          </section>
+
           <section className="stats-grid">
             <div className="panel">
               <h3>Parsed geography</h3>
@@ -128,6 +146,7 @@ export function MapRequestClient() {
                     <th>Category</th>
                     <th>Role</th>
                     <th>Source</th>
+                    <th>URL</th>
                     <th>Confidence</th>
                   </tr>
                 </thead>
@@ -138,6 +157,7 @@ export function MapRequestClient() {
                       <td>{layer.category}</td>
                       <td>{layer.role}</td>
                       <td>{layer.source_status}</td>
+                      <td className="url-cell">{layer.layer_url}</td>
                       <td>{Math.round((layer.confidence_score || 0) * 100)}%</td>
                     </tr>
                   ))}

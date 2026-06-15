@@ -5,6 +5,29 @@ import { useEffect, useMemo, useState } from "react";
 import { API_BASE_URL, getPackets, getPreviewConfig } from "@/lib/api";
 import type { PacketsResponse, PreviewConfig } from "@/types/automap";
 
+function warningRows(value: unknown): string[] {
+  if (!value) {
+    return [];
+  }
+  if (Array.isArray(value)) {
+    return value.flatMap(warningRows);
+  }
+  if (typeof value === "object") {
+    return Object.entries(value as Record<string, unknown>).flatMap(([key, item]) =>
+      warningRows(item).map((text) => `${key}: ${text}`),
+    );
+  }
+  return [String(value)];
+}
+
+function packetIdFromPath(value: string | null): string | null {
+  if (!value) {
+    return null;
+  }
+  const parts = value.split(/[\\/]/).filter(Boolean);
+  return parts.at(-1) || value;
+}
+
 export function MapPreviewClient() {
   const [packets, setPackets] = useState<PacketsResponse | null>(null);
   const [selectedPacketId, setSelectedPacketId] = useState("latest");
@@ -24,7 +47,8 @@ export function MapPreviewClient() {
     getPackets()
       .then((response) => {
         setPackets(response);
-        setSelectedPacketId(response.latest?.packet_id || "latest");
+        const storedPacketId = packetIdFromPath(window.localStorage.getItem("automap:lastPacketPath"));
+        setSelectedPacketId(storedPacketId || response.latest?.packet_id || "latest");
       })
       .catch((exc) => setError(exc instanceof Error ? exc.message : "Packet index failed."));
   }, []);
@@ -42,6 +66,11 @@ export function MapPreviewClient() {
 
   return (
     <div className="page-stack">
+      <section className="notice notice-warning">
+        <strong>Draft-only preview</strong>
+        <p>No ArcGIS item is created, no ArcGIS login is required, and no layers are published from this page.</p>
+      </section>
+
       <section className="panel form-grid">
         <label htmlFor="packet-select">
           <strong>Selected packet</strong>
@@ -65,6 +94,38 @@ export function MapPreviewClient() {
 
       <section className="panel">
         <iframe className="preview-frame" title="AutoMap draft preview" src={previewUrl} />
+      </section>
+
+      <section className="stats-grid">
+        <div className="panel">
+          <h3>Warnings</h3>
+          {warningRows(preview?.warnings).length ? (
+            <ul className="compact-list">
+              {warningRows(preview?.warnings).map((warning) => (
+                <li key={warning}>{warning}</li>
+              ))}
+            </ul>
+          ) : (
+            <p className="muted">No active warnings reported.</p>
+          )}
+        </div>
+        <div className="panel">
+          <h3>Missing data</h3>
+          {preview?.missing_data?.length ? (
+            <ul className="compact-list">
+              {preview.missing_data.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+          ) : (
+            <p className="muted">No missing data listed for this draft.</p>
+          )}
+        </div>
+        <div className="panel">
+          <h3>Draft status</h3>
+          <p>{preview?.draft_status || "preview"}</p>
+          <p className="muted">Packet: {preview?.packet_path || selectedPacketId}</p>
+        </div>
       </section>
 
       <section className="panel">

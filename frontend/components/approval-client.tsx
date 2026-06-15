@@ -53,6 +53,7 @@ export function ApprovalClient() {
   }
 
   const receipt = (result?.approval_receipt || {}) as { final_publish_ready?: boolean; block_reasons?: string[] };
+  const validation = (result?.validation || {}) as { is_valid?: boolean; errors?: string[] };
 
   return (
     <div className="page-stack">
@@ -89,6 +90,33 @@ export function ApprovalClient() {
         {receipt.block_reasons?.length ? <p className="muted">Block reasons: {receipt.block_reasons.join("; ")}</p> : null}
         {error ? <p className="error-text">{error}</p> : null}
       </section>
+      {result ? (
+        <section className="stats-grid">
+          <div className="panel">
+            <h3>Approved packet</h3>
+            <p className="path-text">{String(result.approved_path || "")}</p>
+          </div>
+          <div className="panel">
+            <h3>Validation</h3>
+            <StatusChip tone={validation.is_valid ? "success" : "warning"}>
+              is_valid: {String(validation.is_valid ?? false)}
+            </StatusChip>
+            {validation.errors?.length ? <p className="error-text">{validation.errors.join("; ")}</p> : null}
+          </div>
+          <div className="panel">
+            <h3>Block reasons</h3>
+            {receipt.block_reasons?.length ? (
+              <ul className="compact-list">
+                {receipt.block_reasons.map((reason) => (
+                  <li key={reason}>{reason}</li>
+                ))}
+              </ul>
+            ) : (
+              <p className="muted">No block reasons in the latest approval receipt.</p>
+            )}
+          </div>
+        </section>
+      ) : null}
       {result ? <JsonPanel title="Approval result" value={result} /> : null}
     </div>
   );

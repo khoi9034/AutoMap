@@ -21,10 +21,10 @@ export const samplePrompts = [
 ];
 
 export const workflowSteps = [
-  "Map Request",
-  "Recipe Review",
-  "Map Preview",
-  "Adjustments",
-  "Approval",
-  "Dry-Run Publish",
+  { href: "/map-request", label: "Map Request", description: "Prompt to draft recipe." },
+  { href: "/recipe-review", label: "Recipe Review", description: "Layers, filters, gaps, and operations." },
+  { href: "/map-preview", label: "Map Preview", description: "Local WebMap JSON preview." },
+  { href: "/adjustments", label: "Adjustments", description: "Human YAML adjustment loop." },
+  { href: "/approval", label: "Approval", description: "Local readiness gate." },
+  { href: "/publish-center", label: "Dry-Run Publish", description: "Dry-run receipts only." },
 ];

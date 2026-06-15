@@ -57,6 +57,49 @@ def test_no_real_publish_endpoint_exposed():
     assert "publish-draft-webmap" not in serialized_paths
 
 
+def test_frontend_workflow_api_routes_exist():
+    client = TestClient(create_app())
+    paths = client.get("/openapi.json").json()["paths"]
+
+    expected_paths = {
+        "/api/status",
+        "/api/catalog/search",
+        "/api/data-gaps",
+        "/api/history",
+        "/api/packets",
+        "/api/preview-config/{packet_id}",
+        "/api/recipe",
+        "/api/review-packet",
+        "/api/webmap-draft",
+        "/api/adjustment-template",
+        "/api/apply-adjustments",
+        "/api/approval-template",
+        "/api/apply-approval",
+        "/api/publish-dry-run",
+        "/api/portal-smoke-test-dry-run",
+    }
+
+    assert expected_paths.issubset(set(paths))
+
+
+def test_api_status_includes_sanitized_port_separation(monkeypatch):
+    monkeypatch.setattr(
+        "app.api_routes.get_system_status",
+        lambda: {
+            "version": "1.4.0",
+            "database_connected": True,
+            "ports": {"frontend": 3010, "backend_api": 8010, "reserved": [3000, 8000]},
+            "real_publish_enabled": False,
+        },
+    )
+    client = TestClient(create_app())
+
+    response = client.get("/api/status")
+
+    assert response.status_code == 200
+    assert response.json()["ports"] == {"frontend": 3010, "backend_api": 8010, "reserved": [3000, 8000]}
+
+
 def test_api_publish_dry_run_cannot_real_publish(monkeypatch):
     calls = []
 

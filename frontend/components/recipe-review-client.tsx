@@ -40,6 +40,9 @@ export function RecipeReviewClient() {
         const response = await makeReviewPacket(prompt);
         setPacketResult(response);
         window.localStorage.setItem("automap:lastReviewPacket", JSON.stringify(response));
+        if (typeof response.packet_path === "string") {
+          window.localStorage.setItem("automap:lastPacketPath", response.packet_path);
+        }
       }
     } catch (exc) {
       setError(exc instanceof Error ? exc.message : "Workflow action failed.");
@@ -77,7 +80,7 @@ export function RecipeReviewClient() {
           </button>
           {packetResult?.preview_url ? (
             <a className="button button-secondary" href="/map-preview">
-              Preview Map
+              Open Map Preview
             </a>
           ) : null}
         </div>
@@ -92,8 +95,9 @@ export function RecipeReviewClient() {
               <tr>
                 <th>Layer</th>
                 <th>Role</th>
-                <th>Source</th>
+                <th>New vs legacy</th>
                 <th>Priority</th>
+                <th>Confidence</th>
                 <th>URL</th>
               </tr>
             </thead>
@@ -102,9 +106,14 @@ export function RecipeReviewClient() {
                 <tr key={layer.layer_key || layer.layer_name}>
                   <td>{layer.layer_name}</td>
                   <td>{layer.role}</td>
-                  <td>{layer.source_status}</td>
+                  <td>
+                    <StatusChip tone={layer.source_priority === 1 ? "success" : "warning"}>
+                      {layer.source_status || "unknown"}
+                    </StatusChip>
+                  </td>
                   <td>{layer.source_priority}</td>
-                  <td>{layer.layer_url}</td>
+                  <td>{Math.round((layer.confidence_score || 0) * 100)}%</td>
+                  <td className="url-cell">{layer.layer_url}</td>
                 </tr>
               ))}
             </tbody>
@@ -114,6 +123,7 @@ export function RecipeReviewClient() {
 
       <section className="stats-grid">
         <JsonPanel title="Filter plan and expressions" value={recipe.filter_plan || recipe.filters || {}} />
+        <JsonPanel title="Definition expressions" value={recipe.filter_plan || {}} />
         <JsonPanel title="Spatial operations" value={recipe.spatial_operations || []} />
         <JsonPanel title="Warnings and missing data" value={{ review_reasons: recipe.review_reasons, missing_data_needed: recipe.missing_data_needed }} />
       </section>

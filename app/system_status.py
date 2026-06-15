@@ -15,6 +15,12 @@ from app.field_profiler import ensure_field_intelligence_tables
 from app.layer_catalog_store import ensure_layer_catalog_table
 from app.packet_index import list_adjusted_packets, list_approved_packets, list_review_packets
 from app.approval_engine import ensure_review_approval_history_table
+from app.ports import (
+    AUTOMAP_BACKEND_PORT,
+    AUTOMAP_FRONTEND_PORT,
+    CFS_RESERVED_BACKEND_PORT,
+    CFS_RESERVED_FRONTEND_PORT,
+)
 from app.request_history import ensure_request_history_table
 from app.version import AUTOMAP_VERSION
 
@@ -55,6 +61,11 @@ def get_system_status(schema_name: str | None = None) -> dict[str, Any]:
             "review_packet_count": len(list_review_packets()),
             "adjusted_packet_count": len(list_adjusted_packets()),
             "approved_packet_count": len(list_approved_packets()),
+        },
+        "ports": {
+            "frontend": AUTOMAP_FRONTEND_PORT,
+            "backend_api": AUTOMAP_BACKEND_PORT,
+            "reserved": [CFS_RESERVED_FRONTEND_PORT, CFS_RESERVED_BACKEND_PORT],
         },
         "arcgis_publisher_mode": "dry-run by default",
         "arcgis_publish_profile": "dev",
@@ -164,6 +175,9 @@ def format_system_status(status: dict[str, Any]) -> str:
         f"Review packets: {packets['review_packet_count']}",
         f"Adjusted packets: {packets['adjusted_packet_count']}",
         f"Approved packets: {packets['approved_packet_count']}",
+        f"Frontend port: {status.get('ports', {}).get('frontend')}",
+        f"Backend/API port: {status.get('ports', {}).get('backend_api')}",
+        f"Reserved ports: {', '.join(str(port) for port in status.get('ports', {}).get('reserved', []))}",
         f"ArcGIS publisher mode: {status['arcgis_publisher_mode']}",
         f"Protected database reminder: {status['protected_database_status']}",
     ]

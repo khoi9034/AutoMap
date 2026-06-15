@@ -29,6 +29,14 @@ export function StatusPanel({ status }: StatusPanelProps) {
           <dt>Approved packets</dt>
           <dd>{status.packets?.approved_packet_count ?? 0}</dd>
         </div>
+        <div>
+          <dt>Frontend</dt>
+          <dd>{status.ports?.frontend || 3010}</dd>
+        </div>
+        <div>
+          <dt>Backend/API</dt>
+          <dd>{status.ports?.backend_api || 8010}</dd>
+        </div>
       </dl>
       <div className="notice">
         <strong>Safety mode</strong>

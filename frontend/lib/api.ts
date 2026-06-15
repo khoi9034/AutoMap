@@ -71,13 +71,17 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   return redactProtected((await response.json()) as T);
 }
 
-export async function getStatus(): Promise<SystemStatus> {
+export async function getSystemStatus(): Promise<SystemStatus> {
   return apiFetch<SystemStatus>("/api/status");
+}
+
+export async function getStatus(): Promise<SystemStatus> {
+  return getSystemStatus();
 }
 
 export async function getStatusOrFallback(): Promise<SystemStatus> {
   try {
-    return await getStatus();
+    return await getSystemStatus();
   } catch {
     return {
       version: "1.4.0",
@@ -104,8 +108,12 @@ export async function getHistory(): Promise<{ request_history: HistoryRow[]; app
   return apiFetch<{ request_history: HistoryRow[]; approval_history: HistoryRow[] }>("/api/history");
 }
 
-export async function getPackets(): Promise<PacketsResponse> {
+export async function listPackets(): Promise<PacketsResponse> {
   return apiFetch<PacketsResponse>("/api/packets");
+}
+
+export async function getPackets(): Promise<PacketsResponse> {
+  return listPackets();
 }
 
 export async function getPreviewConfig(packetId: string): Promise<PreviewConfig> {
@@ -161,11 +169,15 @@ export async function applyApproval(adjustedPacketFolder: string, approvalYaml: 
   });
 }
 
-export async function publishDryRun(approvedPacketFolder: string): Promise<Record<string, unknown>> {
+export async function dryRunPublish(approvedPacketFolder: string): Promise<Record<string, unknown>> {
   return apiFetch<Record<string, unknown>>("/api/publish-dry-run", {
     method: "POST",
     body: JSON.stringify({ approved_packet_folder: approvedPacketFolder }),
   });
+}
+
+export async function publishDryRun(approvedPacketFolder: string): Promise<Record<string, unknown>> {
+  return dryRunPublish(approvedPacketFolder);
 }
 
 export async function portalSmokeTestDryRun(approvedPacketFolder: string): Promise<Record<string, unknown>> {

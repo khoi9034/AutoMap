@@ -12,6 +12,8 @@ export function TopHeader({ status }: TopHeaderProps) {
         <h2>Planning map workflow console</h2>
       </div>
       <div className="header-actions">
+        <span className="chip">FE {status.ports?.frontend || 3010}</span>
+        <span className="chip">API {status.ports?.backend_api || 8010}</span>
         <span className={status.database_connected ? "chip chip-success" : "chip chip-warning"}>
           DB {status.database_connected ? "connected" : "offline"}
         </span>

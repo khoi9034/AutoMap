@@ -23,6 +23,16 @@ export default async function SystemStatusPage() {
         <StatCard label="Value profiles" value={status.profiles?.value_profile_count} />
         <StatCard label="Review packets" value={status.packets?.review_packet_count} />
         <StatCard label="Approved packets" value={status.packets?.approved_packet_count} />
+        <StatCard label="Frontend port" value={status.ports?.frontend || 3010} />
+        <StatCard label="Backend/API port" value={status.ports?.backend_api || 8010} />
+      </section>
+      <section className="panel">
+        <h3>Port separation</h3>
+        <div className="chip-row">
+          <StatusChip tone="success">AutoMap frontend: {status.ports?.frontend || 3010}</StatusChip>
+          <StatusChip tone="success">AutoMap backend/API: {status.ports?.backend_api || 8010}</StatusChip>
+          <StatusChip tone="warning">CFS reserved: {(status.ports?.reserved || [3000, 8000]).join(" / ")}</StatusChip>
+        </div>
       </section>
       <section className="panel">
         <h3>Publish mode</h3>

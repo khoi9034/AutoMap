@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { JsonPanel } from "@/components/json-panel";
+import { StatusChip } from "@/components/status-chip";
 import { applyAdjustments, createAdjustmentTemplate, getPackets } from "@/lib/api";
 import type { PacketsResponse } from "@/types/automap";
 
@@ -52,6 +53,13 @@ export function AdjustmentsClient() {
     }
   }
 
+  const validation = (result?.validation || {}) as { is_valid?: boolean; errors?: string[] };
+  const adjustedWarnings = (result?.adjusted_warnings || {}) as {
+    publish_ready?: boolean;
+    active?: Record<string, unknown>;
+    audit_trail?: unknown[];
+  };
+
   return (
     <div className="page-stack">
       <section className="panel form-grid">
@@ -82,6 +90,29 @@ export function AdjustmentsClient() {
         <p className="muted">The original review packet is preserved; adjusted packets are created separately.</p>
         {error ? <p className="error-text">{error}</p> : null}
       </section>
+      {result ? (
+        <section className="stats-grid">
+          <div className="panel">
+            <h3>Adjusted packet</h3>
+            <p className="path-text">{String(result.adjusted_path || "")}</p>
+            <StatusChip tone={validation.is_valid ? "success" : "warning"}>
+              validation: {String(validation.is_valid ?? false)}
+            </StatusChip>
+          </div>
+          <div className="panel">
+            <h3>Publish ready flag</h3>
+            <StatusChip tone={adjustedWarnings.publish_ready ? "success" : "warning"}>
+              publish_ready: {String(adjustedWarnings.publish_ready ?? false)}
+            </StatusChip>
+            <p className="muted">This flag never publishes anything from the frontend.</p>
+          </div>
+          <div className="panel">
+            <h3>Audit notes</h3>
+            <p>{(adjustedWarnings.audit_trail || []).length} audit entries recorded.</p>
+            {validation.errors?.length ? <p className="error-text">{validation.errors.join("; ")}</p> : null}
+          </div>
+        </section>
+      ) : null}
       {result ? <JsonPanel title="Adjustment result" value={result} /> : null}
     </div>
   );
