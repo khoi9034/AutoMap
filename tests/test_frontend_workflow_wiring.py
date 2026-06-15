@@ -135,5 +135,40 @@ def test_api_client_has_timeout_and_sanitized_fallback_version():
 
     assert "Backend API request timed out" in source
     assert "http://127.0.0.1:8010" in source
-    assert 'version: "1.6.0"' in source
+    assert 'version: "1.7.0"' in source
     assert "redactProtected" in source
+
+
+def test_reports_navigation_page_and_components_exist():
+    navigation = read("components/navigation.ts")
+    page = read("app/reports/page.tsx")
+    center = read("components/report-center-client.tsx")
+    card = read("components/report-card.tsx")
+    preview = read("components/report-preview.tsx")
+
+    assert 'href: "/reports"' in navigation
+    assert "Report and Export Center" in page
+    assert "generateReport" in center
+    assert "getReports" in center
+    assert "getReport" in center
+    assert "Generate Report" in center
+    assert "report_summary.html" not in center.lower()
+    assert "ReportCard" in card
+    assert "ReportPreview" in preview
+    assert "Dry-run" in preview
+    assert "No report selected" in preview
+    assert "confirm-publish" not in center.lower()
+    assert "publish-draft-webmap" not in center.lower()
+
+
+def test_report_api_client_functions_are_typed_and_safe():
+    source = read("lib/api.ts")
+    types = read("types/automap.ts")
+
+    assert "generateReport" in source
+    assert '"/api/generate-report"' in source
+    assert "getReports" in source
+    assert "getReport" in source
+    assert "ReportSummary" in types
+    assert "ReportDetail" in types
+    assert "GenerateReportResponse" in types

@@ -5,6 +5,9 @@ import type {
   MapRecipe,
   PacketsResponse,
   PreviewConfig,
+  GenerateReportResponse,
+  ReportDetail,
+  ReportSummary,
   SystemStatus,
 } from "@/types/automap";
 
@@ -97,7 +100,7 @@ export async function getStatusOrFallback(): Promise<SystemStatus> {
     return await getSystemStatus();
   } catch {
     return {
-      version: "1.6.0",
+      version: "1.7.0",
       database_connected: false,
       catalog: {},
       profiles: {},
@@ -131,6 +134,21 @@ export async function getPackets(): Promise<PacketsResponse> {
 
 export async function getPreviewConfig(packetId: string): Promise<PreviewConfig> {
   return apiFetch<PreviewConfig>(`/api/preview-config/${encodeURIComponent(packetId)}`);
+}
+
+export async function getReports(): Promise<{ reports: ReportSummary[] }> {
+  return apiFetch<{ reports: ReportSummary[] }>("/api/reports");
+}
+
+export async function getReport(reportId: string): Promise<ReportDetail> {
+  return apiFetch<ReportDetail>(`/api/reports/${encodeURIComponent(reportId)}`);
+}
+
+export async function generateReport(packetFolder: string): Promise<GenerateReportResponse> {
+  return apiFetch<GenerateReportResponse>("/api/generate-report", {
+    method: "POST",
+    body: JSON.stringify({ packet_folder: packetFolder }),
+  });
 }
 
 export async function makeRecipe(prompt: string): Promise<{ prompt: string; recipe: MapRecipe; data_gaps: unknown[] }> {

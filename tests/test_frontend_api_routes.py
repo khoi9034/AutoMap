@@ -68,6 +68,8 @@ def test_frontend_workflow_api_routes_exist():
         "/api/data-gaps",
         "/api/history",
         "/api/packets",
+        "/api/reports",
+        "/api/reports/{report_id}",
         "/api/preview-config/{packet_id}",
         "/api/recipe",
         "/api/review-packet",
@@ -76,6 +78,7 @@ def test_frontend_workflow_api_routes_exist():
         "/api/apply-adjustments",
         "/api/approval-template",
         "/api/apply-approval",
+        "/api/generate-report",
         "/api/publish-dry-run",
         "/api/portal-smoke-test-dry-run",
     }

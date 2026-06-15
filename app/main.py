@@ -55,6 +55,7 @@ from app.ports import AUTOMAP_BACKEND_PORT, CFS_RESERVED_WARNING
 from app.portal_item_verifier import verify_portal_item
 from app.portal_smoke_test import run_publish_smoke_test
 from app.recipe_engine import build_recipe
+from app.report_generator import generate_report, list_reports, validate_report
 from app.review_packet_builder import (
     build_review_packet,
     save_review_packet,
@@ -453,6 +454,38 @@ def _list_packets() -> int:
     return 0
 
 
+def _generate_report(packet_folder: str) -> int:
+    package = generate_report(packet_folder)
+    print(f"report saved: {package.report_path}")
+    print(f"report title: {package.report_title}")
+    print(f"packet type: {package.packet_type}")
+    print(f"validation passed: {bool(package.validation and package.validation.get('is_valid'))}")
+    print("files:")
+    for file_name, file_path in package.files.items():
+        print(f"- {file_name}: {file_path}")
+    return 0 if package.validation and package.validation.get("is_valid") else 1
+
+
+def _list_reports() -> int:
+    rows = list_reports()
+    if not rows:
+        print("reports: none")
+        return 0
+    for row in rows:
+        print(
+            f"{row['report_id']} | {row.get('report_title')} | "
+            f"{row.get('packet_type')} | {row.get('report_path')}"
+        )
+    print(f"reports listed: {len(rows)}")
+    return 0
+
+
+def _validate_report(path: str) -> int:
+    validation = validate_report(path)
+    print(json.dumps(validation, indent=2, default=str))
+    return 0 if validation["is_valid"] else 1
+
+
 def _preview_packet(path: str, port: int | None = None) -> int:
     try:
         config = build_preview_config(path)
@@ -670,6 +703,21 @@ def main() -> int:
         help="List local review and adjusted packets with preview URLs.",
     )
     parser.add_argument(
+        "--generate-report",
+        metavar="PACKET_FOLDER",
+        help="Generate a local report/export package from a review, adjusted, or approved packet.",
+    )
+    parser.add_argument(
+        "--list-reports",
+        action="store_true",
+        help="List generated local report/export packages.",
+    )
+    parser.add_argument(
+        "--validate-report",
+        metavar="REPORT_FOLDER",
+        help="Validate a generated local report/export package.",
+    )
+    parser.add_argument(
         "--preview-packet",
         metavar="PACKET_FOLDER_OR_WEBMAP_JSON",
         help="Print a local UI preview URL for a packet or generated WebMap JSON path.",
@@ -750,6 +798,12 @@ def main() -> int:
             return _serve_ui(args.ui_port)
         if args.list_packets:
             return _list_packets()
+        if args.generate_report:
+            return _generate_report(args.generate_report)
+        if args.list_reports:
+            return _list_reports()
+        if args.validate_report:
+            return _validate_report(args.validate_report)
         if args.preview_packet:
             return _preview_packet(args.preview_packet, args.ui_port)
         if args.system_status:

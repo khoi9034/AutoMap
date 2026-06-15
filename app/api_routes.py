@@ -33,6 +33,7 @@ from app.packet_index import (
 )
 from app.portal_smoke_test import run_publish_smoke_test
 from app.recipe_engine import build_recipe
+from app.report_generator import generate_report, get_report, list_reports
 from app.request_history import list_request_history, record_request_history
 from app.review_packet_builder import (
     build_layer_review_table,
@@ -73,6 +74,12 @@ class PacketPathRequest(BaseModel):
     packet_folder: str | None = None
     adjusted_packet_folder: str | None = None
     approved_packet_folder: str | None = None
+
+
+class ReportRequest(BaseModel):
+    """Report generation payload for local packet exports."""
+
+    packet_folder: str
 
 
 class ApplyAdjustmentsRequest(BaseModel):
@@ -158,6 +165,14 @@ def _packet_file_links(packet_path: str | Path, file_names: list[str]) -> list[d
     ]
 
 
+def _repo_relative_output_path(path: str | Path) -> str:
+    resolved = Path(path).resolve()
+    try:
+        return resolved.relative_to(repo_root().resolve()).as_posix()
+    except ValueError:
+        return Path(path).as_posix()
+
+
 def _preview_url_for_source(source: str | Path) -> str:
     text = Path(source).as_posix()
     if "/" in text or "\\" in text or text.endswith(".json"):
@@ -227,6 +242,53 @@ def api_packets() -> Any:
                 "adjusted_packets": len(adjusted_packets),
                 "approved_packets": len(approved_packets),
             },
+        }
+    )
+
+
+@api_router.get("/reports")
+def api_reports() -> Any:
+    """Return generated local report packages."""
+    return _json_response({"reports": list_reports()})
+
+
+@api_router.get("/reports/{report_id}")
+def api_report_detail(report_id: str) -> Any:
+    """Return one generated report package summary and file links."""
+    try:
+        return _json_response(get_report(report_id))
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise _handle_value_error(exc) from exc
+
+
+@api_router.post("/generate-report")
+def api_generate_report(payload: ReportRequest) -> Any:
+    """Generate a local report package from a review, adjusted, or approved packet."""
+    try:
+        package = generate_report(payload.packet_folder)
+    except (FileNotFoundError, ValueError) as exc:
+        raise _handle_value_error(exc) from exc
+    return _json_response(
+        {
+            "report_id": package.report_id,
+            "report_path": _repo_relative_output_path(package.report_path),
+            "report_title": package.report_title,
+            "packet_type": package.packet_type,
+            "packet_path": package.packet_path,
+            "files": _packet_file_links(
+                _repo_relative_output_path(package.report_path),
+                [
+                    "report_summary.html",
+                    "report_summary.md",
+                    "report_data.json",
+                    "layer_table.csv",
+                    "warning_report.json",
+                    "export_manifest.json",
+                ],
+            ),
+            "validation": package.validation,
         }
     )
 

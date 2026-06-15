@@ -2,11 +2,11 @@
 
 AutoMap converts plain-English county GIS map requests into structured map recipes using only approved GIS layers from a local layer catalog.
 
-Version: `1.6.0`
+Version: `1.7.0`
 
 ## Current Phase
 
-v1.6 frontend UX polish and map preview upgrade.
+v1.7 Report and Export Center.
 
 This repository is intentionally independent. It does not connect to CFS or import CFS code. AutoMap uses its own local PostGIS database and trusted layer catalog.
 
@@ -29,6 +29,7 @@ AutoMap helps GIS and planning staff turn plain-English county map requests into
 - Next.js frontend workflow shell backed by FastAPI JSON APIs
 - persistent end-to-end frontend workflow state
 - local request history and system status
+- local report/export packages for GIS review
 
 ## What AutoMap Does Not Do Yet
 
@@ -53,6 +54,7 @@ ArcGIS publishing and smoke testing remain dry-run by default unless a guarded C
 13. v1.4 Next.js frontend app shell
 14. v1.5 end-to-end frontend workflow wiring
 15. v1.6 frontend UX polish and map preview upgrade
+16. v1.7 report and export center
 
 ## Project Structure
 
@@ -95,7 +97,7 @@ python -m pytest
 
 ## Next.js Frontend
 
-AutoMap v1.6 polishes the Next.js + TypeScript workflow shell under `frontend/`. The FastAPI backend remains the API and workflow engine, and the existing FastAPI/Jinja UI is preserved.
+AutoMap v1.7 adds a Report and Export Center to the Next.js + TypeScript workflow shell under `frontend/`. The FastAPI backend remains the API and workflow engine, and the existing FastAPI/Jinja UI is preserved.
 
 Start the backend API on port `8010`:
 
@@ -145,6 +147,7 @@ Frontend pages:
 - `/adjustments`
 - `/approval`
 - `/publish-center`
+- `/reports`
 - `/layer-catalog`
 - `/data-gaps`
 - `/history`
@@ -152,11 +155,22 @@ Frontend pages:
 
 The frontend can run dry-run publish and portal smoke-test dry-run actions only. Real publish remains CLI-only.
 
-The workflow shell includes an operations dashboard, quick prompt bar, demo scenarios, recipe review workspace, local map preview, layer panel, grouped warning panel, human adjustment editor, approval gate, dry-run publish center, catalog search, data gaps, history, and sanitized system status.
+The workflow shell includes an operations dashboard, quick prompt bar, demo scenarios, recipe review workspace, local map preview, layer panel, grouped warning panel, human adjustment editor, approval gate, dry-run publish center, report/export center, catalog search, data gaps, history, and sanitized system status.
 
 AutoMap persists the active local workflow in browser storage so staff can move from prompt to recipe review, preview, adjustments, approval, and dry-run publishing without losing context on refresh. The stored workflow state is sanitized and does not include secrets.
 
 v1.6 improves the map preview page with a draft-only preview shell, packet selector, layer review panel, warning group panel, clearer empty/loading/error states, and explicit safety labels. The frontend preview uses the backend preview config and existing local preview route. It does not require ArcGIS login and does not publish.
+
+v1.7 adds local report packages under `outputs/reports/`. Reports can be generated from review, adjusted, or approved packets and include:
+
+- `report_summary.html`
+- `report_summary.md`
+- `report_data.json`
+- `layer_table.csv`
+- `warning_report.json`
+- `export_manifest.json`
+
+PDF export is not enabled in v1.7; HTML and Markdown are the supported readable report formats. Reports are local review exports only. They are not official maps and do not publish to ArcGIS.
 
 ## PostGIS Setup
 
@@ -402,6 +416,9 @@ AutoMap v0.9 adds a browser map preview for local draft WebMap JSON files.
 python -m app.main --serve-ui --ui-port 8010
 python -m app.main --list-packets
 python -m app.main --preview-packet outputs/review_packets/<packet-folder> --ui-port 8010
+python -m app.main --generate-report outputs/review_packets_approved/<approved-packet-folder>
+python -m app.main --list-reports
+python -m app.main --validate-report outputs/reports/<report-folder>
 ```
 
 Preview routes:
@@ -454,6 +471,7 @@ Prompt -> Parser -> Layer Matcher -> Recipe Engine
        -> Portal Smoke-Test Verification
        -> Next.js Frontend Workflow Shell
        -> UX-Polished Local Map Preview
+       -> Report And Export Center
 ```
 
 The trusted source for layer selection is `automap.layer_catalog`. Generated artifacts live under `outputs/`, which is ignored by Git.
@@ -467,10 +485,11 @@ See:
 - `docs/frontend_app_shell.md`
 - `docs/frontend_ux_design.md`
 - `docs/map_preview_frontend.md`
+- `docs/report_export_center.md`
 
 ## Notes
 
 - Approved GIS layers come from AutoMap's local `automap.layer_catalog`.
-- Generated recipes, WebMap drafts, review packets, and adjusted packets are local artifacts and are not committed.
-- ArcGIS Online or Portal publishing is dry-run by default in v1.6 and real-publish is CLI-only behind explicit safeguards.
+- Generated recipes, WebMap drafts, review packets, adjusted packets, approved packets, and reports are local artifacts and are not committed.
+- ArcGIS Online or Portal publishing is dry-run by default in v1.7 and real-publish is CLI-only behind explicit safeguards.
 - CFS uses a separate database and remains untouched by AutoMap.

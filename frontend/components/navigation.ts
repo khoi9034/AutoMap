@@ -6,6 +6,7 @@ export const navigationItems = [
   { href: "/adjustments", label: "Adjustments" },
   { href: "/approval", label: "Approval" },
   { href: "/publish-center", label: "Publish Center" },
+  { href: "/reports", label: "Reports" },
   { href: "/layer-catalog", label: "Layer Catalog" },
   { href: "/data-gaps", label: "Data Gaps" },
   { href: "/history", label: "History" },

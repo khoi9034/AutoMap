@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { JsonPanel } from "@/components/json-panel";
@@ -106,6 +107,9 @@ export function PublishCenterClient() {
           <button className="button button-secondary" type="button" onClick={() => run("smoke")} disabled={!approvedPacketFolder || !!loading}>
             {loading === "smoke" ? "Running..." : "Portal Smoke-Test Dry-Run"}
           </button>
+          <Link className="button button-secondary" href="/reports">
+            Generate Report
+          </Link>
         </div>
         <p className="muted">
           No real publish button is exposed. No ArcGIS login is required in the frontend. Dry-run checks do not create

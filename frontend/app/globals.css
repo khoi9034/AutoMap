@@ -658,7 +658,8 @@ button {
 
 .scenario-grid,
 .data-gap-grid,
-.warning-grid {
+.warning-grid,
+.report-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
   gap: 12px;
@@ -667,7 +668,9 @@ button {
 .scenario-card,
 .data-gap-card,
 .warning-group,
-.layer-card {
+.layer-card,
+.report-card,
+.report-metric {
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #ffffff;
@@ -689,6 +692,26 @@ button {
 .text-link {
   color: var(--blue);
   font-weight: 800;
+}
+
+.report-card {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+}
+
+.report-link-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.report-preview {
+  align-content: start;
+}
+
+.report-metric {
+  background: #f8fafc;
 }
 
 .empty-state {

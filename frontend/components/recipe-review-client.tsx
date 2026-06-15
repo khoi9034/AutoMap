@@ -125,6 +125,11 @@ export function RecipeReviewClient() {
               Go to Adjustments
             </Link>
           ) : null}
+          {reviewPacketPath ? (
+            <Link className="button button-secondary" href="/reports">
+              Open Reports
+            </Link>
+          ) : null}
         </div>
         {error ? <p className="error-text">{error}</p> : null}
         <ToastMessage toast={toast} />
@@ -185,6 +190,9 @@ export function RecipeReviewClient() {
             </Link>
             <Link className="button button-secondary" href="/adjustments">
               Go to Adjustments
+            </Link>
+            <Link className="button button-secondary" href="/reports">
+              Generate Report
             </Link>
           </div>
         </section>

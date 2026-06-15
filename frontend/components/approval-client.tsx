@@ -163,9 +163,14 @@ export function ApprovalClient() {
       {result?.approved_path ? (
         <section className="panel">
           <h3>Next step</h3>
-          <Link className="button" href="/publish-center">
-            Go to Publish Center
-          </Link>
+          <div className="button-row">
+            <Link className="button" href="/publish-center">
+              Go to Publish Center
+            </Link>
+            <Link className="button button-secondary" href="/reports">
+              Generate Report
+            </Link>
+          </div>
         </section>
       ) : null}
       {result ? <JsonPanel title="Approval result" value={result} /> : null}

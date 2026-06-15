@@ -144,6 +144,9 @@ export function AdjustmentsClient() {
             <Link className="button button-secondary" href="/approval">
               Go to Approval
             </Link>
+            <Link className="button button-secondary" href="/reports">
+              Generate Report
+            </Link>
           </div>
         </section>
       ) : null}

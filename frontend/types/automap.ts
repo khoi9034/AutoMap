@@ -131,6 +131,65 @@ export type PacketsResponse = {
   };
 };
 
+export type ReportFileLink = {
+  name?: string;
+  path?: string;
+  url?: string;
+};
+
+export type ReportSummary = {
+  report_id?: string;
+  report_path?: string;
+  report_title?: string;
+  generated_map_title?: string;
+  workflow_status?: string;
+  packet_type?: string;
+  packet_path?: string;
+  source_packet_path?: string;
+  updated_at?: string;
+  files?: Record<string, string> | ReportFileLink[];
+  validation?: {
+    is_valid?: boolean;
+    errors?: string[];
+    warnings?: string[];
+  };
+};
+
+export type ReportData = {
+  report_title?: string;
+  original_prompt?: string;
+  generated_map_title?: string;
+  workflow_status?: string;
+  packet_type?: string;
+  packet_path?: string;
+  selected_layers?: Array<Record<string, JsonValue>>;
+  warnings?: Record<string, string[]>;
+  missing_data?: string[];
+  data_gaps?: JsonValue[];
+  approval?: Record<string, JsonValue>;
+  final_publish_ready?: boolean | null;
+  dry_run_publish_receipt?: Record<string, JsonValue>;
+  portal_smoke_test_receipt?: Record<string, JsonValue>;
+  draft_only_disclaimer?: string;
+};
+
+export type ReportDetail = {
+  report_id?: string;
+  report_path?: string;
+  report_data?: ReportData;
+  manifest?: Record<string, JsonValue>;
+  files?: Record<string, string> | ReportFileLink[];
+  validation?: {
+    is_valid?: boolean;
+    errors?: string[];
+    warnings?: string[];
+  };
+};
+
+export type GenerateReportResponse = ReportSummary & {
+  files?: ReportFileLink[];
+};
+
 export type PreviewLayer = {
   id?: string;
   title?: string;

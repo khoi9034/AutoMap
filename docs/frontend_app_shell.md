@@ -1,6 +1,6 @@
 # AutoMap Frontend Workflow Shell
 
-AutoMap v1.6 provides a polished Next.js + TypeScript workflow shell while keeping the FastAPI backend as the API and workflow engine.
+AutoMap v1.7 provides a polished Next.js + TypeScript workflow shell while keeping the FastAPI backend as the API and workflow engine.
 
 ## URLs
 
@@ -51,6 +51,7 @@ Cabarrus FutureScape keeps `http://localhost:3000` and `http://127.0.0.1:8000`. 
 - `/adjustments`
 - `/approval`
 - `/publish-center`
+- `/reports`
 - `/layer-catalog`
 - `/data-gaps`
 - `/history`
@@ -69,6 +70,7 @@ The frontend presents a local, draft-only workflow:
 5. Human YAML adjustments that create separate adjusted packets
 6. Reviewer approval that records local readiness only
 7. Dry-run publish and dry-run portal smoke-test receipts
+8. Local report/export packages for GIS review
 
 The shell uses compact cards, status chips, scan-friendly tables, grouped warning panels, layer review panels, and explicit draft-only labels. It does not expose real ArcGIS publishing.
 
@@ -97,6 +99,8 @@ The frontend uses JSON-only backend API routes:
 - `GET /api/data-gaps`
 - `GET /api/history`
 - `GET /api/packets`
+- `GET /api/reports`
+- `GET /api/reports/{report_id}`
 - `GET /api/preview-config/{packet_id}`
 - `POST /api/recipe`
 - `POST /api/review-packet`
@@ -105,6 +109,7 @@ The frontend uses JSON-only backend API routes:
 - `POST /api/apply-adjustments`
 - `POST /api/approval-template`
 - `POST /api/apply-approval`
+- `POST /api/generate-report`
 - `POST /api/publish-dry-run`
 - `POST /api/portal-smoke-test-dry-run`
 
