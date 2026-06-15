@@ -56,3 +56,36 @@ def test_filter_planner_does_not_fake_floodplain_attribute_filter():
     assert plan["flood100"]["selected_field"] is None
     assert plan["flood100"]["draft_where_clause"] is None
     assert plan["flood100"]["needs_review"] is False
+
+
+def test_filter_planner_generic_zoning_does_not_claim_commercial_review():
+    recipe = {
+        "parsed_request": {
+            "geography_terms": [],
+            "time_references": ["current"],
+            "topic_details": {"zoning_modifiers": []},
+        },
+        "selected_layers": [
+            {
+                "layer_key": "zoning",
+                "layer_name": "Cabarrus County Zoning",
+                "category": "zoning",
+                "role": "constraint_overlay",
+            }
+        ],
+    }
+    catalog = [
+        {
+            "layer_key": "zoning",
+            "layer_url": "https://example.com/MapServer/0",
+            "fields": [
+                {"name": "ZONE_CODE", "type": "esriFieldTypeString", "alias": "Zoning Code"}
+            ],
+        }
+    ]
+
+    plan = build_filter_plan(recipe, catalog_records=catalog)
+
+    assert plan["zoning"]["selected_field"] == "ZONE_CODE"
+    assert plan["zoning"]["draft_where_clause"] is None
+    assert plan["zoning"]["needs_review"] is False

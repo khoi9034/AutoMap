@@ -29,6 +29,8 @@ from app.layer_catalog_store import (
 from app.layer_semantics import slugify
 from app.recipe_engine import build_recipe
 from app.rest_sources import load_rest_sources
+from app.webmap_builder import validate_webmap_json
+from app.webmap_exporter import export_recipe_and_webmap
 
 
 def _print_project_banner() -> None:
@@ -199,6 +201,46 @@ def _list_data_gaps() -> int:
     return 0
 
 
+def _make_webmap_draft(prompt: str) -> int:
+    result = export_recipe_and_webmap(prompt)
+    recipe = result["recipe"]
+    validation = result["validation"]
+    webmap_path = result["webmap_path"]
+
+    print(f"webmap draft saved: {webmap_path}")
+    print(f"validation passed: {validation['is_valid']}")
+    print(f"needs review: {recipe['needs_review']}")
+    print("selected layers:")
+    for layer in recipe["selected_layers"]:
+        print(
+            f"- {layer['layer_key']} | {layer['layer_name']} | "
+            f"{layer['role']} | {layer['layer_url']}"
+        )
+    warnings = sorted(
+        {
+            *recipe.get("review_reasons", []),
+            *validation.get("warnings", []),
+            *validation.get("errors", []),
+        }
+    )
+    if warnings:
+        print("warnings:")
+        for warning in warnings:
+            print(f"- {warning}")
+    return 0 if validation["is_valid"] else 1
+
+
+def _validate_webmap_draft(path: str) -> int:
+    webmap_path = Path(path)
+    if not webmap_path.exists():
+        print(f"WebMap draft not found: {webmap_path}")
+        return 1
+    webmap_json = json.loads(webmap_path.read_text(encoding="utf-8"))
+    validation = validate_webmap_json(webmap_json)
+    print(json.dumps(validation, indent=2))
+    return 0 if validation["is_valid"] else 1
+
+
 def main() -> int:
     """Run the AutoMap command-line interface."""
     parser = argparse.ArgumentParser(description="AutoMap command-line tools")
@@ -275,6 +317,16 @@ def main() -> int:
         action="store_true",
         help="List missing-data topics recorded from recipe runs.",
     )
+    parser.add_argument(
+        "--make-webmap-draft",
+        metavar="PROMPT",
+        help="Create and save local-only ArcGIS WebMap draft JSON from a GIS request.",
+    )
+    parser.add_argument(
+        "--validate-webmap-draft",
+        metavar="PATH",
+        help="Validate a generated AutoMap WebMap draft JSON file.",
+    )
     args = parser.parse_args()
 
     try:
@@ -302,6 +354,10 @@ def main() -> int:
             return _validate_recipe(args.validate_recipe)
         if args.list_data_gaps:
             return _list_data_gaps()
+        if args.make_webmap_draft:
+            return _make_webmap_draft(args.make_webmap_draft)
+        if args.validate_webmap_draft:
+            return _validate_webmap_draft(args.validate_webmap_draft)
     except ValueError as exc:
         print(f"Configuration error: {exc}")
         return 1

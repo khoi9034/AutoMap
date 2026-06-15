@@ -131,6 +131,16 @@ def choose_zoning_filter_field(layer: dict[str, Any], zoning_terms: list[str]) -
     fields = layer.get("field_profiles", [])
     field, confidence = _choose_field(fields, ["is_zoning_candidate", "is_category_candidate"], ["zone", "zoning", "district", "code", "class"])
     values = _values_for_field(layer, field.get("field_name") if field else None)
+    if not zoning_terms:
+        return {
+            "candidate_fields": _field_names(fields),
+            "selected_field": field.get("field_name") if field else None,
+            "candidate_values": values[:50],
+            "draft_where_clause": None,
+            "confidence_score": round(confidence, 3),
+            "needs_review": not bool(field),
+            "review_reason": None if field else "No obvious zoning code or classification field found.",
+        }
     terms = COMMERCIAL_TERMS if "commercial" in zoning_terms else zoning_terms
     matched_values = [
         value

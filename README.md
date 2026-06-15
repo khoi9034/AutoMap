@@ -4,9 +4,9 @@ AutoMap converts plain-English county GIS map requests into structured map recip
 
 ## Current Phase
 
-v0.0 repo setup only.
+v0.4 ArcGIS WebMap draft generator.
 
-This repository is intentionally independent. It does not connect to CFS or import CFS code. The current scaffold uses placeholder Python modules and mock data by default.
+This repository is intentionally independent. It does not connect to CFS or import CFS code. AutoMap uses its own local PostGIS database and trusted layer catalog.
 
 ## Future Phases
 
@@ -117,9 +117,22 @@ python -m app.main --validate-recipe "Show parcels in Concord that are in the 10
 python -m app.main --list-data-gaps
 ```
 
+## ArcGIS WebMap Draft Generator
+
+AutoMap v0.4 creates local ArcGIS WebMap JSON drafts from map recipes. Drafts use verified catalog layer URLs and v0.3 filter-plan definition expressions only. AutoMap does not publish to ArcGIS Online or Portal, does not require an ArcGIS login, and does not ingest full geometries.
+
+```bash
+python -m app.main --make-webmap-draft "Show parcels in Concord that are in the 100-year floodplain."
+python -m app.main --make-webmap-draft "Show commercial zoning around Concord."
+python -m app.main --make-webmap-draft "Show school districts for parcels in Harrisburg."
+python -m app.main --make-webmap-draft "Show 2014 parcels and zoning."
+python -m app.main --validate-webmap-draft outputs/webmaps/<generated-file>.json
+```
+
+Generated WebMap drafts are local files under `outputs/webmaps/`, which is ignored by Git.
+
 ## Notes
 
-- Approved GIS layers will come from a local layer catalog.
-- Application table creation is out of scope for v0.0.
-- External GIS service inspection is out of scope for v0.0.
-- Placeholder code should be replaced incrementally as each future phase begins.
+- Approved GIS layers come from AutoMap's local `automap.layer_catalog`.
+- Generated recipes and WebMap drafts are local artifacts and are not committed.
+- ArcGIS Online or Portal publishing is not part of v0.4.
