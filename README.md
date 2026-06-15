@@ -2,11 +2,11 @@
 
 AutoMap converts plain-English county GIS map requests into structured map recipes using only approved GIS layers from a local layer catalog.
 
-Version: `1.3.0`
+Version: `1.4.0`
 
 ## Current Phase
 
-v1.3 portal publish smoke test and item verification.
+v1.4 Next.js frontend app shell.
 
 This repository is intentionally independent. It does not connect to CFS or import CFS code. AutoMap uses its own local PostGIS database and trusted layer catalog.
 
@@ -26,13 +26,14 @@ AutoMap helps GIS and planning staff turn plain-English county map requests into
 - dry-run publish receipts
 - controlled private ArcGIS Web Map publishing from approved packets
 - one-item private Portal smoke-test verification
+- Next.js frontend app shell backed by FastAPI JSON APIs
 - local request history and system status
 
 ## What AutoMap Does Not Do Yet
 
 AutoMap does not ingest full feature geometries, does not download full feature datasets, does not publish from the local UI, does not publish publicly, does not share to the organization, and does not use an external LLM API.
 
-ArcGIS publishing and smoke testing remain dry-run by default unless a guarded CLI path is explicitly confirmed with an approved packet and local environment safety flags.
+ArcGIS publishing and smoke testing remain dry-run by default unless a guarded CLI path is explicitly confirmed with an approved packet and local environment safety flags. The frontend exposes dry-run actions only.
 
 ## Version Roadmap
 
@@ -48,6 +49,7 @@ ArcGIS publishing and smoke testing remain dry-run by default unless a guarded C
 10. v1.1 reviewer approval gate
 11. v1.2 controlled private ArcGIS publish
 12. v1.3 portal publish smoke test and item verification
+13. v1.4 Next.js frontend app shell
 
 ## Project Structure
 
@@ -63,6 +65,11 @@ automaps/
   data/
     layer_catalog.example.json
     test_prompts.json
+  frontend/
+    app/
+    components/
+    lib/
+    types/
   outputs/
     sample_recipes/
   tests/
@@ -82,6 +89,60 @@ python -m venv .venv
 python -m pip install -r requirements.txt
 python -m pytest
 ```
+
+## Next.js Frontend
+
+AutoMap v1.4 adds a separate Next.js + TypeScript frontend app under `frontend/`. The FastAPI backend remains the API and workflow engine, and the existing FastAPI/Jinja UI is preserved.
+
+Start the backend API on port `8001`:
+
+```bash
+python -m app.main --serve-ui --ui-port 8001
+```
+
+Start the frontend:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Open:
+
+```text
+http://localhost:3000
+```
+
+Backend API:
+
+```text
+http://127.0.0.1:8001
+```
+
+`frontend/.env.example` contains:
+
+```text
+NEXT_PUBLIC_AUTOMAP_API_BASE_URL=http://127.0.0.1:8001
+```
+
+Do not commit `frontend/.env.local` or `frontend/node_modules/`.
+
+Frontend pages:
+
+- `/dashboard`
+- `/map-request`
+- `/recipe-review`
+- `/map-preview`
+- `/adjustments`
+- `/approval`
+- `/publish-center`
+- `/layer-catalog`
+- `/data-gaps`
+- `/history`
+- `/system-status`
+
+The frontend can run dry-run publish and portal smoke-test dry-run actions only. Real publish remains CLI-only.
 
 ## PostGIS Setup
 
@@ -273,6 +334,30 @@ python -m app.main --verify-portal-item <item-id> --approved-packet outputs/revi
 
 The smoke-test verifier checks that the item is private, not public, not shared to the organization, is a Web Map, has AutoMap draft tags, and uses the approved layer URLs. AutoMap does not overwrite or delete ArcGIS items. Cleanup is manual in Portal.
 
+## Frontend JSON API
+
+The FastAPI backend exposes JSON-only routes for the Next.js frontend:
+
+```text
+GET /api/status
+GET /api/catalog/search?q=flood
+GET /api/data-gaps
+GET /api/history
+GET /api/packets
+GET /api/preview-config/{packet_id}
+POST /api/recipe
+POST /api/review-packet
+POST /api/webmap-draft
+POST /api/adjustment-template
+POST /api/apply-adjustments
+POST /api/approval-template
+POST /api/apply-approval
+POST /api/publish-dry-run
+POST /api/portal-smoke-test-dry-run
+```
+
+API responses are sanitized and do not expose database URLs, ArcGIS credentials, `.env` values, or protected external-project references. No real publish endpoint is exposed to the frontend API.
+
 ## Local Web UI
 
 AutoMap v0.8 adds a local FastAPI/Jinja web interface for the draft workflow.
@@ -353,6 +438,7 @@ Prompt -> Parser -> Layer Matcher -> Recipe Engine
        -> Reviewer Approval -> Dry-Run Receipt
        -> Controlled Private ArcGIS Draft Publish
        -> Portal Smoke-Test Verification
+       -> Next.js Frontend App Shell
 ```
 
 The trusted source for layer selection is `automap.layer_catalog`. Generated artifacts live under `outputs/`, which is ignored by Git.
@@ -363,10 +449,11 @@ See:
 - `docs/project_architecture.md`
 - `docs/safety_model.md`
 - `docs/portal_smoke_test.md`
+- `docs/frontend_app_shell.md`
 
 ## Notes
 
 - Approved GIS layers come from AutoMap's local `automap.layer_catalog`.
 - Generated recipes, WebMap drafts, review packets, and adjusted packets are local artifacts and are not committed.
-- ArcGIS Online or Portal publishing is dry-run by default in v1.3 and real-publish is CLI-only behind explicit safeguards.
+- ArcGIS Online or Portal publishing is dry-run by default in v1.4 and real-publish is CLI-only behind explicit safeguards.
 - CFS uses a separate database and remains untouched by AutoMap.

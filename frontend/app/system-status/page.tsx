@@ -1,0 +1,40 @@
+import { JsonPanel } from "@/components/json-panel";
+import { SectionHeader } from "@/components/section-header";
+import { StatCard } from "@/components/stat-card";
+import { StatusChip } from "@/components/status-chip";
+import { getStatusOrFallback } from "@/lib/api";
+
+export default async function SystemStatusPage() {
+  const status = await getStatusOrFallback();
+
+  return (
+    <div className="page-stack">
+      <SectionHeader
+        eyebrow="System Status"
+        title="Backend health and publish safety"
+        description="Sanitized status from the FastAPI backend. Secrets, database URLs, and credentials are never displayed."
+      />
+      <section className="stats-grid">
+        <StatCard label="AutoMap version" value={status.version} />
+        <StatCard label="DB connected" value={status.database_connected ? "true" : "false"} />
+        <StatCard label="Catalog records" value={status.catalog?.layer_count} />
+        <StatCard label="Verified layers" value={status.catalog?.verified_layer_count} />
+        <StatCard label="Field profiles" value={status.profiles?.field_profile_count} />
+        <StatCard label="Value profiles" value={status.profiles?.value_profile_count} />
+        <StatCard label="Review packets" value={status.packets?.review_packet_count} />
+        <StatCard label="Approved packets" value={status.packets?.approved_packet_count} />
+      </section>
+      <section className="panel">
+        <h3>Publish mode</h3>
+        <div className="chip-row">
+          <StatusChip tone={status.real_publish_enabled ? "warning" : "success"}>
+            real_publish_enabled: {String(status.real_publish_enabled)}
+          </StatusChip>
+          <StatusChip>profile: {status.arcgis_publish_profile || "dev"}</StatusChip>
+        </div>
+        <p className="muted">{status.arcgis_publisher_mode}</p>
+      </section>
+      <JsonPanel title="Full sanitized status" value={status} />
+    </div>
+  );
+}

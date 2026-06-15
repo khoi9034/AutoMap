@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
+from app.api_routes import api_router
 from app.ui_models import PROJECT_TITLE, repo_root
 from app.ui_routes import router
 
@@ -14,8 +16,16 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title=PROJECT_TITLE,
         description="Local AutoMap review UI. Dry-run publishing only.",
-        version="1.3",
+        version="1.4",
     )
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["http://127.0.0.1:3000", "http://localhost:3000"],
+        allow_credentials=False,
+        allow_methods=["GET", "POST", "OPTIONS"],
+        allow_headers=["*"],
+    )
+    app.include_router(api_router)
     app.include_router(router)
     static_dir = repo_root() / "static"
     if static_dir.exists():
