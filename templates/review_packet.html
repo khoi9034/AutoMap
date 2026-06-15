@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Review Packet - AutoMap{% endblock %}
+{% block content %}
+<section class="panel">
+  <h2>Review Packet</h2>
+  <p><strong>Packet folder:</strong> <code>{{ packet_path }}</code></p>
+  <p><strong>Validation:</strong> {{ validation.is_valid }}</p>
+  <form method="post" action="/adjustment-template">
+    <input type="hidden" name="packet_folder" value="{{ packet_path }}">
+    <button type="submit">Create Adjustment Template</button>
+  </form>
+</section>
+
+<section class="panel">
+  <h3>Selected Layers</h3>
+  <table>
+    <thead><tr><th>Title</th><th>Role</th><th>Source</th><th>URL</th></tr></thead>
+    <tbody>
+      {% for row in layer_review %}
+        <tr>
+          <td>{{ row.title }}</td>
+          <td>{{ row.role }}</td>
+          <td>{{ row.source_status }}</td>
+          <td><a href="{{ row.layer_url }}" target="_blank" rel="noreferrer">{{ row.layer_url }}</a></td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<section class="two-column">
+  <div class="panel">
+    <h3>Warnings</h3>
+    {% for group, group_warnings in warnings.items() %}
+      <h4>{{ group.replace("_", " ").title() }}</h4>
+      <ul class="compact-list">
+        {% for warning in group_warnings %}
+          <li>{{ warning }}</li>
+        {% else %}
+          <li>None.</li>
+        {% endfor %}
+      </ul>
+    {% endfor %}
+  </div>
+  <div class="panel">
+    <h3>Missing Data</h3>
+    <ul class="compact-list">
+      {% for missing in recipe.missing_data_needed %}
+        <li>{{ missing }}</li>
+      {% else %}
+        <li>No missing data reported.</li>
+      {% endfor %}
+    </ul>
+    <h3>Generated Files</h3>
+    <ul class="compact-list">
+      {% for file in files %}
+        <li><a href="{{ file.url }}">{{ file.name }}</a></li>
+      {% endfor %}
+    </ul>
+  </div>
+</section>
+{% endblock %}

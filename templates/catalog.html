@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Layer Catalog - AutoMap{% endblock %}
+{% block content %}
+<section class="panel">
+  <h2>Layer Catalog Search</h2>
+  <form method="get" action="/catalog" class="inline-form">
+    <input name="q" value="{{ query }}" aria-label="Catalog search">
+    <button type="submit">Search</button>
+  </form>
+  <p class="muted">Try: {{ catalog_search_examples | join(", ") }}</p>
+</section>
+<section class="panel">
+  <table>
+    <thead><tr><th>Layer</th><th>Category</th><th>Source</th><th>Priority</th><th>Verified</th><th>Historical</th><th>URL</th></tr></thead>
+    <tbody>
+      {% for row in rows %}
+        <tr>
+          <td>{{ row.layer_name }}</td>
+          <td>{{ row.category }}</td>
+          <td>{{ row.source_status }}</td>
+          <td>{{ row.source_priority }}</td>
+          <td>{{ row.is_verified }}</td>
+          <td>{{ row.is_historical }}</td>
+          <td><a href="{{ row.layer_url }}" target="_blank" rel="noreferrer">{{ row.layer_url }}</a></td>
+        </tr>
+      {% else %}
+        <tr><td colspan="7">No catalog matches.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

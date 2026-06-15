@@ -3,6 +3,7 @@
 import argparse
 from datetime import UTC, datetime
 import json
+import os
 from pathlib import Path
 import sys
 
@@ -331,6 +332,14 @@ def _publish_draft_webmap(path: str, dry_run: bool = True, confirm_publish: bool
     return 0 if result.get("status") in {"dry_run", "published_private_draft"} else 1
 
 
+def _serve_ui(port: int | None = None) -> int:
+    from app.web_ui import run_ui
+
+    selected_port = port or int(os.getenv("AUTOMAP_UI_PORT", "8000"))
+    run_ui(host="127.0.0.1", port=selected_port)
+    return 0
+
+
 def main() -> int:
     """Run the AutoMap command-line interface."""
     parser = argparse.ArgumentParser(description="AutoMap command-line tools")
@@ -463,6 +472,16 @@ def main() -> int:
         action="store_true",
         help="Explicitly allow real private ArcGIS draft publishing.",
     )
+    parser.add_argument(
+        "--serve-ui",
+        action="store_true",
+        help="Start the local AutoMap web UI at http://127.0.0.1:8000.",
+    )
+    parser.add_argument(
+        "--ui-port",
+        type=int,
+        help="Optional local UI port override when 8000 is already in use.",
+    )
     args = parser.parse_args()
 
     try:
@@ -513,6 +532,8 @@ def main() -> int:
             if args.dry_run:
                 dry_run = True
             return _publish_draft_webmap(args.publish_draft_webmap, dry_run=dry_run, confirm_publish=args.confirm_publish)
+        if args.serve_ui:
+            return _serve_ui(args.ui_port)
     except ValueError as exc:
         print(f"Configuration error: {exc}")
         return 1

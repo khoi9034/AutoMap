@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Data Gaps - AutoMap{% endblock %}
+{% block content %}
+<section class="panel">
+  <h2>Data Gap Registry</h2>
+  <table>
+    <thead><tr><th>Gap Key</th><th>Topic</th><th>Missing Layer Type</th><th>Reason</th><th>Status</th><th>Created</th></tr></thead>
+    <tbody>
+      {% for row in rows %}
+        <tr>
+          <td>{{ row.gap_key }}</td>
+          <td>{{ row.topic }}</td>
+          <td>{{ row.missing_layer_type }}</td>
+          <td>{{ row.reason }}</td>
+          <td>{{ row.status }}</td>
+          <td>{{ row.created_at or row.updated_at }}</td>
+        </tr>
+      {% else %}
+        <tr><td colspan="6">No data gaps recorded.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

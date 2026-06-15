@@ -155,7 +155,7 @@ def list_data_gaps(schema_name: str = "automap") -> list[dict[str, Any]]:
             text(
                 f"""
                 SELECT gap_key, topic, missing_layer_type, reason, suggested_source,
-                       status, requested_by_prompt, updated_at
+                       status, requested_by_prompt, created_at, updated_at
                 FROM {table}
                 ORDER BY status, topic, gap_key;
                 """

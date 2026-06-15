@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}AutoMap Local UI{% endblock %}
+{% block content %}
+<section class="panel">
+  <h2>Draft Map Request</h2>
+  <form method="post" action="/recipe" class="prompt-form">
+    <label for="prompt">Plain-English GIS request</label>
+    <textarea id="prompt" name="prompt" rows="4" required>Show parcels in Concord that are in the 100-year floodplain.</textarea>
+    <div class="button-row">
+      <button type="submit" formaction="/recipe">Make Recipe</button>
+      <button type="submit" formaction="/review-packet">Make Review Packet</button>
+      <button type="submit" formaction="/webmap-draft">Make WebMap Draft</button>
+    </div>
+  </form>
+</section>
+
+<section class="panel">
+  <h2>Example Prompts</h2>
+  <ul class="compact-list">
+    {% for prompt in example_prompts %}
+      <li>{{ prompt }}</li>
+    {% endfor %}
+  </ul>
+</section>
+
+<section class="two-column">
+  <div class="panel">
+    <h2>Search Layer Catalog</h2>
+    <form method="get" action="/catalog" class="inline-form">
+      <input name="q" value="flood" aria-label="Catalog search">
+      <button type="submit">Search Layer Catalog</button>
+    </form>
+    <p class="muted">Try: {{ catalog_search_examples | join(", ") }}</p>
+  </div>
+  <div class="panel">
+    <h2>Data Gaps</h2>
+    <p>Review missing layer needs recorded from draft requests.</p>
+    <a class="button-link" href="/data-gaps">View Data Gaps</a>
+  </div>
+</section>
+{% endblock %}

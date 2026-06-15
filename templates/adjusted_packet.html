@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}Adjusted Packet - AutoMap{% endblock %}
+{% block content %}
+<section class="panel">
+  <h2>Human Adjustment</h2>
+  {% if packet_path %}<p><strong>Original packet:</strong> <code>{{ packet_path }}</code></p>{% endif %}
+  {% if template_path %}<p><strong>Adjustment file:</strong> <code>{{ template_path }}</code></p>{% endif %}
+  {% if adjusted_path %}<p><strong>Adjusted packet:</strong> <code>{{ adjusted_path }}</code></p>{% endif %}
+  {% if validation %}<p><strong>Adjusted packet validation:</strong> {{ validation.is_valid }} | <strong>Publish ready:</strong> {{ validation.publish_ready }}</p>{% endif %}
+</section>
+
+{% if adjustment_yaml %}
+<section class="panel">
+  <h3>Edit Adjustment YAML</h3>
+  <form method="post" action="/apply-adjustments">
+    <input type="hidden" name="packet_folder" value="{{ packet_path }}">
+    <textarea name="adjustment_yaml" rows="22">{{ adjustment_yaml }}</textarea>
+    <button type="submit">Save And Apply Adjustments</button>
+  </form>
+</section>
+{% endif %}
+
+{% if adjusted_path %}
+<section class="two-column">
+  <div class="panel">
+    <h3>Adjusted Layers</h3>
+    <table>
+      <thead><tr><th>Layer</th><th>Role</th><th>Opacity</th><th>Visible</th><th>Expression</th></tr></thead>
+      <tbody>
+        {% for row in layer_review %}
+          <tr>
+            <td>{{ row.title }}</td>
+            <td>{{ row.role }}</td>
+            <td>{{ row.opacity }}</td>
+            <td>{{ row.visibility }}</td>
+            <td><code>{{ row.definition_expression or "None" }}</code></td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="panel">
+    <h3>Dry-Run Publish</h3>
+    <form method="post" action="/publish-dry-run">
+      <input type="hidden" name="adjusted_packet_folder" value="{{ adjusted_path }}">
+      <button type="submit">Run Dry-Run Publish</button>
+    </form>
+    {% if files %}
+      <h4>Adjusted Files</h4>
+      <ul class="compact-list">
+        {% for file in files %}
+          <li><a href="{{ file.url }}">{{ file.name }}</a></li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+  </div>
+</section>
+{% endif %}
+
+{% if adjusted_warnings %}
+<section class="panel">
+  <h3>Adjusted Warnings</h3>
+  <p><strong>Publish ready:</strong> {{ adjusted_warnings.publish_ready }}</p>
+  {% for group, group_warnings in adjusted_warnings.active.items() %}
+    <h4>{{ group.replace("_", " ").title() }}</h4>
+    <ul class="compact-list">
+      {% for warning in group_warnings %}
+        <li>{{ warning }}</li>
+      {% else %}
+        <li>None.</li>
+      {% endfor %}
+    </ul>
+  {% endfor %}
+</section>
+{% endif %}
+
+{% if publish_result %}
+<section class="panel">
+  <h3>Dry-Run Publish Result</h3>
+  <p><strong>Status:</strong> {{ publish_result.status }}</p>
+  <p><strong>Created item:</strong> {{ publish_result.created_item }} | <strong>Published:</strong> {{ publish_result.published }}</p>
+  <p><strong>Public:</strong> {{ publish_result.shared_public }} | <strong>Organization:</strong> {{ publish_result.shared_organization }}</p>
+  <p><strong>Receipt:</strong> <a href="{{ publish_receipt }}">publish_receipt.json</a></p>
+  <pre>{{ publish_result | tojson(indent=2) }}</pre>
+</section>
+{% endif %}
+{% endblock %}

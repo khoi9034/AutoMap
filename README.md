@@ -4,7 +4,7 @@ AutoMap converts plain-English county GIS map requests into structured map recip
 
 ## Current Phase
 
-v0.7 safe ArcGIS draft publisher.
+v0.8 local web UI.
 
 This repository is intentionally independent. It does not connect to CFS or import CFS code. AutoMap uses its own local PostGIS database and trusted layer catalog.
 
@@ -174,8 +174,30 @@ python -m app.main --publish-draft-webmap outputs/review_packets_adjusted/<adjus
 python -m app.main --publish-draft-webmap outputs/review_packets_adjusted/<adjusted-packet-folder> --confirm-publish
 ```
 
+## Local Web UI
+
+AutoMap v0.8 adds a local FastAPI/Jinja web interface for the draft workflow.
+
+```bash
+python -m app.main --serve-ui
+```
+
+Open:
+
+```text
+http://127.0.0.1:8000
+```
+
+If port `8000` is already occupied by another local service, use a temporary local override:
+
+```bash
+python -m app.main --serve-ui --ui-port 8001
+```
+
+The UI can create recipes, review packets, WebMap drafts, adjustment templates, adjusted packets, catalog searches, data gap views, and dry-run publish receipts. The UI is local only. It does not real-publish ArcGIS items, does not require ArcGIS login, and does not ingest geometries.
+
 ## Notes
 
 - Approved GIS layers come from AutoMap's local `automap.layer_catalog`.
 - Generated recipes, WebMap drafts, review packets, and adjusted packets are local artifacts and are not committed.
-- ArcGIS Online or Portal publishing is dry-run only by default in v0.7.
+- ArcGIS Online or Portal publishing is dry-run only by default in v0.8.

@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% block title %}Recipe - AutoMap{% endblock %}
+{% block content %}
+<section class="panel">
+  <h2>{{ recipe.map_title }}</h2>
+  <p><strong>Prompt:</strong> {{ prompt }}</p>
+  <p><strong>Confidence:</strong> {{ recipe.confidence_score }} | <strong>Needs review:</strong> {{ recipe.needs_review }}</p>
+  {% if webmap_path %}
+    <p><strong>WebMap draft:</strong> <a href="{{ webmap_file_url }}">{{ webmap_path }}</a></p>
+  {% endif %}
+  <div class="button-row">
+    <form method="post" action="/review-packet">
+      <input type="hidden" name="prompt" value="{{ prompt }}">
+      <button type="submit">Generate Review Packet</button>
+    </form>
+    <form method="post" action="/webmap-draft">
+      <input type="hidden" name="prompt" value="{{ prompt }}">
+      <button type="submit">Generate WebMap Draft</button>
+    </form>
+    <a class="button-link secondary" href="/">Back to Home</a>
+  </div>
+</section>
+
+<section class="two-column">
+  <div class="panel">
+    <h3>Parsed Geography</h3>
+    <ul class="compact-list">
+      {% for item in recipe.parsed_request.geography_terms %}
+        <li>{{ item.name }} ({{ item.type }})</li>
+      {% else %}
+        <li>No geography terms detected.</li>
+      {% endfor %}
+    </ul>
+  </div>
+  <div class="panel">
+    <h3>Parsed Topics</h3>
+    <ul class="compact-list">
+      {% for topic in recipe.parsed_request.topics %}
+        <li>{{ topic }}</li>
+      {% else %}
+        <li>No topics detected.</li>
+      {% endfor %}
+    </ul>
+  </div>
+</section>
+
+<section class="panel">
+  <h3>Selected Layers</h3>
+  <table>
+    <thead><tr><th>Layer</th><th>Role</th><th>Source</th><th>Confidence</th><th>URL</th></tr></thead>
+    <tbody>
+      {% for layer in recipe.selected_layers %}
+        <tr>
+          <td>{{ layer.layer_name }}</td>
+          <td>{{ layer.role }}</td>
+          <td>{{ layer.source_status }}</td>
+          <td>{{ layer.confidence_score }}</td>
+          <td><a href="{{ layer.layer_url }}" target="_blank" rel="noreferrer">{{ layer.layer_url }}</a></td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<section class="two-column">
+  <div class="panel">
+    <h3>Filters / Definition Expressions</h3>
+    <table>
+      <thead><tr><th>Layer</th><th>Expression</th><th>Review</th></tr></thead>
+      <tbody>
+        {% for layer_key, plan in recipe.filter_plan.items() %}
+          <tr>
+            <td>{{ plan.layer_name or layer_key }}</td>
+            <td><code>{{ plan.draft_where_clause or "None" }}</code></td>
+            <td>{{ plan.review_reason or "" }}</td>
+          </tr>
+        {% else %}
+          <tr><td colspan="3">No filter plan.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="panel">
+    <h3>Spatial Operations</h3>
+    <ul class="compact-list">
+      {% for operation in recipe.spatial_operations %}
+        <li>{{ operation.operation }} - {{ operation.notes or operation.output }}</li>
+      {% else %}
+        <li>No spatial operations drafted.</li>
+      {% endfor %}
+    </ul>
+  </div>
+</section>
+
+<section class="two-column">
+  <div class="panel">
+    <h3>Review Warnings</h3>
+    <ul class="compact-list">
+      {% for warning in recipe.review_reasons %}
+        <li>{{ warning }}</li>
+      {% else %}
+        <li>No review warnings.</li>
+      {% endfor %}
+    </ul>
+  </div>
+  <div class="panel">
+    <h3>Missing Data / Data Gaps</h3>
+    <ul class="compact-list">
+      {% for missing in recipe.missing_data_needed %}
+        <li>{{ missing }}</li>
+      {% else %}
+        <li>No missing data reported.</li>
+      {% endfor %}
+    </ul>
+    {% if data_gaps %}
+      <h4>Recorded Gap Candidates</h4>
+      <ul class="compact-list">
+        {% for gap in data_gaps %}
+          <li>{{ gap.gap_key }} - {{ gap.reason }}</li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}
