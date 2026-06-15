@@ -28,6 +28,7 @@ export type SystemStatus = {
   approval_history_count?: number;
   analysis_run_count?: number;
   analysis_refinement_count?: number;
+  analysis_report_count?: number;
   packets?: {
     review_packet_count?: number;
     adjusted_packet_count?: number;
@@ -179,6 +180,70 @@ export type AnalysisRefinementSession = {
   status?: string;
   created_at?: string;
   updated_at?: string;
+};
+
+export type AnalysisReportFileLink = {
+  name?: string;
+  path?: string;
+  url?: string;
+};
+
+export type AnalysisGroupedSummary = {
+  summary_type?: string;
+  status?: string;
+  layer_key?: string;
+  layer_name?: string;
+  field_name?: string;
+  field_alias?: string;
+  reason?: string;
+  return_geometry?: boolean;
+  request_method?: string;
+  rows?: Array<Record<string, JsonValue>>;
+};
+
+export type AnalysisReportData = {
+  report_id?: string;
+  report_title?: string;
+  source_type?: string;
+  source_analysis_run_id?: string | null;
+  source_refinement_session_id?: string | null;
+  raw_prompt?: string;
+  analysis_status?: string;
+  operation_type?: string;
+  strategy_used?: string | null;
+  broad_count?: number | null;
+  optimized_count?: number | null;
+  safety_limit?: number | null;
+  geometry_downloaded?: boolean;
+  geojson_created?: boolean;
+  selected_refinement_option?: string | null;
+  selected_layers?: Array<Record<string, JsonValue>>;
+  definition_expressions?: Array<Record<string, JsonValue>>;
+  warnings?: Record<string, string[]>;
+  missing_data?: string[];
+  narrowing_suggestions?: string[];
+  grouped_summaries?: AnalysisGroupedSummary[];
+  sections?: Array<Record<string, JsonValue>>;
+  supported_export_formats?: string[];
+  draft_only_disclaimer?: string;
+  cfs_untouched_statement?: string;
+};
+
+export type AnalysisReportSummary = {
+  report_id?: string;
+  report_folder?: string;
+  report_title?: string;
+  report_status?: string;
+  source_type?: string;
+  source_analysis_run_id?: string | null;
+  source_refinement_session_id?: string | null;
+  summary_json?: AnalysisReportData;
+  files?: AnalysisReportFileLink[];
+  validation?: {
+    is_valid?: boolean;
+    errors?: string[];
+  };
+  created_at?: string;
 };
 
 export type AnalysisPlan = {

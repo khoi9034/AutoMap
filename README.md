@@ -2,11 +2,11 @@
 
 AutoMap converts plain-English county GIS map requests into structured map recipes using only approved GIS layers from a local layer catalog.
 
-Version: `2.2.0`
+Version: `2.3.0`
 
 ## Current Phase
 
-v2.2 User-Guided Analysis Refinement on top of the safe spatial analysis execution engine and bounded spatial query optimizer.
+v2.3 Summary Analytics and Report Export for Analysis Results on top of user-guided safe spatial analysis refinement.
 
 This repository is intentionally independent. It does not connect to CFS or import CFS code. AutoMap uses its own local PostGIS database and trusted layer catalog.
 
@@ -35,6 +35,7 @@ AutoMap helps GIS and planning staff turn plain-English county map requests into
 - deterministic feedback learning from approved packets, clarification answers, and reviewer decisions
 - safe bounded spatial analysis execution with server-side query optimization and local GeoJSON outputs
 - user-guided refinement for blocked spatial analyses, including summary-only outputs without geometry download
+- summary analytics reports from analysis runs and refinements using counts/statistics instead of geometry download
 
 ## What AutoMap Does Not Do Yet
 
@@ -66,6 +67,7 @@ ArcGIS publishing and smoke testing remain dry-run by default unless a guarded C
 20. v2.0 safe spatial analysis execution
 21. v2.1 bounded spatial query optimizer
 22. v2.2 user-guided analysis refinement
+23. v2.3 summary analytics and report export for analysis results
 
 ## Project Structure
 
@@ -108,7 +110,7 @@ python -m pytest
 
 ## Next.js Frontend
 
-AutoMap v2.2 adds user-guided refinement to the safe Analysis page in the Next.js + TypeScript shell under `frontend/`. The FastAPI backend remains the API and workflow engine, and the existing FastAPI/Jinja UI is preserved.
+AutoMap v2.3 adds analysis summary reports to the safe Analysis workflow in the Next.js + TypeScript shell under `frontend/`. The FastAPI backend remains the API and workflow engine, and the existing FastAPI/Jinja UI is preserved.
 
 Start the backend API on port `8010`:
 
@@ -157,6 +159,7 @@ Frontend pages:
 - `/recipe-review`
 - `/map-preview`
 - `/analysis`
+- `/analysis-reports`
 - `/adjustments`
 - `/approval`
 - `/publish-center`
@@ -180,6 +183,18 @@ The Learning page stores approved local workflows as reviewable defaults. AutoMa
 The Analysis page plans and runs safe bounded local GIS analysis for supported operations. v2.1 optimizes parcel selection by geography/constraint intersection, such as parcels in Concord intersecting the 100-year floodplain. It counts first, uses server-side spatial filtering to collect parcel ObjectIDs before downloading parcel geometry, blocks oversized requests, writes local GeoJSON under `outputs/analysis/`, and marks derived outputs as local review results only.
 
 v2.2 adds a Refine Analysis panel for blocked runs. If the optimized candidate count still exceeds the feature limit, AutoMap can create reviewer-selectable options such as summary only, split batches, narrower constraints, real-field attribute filters, smaller geography, and ObjectID-only export. Summary-only refinement writes local Markdown/JSON outputs under `outputs/analysis_refinements/` without downloading parcel geometry.
+
+v2.3 adds an Analysis Reports page and CLI/API report export commands for analysis runs and refinement sessions. Reports are written under `outputs/analysis_reports/` and include:
+
+- `analysis_report.html`
+- `analysis_report.md`
+- `analysis_report.json`
+- `summary_tables.json`
+- `layer_summary.csv`
+- `warning_summary.json`
+- `export_manifest.json`
+
+These reports use analysis receipts plus safe ArcGIS REST count/statistics queries with `returnGeometry=false` where supported. If grouped statistics are unsupported by a layer, AutoMap records that limitation and still produces the report. No parcel geometry is downloaded for summary-only reports.
 
 AutoMap persists the active local workflow in browser storage so staff can move from prompt to recipe review, preview, adjustments, approval, and dry-run publishing without losing context on refresh. The stored workflow state is sanitized and does not include secrets.
 
@@ -268,7 +283,7 @@ Use `--save-recipe` with `--make-recipe` to write a local JSON recipe under `out
 
 ## Spatial Analysis Execution
 
-AutoMap v2.2 can execute safe bounded local spatial analysis for selected common operations and guide reviewers through safe refinement when a count remains too high. It does not bulk-ingest countywide datasets and does not publish derived outputs.
+AutoMap v2.3 can execute safe bounded local spatial analysis for selected common operations, guide reviewers through safe refinement when a count remains too high, and export summary analytics reports from the results. It does not bulk-ingest countywide datasets and does not publish derived outputs.
 
 Fully supported:
 
@@ -293,6 +308,10 @@ python -m app.main --create-analysis-refinement <blocked-analysis-run-id>
 python -m app.main --list-analysis-refinements
 python -m app.main --select-analysis-refinement <session-id> summary_only --params-json "{}"
 python -m app.main --execute-analysis-refinement <session-id>
+python -m app.main --generate-analysis-report <analysis-run-id>
+python -m app.main --generate-analysis-report-from-refinement <refinement-session-id>
+python -m app.main --list-analysis-reports
+python -m app.main --validate-analysis-report outputs/analysis_reports/<report-folder>
 ```
 
 Analysis outputs are local files under `outputs/analysis/`, which is ignored by Git. A successful bounded intersection writes `analysis_result.geojson`, `analysis_receipt.json`, `input_recipe.json`, and `analysis_summary.md`.
@@ -301,7 +320,9 @@ v2.1 improves parcel/flood intersection execution with a bounded spatial query o
 
 v2.2 turns those blocked cases into a local refinement workflow. Summary-only mode returns counts, chunk metadata, ObjectID counts when available, and review notes without geometry download. Split-batches mode creates a bounded plan and does not silently execute all batches. Attribute filters are suggested only from real target-layer fields or profiled fields.
 
-See `docs/spatial_analysis_execution.md`, `docs/spatial_query_optimizer.md`, `docs/analysis_refinement.md`, and `docs/analysis_safety_limits.md`.
+v2.3 turns analysis runs and refinement sessions into local report packages under `outputs/analysis_reports/`. Reports include readable HTML/Markdown, JSON data, summary tables, layer CSV, warnings JSON, and a manifest. Grouped summaries use `returnGeometry=false` ArcGIS REST statistics where supported; unsupported statistics are recorded as report limitations.
+
+See `docs/spatial_analysis_execution.md`, `docs/spatial_query_optimizer.md`, `docs/analysis_refinement.md`, `docs/analysis_summary_reports.md`, and `docs/analysis_safety_limits.md`.
 
 ## Field Intelligence And Filter Planning
 

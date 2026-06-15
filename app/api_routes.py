@@ -16,6 +16,12 @@ from app.adjustment_engine import (
     validate_adjusted_packet,
 )
 from app.analysis_executor import build_analysis_plan, execute_analysis, list_runs as list_analysis_runs
+from app.analysis_report_exporter import (
+    generate_analysis_report,
+    generate_analysis_report_from_refinement,
+    get_analysis_report,
+    list_analysis_reports,
+)
 from app.analysis_refinement_engine import (
     create_refinement_session_from_blocked_run,
     execute_refined_analysis,
@@ -139,6 +145,18 @@ class AnalysisRefinementSelectRequest(BaseModel):
 
     option_id: str
     parameters: dict[str, Any] = Field(default_factory=dict)
+
+
+class AnalysisReportRequest(BaseModel):
+    """Generate a report from an analysis run."""
+
+    analysis_run_id: str
+
+
+class AnalysisRefinementReportRequest(BaseModel):
+    """Generate a report from an analysis refinement session."""
+
+    refinement_session_id: str
 
 
 class LearnApprovedRequest(BaseModel):
@@ -474,6 +492,73 @@ def api_execute_analysis_refinement(session_id: str) -> Any:
         },
     )
     return _json_response({"refinement_session": session})
+
+
+@api_router.post("/analysis/reports")
+def api_generate_analysis_report(payload: AnalysisReportRequest) -> Any:
+    """Generate a local analysis summary report from an analysis run."""
+    try:
+        package = generate_analysis_report(payload.analysis_run_id)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise _handle_value_error(exc) from exc
+    return _json_response(
+        {
+            "report_id": package.report_id,
+            "report_folder": _repo_relative_output_path(package.report_path),
+            "report_title": package.report_title,
+            "source_type": package.source_type,
+            "source_analysis_run_id": package.source_analysis_run_id,
+            "source_refinement_session_id": package.source_refinement_session_id,
+            "files": [
+                {"name": name, "path": path, "url": output_file_url(path)}
+                for name, path in sorted(package.files.items())
+            ],
+            "validation": package.validation,
+        }
+    )
+
+
+@api_router.post("/analysis/reports/from-refinement")
+def api_generate_analysis_report_from_refinement(payload: AnalysisRefinementReportRequest) -> Any:
+    """Generate a local analysis summary report from a refinement session."""
+    try:
+        package = generate_analysis_report_from_refinement(payload.refinement_session_id)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise _handle_value_error(exc) from exc
+    return _json_response(
+        {
+            "report_id": package.report_id,
+            "report_folder": _repo_relative_output_path(package.report_path),
+            "report_title": package.report_title,
+            "source_type": package.source_type,
+            "source_analysis_run_id": package.source_analysis_run_id,
+            "source_refinement_session_id": package.source_refinement_session_id,
+            "files": [
+                {"name": name, "path": path, "url": output_file_url(path)}
+                for name, path in sorted(package.files.items())
+            ],
+            "validation": package.validation,
+        }
+    )
+
+
+@api_router.get("/analysis/reports")
+def api_analysis_reports(limit: int = Query(default=50, ge=1, le=200)) -> Any:
+    """List local analysis summary reports."""
+    return _json_response({"analysis_reports": list_analysis_reports(limit=limit)})
+
+
+@api_router.get("/analysis/reports/{report_id}")
+def api_analysis_report_detail(report_id: str) -> Any:
+    """Return one local analysis summary report history row."""
+    try:
+        return _json_response(get_analysis_report(report_id))
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 @api_router.get("/patterns")

@@ -30,6 +30,10 @@ export function StatusPanel({ status }: StatusPanelProps) {
           <dd>{status.packets?.approved_packet_count ?? 0}</dd>
         </div>
         <div>
+          <dt>Analysis reports</dt>
+          <dd>{status.analysis_report_count ?? 0}</dd>
+        </div>
+        <div>
           <dt>Frontend</dt>
           <dd>{status.ports?.frontend || 3010}</dd>
         </div>

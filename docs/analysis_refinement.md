@@ -105,3 +105,16 @@ AutoMap does not:
 - touch external project databases
 
 Generated refinement outputs are local files ignored by Git.
+
+## Report Export
+
+AutoMap v2.3 can convert a refinement session into a local analysis report package:
+
+```bash
+python -m app.main --generate-analysis-report-from-refinement <refinement_session_id>
+python -m app.main --validate-analysis-report outputs/analysis_reports/<report-folder>
+```
+
+Summary-only report generation uses the refinement receipt and safe count/statistics summaries. It does not download geometry.
+
+See `docs/analysis_summary_reports.md`.

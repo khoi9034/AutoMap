@@ -2,15 +2,17 @@
 
 import { useState } from "react";
 
+import { AnalysisReportCard } from "@/components/analysis-report-card";
 import { RefinementOptionCard } from "@/components/refinement-option-card";
 import { RefinementResultPanel } from "@/components/refinement-result-panel";
 import { StatusChip } from "@/components/status-chip";
 import {
   createAnalysisRefinement,
   executeAnalysisRefinement,
+  generateAnalysisReportFromRefinement,
   selectAnalysisRefinement,
 } from "@/lib/api";
-import type { AnalysisRefinementOption, AnalysisRefinementSession, AnalysisRun } from "@/types/automap";
+import type { AnalysisRefinementOption, AnalysisRefinementSession, AnalysisReportSummary, AnalysisRun } from "@/types/automap";
 
 function firstBlockedReason(result: AnalysisRun): string {
   return result.blocked_reasons?.[0] || "Analysis exceeded safety limits.";
@@ -19,12 +21,18 @@ function firstBlockedReason(result: AnalysisRun): string {
 export function AnalysisRefinementPanel({ analysisRun }: { analysisRun: AnalysisRun }) {
   const [session, setSession] = useState<AnalysisRefinementSession | null>(null);
   const [selectedOption, setSelectedOption] = useState<AnalysisRefinementOption | null>(null);
+  const [report, setReport] = useState<AnalysisReportSummary | null>(null);
   const [paramsJson, setParamsJson] = useState("{}");
-  const [loading, setLoading] = useState<"create" | "select" | "execute" | null>(null);
+  const [loading, setLoading] = useState<"create" | "select" | "execute" | "report" | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const blocked = analysisRun.status === "blocked";
   const optimized = analysisRun.analysis_receipt?.optimized_query_plan as Record<string, unknown> | undefined;
+  const hasRefinementResult = Boolean(
+    session?.refined_result &&
+      typeof session.refined_result === "object" &&
+      Object.keys(session.refined_result as Record<string, unknown>).length,
+  );
   const optimizedCount = Number(optimized?.optimized_candidate_count ?? analysisRun.analysis_receipt?.optimized_candidate_count ?? 0);
   const broadCount = Number(optimized?.broad_count ?? analysisRun.analysis_receipt?.broad_count ?? 0);
   const safetyLimit = Number(
@@ -88,8 +96,25 @@ export function AnalysisRefinementPanel({ analysisRun }: { analysisRun: Analysis
     try {
       const response = await executeAnalysisRefinement(session.session_id);
       setSession(response.refinement_session);
+      setReport(null);
     } catch (exc) {
       setError(exc instanceof Error ? exc.message : "Failed to execute refinement.");
+    } finally {
+      setLoading(null);
+    }
+  }
+
+  async function onGenerateReport() {
+    if (!session?.session_id) {
+      setError("Create and execute a refinement session first.");
+      return;
+    }
+    setError(null);
+    setLoading("report");
+    try {
+      setReport(await generateAnalysisReportFromRefinement(session.session_id));
+    } catch (exc) {
+      setError(exc instanceof Error ? exc.message : "Failed to generate analysis report.");
     } finally {
       setLoading(null);
     }
@@ -167,6 +192,14 @@ export function AnalysisRefinementPanel({ analysisRun }: { analysisRun: Analysis
           </div>
 
           <RefinementResultPanel session={session} />
+          {hasRefinementResult ? (
+            <div className="button-row">
+              <button className="button button-secondary" type="button" onClick={onGenerateReport} disabled={loading !== null}>
+                {loading === "report" ? "Generating report..." : "Generate Analysis Report"}
+              </button>
+            </div>
+          ) : null}
+          {report ? <AnalysisReportCard report={report} /> : null}
         </div>
       )}
 

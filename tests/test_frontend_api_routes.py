@@ -78,6 +78,9 @@ def test_frontend_workflow_api_routes_exist():
         "/api/analysis/refinements/{session_id}",
         "/api/analysis/refinements/{session_id}/select",
         "/api/analysis/refinements/{session_id}/execute",
+        "/api/analysis/reports",
+        "/api/analysis/reports/from-refinement",
+        "/api/analysis/reports/{report_id}",
         "/api/patterns",
         "/api/patterns/{pattern_key}",
         "/api/patterns/learn-from-approved",
@@ -214,6 +217,61 @@ def test_api_analysis_refinement_routes_are_json_and_sanitized(monkeypatch):
     assert selected.status_code == 200
     assert executed.status_code == 200
     assert executed.json()["refinement_session"]["status"] == "completed"
+    assert "confirm-publish" not in serialized
+    assert "publish-draft-webmap" not in serialized
+    assert "database_url" not in serialized
+    assert "cfs_dev" not in serialized
+
+
+def test_api_analysis_report_routes_are_json_and_sanitized(monkeypatch):
+    package = {
+        "report_id": "analysis_report_1",
+        "report_folder": "outputs/analysis_reports/sample",
+        "report_title": "Analysis Report",
+        "source_type": "analysis_refinement",
+        "source_analysis_run_id": "analysis_1",
+        "source_refinement_session_id": "refine_1",
+        "files": [{"name": "analysis_report.html", "path": "outputs/analysis_reports/sample/analysis_report.html"}],
+        "validation": {"is_valid": True},
+    }
+
+    class Package:
+        report_id = "analysis_report_1"
+        report_path = Path("outputs/analysis_reports/sample")
+        report_title = "Analysis Report"
+        source_type = "analysis_refinement"
+        source_analysis_run_id = "analysis_1"
+        source_refinement_session_id = "refine_1"
+        files = {"analysis_report.html": "outputs/analysis_reports/sample/analysis_report.html"}
+        validation = {"is_valid": True}
+
+    monkeypatch.setattr("app.api_routes.generate_analysis_report", lambda analysis_run_id: Package())
+    monkeypatch.setattr("app.api_routes.generate_analysis_report_from_refinement", lambda refinement_session_id: Package())
+    monkeypatch.setattr("app.api_routes.list_analysis_reports", lambda limit=50: [package])
+    monkeypatch.setattr("app.api_routes.get_analysis_report", lambda report_id: {**package, "report_id": report_id})
+    client = TestClient(create_app())
+
+    generated = client.post("/api/analysis/reports", json={"analysis_run_id": "analysis_1"})
+    generated_refinement = client.post(
+        "/api/analysis/reports/from-refinement",
+        json={"refinement_session_id": "refine_1"},
+    )
+    listed = client.get("/api/analysis/reports")
+    detail = client.get("/api/analysis/reports/analysis_report_1")
+    serialized = json.dumps(
+        {
+            "generated": generated.json(),
+            "generated_refinement": generated_refinement.json(),
+            "listed": listed.json(),
+            "detail": detail.json(),
+        }
+    ).lower()
+
+    assert generated.status_code == 200
+    assert generated_refinement.status_code == 200
+    assert listed.status_code == 200
+    assert detail.status_code == 200
+    assert listed.json()["analysis_reports"][0]["report_id"] == "analysis_report_1"
     assert "confirm-publish" not in serialized
     assert "publish-draft-webmap" not in serialized
     assert "database_url" not in serialized

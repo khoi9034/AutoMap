@@ -447,6 +447,50 @@ class SpatialQueryClient:
                 values.append(attributes[field_name])
         return {"field_name": field_name, "values": values, "count": len(values), **request_metadata}
 
+    def query_grouped_statistics(
+        self,
+        layer_url: str,
+        field_name: str,
+        *,
+        where: str | None = None,
+        max_groups: int = 50,
+    ) -> dict[str, Any]:
+        """Return grouped count statistics without feature geometry."""
+        statistic_field = "*"
+        params = {
+            "f": "pjson",
+            "where": where or "1=1",
+            "outStatistics": [
+                {
+                    "statisticType": "count",
+                    "onStatisticField": statistic_field,
+                    "outStatisticFieldName": "feature_count",
+                }
+            ],
+            "groupByFieldsForStatistics": field_name,
+            "orderByFields": "feature_count DESC",
+            "returnGeometry": "false",
+            "resultRecordCount": min(max_groups, 200),
+        }
+        data, request_metadata = _fetch_layer_query(layer_url, params, timeout=60)
+        rows: list[dict[str, Any]] = []
+        for feature in data.get("features") or []:
+            attributes = feature.get("attributes") or {}
+            rows.append(
+                {
+                    "group_value": attributes.get(field_name),
+                    "feature_count": attributes.get("feature_count"),
+                }
+            )
+        return {
+            "field_name": field_name,
+            "where": where or "1=1",
+            "return_geometry": False,
+            "rows": rows,
+            "group_count": len(rows),
+            **request_metadata,
+        }
+
     def get_extent(self, layer_url: str) -> dict[str, Any] | None:
         """Return layer extent metadata."""
         metadata = self.get_layer_metadata(layer_url)

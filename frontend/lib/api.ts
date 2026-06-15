@@ -4,6 +4,7 @@ import type {
   ClarificationSession,
   DataGap,
   AnalysisRefinementSession,
+  AnalysisReportSummary,
   AnalysisRun,
   ApprovedPattern,
   FeedbackLogRow,
@@ -112,7 +113,7 @@ export async function getStatusOrFallback(): Promise<SystemStatus> {
     return await getSystemStatus();
   } catch {
     return {
-      version: "2.2.0",
+      version: "2.3.0",
       database_connected: false,
       catalog: {},
       profiles: {},
@@ -220,6 +221,34 @@ export async function executeAnalysisRefinement(
       body: JSON.stringify({}),
     },
   );
+}
+
+export async function generateAnalysisReport(
+  analysisRunId: string,
+): Promise<AnalysisReportSummary> {
+  return apiFetch<AnalysisReportSummary>("/api/analysis/reports", {
+    method: "POST",
+    timeoutMs: 180000,
+    body: JSON.stringify({ analysis_run_id: analysisRunId }),
+  });
+}
+
+export async function generateAnalysisReportFromRefinement(
+  refinementSessionId: string,
+): Promise<AnalysisReportSummary> {
+  return apiFetch<AnalysisReportSummary>("/api/analysis/reports/from-refinement", {
+    method: "POST",
+    timeoutMs: 180000,
+    body: JSON.stringify({ refinement_session_id: refinementSessionId }),
+  });
+}
+
+export async function listAnalysisReports(): Promise<{ analysis_reports: AnalysisReportSummary[] }> {
+  return apiFetch<{ analysis_reports: AnalysisReportSummary[] }>("/api/analysis/reports");
+}
+
+export async function getAnalysisReport(reportId: string): Promise<AnalysisReportSummary> {
+  return apiFetch<AnalysisReportSummary>(`/api/analysis/reports/${encodeURIComponent(reportId)}`);
 }
 
 export async function recordRecipeFeedback(payload: {

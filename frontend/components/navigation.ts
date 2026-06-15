@@ -5,6 +5,7 @@ export const navigationItems = [
   { href: "/recipe-review", label: "Recipe Review" },
   { href: "/map-preview", label: "Map Preview" },
   { href: "/analysis", label: "Analysis" },
+  { href: "/analysis-reports", label: "Analysis Reports" },
   { href: "/adjustments", label: "Adjustments" },
   { href: "/approval", label: "Approval" },
   { href: "/publish-center", label: "Publish Center" },

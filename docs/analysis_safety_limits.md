@@ -1,6 +1,6 @@
 # Analysis Safety Limits
 
-AutoMap v2.2 spatial execution is count-first, ObjectID-first, bounded, local, reviewable, and user-guided when an analysis is blocked.
+AutoMap v2.3 spatial execution is count-first, ObjectID-first, bounded, local, reviewable, user-guided when an analysis is blocked, and reportable through summary analytics exports.
 
 ## Feature Limits
 
@@ -46,9 +46,11 @@ AutoMap creates additive tables only in its own `automap` schema:
 ```text
 automap.analysis_runs
 automap.analysis_result_features
+automap.analysis_refinement_sessions
+automap.analysis_report_history
 ```
 
-v2.2 prefers local GeoJSON output for completed executions and Markdown/JSON summaries for summary-only refinements. Geometry table storage is optional and should only be used for small, safe results.
+AutoMap prefers local GeoJSON output for completed executions and Markdown/JSON summaries for summary-only refinements. Geometry table storage is optional and should only be used for small, safe results.
 
 ## Optimizer Limits
 
@@ -75,6 +77,18 @@ Refinement rules:
 - total batch downloads must stay under the hard max unless a future one-batch execution is explicitly reviewed
 - attribute filters must use real target-layer fields or profiled fields
 - smaller-geography suggestions are review guidance in v2.2
+
+## Report Limits
+
+Analysis summary reports are written under `outputs/analysis_reports/`.
+
+Report rules:
+
+- reports use analysis receipts, counts, and safe statistics only
+- grouped summaries use `returnGeometry=false`
+- unsupported statistics are recorded rather than treated as fatal
+- summary-only reports do not download geometry
+- report packages are local and ignored by Git
 
 ## Publishing Rules
 

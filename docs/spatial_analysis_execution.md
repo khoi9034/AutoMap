@@ -1,6 +1,6 @@
 # Spatial Analysis Execution
 
-AutoMap v2.2 adds user-guided refinement on top of safe bounded spatial execution and the bounded spatial query optimizer.
+AutoMap v2.3 adds summary analytics reports on top of user-guided refinement, safe bounded spatial execution, and the bounded spatial query optimizer.
 
 The first fully supported operation is:
 
@@ -84,6 +84,7 @@ The page can:
 - show safety limits and narrowing suggestions
 - create refinement options for blocked runs
 - execute summary-only refinements without geometry download
+- generate analysis report packages from analysis/refinement results
 - show output count
 - link to local GeoJSON
 - pass a derived local result to the Map Preview layer panel
@@ -98,3 +99,4 @@ The CFS database is separate and untouched.
 
 See `docs/spatial_query_optimizer.md` for the v2.1 optimizer details.
 See `docs/analysis_refinement.md` for the v2.2 blocked-analysis refinement workflow.
+See `docs/analysis_summary_reports.md` for the v2.3 summary analytics report workflow.

@@ -175,7 +175,7 @@ def test_api_client_has_timeout_and_sanitized_fallback_version():
 
     assert "Backend API request timed out" in source
     assert "http://127.0.0.1:8010" in source
-    assert 'version: "2.2.0"' in source
+    assert 'version: "2.3.0"' in source
     assert "redactProtected" in source
 
 
@@ -205,6 +205,7 @@ def test_analysis_page_components_and_api_are_present():
     assert "Create Refinement Options" in refinement_panel
     assert "Parameters JSON" in refinement_panel
     assert "Execute Refinement" in refinement_panel
+    assert "Generate Analysis Report" in refinement_panel
     assert "Tradeoffs" in option_card
     assert "No geometry download" in result_panel
     assert "planAnalysis" in api
@@ -212,6 +213,7 @@ def test_analysis_page_components_and_api_are_present():
     assert "createAnalysisRefinement" in api
     assert "selectAnalysisRefinement" in api
     assert "executeAnalysisRefinement" in api
+    assert "generateAnalysisReportFromRefinement" in api
     assert '"/api/analysis/plan"' in api
     assert '"/api/analysis/execute"' in api
     assert '"/api/analysis/refinements"' in api
@@ -229,6 +231,35 @@ def test_analysis_page_components_and_api_are_present():
     assert "publish-draft-webmap" not in client.lower()
     assert "confirm-publish" not in refinement_panel.lower()
     assert "publish-draft-webmap" not in refinement_panel.lower()
+
+
+def test_analysis_reports_page_components_and_api_are_present():
+    navigation = read("components/navigation.ts")
+    page = read("app/analysis-reports/page.tsx")
+    center = read("components/analysis-reports-client.tsx")
+    card = read("components/analysis-report-card.tsx")
+    preview = read("components/analysis-report-preview.tsx")
+    table = read("components/analysis-summary-table.tsx")
+    api = read("lib/api.ts")
+    types = read("types/automap.ts")
+
+    assert 'href: "/analysis-reports"' in navigation
+    assert "Summary analytics and report exports" in page
+    assert "listAnalysisRuns" in center
+    assert "listAnalysisRefinements" in center
+    assert "listAnalysisReports" in center
+    assert "generateAnalysisReport" in center
+    assert "generateAnalysisReportFromRefinement" in center
+    assert "AnalysisReportCard" in card
+    assert "AnalysisReportPreview" in preview
+    assert "AnalysisSummaryTable" in table
+    assert "returnGeometry=false" in center
+    assert '"/api/analysis/reports"' in api
+    assert '"/api/analysis/reports/from-refinement"' in api
+    assert "AnalysisReportSummary" in types
+    assert "AnalysisReportData" in types
+    assert "confirm-publish" not in center.lower()
+    assert "publish-draft-webmap" not in center.lower()
 
 
 def test_learning_page_components_and_api_are_present():

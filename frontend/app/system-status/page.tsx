@@ -25,6 +25,7 @@ export default async function SystemStatusPage() {
         <StatCard label="Approved packets" value={status.packets?.approved_packet_count} />
         <StatCard label="Analysis runs" value={status.analysis_run_count} />
         <StatCard label="Analysis refinements" value={status.analysis_refinement_count} />
+        <StatCard label="Analysis reports" value={status.analysis_report_count} />
         <StatCard label="Frontend port" value={status.ports?.frontend || 3010} />
         <StatCard label="Backend/API port" value={status.ports?.backend_api || 8010} />
       </section>
