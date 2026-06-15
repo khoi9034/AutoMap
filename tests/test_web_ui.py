@@ -302,6 +302,9 @@ def test_apply_approval_route_creates_approved_packet(monkeypatch, tmp_path):
     assert "Approved packet:" in response.text
     assert "Final publish ready:</strong> True" in response.text
     assert "Run Dry-Run Publish" in response.text
+    assert "Portal Smoke Test" in response.text
+    assert "Run Dry-Run Smoke Test" in response.text
+    assert "--portal-smoke-test" in response.text
 
 
 def test_dry_run_publish_route_supports_approved_packet(monkeypatch, tmp_path):
@@ -343,6 +346,61 @@ def test_dry_run_publish_route_supports_approved_packet(monkeypatch, tmp_path):
     assert response.status_code == 200
     assert "Dry-Run Publish Result" in response.text
     assert "Created item:</strong> False" in response.text
+
+
+def test_portal_smoke_test_dry_run_route_supports_approved_packet(monkeypatch, tmp_path):
+    approved_path = tmp_path / "approved_packet"
+    approved_path.mkdir()
+    (approved_path / "approved_recipe.json").write_text(json.dumps(sample_recipe()), encoding="utf-8")
+    (approved_path / "approved_webmap.json").write_text(json.dumps(sample_webmap()), encoding="utf-8")
+    (approved_path / "approval_file.json").write_text(json.dumps({}), encoding="utf-8")
+    (approved_path / "approval_receipt.json").write_text(
+        json.dumps(
+            {
+                "final_publish_ready": True,
+                "block_reasons": [],
+                "reviewer_notes": [],
+                "local_approval_only": True,
+                "no_arcgis_item_created": True,
+            }
+        ),
+        encoding="utf-8",
+    )
+    (approved_path / "approved_warnings.json").write_text(json.dumps({"final_publish_ready": True}), encoding="utf-8")
+    (approved_path / "approved_layer_review.json").write_text(json.dumps([]), encoding="utf-8")
+    (approved_path / "approved_review_summary.md").write_text("summary", encoding="utf-8")
+    (approved_path / "approved_review.html").write_text("<html>approved</html>", encoding="utf-8")
+
+    def fake_smoke(path, confirm_publish=False):
+        assert confirm_publish is False
+        receipt = {
+            "dry_run": True,
+            "blocked": False,
+            "block_reasons": [],
+            "item_created": False,
+            "verified_private": False,
+            "verified_not_public": False,
+            "verified_not_org_shared": False,
+            "verified_layer_urls": False,
+            "manual_cleanup_note": "Manual cleanup required.",
+        }
+        (Path(path) / "smoke_test_receipt.json").write_text(json.dumps(receipt), encoding="utf-8")
+        return receipt
+
+    monkeypatch.setattr("app.ui_routes.run_publish_smoke_test", fake_smoke)
+    monkeypatch.setattr(
+        "app.ui_routes.validate_approved_packet",
+        lambda path: {"is_valid": True, "final_publish_ready": True, "block_reasons": []},
+    )
+    client = TestClient(create_app())
+
+    response = client.post("/portal-smoke-test-dry-run", data={"approved_packet_folder": str(approved_path)})
+
+    assert response.status_code == 200
+    assert "Latest Portal Smoke Test Receipt" in response.text
+    assert "Dry-run:</strong> True" in response.text
+    assert "Item created:</strong> False" in response.text
+    assert "Open smoke_test_receipt.json" in response.text
 
 
 def test_preview_route_loads(monkeypatch, tmp_path):
@@ -472,3 +530,6 @@ def test_cli_commands_exist():
     assert "--apply-approval" in result.stdout
     assert "--validate-approved-packet" in result.stdout
     assert "--list-approvals" in result.stdout
+    assert "--portal-smoke-test" in result.stdout
+    assert "--verify-portal-item" in result.stdout
+    assert "--approved-packet" in result.stdout

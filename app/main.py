@@ -51,6 +51,8 @@ from app.packet_index import (
     list_approved_packets,
     list_review_packets,
 )
+from app.portal_item_verifier import verify_portal_item
+from app.portal_smoke_test import run_publish_smoke_test
 from app.recipe_engine import build_recipe
 from app.review_packet_builder import (
     build_review_packet,
@@ -385,6 +387,22 @@ def _publish_draft_webmap(path: str, dry_run: bool = True, confirm_publish: bool
     return 0 if result.get("status") in {"dry_run", "published_private_draft"} else 1
 
 
+def _portal_smoke_test(path: str, confirm_publish: bool = False) -> int:
+    result = run_publish_smoke_test(path, confirm_publish=confirm_publish)
+    print(json.dumps(result, indent=2, default=str))
+    if result.get("dry_run") and not result.get("blocked") and not result.get("item_created"):
+        return 0
+    if result.get("item_created") and not result.get("verification_errors"):
+        return 0
+    return 1
+
+
+def _verify_portal_item(item_id: str, approved_packet: str | None = None) -> int:
+    result = verify_portal_item(item_id, approved_packet)
+    print(json.dumps(result, indent=2, default=str))
+    return 0 if result.get("verified") else 1
+
+
 def _serve_ui(port: int | None = None) -> int:
     from app.web_ui import run_ui
 
@@ -598,6 +616,21 @@ def main() -> int:
         help="Dry-run or publish an approved AutoMap packet as a private draft Web Map.",
     )
     parser.add_argument(
+        "--portal-smoke-test",
+        metavar="APPROVED_PACKET_FOLDER",
+        help="Run the guarded one-item Portal publish smoke test for an approved packet.",
+    )
+    parser.add_argument(
+        "--verify-portal-item",
+        metavar="ITEM_ID",
+        help="Verify a Portal Web Map item against AutoMap private draft rules.",
+    )
+    parser.add_argument(
+        "--approved-packet",
+        metavar="APPROVED_PACKET_FOLDER",
+        help="Approved packet folder used with --verify-portal-item.",
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Force publisher dry-run mode. This is the default.",
@@ -695,6 +728,10 @@ def main() -> int:
             if args.dry_run:
                 dry_run = True
             return _publish_draft_webmap(args.publish_draft_webmap, dry_run=dry_run, confirm_publish=args.confirm_publish)
+        if args.portal_smoke_test:
+            return _portal_smoke_test(args.portal_smoke_test, confirm_publish=args.confirm_publish and not args.dry_run)
+        if args.verify_portal_item:
+            return _verify_portal_item(args.verify_portal_item, args.approved_packet)
         if args.serve_ui:
             return _serve_ui(args.ui_port)
         if args.list_packets:

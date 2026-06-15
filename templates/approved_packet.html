@@ -104,8 +104,40 @@
 
 <section class="panel">
   <h3>Controlled Real Publish</h3>
-  <p class="muted">Real private draft publishing is CLI-only in v1.2 and disabled by default. It requires an approved packet, <code>--confirm-publish</code>, <code>AUTOMAP_ALLOW_REAL_PUBLISH=true</code>, and <code>AUTOMAP_PUBLISH_DRY_RUN=false</code>.</p>
+  <p class="muted">Real private draft publishing is CLI-only in v1.3 and disabled by default. It requires an approved packet, <code>--confirm-publish</code>, <code>AUTOMAP_ALLOW_REAL_PUBLISH=true</code>, and <code>AUTOMAP_PUBLISH_DRY_RUN=false</code>.</p>
   <p class="muted">The UI does not offer one-click real publish. AutoMap never publishes publicly, never shares to the organization, and never overwrites or deletes ArcGIS items.</p>
+</section>
+
+<section class="panel">
+  <h3>Portal Smoke Test</h3>
+  <p class="muted">The UI can run a dry-run smoke test only. Real smoke testing is CLI-only and can create at most one private draft Web Map item when all safety flags are enabled.</p>
+  <form method="post" action="/portal-smoke-test-dry-run" class="top-spaced">
+    <input type="hidden" name="approved_packet_folder" value="{{ approved_path }}">
+    <button type="submit">Run Dry-Run Smoke Test</button>
+  </form>
+  <p class="muted">CLI real smoke test:</p>
+  <pre>python -m app.main --portal-smoke-test {{ approved_path }} --confirm-publish</pre>
+  <p class="muted">Required local flags: <code>AUTOMAP_ALLOW_REAL_PUBLISH=true</code> and <code>AUTOMAP_PUBLISH_DRY_RUN=false</code>. Cleanup is manual in Portal.</p>
+</section>
+{% endif %}
+
+{% if smoke_test_result or smoke_test_receipt %}
+<section class="panel">
+  <h3>Latest Portal Smoke Test Receipt</h3>
+  {% set smoke = smoke_test_result or smoke_test_receipt %}
+  <p><strong>Dry-run:</strong> {{ smoke.dry_run }} | <strong>Blocked:</strong> {{ smoke.blocked }} | <strong>Item created:</strong> {{ smoke.item_created }}</p>
+  <p><strong>Private:</strong> {{ smoke.verified_private }} | <strong>Not public:</strong> {{ smoke.verified_not_public }} | <strong>Not org shared:</strong> {{ smoke.verified_not_org_shared }} | <strong>Layer URLs:</strong> {{ smoke.verified_layer_urls }}</p>
+  <ul class="compact-list">
+    {% for reason in smoke.block_reasons %}
+      <li>{{ reason }}</li>
+    {% else %}
+      <li>No block reasons recorded.</li>
+    {% endfor %}
+  </ul>
+  {% if smoke_test_receipt_url %}
+    <p><a class="button-link secondary" href="{{ smoke_test_receipt_url }}">Open smoke_test_receipt.json</a></p>
+  {% endif %}
+  <p class="muted">{{ smoke.manual_cleanup_note }}</p>
 </section>
 {% endif %}
 

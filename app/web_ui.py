@@ -14,7 +14,7 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title=PROJECT_TITLE,
         description="Local AutoMap review UI. Dry-run publishing only.",
-        version="1.2",
+        version="1.3",
     )
     app.include_router(router)
     static_dir = repo_root() / "static"

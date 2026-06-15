@@ -33,6 +33,7 @@ from app.packet_index import (
     list_approved_packets,
     list_review_packets,
 )
+from app.portal_smoke_test import run_publish_smoke_test
 from app.recipe_engine import build_recipe
 from app.request_history import list_request_history, record_request_history
 from app.review_packet_builder import (
@@ -87,6 +88,16 @@ def _packet_file_links(packet_path: str | Path, file_names: list[str]) -> list[d
 
 def _read_json(path: str | Path) -> Any:
     return json.loads(Path(path).read_text(encoding="utf-8"))
+
+
+def _optional_json(path: str | Path) -> Any:
+    json_path = Path(path)
+    if not json_path.exists():
+        return None
+    try:
+        return _read_json(json_path)
+    except (OSError, json.JSONDecodeError):
+        return None
 
 
 def _write_ignored_helper_file(folder_name: str, file_name: str, content: str) -> Path:
@@ -527,6 +538,10 @@ def apply_approval(
             approved_warnings=approved_warnings,
             layer_review=layer_review,
             files=files,
+            smoke_test_receipt=_optional_json(Path(approved_path) / "smoke_test_receipt.json"),
+            smoke_test_receipt_url=output_file_url(Path(approved_path) / "smoke_test_receipt.json")
+            if (Path(approved_path) / "smoke_test_receipt.json").exists()
+            else None,
             preview_url=_preview_url_for_source(approved_path),
             webmap_file_url=output_file_url(Path(approved_path) / "approved_webmap.json"),
             approved_review_file_url=output_file_url(Path(approved_path) / "approved_review.html"),
@@ -585,6 +600,10 @@ def publish_dry_run(request: Request, adjusted_packet_folder: str = Form(...)):
                 approval_receipt=receipt,
                 publish_result=result,
                 publish_receipt=output_file_url(packet_path / "publish_receipt.json"),
+                smoke_test_receipt=_optional_json(packet_path / "smoke_test_receipt.json"),
+                smoke_test_receipt_url=output_file_url(packet_path / "smoke_test_receipt.json")
+                if (packet_path / "smoke_test_receipt.json").exists()
+                else None,
                 files=files,
                 preview_url=_preview_url_for_source(adjusted_packet_folder),
                 webmap_file_url=output_file_url(packet_path / "approved_webmap.json"),
@@ -601,6 +620,50 @@ def publish_dry_run(request: Request, adjusted_packet_folder: str = Form(...)):
             publish_receipt=output_file_url(Path(adjusted_packet_folder) / "publish_receipt.json"),
             preview_url=_preview_url_for_source(adjusted_packet_folder),
             webmap_file_url=output_file_url(Path(adjusted_packet_folder) / "adjusted_webmap.json"),
+        ),
+    )
+
+
+@router.post("/portal-smoke-test-dry-run")
+def portal_smoke_test_dry_run(request: Request, approved_packet_folder: str = Form(...)):
+    """Run a dry-run portal smoke test only; never real publish from the UI."""
+    packet_path = Path(approved_packet_folder)
+    result = run_publish_smoke_test(approved_packet_folder, confirm_publish=False)
+    receipt = _read_json(packet_path / "approval_receipt.json") if (packet_path / "approval_receipt.json").exists() else {}
+    validation = validate_approved_packet(packet_path)
+    files = _packet_file_links(
+        packet_path,
+        [
+            "approved_recipe.json",
+            "approved_webmap.json",
+            "approval_file.json",
+            "approval_receipt.json",
+            "approved_warnings.json",
+            "approved_layer_review.json",
+            "approved_review_summary.md",
+            "approved_review.html",
+            "smoke_test_receipt.json",
+        ],
+    )
+    return templates.TemplateResponse(
+        request,
+        "approved_packet.html",
+        _base_context(
+            request,
+            approved_path=approved_packet_folder,
+            validation=validation,
+            approval_receipt=receipt,
+            approved_warnings=_optional_json(packet_path / "approved_warnings.json"),
+            layer_review=_optional_json(packet_path / "approved_layer_review.json") or [],
+            smoke_test_result=result,
+            smoke_test_receipt=_optional_json(packet_path / "smoke_test_receipt.json"),
+            smoke_test_receipt_url=output_file_url(packet_path / "smoke_test_receipt.json")
+            if (packet_path / "smoke_test_receipt.json").exists()
+            else None,
+            files=files,
+            preview_url=_preview_url_for_source(approved_packet_folder),
+            webmap_file_url=output_file_url(packet_path / "approved_webmap.json"),
+            approved_review_file_url=output_file_url(packet_path / "approved_review.html"),
         ),
     )
 

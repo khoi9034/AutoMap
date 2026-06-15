@@ -2,11 +2,11 @@
 
 AutoMap converts plain-English county GIS map requests into structured map recipes using only approved GIS layers from a local layer catalog.
 
-Version: `1.2.0`
+Version: `1.3.0`
 
 ## Current Phase
 
-v1.2 controlled private ArcGIS publish.
+v1.3 portal publish smoke test and item verification.
 
 This repository is intentionally independent. It does not connect to CFS or import CFS code. AutoMap uses its own local PostGIS database and trusted layer catalog.
 
@@ -25,13 +25,14 @@ AutoMap helps GIS and planning staff turn plain-English county map requests into
 - live local browser map preview
 - dry-run publish receipts
 - controlled private ArcGIS Web Map publishing from approved packets
+- one-item private Portal smoke-test verification
 - local request history and system status
 
 ## What AutoMap Does Not Do Yet
 
 AutoMap does not ingest full feature geometries, does not download full feature datasets, does not publish from the local UI, does not publish publicly, does not share to the organization, and does not use an external LLM API.
 
-ArcGIS publishing remains dry-run by default unless a guarded CLI path is explicitly confirmed with an approved packet and local environment safety flags.
+ArcGIS publishing and smoke testing remain dry-run by default unless a guarded CLI path is explicitly confirmed with an approved packet and local environment safety flags.
 
 ## Version Roadmap
 
@@ -46,6 +47,7 @@ ArcGIS publishing remains dry-run by default unless a guarded CLI path is explic
 9. v1.0 demo polish and QA hardening
 10. v1.1 reviewer approval gate
 11. v1.2 controlled private ArcGIS publish
+12. v1.3 portal publish smoke test and item verification
 
 ## Project Structure
 
@@ -211,7 +213,7 @@ The local UI includes an approval page:
 http://127.0.0.1:8001/approval
 ```
 
-Only approved packets with `final_publish_ready = true` show the UI dry-run publish action. Real Portal publishing is CLI-only in v1.2.
+Only approved packets with `final_publish_ready = true` show the UI dry-run publish and smoke-test actions. Real Portal publishing is CLI-only.
 
 ## Controlled Private ArcGIS Publish
 
@@ -257,6 +259,20 @@ python -m app.main --publish-draft-webmap outputs/review_packets_approved/<appro
 python -m app.main --publish-draft-webmap outputs/review_packets_approved/<approved-packet-folder> --confirm-publish
 ```
 
+## Portal Publish Smoke Test
+
+AutoMap v1.3 adds a guarded smoke test for one private Web Map draft item from an approved packet. Dry-run remains the default and writes `smoke_test_receipt.json` without connecting to ArcGIS.
+
+Real smoke testing is CLI-only and requires `--confirm-publish`, `AUTOMAP_ALLOW_REAL_PUBLISH=true`, `AUTOMAP_PUBLISH_DRY_RUN=false`, configured Portal credentials, and an approved packet with `final_publish_ready = true`.
+
+```bash
+python -m app.main --portal-smoke-test outputs/review_packets_approved/<approved-packet-folder> --dry-run
+python -m app.main --portal-smoke-test outputs/review_packets_approved/<approved-packet-folder> --confirm-publish
+python -m app.main --verify-portal-item <item-id> --approved-packet outputs/review_packets_approved/<approved-packet-folder>
+```
+
+The smoke-test verifier checks that the item is private, not public, not shared to the organization, is a Web Map, has AutoMap draft tags, and uses the approved layer URLs. AutoMap does not overwrite or delete ArcGIS items. Cleanup is manual in Portal.
+
 ## Local Web UI
 
 AutoMap v0.8 adds a local FastAPI/Jinja web interface for the draft workflow.
@@ -277,7 +293,7 @@ If port `8000` is already occupied by another local service, use a temporary loc
 python -m app.main --serve-ui --ui-port 8001
 ```
 
-The UI can create recipes, review packets, WebMap drafts, adjustment templates, adjusted packets, catalog searches, data gap views, and dry-run publish receipts. The UI is local only. It does not real-publish ArcGIS items, does not require ArcGIS login, and does not ingest geometries.
+The UI can create recipes, review packets, WebMap drafts, adjustment templates, adjusted packets, catalog searches, data gap views, dry-run publish receipts, and dry-run smoke-test receipts. The UI is local only. It does not real-publish ArcGIS items, does not require ArcGIS login, and does not ingest geometries.
 
 ## Live Local Map Preview
 
@@ -336,6 +352,7 @@ Prompt -> Parser -> Layer Matcher -> Recipe Engine
        -> Review Packet -> Human Adjustment -> Local Preview
        -> Reviewer Approval -> Dry-Run Receipt
        -> Controlled Private ArcGIS Draft Publish
+       -> Portal Smoke-Test Verification
 ```
 
 The trusted source for layer selection is `automap.layer_catalog`. Generated artifacts live under `outputs/`, which is ignored by Git.
@@ -345,10 +362,11 @@ See:
 - `docs/v1_demo_workflow.md`
 - `docs/project_architecture.md`
 - `docs/safety_model.md`
+- `docs/portal_smoke_test.md`
 
 ## Notes
 
 - Approved GIS layers come from AutoMap's local `automap.layer_catalog`.
 - Generated recipes, WebMap drafts, review packets, and adjusted packets are local artifacts and are not committed.
-- ArcGIS Online or Portal publishing is dry-run by default in v1.2 and real-publish is CLI-only behind explicit safeguards.
+- ArcGIS Online or Portal publishing is dry-run by default in v1.3 and real-publish is CLI-only behind explicit safeguards.
 - CFS uses a separate database and remains untouched by AutoMap.
