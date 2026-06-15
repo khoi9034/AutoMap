@@ -8,6 +8,7 @@ from typing import Any
 
 from app.layer_catalog_store import load_catalog_records
 from app.layer_semantics import slugify
+from app.ui_models import output_file_url
 
 
 WEBMAP_VERSION = "2.31"
@@ -377,6 +378,37 @@ def order_layers(selected_layers: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return sorted(selected_layers, key=_layer_order_weight)
 
 
+def build_derived_analysis_layer(output: dict[str, Any], index: int = 0) -> dict[str, Any] | None:
+    """Build a local-only derived GeoJSON layer metadata item."""
+    path = output.get("output_geojson_path") or output.get("path")
+    layer = output.get("derived_layer") if isinstance(output.get("derived_layer"), dict) else {}
+    url = layer.get("url") or output.get("url") or output.get("layer_url") or (output_file_url(path) if path else None)
+    title = layer.get("title") or output.get("title") or "Derived Local Analysis Result"
+    if not url:
+        return None
+    return {
+        "id": layer.get("id") or f"automap_derived_analysis_{index}",
+        "title": title,
+        "url": url,
+        "layerUrl": url,
+        "layerType": "GeoJSONLayer",
+        "visibility": True,
+        "opacity": layer.get("opacity", 0.85),
+        "showLegend": True,
+        "autoMapRole": "derived_analysis_result",
+        "autoMapLayerKey": layer.get("layer_key") or output.get("layer_key") or f"derived_analysis_{index}",
+        "autoMapSourceStatus": "derived_local",
+        "autoMapSourcePriority": 0,
+        "autoMapNeedsReview": True,
+        "autoMapReviewWarnings": [
+            "Derived local analysis result. Review before official use.",
+            "This GeoJSON was not published or uploaded to ArcGIS.",
+        ],
+        "autoMapDerivedAnalysis": True,
+        "autoMapAnalysisRunId": output.get("analysis_run_id"),
+    }
+
+
 def _normalize_extent(extent: Any) -> dict[str, Any] | None:
     if not isinstance(extent, dict):
         return None
@@ -484,6 +516,11 @@ def build_webmap_json(recipe: dict[str, Any]) -> dict[str, Any]:
         build_operational_layer(layer, filter_plan.get(layer.get("layer_key")), context)
         for layer in ordered_layers
     ]
+    for index, output in enumerate((recipe.get("analysis_execution") or {}).get("derived_outputs") or []):
+        if isinstance(output, dict):
+            derived_layer = build_derived_analysis_layer(output, index=index)
+            if derived_layer:
+                operational_layers.append(derived_layer)
     extent_recipe = {**recipe, "selected_layers": ordered_layers}
     initial_extent = build_initial_extent(extent_recipe)
     spatial_reference = _first_spatial_reference(ordered_layers, initial_extent)

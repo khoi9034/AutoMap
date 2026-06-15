@@ -218,6 +218,7 @@ def build_recipe(
         "missing_data_needed": matching["missing_data_needed"],
         "filter_plan": {},
         "validation": {},
+        "analysis_execution": {},
         "created_at": datetime.now(UTC).isoformat(),
         "notes": [
             "Recipe uses verified AutoMap layer catalog metadata only.",
@@ -232,6 +233,21 @@ def build_recipe(
         if validation["warnings"]:
             recipe["review_reasons"] = sorted(set([*recipe["review_reasons"], *validation["warnings"]]))
             recipe["needs_review"] = True
+
+    try:
+        from app.analysis_executor import analysis_execution_for_recipe
+
+        recipe["analysis_execution"] = analysis_execution_for_recipe(recipe, layer_catalog)
+    except Exception as exc:
+        recipe["analysis_execution"] = {
+            "executable": False,
+            "supported_operations": [],
+            "blocked_reasons": [f"Analysis planning unavailable: {exc}"],
+            "estimated_query_counts": {},
+            "recommended_execution_plan": [],
+            "analysis_run_id": None,
+            "derived_outputs": [],
+        }
 
     if persist_data_gaps and recipe["missing_data_needed"]:
         upsert_data_gaps_from_recipe(recipe)

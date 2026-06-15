@@ -1,6 +1,6 @@
 # AutoMap Frontend Workflow Shell
 
-AutoMap v1.9 provides a polished Next.js + TypeScript workflow shell with interactive clarification and deterministic feedback learning while keeping the FastAPI backend as the API and workflow engine.
+AutoMap v2.0 provides a polished Next.js + TypeScript workflow shell with interactive clarification, deterministic feedback learning, and safe bounded analysis while keeping the FastAPI backend as the API and workflow engine.
 
 ## URLs
 
@@ -49,6 +49,7 @@ Cabarrus FutureScape keeps `http://localhost:3000` and `http://127.0.0.1:8000`. 
 - `/clarify`
 - `/recipe-review`
 - `/map-preview`
+- `/analysis`
 - `/adjustments`
 - `/approval`
 - `/publish-center`
@@ -70,15 +71,22 @@ The frontend presents a local, draft-only workflow:
 3. Interactive clarification when the request needs distance, time range, flood scope, zoning, or missing-data decisions
 4. Recipe review with selected layers, filters, operations, warnings, and gaps
 5. Local WebMap preview through the backend preview route
-6. Human YAML adjustments that create separate adjusted packets
-7. Reviewer approval that records local readiness only
-8. Dry-run publish and dry-run portal smoke-test receipts
-9. Approved-pattern learning from local approved packets
-10. Local report/export packages for GIS review
+6. Safe bounded analysis with local GeoJSON outputs
+7. Human YAML adjustments that create separate adjusted packets
+8. Reviewer approval that records local readiness only
+9. Dry-run publish and dry-run portal smoke-test receipts
+10. Approved-pattern learning from local approved packets
+11. Local report/export packages for GIS review
 
 The shell uses compact cards, status chips, scan-friendly tables, grouped warning panels, layer review panels, and explicit draft-only labels. It does not expose real ArcGIS publishing.
 
-Workflow state is stored in browser localStorage under an AutoMap-specific key. It tracks the prompt, initial recipe, refined recipe, clarification session, clarification answers, WebMap draft, review packet, adjustment template, adjusted packet, approval template, approved packet, dry-run receipt, smoke-test receipt, active step, warnings, missing data, and selected packet ids. Protected markers such as database URLs, passwords, tokens, and ArcGIS credential keys are redacted before storage.
+Workflow state is stored in browser localStorage under an AutoMap-specific key. It tracks the prompt, initial recipe, refined recipe, clarification session, clarification answers, WebMap draft, review packet, analysis plan, analysis run, adjustment template, adjusted packet, approval template, approved packet, dry-run receipt, smoke-test receipt, active step, warnings, missing data, and selected packet ids. Protected markers such as database URLs, passwords, tokens, and ArcGIS credential keys are redacted before storage.
+
+## v2.0 Analysis
+
+v2.0 adds an `/analysis` page for safe bounded local GIS execution. The page can plan feasibility, show count estimates and blockers, execute supported parcel/flood intersection or attribute-filter requests, and link to local GeoJSON results under `outputs/analysis/`.
+
+The Map Preview layer panel can display a derived local analysis result badge when an execution result exists in workflow state. Derived results are not uploaded or published.
 
 ## v1.8 Clarification Loop
 
@@ -128,6 +136,10 @@ The frontend uses JSON-only backend API routes:
 - `POST /api/clarification/{session_id}/answer`
 - `POST /api/clarification/{session_id}/refine`
 - `POST /api/clarification/{session_id}/learn`
+- `POST /api/analysis/plan`
+- `POST /api/analysis/execute`
+- `GET /api/analysis/runs`
+- `GET /api/analysis/runs/{analysis_run_id}`
 - `GET /api/preview-config/{packet_id}`
 - `POST /api/recipe`
 - `POST /api/review-packet`
@@ -160,4 +172,4 @@ npm run typecheck
 npm run build
 ```
 
-AutoMap still does not ingest full geometries, does not download full feature datasets, and does not use an external LLM API.
+AutoMap still does not bulk-ingest full geometries, does not download full feature datasets, and does not use an external LLM API.

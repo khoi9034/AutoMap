@@ -66,6 +66,9 @@ export function LayerPanel({ layers = [] }: LayerPanelProps) {
                 <StatusChip tone={sourceTone(layer.source_status)}>
                   {layer.source_status || "source unknown"}
                 </StatusChip>
+                {layer.derived_local_analysis ? (
+                  <StatusChip tone="warning">Derived Local Analysis Result</StatusChip>
+                ) : null}
               </div>
               <dl className="layer-meta">
                 <div>

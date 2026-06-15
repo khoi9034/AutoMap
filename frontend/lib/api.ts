@@ -3,6 +3,7 @@ import type {
   ClarificationDefault,
   ClarificationSession,
   DataGap,
+  AnalysisRun,
   ApprovedPattern,
   FeedbackLogRow,
   HistoryRow,
@@ -105,7 +106,7 @@ export async function getStatusOrFallback(): Promise<SystemStatus> {
     return await getSystemStatus();
   } catch {
     return {
-      version: "1.9.0",
+      version: "2.0.0",
       database_connected: false,
       catalog: {},
       profiles: {},
@@ -142,6 +143,30 @@ export async function learnFromApprovedPacket(approvedPacketFolder: string): Pro
 
 export async function getClarificationDefaults(): Promise<{ defaults: ClarificationDefault[] }> {
   return apiFetch<{ defaults: ClarificationDefault[] }>("/api/clarification-defaults");
+}
+
+export async function planAnalysis(
+  prompt: string,
+): Promise<{ prompt: string; analysis_plan: Record<string, unknown> }> {
+  return apiFetch<{ prompt: string; analysis_plan: Record<string, unknown> }>("/api/analysis/plan", {
+    method: "POST",
+    body: JSON.stringify({ prompt }),
+  });
+}
+
+export async function executeAnalysis(prompt: string): Promise<{ prompt: string; analysis_result: AnalysisRun }> {
+  return apiFetch<{ prompt: string; analysis_result: AnalysisRun }>("/api/analysis/execute", {
+    method: "POST",
+    body: JSON.stringify({ prompt }),
+  });
+}
+
+export async function listAnalysisRuns(): Promise<{ analysis_runs: AnalysisRun[] }> {
+  return apiFetch<{ analysis_runs: AnalysisRun[] }>("/api/analysis/runs");
+}
+
+export async function getAnalysisRun(analysisRunId: string): Promise<AnalysisRun> {
+  return apiFetch<AnalysisRun>(`/api/analysis/runs/${encodeURIComponent(analysisRunId)}`);
 }
 
 export async function recordRecipeFeedback(payload: {

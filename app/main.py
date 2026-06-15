@@ -14,6 +14,8 @@ from app.adjustment_engine import (
     create_adjustment_template,
     validate_adjusted_packet,
 )
+from app.analysis_executor import build_analysis_plan, execute_analysis, list_runs as list_analysis_runs
+from app.analysis_result_store import validate_analysis_run
 from app.approval_engine import (
     apply_approval_to_adjusted_packet,
     create_approval_template,
@@ -526,6 +528,39 @@ def _validate_report(path: str) -> int:
     return 0 if validation["is_valid"] else 1
 
 
+def _plan_analysis(prompt: str) -> int:
+    plan = build_analysis_plan(prompt)
+    print(json.dumps(plan, indent=2, default=str))
+    return 0
+
+
+def _execute_analysis(prompt: str) -> int:
+    result = execute_analysis(prompt)
+    print(json.dumps(result, indent=2, default=str))
+    return 0 if result.get("status") == "completed" else 1
+
+
+def _list_analysis_runs() -> int:
+    rows = list_analysis_runs()
+    if not rows:
+        print("analysis runs: none")
+        return 0
+    for row in rows:
+        print(
+            f"{row['analysis_run_id']} | {row.get('operation_type')} | "
+            f"{row.get('status')} | output={row.get('output_count')} | "
+            f"{row.get('output_geojson_path') or 'no output'}"
+        )
+    print(f"analysis runs listed: {len(rows)}")
+    return 0
+
+
+def _validate_analysis_run(path_or_id: str) -> int:
+    validation = validate_analysis_run(path_or_id)
+    print(json.dumps(validation, indent=2, default=str))
+    return 0 if validation["is_valid"] else 1
+
+
 def _preview_packet(path: str, port: int | None = None) -> int:
     try:
         config = build_preview_config(path)
@@ -758,6 +793,26 @@ def main() -> int:
         help="Validate a generated local report/export package.",
     )
     parser.add_argument(
+        "--plan-analysis",
+        metavar="PROMPT",
+        help="Plan a safe bounded spatial analysis without downloading feature geometries.",
+    )
+    parser.add_argument(
+        "--execute-analysis",
+        metavar="PROMPT",
+        help="Execute a supported bounded local spatial analysis if counts are safe.",
+    )
+    parser.add_argument(
+        "--list-analysis-runs",
+        action="store_true",
+        help="List local AutoMap spatial analysis runs.",
+    )
+    parser.add_argument(
+        "--validate-analysis-run",
+        metavar="ANALYSIS_RUN_ID_OR_FOLDER",
+        help="Validate a generated analysis output folder or stored run id.",
+    )
+    parser.add_argument(
         "--learn-from-approved-packet",
         metavar="APPROVED_PACKET_FOLDER",
         help="Learn deterministic approved defaults from a local approved packet.",
@@ -859,6 +914,14 @@ def main() -> int:
             return _list_reports()
         if args.validate_report:
             return _validate_report(args.validate_report)
+        if args.plan_analysis:
+            return _plan_analysis(args.plan_analysis)
+        if args.execute_analysis:
+            return _execute_analysis(args.execute_analysis)
+        if args.list_analysis_runs:
+            return _list_analysis_runs()
+        if args.validate_analysis_run:
+            return _validate_analysis_run(args.validate_analysis_run)
         if args.learn_from_approved_packet:
             return _learn_from_approved_packet(args.learn_from_approved_packet)
         if args.list_patterns:

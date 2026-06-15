@@ -17,6 +17,7 @@ export const workflowSteps: WorkflowStepDefinition[] = [
   { id: "webmap", label: "WebMap Draft", href: "/recipe-review" },
   { id: "review_packet", label: "Review Packet", href: "/recipe-review" },
   { id: "preview", label: "Preview", href: "/map-preview" },
+  { id: "analysis", label: "Analysis", href: "/analysis" },
   { id: "adjustments", label: "Adjustments", href: "/adjustments" },
   { id: "approval", label: "Approval", href: "/approval" },
   { id: "publish", label: "Dry-Run Publish", href: "/publish-center" },
@@ -72,6 +73,8 @@ export function createInitialWorkflowState(): WorkflowState {
     remainingQuestions: [],
     webmapDraft: null,
     reviewPacket: null,
+    analysisPlan: null,
+    analysisRun: null,
     adjustmentTemplate: null,
     adjustedPacket: null,
     approvalTemplate: null,
@@ -233,6 +236,9 @@ function isStepCompleted(step: WorkflowStepId, state: WorkflowState): boolean {
   }
   if (step === "preview") {
     return Boolean(state.selectedPacketId || state.selectedAdjustedPacketId || state.selectedApprovedPacketId);
+  }
+  if (step === "analysis") {
+    return Boolean(state.analysisPlan || state.analysisRun);
   }
   if (step === "adjustments") {
     return Boolean(state.adjustedPacket || state.selectedAdjustedPacketId || state.selectedAdjustedPacketPath);

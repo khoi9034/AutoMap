@@ -2,11 +2,11 @@
 
 AutoMap converts plain-English county GIS map requests into structured map recipes using only approved GIS layers from a local layer catalog.
 
-Version: `1.9.0`
+Version: `2.0.0`
 
 ## Current Phase
 
-v1.9 Feedback Learning and Approved Pattern Library on top of the Interactive Clarification Loop.
+v2.0 Spatial Analysis Execution Engine on top of the feedback learning and approved pattern library.
 
 This repository is intentionally independent. It does not connect to CFS or import CFS code. AutoMap uses its own local PostGIS database and trusted layer catalog.
 
@@ -33,10 +33,11 @@ AutoMap helps GIS and planning staff turn plain-English county map requests into
 - deterministic request intelligence with intent classification, spatial planning, clarifying questions, and layer-selection explanations
 - interactive clarification sessions that refine recipes from reviewer answers
 - deterministic feedback learning from approved packets, clarification answers, and reviewer decisions
+- safe bounded spatial analysis execution with local GeoJSON outputs
 
 ## What AutoMap Does Not Do Yet
 
-AutoMap does not ingest full feature geometries, does not download full feature datasets, does not publish from the local UI, does not publish publicly, does not share to the organization, does not train models, and does not use an external LLM API.
+AutoMap does not bulk-ingest full feature datasets, does not publish from the local UI, does not publish publicly, does not share to the organization, does not train models, and does not use an external LLM API.
 
 ArcGIS publishing and smoke testing remain dry-run by default unless a guarded CLI path is explicitly confirmed with an approved packet and local environment safety flags. The frontend exposes dry-run actions only.
 
@@ -61,6 +62,7 @@ ArcGIS publishing and smoke testing remain dry-run by default unless a guarded C
 17. v1.7 request intelligence brain
 18. v1.8 interactive clarification loop
 19. v1.9 feedback learning and approved pattern library
+20. v2.0 safe spatial analysis execution
 
 ## Project Structure
 
@@ -103,7 +105,7 @@ python -m pytest
 
 ## Next.js Frontend
 
-AutoMap v1.9 adds feedback learning and an approved pattern library to the Next.js + TypeScript shell under `frontend/`. The FastAPI backend remains the API and workflow engine, and the existing FastAPI/Jinja UI is preserved.
+AutoMap v2.0 adds a safe Analysis page to the Next.js + TypeScript shell under `frontend/`. The FastAPI backend remains the API and workflow engine, and the existing FastAPI/Jinja UI is preserved.
 
 Start the backend API on port `8010`:
 
@@ -151,6 +153,7 @@ Frontend pages:
 - `/clarify`
 - `/recipe-review`
 - `/map-preview`
+- `/analysis`
 - `/adjustments`
 - `/approval`
 - `/publish-center`
@@ -170,6 +173,8 @@ The Map Request and Recipe Review pages now show request intelligence details: d
 The Clarify Request page turns those clarifying questions into an interactive local review loop. Staff can answer distance, flood-scope, missing-data, recent-time, and zoning-code questions, then AutoMap regenerates request intelligence, the analysis plan, selected layers, filters, warnings, and the map recipe. The original recipe remains available for comparison, and the refined recipe records what changed.
 
 The Learning page stores approved local workflows as reviewable defaults. AutoMap can suggest common distances, flood-scope choices, preferred layers, accepted assumptions, and missing-data decisions from approved patterns. These learned suggestions are deterministic, local, and reviewable. They do not train a model, call external AI APIs, invent layers, or override the verified catalog.
+
+The Analysis page plans and runs safe bounded local GIS analysis for supported operations. v2.0 fully supports parcel selection by geography/constraint intersection, such as parcels in Concord intersecting the 100-year floodplain. It counts first, blocks oversized requests, writes local GeoJSON under `outputs/analysis/`, and marks derived outputs as local review results only.
 
 AutoMap persists the active local workflow in browser storage so staff can move from prompt to recipe review, preview, adjustments, approval, and dry-run publishing without losing context on refresh. The stored workflow state is sanitized and does not include secrets.
 
@@ -255,6 +260,35 @@ python -m app.main --list-clarification-defaults
 ```
 
 Use `--save-recipe` with `--make-recipe` to write a local JSON recipe under `outputs/sample_recipes/`. Generated outputs are local artifacts and are not committed.
+
+## Spatial Analysis Execution
+
+AutoMap v2.0 can execute safe bounded local spatial analysis for selected common operations. It does not bulk-ingest countywide datasets and does not publish derived outputs.
+
+Fully supported in v2.0:
+
+- `filter_by_geography`
+- `select_by_intersection`
+- `attribute_filter_only`
+
+Stubbed with review-needed blocking:
+
+- `select_by_distance`
+- `exclude_by_intersection`
+- `summarize_by_boundary`
+
+Example:
+
+```bash
+python -m app.main --plan-analysis "Show parcels in Concord that are in the 100-year floodplain."
+python -m app.main --execute-analysis "Show parcels in Concord that are in the 100-year floodplain."
+python -m app.main --list-analysis-runs
+python -m app.main --validate-analysis-run <analysis-run-id-or-output-folder>
+```
+
+Analysis outputs are local files under `outputs/analysis/`, which is ignored by Git. A successful bounded intersection writes `analysis_result.geojson`, `analysis_receipt.json`, `input_recipe.json`, and `analysis_summary.md`.
+
+See `docs/spatial_analysis_execution.md` and `docs/analysis_safety_limits.md`.
 
 ## Field Intelligence And Filter Planning
 
@@ -407,6 +441,10 @@ GET /api/preview-config/{packet_id}
 POST /api/recipe
 POST /api/review-packet
 POST /api/webmap-draft
+POST /api/analysis/plan
+POST /api/analysis/execute
+GET /api/analysis/runs
+GET /api/analysis/runs/{analysis_run_id}
 POST /api/adjustment-template
 POST /api/apply-adjustments
 POST /api/approval-template
@@ -503,6 +541,7 @@ Prompt -> Parser -> Layer Matcher -> Recipe Engine
        -> Next.js Frontend Workflow Shell
        -> UX-Polished Local Map Preview
        -> Report And Export Center
+       -> Safe Spatial Analysis Execution
 ```
 
 The trusted source for layer selection is `automap.layer_catalog`. Generated artifacts live under `outputs/`, which is ignored by Git.
@@ -517,10 +556,13 @@ See:
 - `docs/frontend_ux_design.md`
 - `docs/map_preview_frontend.md`
 - `docs/report_export_center.md`
+- `docs/spatial_analysis_execution.md`
+- `docs/analysis_safety_limits.md`
 
 ## Notes
 
 - Approved GIS layers come from AutoMap's local `automap.layer_catalog`.
 - Generated recipes, WebMap drafts, review packets, adjusted packets, approved packets, and reports are local artifacts and are not committed.
-- ArcGIS Online or Portal publishing is dry-run by default in v1.7 and real-publish is CLI-only behind explicit safeguards.
+- ArcGIS Online or Portal publishing is dry-run by default and real-publish is CLI-only behind explicit safeguards.
+- Spatial analysis outputs are local review GeoJSON files and are not official GIS layers.
 - CFS uses a separate database and remains untouched by AutoMap.

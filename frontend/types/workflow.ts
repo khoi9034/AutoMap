@@ -12,6 +12,7 @@ export type WorkflowStepId =
   | "webmap"
   | "review_packet"
   | "preview"
+  | "analysis"
   | "adjustments"
   | "approval"
   | "publish";
@@ -42,6 +43,8 @@ export type WorkflowState = {
   remainingQuestions: ClarificationQuestionModel[];
   webmapDraft: Record<string, unknown> | null;
   reviewPacket: Record<string, unknown> | null;
+  analysisPlan: Record<string, unknown> | null;
+  analysisRun: Record<string, unknown> | null;
   adjustmentTemplate: Record<string, unknown> | null;
   adjustedPacket: Record<string, unknown> | null;
   approvalTemplate: Record<string, unknown> | null;

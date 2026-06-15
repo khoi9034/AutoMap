@@ -15,6 +15,8 @@ from app.adjustment_engine import (
     create_adjustment_template,
     validate_adjusted_packet,
 )
+from app.analysis_executor import build_analysis_plan, execute_analysis, list_runs as list_analysis_runs
+from app.analysis_result_store import get_analysis_run
 from app.approval_engine import (
     apply_approval_to_adjusted_packet,
     create_approval_template,
@@ -110,6 +112,13 @@ class ReportRequest(BaseModel):
     """Report generation payload for local packet exports."""
 
     packet_folder: str
+
+
+class AnalysisPromptRequest(BaseModel):
+    """Analysis planning/execution prompt payload."""
+
+    prompt: str
+    max_features: int | None = None
 
 
 class LearnApprovedRequest(BaseModel):
@@ -337,6 +346,52 @@ def api_generate_report(payload: ReportRequest) -> Any:
             "validation": package.validation,
         }
     )
+
+
+@api_router.post("/analysis/plan")
+def api_analysis_plan(payload: AnalysisPromptRequest) -> Any:
+    """Plan a bounded local analysis without downloading feature geometries."""
+    try:
+        plan = build_analysis_plan(payload.prompt, max_features=payload.max_features or 2000)
+    except ValueError as exc:
+        raise _handle_value_error(exc) from exc
+    return _json_response({"prompt": payload.prompt, "analysis_plan": plan})
+
+
+@api_router.post("/analysis/execute")
+def api_analysis_execute(payload: AnalysisPromptRequest) -> Any:
+    """Execute a supported bounded local analysis and write ignored outputs."""
+    try:
+        result = execute_analysis(payload.prompt, max_features=payload.max_features or 2000)
+    except ValueError as exc:
+        raise _handle_value_error(exc) from exc
+    _record_history_safely(
+        raw_prompt=payload.prompt,
+        workflow_step="analysis",
+        map_title=(result.get("recipe_json") or {}).get("map_title"),
+        status=result.get("status"),
+        notes={
+            "analysis_run_id": result.get("analysis_run_id"),
+            "operation_type": result.get("operation_type"),
+            "output_count": result.get("output_count"),
+        },
+    )
+    return _json_response({"prompt": payload.prompt, "analysis_result": result})
+
+
+@api_router.get("/analysis/runs")
+def api_analysis_runs(limit: int = Query(default=50, ge=1, le=200)) -> Any:
+    """List local analysis runs."""
+    return _json_response({"analysis_runs": list_analysis_runs(limit=limit)})
+
+
+@api_router.get("/analysis/runs/{analysis_run_id}")
+def api_analysis_run_detail(analysis_run_id: str) -> Any:
+    """Return one local analysis run."""
+    try:
+        return _json_response(get_analysis_run(analysis_run_id))
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 @api_router.get("/patterns")

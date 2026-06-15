@@ -175,8 +175,38 @@ def test_api_client_has_timeout_and_sanitized_fallback_version():
 
     assert "Backend API request timed out" in source
     assert "http://127.0.0.1:8010" in source
-    assert 'version: "1.9.0"' in source
+    assert 'version: "2.0.0"' in source
     assert "redactProtected" in source
+
+
+def test_analysis_page_components_and_api_are_present():
+    navigation = read("components/navigation.ts")
+    page = read("app/analysis/page.tsx")
+    client = read("components/analysis-client.tsx")
+    api = read("lib/api.ts")
+    store = read("lib/workflow-store.ts")
+    types = read("types/automap.ts")
+    preview = read("components/arcgis-map-preview.tsx")
+    layer_panel = read("components/layer-panel.tsx")
+
+    assert 'href: "/analysis"' in navigation
+    assert "Safe bounded spatial execution" in page
+    assert "Plan Analysis" in client
+    assert "Execute Analysis" in client
+    assert "Add result to map preview" in client
+    assert "planAnalysis" in api
+    assert "executeAnalysis" in api
+    assert '"/api/analysis/plan"' in api
+    assert '"/api/analysis/execute"' in api
+    assert 'id: "analysis"' in store
+    assert "analysisPlan" in store
+    assert "analysisRun" in store
+    assert "AnalysisExecutionPlan" in types
+    assert "AnalysisRun" in types
+    assert "Derived Local Analysis Result" in preview
+    assert "derived_local_analysis" in layer_panel
+    assert "confirm-publish" not in client.lower()
+    assert "publish-draft-webmap" not in client.lower()
 
 
 def test_learning_page_components_and_api_are_present():

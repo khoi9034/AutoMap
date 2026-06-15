@@ -6,7 +6,8 @@ import { LayerPanel } from "@/components/layer-panel";
 import { StatusChip } from "@/components/status-chip";
 import { WarningPanel } from "@/components/warning-panel";
 import { API_BASE_URL, getPreviewConfig } from "@/lib/api";
-import type { PreviewConfig } from "@/types/automap";
+import { loadWorkflowState } from "@/lib/workflow-store";
+import type { PreviewConfig, PreviewLayer } from "@/types/automap";
 
 type ArcGISMapPreviewProps = {
   packetId: string;
@@ -19,6 +20,7 @@ function layerCountLabel(preview: PreviewConfig | null): string {
 
 export function ArcGISMapPreview({ packetId }: ArcGISMapPreviewProps) {
   const [preview, setPreview] = useState<PreviewConfig | null>(null);
+  const [derivedLayer, setDerivedLayer] = useState<PreviewLayer | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -36,11 +38,22 @@ export function ArcGISMapPreview({ packetId }: ArcGISMapPreviewProps) {
         setError(exc instanceof Error ? exc.message : "Preview config failed.");
       })
       .finally(() => setLoading(false));
+    const workflow = loadWorkflowState();
+    const analysisRun = workflow.analysisRun || {};
+    const candidate = analysisRun.derived_layer;
+    setDerivedLayer(candidate && typeof candidate === "object" ? (candidate as PreviewLayer) : null);
   }, [packetId]);
 
   const previewUrl = useMemo(
     () => `${API_BASE_URL}/preview/${encodeURIComponent(packetId || "latest")}`,
     [packetId],
+  );
+  const panelLayers = useMemo(
+    () => [
+      ...(preview?.operational_layers || []),
+      ...(derivedLayer ? [{ ...derivedLayer, derived_local_analysis: true }] : []),
+    ],
+    [preview, derivedLayer],
   );
 
   if (!packetId) {
@@ -88,6 +101,7 @@ export function ArcGISMapPreview({ packetId }: ArcGISMapPreviewProps) {
             <p className="muted">{preview?.original_prompt || "Waiting for preview metadata from the backend."}</p>
             <div className="chip-row">
               <StatusChip tone="success">{layerCountLabel(preview)}</StatusChip>
+              {derivedLayer ? <StatusChip tone="warning">Derived Local Analysis Result</StatusChip> : null}
               <StatusChip tone={preview?.preview_only === false ? "warning" : "success"}>
                 {preview?.preview_only === false ? "Review mode" : "Preview only"}
               </StatusChip>
@@ -111,7 +125,7 @@ export function ArcGISMapPreview({ packetId }: ArcGISMapPreviewProps) {
       </section>
 
       <WarningPanel warnings={preview?.warnings} missingData={preview?.missing_data || []} />
-      <LayerPanel layers={preview?.operational_layers || []} />
+      <LayerPanel layers={panelLayers} />
     </div>
   );
 }

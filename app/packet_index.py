@@ -285,6 +285,8 @@ def _layer_id_from_url(url: str | None) -> int | None:
 
 
 def _preview_layer_type(layer: dict[str, Any], layer_url: str | None, service_url: str | None, layer_id: int | None) -> str:
+    if layer.get("autoMapDerivedAnalysis") or str(layer.get("layerType") or "").lower() == "geojsonlayer":
+        return "local_geojson"
     text = f"{layer_url or ''} {service_url or ''}".lower()
     if "featureserver" in text:
         return "feature_layer"
@@ -327,6 +329,8 @@ def _preview_layers(webmap_json: dict[str, Any]) -> list[dict[str, Any]]:
                 "show_legend": bool(layer.get("showLegend", True)),
                 "definition_expression": _definition_expression(layer),
                 "review_warnings": [str(item) for item in layer.get("autoMapReviewWarnings") or []],
+                "derived_local_analysis": bool(layer.get("autoMapDerivedAnalysis") or preview_type == "local_geojson"),
+                "analysis_run_id": layer.get("autoMapAnalysisRunId"),
             }
         )
     return layers

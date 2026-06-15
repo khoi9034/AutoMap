@@ -70,6 +70,10 @@ def test_frontend_workflow_api_routes_exist():
         "/api/packets",
         "/api/reports",
         "/api/reports/{report_id}",
+        "/api/analysis/plan",
+        "/api/analysis/execute",
+        "/api/analysis/runs",
+        "/api/analysis/runs/{analysis_run_id}",
         "/api/patterns",
         "/api/patterns/{pattern_key}",
         "/api/patterns/learn-from-approved",
@@ -95,6 +99,57 @@ def test_frontend_workflow_api_routes_exist():
     }
 
     assert expected_paths.issubset(set(paths))
+
+
+def test_api_analysis_routes_are_json_and_sanitized(monkeypatch):
+    monkeypatch.setattr(
+        "app.api_routes.build_analysis_plan",
+        lambda prompt, max_features=2000: {
+            "raw_prompt": prompt,
+            "executable": True,
+            "operation_type": "select_by_intersection",
+            "recommended_execution_plan": ["Count first", "Write local GeoJSON"],
+        },
+    )
+    monkeypatch.setattr(
+        "app.api_routes.execute_analysis",
+        lambda prompt, max_features=2000: {
+            "analysis_run_id": "analysis_1",
+            "status": "completed",
+            "operation_type": "select_by_intersection",
+            "output_count": 3,
+            "output_geojson_path": "outputs/analysis/sample/analysis_result.geojson",
+            "analysis_receipt": {"published": False, "protected_external_database_touched": False},
+        },
+    )
+    monkeypatch.setattr(
+        "app.api_routes.list_analysis_runs",
+        lambda limit=50: [{"analysis_run_id": "analysis_1", "status": "completed"}],
+    )
+    monkeypatch.setattr(
+        "app.api_routes.get_analysis_run",
+        lambda analysis_run_id: {"analysis_run_id": analysis_run_id, "status": "completed"},
+    )
+    monkeypatch.setattr("app.api_routes.record_request_history", lambda **kwargs: 1)
+    client = TestClient(create_app())
+
+    planned = client.post("/api/analysis/plan", json={"prompt": "Show parcels in Concord floodplain"})
+    executed = client.post("/api/analysis/execute", json={"prompt": "Show parcels in Concord floodplain"})
+    listed = client.get("/api/analysis/runs")
+    detail = client.get("/api/analysis/runs/analysis_1")
+    serialized = json.dumps(
+        {"planned": planned.json(), "executed": executed.json(), "listed": listed.json(), "detail": detail.json()}
+    ).lower()
+
+    assert planned.status_code == 200
+    assert executed.status_code == 200
+    assert listed.status_code == 200
+    assert detail.status_code == 200
+    assert executed.json()["analysis_result"]["status"] == "completed"
+    assert "confirm-publish" not in serialized
+    assert "publish-draft-webmap" not in serialized
+    assert "database_url" not in serialized
+    assert "cfs_dev" not in serialized
 
 
 def test_api_learning_routes_are_json_and_sanitized(monkeypatch):

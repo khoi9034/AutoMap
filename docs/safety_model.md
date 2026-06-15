@@ -22,11 +22,24 @@ AutoMap uses verified ArcGIS REST metadata and local review JSON files.
 
 AutoMap does not:
 
-- ingest full geometries into PostGIS
+- bulk-ingest full geometries into PostGIS
 - download full feature datasets
 - require ArcGIS login for preview or review
 - use an external LLM API
 - commit `.env` files or secrets
+
+## Analysis Boundary
+
+AutoMap v2.0 can run bounded local spatial analysis for supported review workflows.
+
+Analysis execution:
+
+- runs count-only REST checks before fetching geometry
+- blocks oversized requests
+- writes local GeoJSON under `outputs/analysis/`
+- records receipts in AutoMap's own schema
+- does not upload or publish derived results
+- does not create official GIS layers
 
 ## Review Boundary
 

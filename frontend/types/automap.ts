@@ -110,6 +110,39 @@ export type LearnedContext = {
   analysis_goal?: string;
 };
 
+export type AnalysisExecutionPlan = {
+  executable?: boolean;
+  operation_type?: string;
+  supported_operations?: string[];
+  blocked_reasons?: string[];
+  warnings?: string[];
+  estimated_query_counts?: Record<string, JsonValue>;
+  recommended_execution_plan?: string[];
+  analysis_run_id?: string | null;
+  derived_outputs?: JsonValue[];
+  target_layer?: Record<string, JsonValue> | null;
+  geography_layer?: Record<string, JsonValue> | null;
+  constraint_layer?: Record<string, JsonValue> | null;
+  attribute_layer?: Record<string, JsonValue> | null;
+};
+
+export type AnalysisRun = {
+  analysis_run_id?: string;
+  raw_prompt?: string;
+  operation_type?: string;
+  status?: string;
+  selected_layer_keys?: string[];
+  input_counts?: Record<string, JsonValue>;
+  output_count?: number;
+  output_geojson_path?: string | null;
+  output_folder?: string | null;
+  analysis_receipt?: Record<string, JsonValue>;
+  warnings?: string[];
+  blocked_reasons?: string[];
+  derived_layer?: PreviewLayer | Record<string, JsonValue> | null;
+  created_at?: string;
+};
+
 export type AnalysisPlan = {
   goal?: string;
   required_layers?: string[];
@@ -185,6 +218,7 @@ export type MapRecipe = {
   request_intelligence?: RequestIntelligence;
   analysis_plan?: AnalysisPlan;
   learned_context?: LearnedContext;
+  analysis_execution?: AnalysisExecutionPlan;
   clarification?: {
     session_id?: string;
     questions?: ClarificationQuestionModel[];
@@ -377,6 +411,8 @@ export type PreviewLayer = {
   opacity?: number;
   definition_expression?: string | null;
   review_warnings?: string[];
+  derived_local_analysis?: boolean;
+  analysis_run_id?: string | null;
 };
 
 export type PreviewConfig = {
