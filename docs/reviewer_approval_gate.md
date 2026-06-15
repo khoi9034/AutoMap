@@ -40,6 +40,8 @@ python -m app.main --validate-approved-packet outputs/review_packets_approved/<a
 python -m app.main --publish-draft-webmap outputs/review_packets_approved/<approved-packet-folder> --dry-run
 ```
 
+In v1.2, real private draft publishing is possible from approved packets only, but it remains CLI-only and blocked unless all explicit environment safeguards are enabled.
+
 ## Approval File
 
 Approval files can be YAML or JSON. YAML is preferred for local human review.
@@ -127,8 +129,8 @@ The table stores local audit rows for reviewer decision, final publish-ready sta
 
 - Approval is local-only and not official map approval.
 - `publish_ready` means reviewer-approved for a future private draft publishing check.
-- Nothing is published to Portal in v1.1.
-- Real Portal publishing remains separately guarded by `--confirm-publish`.
+- The approval gate itself does not publish to Portal.
+- v1.2 real private draft publishing remains separately guarded by `--confirm-publish` and local environment flags.
 - AutoMap does not ingest geometries or download full feature datasets.
 - AutoMap does not use an external LLM API.
 - AutoMap uses its own database and schema; the CFS database `cfs_dev` must not be touched.

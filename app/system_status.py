@@ -8,6 +8,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.config import get_settings
+from app.arcgis_publisher import load_arcgis_publish_settings
 from app.data_gap_registry import ensure_data_gap_registry_table
 from app.db import _quote_identifier, get_engine, test_db_connection
 from app.field_profiler import ensure_field_intelligence_tables
@@ -56,9 +57,22 @@ def get_system_status(schema_name: str | None = None) -> dict[str, Any]:
             "approved_packet_count": len(list_approved_packets()),
         },
         "arcgis_publisher_mode": "dry-run by default",
+        "arcgis_publish_profile": "dev",
+        "real_publish_enabled": False,
         "protected_database_status": "external project database was not accessed",
         "errors": [],
     }
+
+    try:
+        publish_settings = load_arcgis_publish_settings()
+        status["arcgis_publish_profile"] = publish_settings.publish_env
+        status["real_publish_enabled"] = publish_settings.allow_real_publish and not publish_settings.dry_run
+        status["arcgis_publisher_mode"] = (
+            f"dry-run default={publish_settings.dry_run}; profile={publish_settings.publish_env}; "
+            f"real publish enabled={status['real_publish_enabled']}"
+        )
+    except ValueError as exc:
+        status["errors"].append(str(exc))
 
     try:
         db_status = test_db_connection(settings)

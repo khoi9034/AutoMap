@@ -380,9 +380,6 @@ def _portal_check() -> int:
 
 
 def _publish_draft_webmap(path: str, dry_run: bool = True, confirm_publish: bool = False) -> int:
-    if not dry_run and not confirm_publish:
-        print("Real publishing requires --confirm-publish.")
-        return 1
     result = publish_webmap_draft(path, dry_run=dry_run, confirm_publish=confirm_publish)
     print(json.dumps(result, indent=2, default=str))
     return 0 if result.get("status") in {"dry_run", "published_private_draft"} else 1
@@ -597,8 +594,8 @@ def main() -> int:
     )
     parser.add_argument(
         "--publish-draft-webmap",
-        metavar="ADJUSTED_PACKET_FOLDER",
-        help="Dry-run or publish an adjusted AutoMap packet as a private draft Web Map.",
+        metavar="APPROVED_PACKET_FOLDER",
+        help="Dry-run or publish an approved AutoMap packet as a private draft Web Map.",
     )
     parser.add_argument(
         "--dry-run",

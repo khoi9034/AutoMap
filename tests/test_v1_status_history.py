@@ -42,7 +42,8 @@ def test_system_status_command_works():
     )
 
     assert f"AutoMap version: {AUTOMAP_VERSION}" in result.stdout
-    assert "ArcGIS publisher mode: dry-run by default" in result.stdout
+    assert "ArcGIS publisher mode:" in result.stdout
+    assert "real publish enabled=" in result.stdout
     assert "DB connected:" in result.stdout
 
 

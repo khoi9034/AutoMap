@@ -2,11 +2,11 @@
 
 AutoMap converts plain-English county GIS map requests into structured map recipes using only approved GIS layers from a local layer catalog.
 
-Version: `1.1.0`
+Version: `1.2.0`
 
 ## Current Phase
 
-v1.1 local reviewer approval gate.
+v1.2 controlled private ArcGIS publish.
 
 This repository is intentionally independent. It does not connect to CFS or import CFS code. AutoMap uses its own local PostGIS database and trusted layer catalog.
 
@@ -24,13 +24,14 @@ AutoMap helps GIS and planning staff turn plain-English county map requests into
 - local reviewer approval gate
 - live local browser map preview
 - dry-run publish receipts
+- controlled private ArcGIS Web Map publishing from approved packets
 - local request history and system status
 
 ## What AutoMap Does Not Do Yet
 
-AutoMap does not ingest full feature geometries, does not download full feature datasets, does not publish from the local UI, does not require ArcGIS login for review/preview, and does not use an external LLM API.
+AutoMap does not ingest full feature geometries, does not download full feature datasets, does not publish from the local UI, does not publish publicly, does not share to the organization, and does not use an external LLM API.
 
-ArcGIS publishing remains dry-run by default unless a guarded CLI path is explicitly confirmed.
+ArcGIS publishing remains dry-run by default unless a guarded CLI path is explicitly confirmed with an approved packet and local environment safety flags.
 
 ## Version Roadmap
 
@@ -44,6 +45,7 @@ ArcGIS publishing remains dry-run by default unless a guarded CLI path is explic
 8. Local UI and preview
 9. v1.0 demo polish and QA hardening
 10. v1.1 reviewer approval gate
+11. v1.2 controlled private ArcGIS publish
 
 ## Project Structure
 
@@ -209,19 +211,50 @@ The local UI includes an approval page:
 http://127.0.0.1:8001/approval
 ```
 
-Only approved packets with `final_publish_ready = true` show the UI dry-run publish action. Real Portal publishing remains separately guarded by `--confirm-publish` and is not part of v1.1 verification.
+Only approved packets with `final_publish_ready = true` show the UI dry-run publish action. Real Portal publishing is CLI-only in v1.2.
+
+## Controlled Private ArcGIS Publish
+
+AutoMap v1.2 can create a private draft ArcGIS Web Map item from an approved packet. Dry-run remains the default. Real publish is CLI-only and requires all safety gates:
+
+- approved packet with `final_publish_ready = true`
+- `--confirm-publish`
+- `AUTOMAP_ALLOW_REAL_PUBLISH=true`
+- `AUTOMAP_PUBLISH_DRY_RUN=false`
+- ArcGIS credentials configured locally
+- target folder configured
+
+Configure portal settings locally in `.env` only:
+
+```text
+ARCGIS_PORTAL_URL=https://www.arcgis.com
+ARCGIS_USERNAME=your_username
+ARCGIS_PASSWORD=your_password
+ARCGIS_TARGET_FOLDER=AutoMap Drafts
+ARCGIS_PUBLISH_ENV=dev
+AUTOMAP_PUBLISH_DRY_RUN=true
+AUTOMAP_ALLOW_REAL_PUBLISH=false
+```
+
+`ARCGIS_PORTAL_URL` is configurable because the organization may move portals. Supported profiles are `dev`, `staging`, and `production`; production remains blocked unless the explicit real-publish safeguards are enabled.
+
+```bash
+python -m app.main --publish-draft-webmap outputs/review_packets_approved/<approved-packet-folder> --dry-run
+python -m app.main --publish-draft-webmap outputs/review_packets_approved/<approved-packet-folder> --confirm-publish
+```
+
+AutoMap creates new private Web Map items only. It does not publish publicly, does not share to the organization, does not overwrite or delete existing items, does not publish layers, and does not create Experience Builder apps.
 
 ## Safe ArcGIS Draft Publisher
 
-AutoMap v0.7 can validate an adjusted or approved packet and prepare a private ArcGIS Web Map draft. The default is dry-run only, which writes `publish_receipt.json` and does not connect to ArcGIS or create an item.
+AutoMap can validate an approved packet and prepare a private ArcGIS Web Map draft. The default is dry-run only, which writes `publish_receipt.json` and does not connect to ArcGIS or create an item.
 
-Real publishing requires `--confirm-publish`, and raw review packets cannot be published. AutoMap does not publish publicly, does not share to the organization, and does not overwrite or delete existing ArcGIS items.
+Real publishing requires the v1.2 CLI safety gates, and raw review packets or adjusted packets cannot be real-published. AutoMap does not publish publicly, does not share to the organization, and does not overwrite or delete existing ArcGIS items.
 
 ```bash
 python -m app.main --portal-check
-python -m app.main --publish-draft-webmap outputs/review_packets_adjusted/<adjusted-packet-folder> --dry-run
 python -m app.main --publish-draft-webmap outputs/review_packets_approved/<approved-packet-folder> --dry-run
-python -m app.main --publish-draft-webmap outputs/review_packets_adjusted/<adjusted-packet-folder> --confirm-publish
+python -m app.main --publish-draft-webmap outputs/review_packets_approved/<approved-packet-folder> --confirm-publish
 ```
 
 ## Local Web UI
@@ -301,7 +334,8 @@ http://127.0.0.1:8001/preview
 Prompt -> Parser -> Layer Matcher -> Recipe Engine
        -> Field/Filter Intelligence -> Draft WebMap JSON
        -> Review Packet -> Human Adjustment -> Local Preview
-       -> Reviewer Approval -> Dry-Run Publish Receipt
+       -> Reviewer Approval -> Dry-Run Receipt
+       -> Controlled Private ArcGIS Draft Publish
 ```
 
 The trusted source for layer selection is `automap.layer_catalog`. Generated artifacts live under `outputs/`, which is ignored by Git.
@@ -316,5 +350,5 @@ See:
 
 - Approved GIS layers come from AutoMap's local `automap.layer_catalog`.
 - Generated recipes, WebMap drafts, review packets, and adjusted packets are local artifacts and are not committed.
-- ArcGIS Online or Portal publishing is dry-run only by default in v1.1.
+- ArcGIS Online or Portal publishing is dry-run by default in v1.2 and real-publish is CLI-only behind explicit safeguards.
 - CFS uses a separate database and remains untouched by AutoMap.

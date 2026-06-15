@@ -82,6 +82,7 @@
   </div>
   <div class="panel">
     <h3>Dry-Run Publish</h3>
+    <p class="muted">Dry-run does not connect to ArcGIS and does not create an item.</p>
     {% if approval_receipt and approval_receipt.final_publish_ready %}
       <form method="post" action="/publish-dry-run">
         <input type="hidden" name="adjusted_packet_folder" value="{{ approved_path }}">
@@ -99,6 +100,12 @@
       </ul>
     {% endif %}
   </div>
+</section>
+
+<section class="panel">
+  <h3>Controlled Real Publish</h3>
+  <p class="muted">Real private draft publishing is CLI-only in v1.2 and disabled by default. It requires an approved packet, <code>--confirm-publish</code>, <code>AUTOMAP_ALLOW_REAL_PUBLISH=true</code>, and <code>AUTOMAP_PUBLISH_DRY_RUN=false</code>.</p>
+  <p class="muted">The UI does not offer one-click real publish. AutoMap never publishes publicly, never shares to the organization, and never overwrites or deletes ArcGIS items.</p>
 </section>
 {% endif %}
 
