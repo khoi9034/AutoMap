@@ -1,29 +1,53 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { JsonPanel } from "@/components/json-panel";
+import { PacketPicker } from "@/components/packet-picker";
 import { StatusChip } from "@/components/status-chip";
-import { applyAdjustments, createAdjustmentTemplate, getPackets } from "@/lib/api";
-import type { PacketsResponse } from "@/types/automap";
+import { ToastMessage } from "@/components/toast";
+import { applyAdjustments, createAdjustmentTemplate } from "@/lib/api";
+import {
+  loadWorkflowState,
+  mergeWorkflowState,
+  packetIdFromPath,
+  primaryReviewPacketPath,
+  stringField,
+} from "@/lib/workflow-store";
+import type { PacketSummary } from "@/types/automap";
+import type { WorkflowToast } from "@/types/workflow";
 
 export function AdjustmentsClient() {
-  const [packets, setPackets] = useState<PacketsResponse | null>(null);
   const [packetFolder, setPacketFolder] = useState("");
   const [yaml, setYaml] = useState("");
   const [result, setResult] = useState<Record<string, unknown> | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [toast, setToast] = useState<WorkflowToast | null>(null);
 
   useEffect(() => {
-    getPackets()
-      .then((response) => {
-        setPackets(response);
-        const first = response.review_packets?.[0]?.packet_path || "";
-        setPacketFolder(first);
-      })
-      .catch((exc) => setError(exc instanceof Error ? exc.message : "Packet index failed."));
+    const workflow = loadWorkflowState();
+    setPacketFolder(primaryReviewPacketPath(workflow));
+    if (workflow.adjustmentTemplate && typeof workflow.adjustmentTemplate.adjustment_yaml === "string") {
+      setYaml(workflow.adjustmentTemplate.adjustment_yaml);
+    }
+    if (workflow.adjustedPacket) {
+      setResult(workflow.adjustedPacket);
+    }
+    mergeWorkflowState({ activeStep: "adjustments" });
   }, []);
+
+  function onPacketSelect(packet: PacketSummary) {
+    const packetPath = packet.packet_path || "";
+    setPacketFolder(packetPath);
+    mergeWorkflowState({
+      selectedPacketId: packet.packet_id || packetIdFromPath(packetPath),
+      selectedPacketPath: packetPath,
+      activeStep: "adjustments",
+    });
+    setToast({ tone: "success", message: "Review packet selected." });
+  }
 
   async function onTemplate() {
     setLoading(true);
@@ -32,6 +56,8 @@ export function AdjustmentsClient() {
       const response = await createAdjustmentTemplate(packetFolder);
       setYaml(String(response.adjustment_yaml || ""));
       setResult(response);
+      mergeWorkflowState({ adjustmentTemplate: response, activeStep: "adjustments" });
+      setToast({ tone: "success", message: "Adjustment template created." });
     } catch (exc) {
       setError(exc instanceof Error ? exc.message : "Adjustment template failed.");
     } finally {
@@ -45,6 +71,14 @@ export function AdjustmentsClient() {
     try {
       const response = await applyAdjustments(packetFolder, yaml);
       setResult(response);
+      const adjustedPath = stringField(response, ["adjusted_path", "adjusted_packet_path"]);
+      mergeWorkflowState({
+        adjustedPacket: response,
+        selectedAdjustedPacketPath: adjustedPath,
+        selectedAdjustedPacketId: packetIdFromPath(adjustedPath),
+        activeStep: "approval",
+      });
+      setToast({ tone: "success", message: "Adjustments applied. Adjusted packet created separately." });
       window.localStorage.setItem("automap:lastAdjustedPacket", JSON.stringify(response));
     } catch (exc) {
       setError(exc instanceof Error ? exc.message : "Apply adjustments failed.");
@@ -63,21 +97,7 @@ export function AdjustmentsClient() {
   return (
     <div className="page-stack">
       <section className="panel form-grid">
-        <label htmlFor="review-packet-select">
-          <strong>Review packet</strong>
-        </label>
-        <select
-          id="review-packet-select"
-          className="select-input"
-          value={packetFolder}
-          onChange={(event) => setPacketFolder(event.target.value)}
-        >
-          {(packets?.review_packets || []).map((packet) => (
-            <option key={packet.packet_path} value={packet.packet_path}>
-              {packet.map_title || packet.packet_id}
-            </option>
-          ))}
-        </select>
+        <PacketPicker label="Review packet" packetType="review" value={packetFolder} onSelect={onPacketSelect} />
         <textarea className="yaml-editor" value={yaml} onChange={(event) => setYaml(event.target.value)} />
         <div className="button-row">
           <button className="button" type="button" onClick={onTemplate} disabled={!packetFolder || loading}>
@@ -89,6 +109,7 @@ export function AdjustmentsClient() {
         </div>
         <p className="muted">The original review packet is preserved; adjusted packets are created separately.</p>
         {error ? <p className="error-text">{error}</p> : null}
+        <ToastMessage toast={toast} />
       </section>
       {result ? (
         <section className="stats-grid">
@@ -110,6 +131,19 @@ export function AdjustmentsClient() {
             <h3>Audit notes</h3>
             <p>{(adjustedWarnings.audit_trail || []).length} audit entries recorded.</p>
             {validation.errors?.length ? <p className="error-text">{validation.errors.join("; ")}</p> : null}
+          </div>
+        </section>
+      ) : null}
+      {result?.adjusted_path ? (
+        <section className="panel">
+          <h3>Next steps</h3>
+          <div className="button-row">
+            <Link className="button" href="/map-preview">
+              Preview Adjusted Map
+            </Link>
+            <Link className="button button-secondary" href="/approval">
+              Go to Approval
+            </Link>
           </div>
         </section>
       ) : null}

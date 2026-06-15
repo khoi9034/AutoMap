@@ -1,5 +1,6 @@
 import { PublishCenterClient } from "@/components/publish-center-client";
 import { SectionHeader } from "@/components/section-header";
+import { WorkflowStepper } from "@/components/workflow-stepper";
 
 export default function PublishCenterPage() {
   return (
@@ -9,6 +10,7 @@ export default function PublishCenterPage() {
         title="Dry-run publish and smoke-test center"
         description="The frontend only runs dry-run publish checks and smoke-test dry-runs. Real private publishing remains CLI-only."
       />
+      <WorkflowStepper activeStep="publish" />
       <PublishCenterClient />
     </>
   );

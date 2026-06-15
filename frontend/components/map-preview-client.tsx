@@ -1,8 +1,17 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 import { API_BASE_URL, getPackets, getPreviewConfig } from "@/lib/api";
+import {
+  loadWorkflowState,
+  mergeWorkflowState,
+  packetIdFromPath,
+  primaryAdjustedPacketPath,
+  primaryApprovedPacketPath,
+  primaryReviewPacketPath,
+} from "@/lib/workflow-store";
 import type { PacketsResponse, PreviewConfig } from "@/types/automap";
 
 function warningRows(value: unknown): string[] {
@@ -18,14 +27,6 @@ function warningRows(value: unknown): string[] {
     );
   }
   return [String(value)];
-}
-
-function packetIdFromPath(value: string | null): string | null {
-  if (!value) {
-    return null;
-  }
-  const parts = value.split(/[\\/]/).filter(Boolean);
-  return parts.at(-1) || value;
 }
 
 export function MapPreviewClient() {
@@ -47,8 +48,19 @@ export function MapPreviewClient() {
     getPackets()
       .then((response) => {
         setPackets(response);
-        const storedPacketId = packetIdFromPath(window.localStorage.getItem("automap:lastPacketPath"));
-        setSelectedPacketId(storedPacketId || response.latest?.packet_id || "latest");
+        const workflow = loadWorkflowState();
+        const activePath =
+          primaryApprovedPacketPath(workflow) ||
+          primaryAdjustedPacketPath(workflow) ||
+          primaryReviewPacketPath(workflow) ||
+          window.localStorage.getItem("automap:lastPacketPath") ||
+          "";
+        const activeId =
+          workflow.selectedApprovedPacketId ||
+          workflow.selectedAdjustedPacketId ||
+          workflow.selectedPacketId ||
+          packetIdFromPath(activePath);
+        setSelectedPacketId(activeId || response.latest?.packet_id || "latest");
       })
       .catch((exc) => setError(exc instanceof Error ? exc.message : "Packet index failed."));
   }, []);
@@ -79,7 +91,30 @@ export function MapPreviewClient() {
           className="select-input"
           id="packet-select"
           value={selectedPacketId}
-          onChange={(event) => setSelectedPacketId(event.target.value)}
+          onChange={(event) => {
+            const packetId = event.target.value;
+            const packet = packetOptions.find((item) => item.packet_id === packetId);
+            setSelectedPacketId(packetId);
+            if (packet?.packet_type === "approved") {
+              mergeWorkflowState({
+                selectedApprovedPacketId: packetId,
+                selectedApprovedPacketPath: packet.packet_path || "",
+                activeStep: "preview",
+              });
+            } else if (packet?.packet_type === "adjusted") {
+              mergeWorkflowState({
+                selectedAdjustedPacketId: packetId,
+                selectedAdjustedPacketPath: packet.packet_path || "",
+                activeStep: "preview",
+              });
+            } else {
+              mergeWorkflowState({
+                selectedPacketId: packetId,
+                selectedPacketPath: packet?.packet_path || "",
+                activeStep: "preview",
+              });
+            }
+          }}
         >
           {packetOptions.map((packet) => (
             <option key={packet.packet_id} value={packet.packet_id}>
@@ -89,6 +124,16 @@ export function MapPreviewClient() {
           {!packetOptions.length ? <option value="latest">Latest packet</option> : null}
         </select>
         <p className="muted">Draft-only preview. This iframe uses the existing backend preview page and does not publish.</p>
+        <div className="button-row">
+          <Link className="button button-secondary" href="/adjustments">
+            Go to Adjustments
+          </Link>
+          {loadWorkflowState().selectedAdjustedPacketId || loadWorkflowState().adjustedPacket ? (
+            <Link className="button button-secondary" href="/approval">
+              Go to Approval
+            </Link>
+          ) : null}
+        </div>
         {error ? <p className="error-text">{error}</p> : null}
       </section>
 

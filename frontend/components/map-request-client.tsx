@@ -2,12 +2,21 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { samplePrompts } from "@/components/navigation";
 import { StatusChip } from "@/components/status-chip";
+import { ToastMessage } from "@/components/toast";
 import { makeRecipe, makeReviewPacket } from "@/lib/api";
+import {
+  loadWorkflowState,
+  mergeWorkflowState,
+  packetIdFromPath,
+  workflowMissingDataFromRecipe,
+  workflowWarningsFromRecipe,
+} from "@/lib/workflow-store";
 import type { MapRecipe } from "@/types/automap";
+import type { WorkflowToast } from "@/types/workflow";
 
 type RecipeResponse = {
   prompt: string;
@@ -30,6 +39,20 @@ export function MapRequestClient() {
   const [reviewPacket, setReviewPacket] = useState<Record<string, unknown> | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [toast, setToast] = useState<WorkflowToast | null>(null);
+
+  useEffect(() => {
+    const workflow = loadWorkflowState();
+    if (!searchParams.get("prompt") && workflow.rawPrompt) {
+      setPrompt(workflow.rawPrompt);
+    }
+    if (workflow.recipe) {
+      setResult({ prompt: workflow.rawPrompt, recipe: workflow.recipe, data_gaps: [] });
+    }
+    if (workflow.reviewPacket) {
+      setReviewPacket(workflow.reviewPacket);
+    }
+  }, [searchParams]);
 
   async function onGenerate() {
     setLoading(true);
@@ -38,6 +61,14 @@ export function MapRequestClient() {
     try {
       const response = await makeRecipe(prompt);
       setResult(response);
+      mergeWorkflowState({
+        rawPrompt: prompt,
+        recipe: response.recipe,
+        warnings: workflowWarningsFromRecipe(response.recipe),
+        missingData: workflowMissingDataFromRecipe(response.recipe),
+        activeStep: "recipe",
+      });
+      setToast({ tone: "success", message: "Recipe created and saved to workflow state." });
       window.localStorage.setItem("automap:lastPrompt", prompt);
       window.localStorage.setItem("automap:lastRecipe", JSON.stringify(response.recipe));
     } catch (exc) {
@@ -53,6 +84,15 @@ export function MapRequestClient() {
     try {
       const response = await makeReviewPacket(prompt);
       setReviewPacket(response);
+      const packetPath = typeof response.packet_path === "string" ? response.packet_path : "";
+      mergeWorkflowState({
+        rawPrompt: prompt,
+        reviewPacket: response,
+        selectedPacketPath: packetPath,
+        selectedPacketId: packetIdFromPath(packetPath),
+        activeStep: "review_packet",
+      });
+      setToast({ tone: "success", message: "Review packet created and saved to workflow state." });
       window.localStorage.setItem("automap:lastReviewPacket", JSON.stringify(response));
     } catch (exc) {
       setError(exc instanceof Error ? exc.message : "Review packet request failed.");
@@ -99,6 +139,7 @@ export function MapRequestClient() {
           ) : null}
         </div>
         {error ? <p className="error-text">{error}</p> : null}
+        <ToastMessage toast={toast} />
       </section>
 
       {recipe ? (
@@ -188,6 +229,14 @@ export function MapRequestClient() {
           <p>
             <strong>Preview:</strong> {String(reviewPacket.preview_url || "")}
           </p>
+          <div className="button-row">
+            <Link className="button" href="/map-preview">
+              Preview Map
+            </Link>
+            <Link className="button button-secondary" href="/adjustments">
+              Go to Adjustments
+            </Link>
+          </div>
         </section>
       ) : null}
     </div>

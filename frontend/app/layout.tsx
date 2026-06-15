@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { Sidebar } from "@/components/sidebar";
 import { StatusPanel } from "@/components/status-panel";
 import { TopHeader } from "@/components/top-header";
+import { WorkflowContextPanel } from "@/components/workflow-context-panel";
 import { getStatusOrFallback } from "@/lib/api";
 
 import "./globals.css";
@@ -25,9 +26,12 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
             <TopHeader status={status} />
             <div className="content-grid">
               <main className="content-main">{children}</main>
-              <StatusPanel status={status} />
+              <div className="right-rail">
+                <StatusPanel status={status} />
+                <WorkflowContextPanel />
+              </div>
             </div>
-            <footer className="footer">AutoMap v{status.version || "1.4.0"} - local draft workflow only.</footer>
+            <footer className="footer">AutoMap v{status.version || "1.5.0"} - local draft workflow only.</footer>
           </div>
         </div>
       </body>

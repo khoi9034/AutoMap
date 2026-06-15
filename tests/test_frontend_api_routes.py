@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 from fastapi.testclient import TestClient
 
@@ -9,7 +10,7 @@ def test_api_status_is_json_and_sanitized(monkeypatch):
     monkeypatch.setattr(
         "app.api_routes.get_system_status",
         lambda: {
-            "version": "1.4.0",
+            "version": "1.5.0",
             "database_connected": True,
             "DATABASE_URL": "postgresql://secret-password",
             "protected_note": "cfs_dev should never leave the API",
@@ -23,7 +24,7 @@ def test_api_status_is_json_and_sanitized(monkeypatch):
 
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("application/json")
-    assert response.json()["version"] == "1.4.0"
+    assert response.json()["version"] == "1.5.0"
     assert "database_url" not in serialized
     assert "secret" not in serialized
     assert "password" not in serialized
@@ -86,7 +87,7 @@ def test_api_status_includes_sanitized_port_separation(monkeypatch):
     monkeypatch.setattr(
         "app.api_routes.get_system_status",
         lambda: {
-            "version": "1.4.0",
+            "version": "1.5.0",
             "database_connected": True,
             "ports": {"frontend": 3010, "backend_api": 8010, "reserved": [3000, 8000]},
             "real_publish_enabled": False,
@@ -182,3 +183,34 @@ def test_api_recipe_returns_json(monkeypatch):
     assert response.status_code == 200
     assert response.json()["recipe"]["map_title"] == "Flood parcel review"
     assert response.json()["recipe"]["selected_layers"][0]["layer_name"] == "FloodPlain100year"
+
+
+def test_api_review_packet_returns_stable_identifiers(monkeypatch):
+    monkeypatch.setattr(
+        "app.api_routes.build_review_packet",
+        lambda prompt: {
+            "recipe": {
+                "map_title": "Flood parcel review",
+                "selected_layers": [],
+                "missing_data_needed": [],
+                "review_reasons": [],
+            },
+            "webmap_json": {"title": "Flood parcel review", "operationalLayers": []},
+            "warnings": {"preview_warnings": ["Draft only."]},
+        },
+    )
+    monkeypatch.setattr(
+        "app.api_routes.save_review_packet",
+        lambda prompt, recipe, webmap: Path("outputs/review_packets/frontend_packet"),
+    )
+    monkeypatch.setattr("app.api_routes.validate_review_packet", lambda path: {"is_valid": True})
+    monkeypatch.setattr("app.api_routes.build_layer_review_table", lambda recipe, webmap: [])
+    monkeypatch.setattr("app.api_routes.record_request_history", lambda **kwargs: 1)
+    client = TestClient(create_app())
+
+    response = client.post("/api/review-packet", json={"prompt": "Show parcels in Concord floodplain"})
+
+    assert response.status_code == 200
+    assert response.json()["packet_id"] == "frontend_packet"
+    assert response.json()["packet_path"] == "outputs\\review_packets\\frontend_packet" or response.json()["packet_path"] == "outputs/review_packets/frontend_packet"
+    assert response.json()["preview_url"]

@@ -1,6 +1,6 @@
-# AutoMap Frontend App Shell
+# AutoMap Frontend Workflow Shell
 
-AutoMap v1.4 adds a Next.js + TypeScript workflow shell while keeping the FastAPI backend as the API and workflow engine.
+AutoMap v1.5 wires the Next.js + TypeScript workflow shell end to end while keeping the FastAPI backend as the API and workflow engine.
 
 ## URLs
 
@@ -71,6 +71,8 @@ The frontend presents a local, draft-only workflow:
 7. Dry-run publish and dry-run portal smoke-test receipts
 
 The shell uses compact cards, status chips, scan-friendly tables, and explicit draft-only labels. It does not expose real ArcGIS publishing.
+
+Workflow state is stored in browser localStorage under an AutoMap-specific key. It tracks the prompt, recipe, WebMap draft, review packet, adjustment template, adjusted packet, approval template, approved packet, dry-run receipt, smoke-test receipt, active step, warnings, missing data, and selected packet ids. Protected markers such as database URLs, passwords, tokens, and ArcGIS credential keys are redacted before storage.
 
 ## API Coverage
 

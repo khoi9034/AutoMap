@@ -165,6 +165,10 @@ def _preview_url_for_source(source: str | Path) -> str:
     return f"/preview/{text}"
 
 
+def _packet_id_from_path(path: str | Path) -> str:
+    return Path(path).name if Path(path).suffix == "" else Path(path).stem
+
+
 def _path_from_packet_request(payload: PacketPathRequest) -> str:
     path = payload.approved_packet_folder or payload.adjusted_packet_folder or payload.packet_folder
     if not path:
@@ -270,6 +274,7 @@ def api_review_packet(payload: PromptRequest) -> Any:
     return _json_response(
         {
             "prompt": payload.prompt,
+            "packet_id": _packet_id_from_path(packet_path),
             "packet_path": str(packet_path),
             "recipe": packet["recipe"],
             "webmap_json": packet["webmap_json"],
@@ -292,6 +297,7 @@ def api_webmap_draft(payload: PromptRequest) -> Any:
     return _json_response(
         {
             "prompt": payload.prompt,
+            "packet_id": _packet_id_from_path(result["webmap_path"]),
             "recipe": result["recipe"],
             "webmap_json": result["webmap_json"],
             "validation": result["validation"],
@@ -338,6 +344,7 @@ def api_apply_adjustments(payload: ApplyAdjustmentsRequest) -> Any:
         {
             "packet_folder": payload.packet_folder,
             "template_path": str(adjustment_path),
+            "adjusted_packet_id": _packet_id_from_path(adjusted_path),
             "adjusted_path": str(adjusted_path),
             "validation": validation,
             "adjusted_warnings": adjusted_warnings,
@@ -411,6 +418,7 @@ def api_apply_approval(payload: ApplyApprovalRequest) -> Any:
         {
             "adjusted_packet_folder": payload.adjusted_packet_folder,
             "template_path": str(approval_path),
+            "approved_packet_id": _packet_id_from_path(approved_path),
             "approved_path": str(approved_path),
             "validation": validation,
             "approval_receipt": receipt,
@@ -439,7 +447,15 @@ def api_publish_dry_run(payload: PacketPathRequest) -> Any:
     """Run dry-run publishing only; this API cannot real-publish."""
     packet_path = _path_from_packet_request(payload)
     result = publish_webmap_draft(packet_path, dry_run=True, confirm_publish=False)
-    return _json_response({"packet_path": packet_path, "result": result})
+    receipt_path = Path(packet_path) / "publish_receipt.json"
+    return _json_response(
+        {
+            "packet_id": _packet_id_from_path(packet_path),
+            "packet_path": packet_path,
+            "receipt_path": str(receipt_path) if receipt_path.exists() else None,
+            "result": result,
+        }
+    )
 
 
 @api_router.post("/portal-smoke-test-dry-run")
@@ -449,4 +465,12 @@ def api_portal_smoke_test_dry_run(payload: PacketPathRequest) -> Any:
     if not packet_path:
         raise HTTPException(status_code=422, detail="An approved packet folder path is required.")
     result = run_publish_smoke_test(packet_path, confirm_publish=False)
-    return _json_response({"approved_packet_folder": packet_path, "result": result})
+    receipt_path = Path(packet_path) / "smoke_test_receipt.json"
+    return _json_response(
+        {
+            "approved_packet_id": _packet_id_from_path(packet_path),
+            "approved_packet_folder": packet_path,
+            "receipt_path": str(receipt_path) if receipt_path.exists() else None,
+            "result": result,
+        }
+    )

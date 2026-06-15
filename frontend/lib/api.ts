@@ -84,7 +84,7 @@ export async function getStatusOrFallback(): Promise<SystemStatus> {
     return await getSystemStatus();
   } catch {
     return {
-      version: "1.4.0",
+      version: "1.5.0",
       database_connected: false,
       catalog: {},
       profiles: {},

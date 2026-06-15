@@ -5,8 +5,15 @@ import { useState } from "react";
 
 import { samplePrompts } from "@/components/navigation";
 import { StatusChip } from "@/components/status-chip";
+import { ToastMessage } from "@/components/toast";
 import { makeRecipe } from "@/lib/api";
+import {
+  mergeWorkflowState,
+  workflowMissingDataFromRecipe,
+  workflowWarningsFromRecipe,
+} from "@/lib/workflow-store";
 import type { MapRecipe } from "@/types/automap";
+import type { WorkflowToast } from "@/types/workflow";
 
 function formatPercent(value: number | undefined): string {
   return `${Math.round((value || 0) * 100)}%`;
@@ -17,6 +24,7 @@ export function DashboardQuickStart() {
   const [recipe, setRecipe] = useState<MapRecipe | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [toast, setToast] = useState<WorkflowToast | null>(null);
 
   async function generateRecipe() {
     setLoading(true);
@@ -24,6 +32,14 @@ export function DashboardQuickStart() {
     try {
       const response = await makeRecipe(prompt);
       setRecipe(response.recipe);
+      mergeWorkflowState({
+        rawPrompt: prompt,
+        recipe: response.recipe,
+        warnings: workflowWarningsFromRecipe(response.recipe),
+        missingData: workflowMissingDataFromRecipe(response.recipe),
+        activeStep: "recipe",
+      });
+      setToast({ tone: "success", message: "Recipe created and saved to workflow state." });
       window.localStorage.setItem("automap:lastPrompt", prompt);
       window.localStorage.setItem("automap:lastRecipe", JSON.stringify(response.recipe));
     } catch (exc) {
@@ -61,6 +77,7 @@ export function DashboardQuickStart() {
         ) : null}
       </div>
       {error ? <p className="error-text">{error}</p> : null}
+      <ToastMessage toast={toast} />
       {recipe ? (
         <div className="result-strip">
           <div>

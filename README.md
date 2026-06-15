@@ -2,11 +2,11 @@
 
 AutoMap converts plain-English county GIS map requests into structured map recipes using only approved GIS layers from a local layer catalog.
 
-Version: `1.4.0`
+Version: `1.5.0`
 
 ## Current Phase
 
-v1.4 Next.js frontend app shell.
+v1.5 end-to-end frontend workflow wiring.
 
 This repository is intentionally independent. It does not connect to CFS or import CFS code. AutoMap uses its own local PostGIS database and trusted layer catalog.
 
@@ -26,7 +26,8 @@ AutoMap helps GIS and planning staff turn plain-English county map requests into
 - dry-run publish receipts
 - controlled private ArcGIS Web Map publishing from approved packets
 - one-item private Portal smoke-test verification
-- Next.js frontend app shell backed by FastAPI JSON APIs
+- Next.js frontend workflow shell backed by FastAPI JSON APIs
+- persistent end-to-end frontend workflow state
 - local request history and system status
 
 ## What AutoMap Does Not Do Yet
@@ -50,6 +51,7 @@ ArcGIS publishing and smoke testing remain dry-run by default unless a guarded C
 11. v1.2 controlled private ArcGIS publish
 12. v1.3 portal publish smoke test and item verification
 13. v1.4 Next.js frontend app shell
+14. v1.5 end-to-end frontend workflow wiring
 
 ## Project Structure
 
@@ -92,7 +94,7 @@ python -m pytest
 
 ## Next.js Frontend
 
-AutoMap v1.4 adds a separate Next.js + TypeScript workflow shell under `frontend/`. The FastAPI backend remains the API and workflow engine, and the existing FastAPI/Jinja UI is preserved.
+AutoMap v1.5 builds on the Next.js + TypeScript workflow shell under `frontend/`. The FastAPI backend remains the API and workflow engine, and the existing FastAPI/Jinja UI is preserved.
 
 Start the backend API on port `8010`:
 
@@ -150,6 +152,8 @@ Frontend pages:
 The frontend can run dry-run publish and portal smoke-test dry-run actions only. Real publish remains CLI-only.
 
 The workflow shell includes a dashboard quick prompt, recipe review workspace, local map preview, human adjustment editor, approval gate, dry-run publish center, catalog search, data gaps, history, and sanitized system status.
+
+AutoMap v1.5 persists the active local workflow in browser storage so staff can move from prompt to recipe review, preview, adjustments, approval, and dry-run publishing without losing context on refresh. The stored workflow state is sanitized and does not include secrets.
 
 ## PostGIS Setup
 
@@ -462,5 +466,5 @@ See:
 
 - Approved GIS layers come from AutoMap's local `automap.layer_catalog`.
 - Generated recipes, WebMap drafts, review packets, and adjusted packets are local artifacts and are not committed.
-- ArcGIS Online or Portal publishing is dry-run by default in v1.4 and real-publish is CLI-only behind explicit safeguards.
+- ArcGIS Online or Portal publishing is dry-run by default in v1.5 and real-publish is CLI-only behind explicit safeguards.
 - CFS uses a separate database and remains untouched by AutoMap.

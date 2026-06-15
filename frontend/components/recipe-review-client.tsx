@@ -1,11 +1,20 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { JsonPanel } from "@/components/json-panel";
 import { StatusChip } from "@/components/status-chip";
+import { ToastMessage } from "@/components/toast";
 import { makeReviewPacket, makeWebmapDraft } from "@/lib/api";
+import {
+  loadWorkflowState,
+  mergeWorkflowState,
+  packetIdFromPath,
+  primaryReviewPacketPath,
+} from "@/lib/workflow-store";
 import type { MapRecipe } from "@/types/automap";
+import type { WorkflowToast } from "@/types/workflow";
 
 export function RecipeReviewClient() {
   const [prompt, setPrompt] = useState("");
@@ -14,14 +23,26 @@ export function RecipeReviewClient() {
   const [packetResult, setPacketResult] = useState<Record<string, unknown> | null>(null);
   const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [toast, setToast] = useState<WorkflowToast | null>(null);
 
   useEffect(() => {
-    const storedPrompt = window.localStorage.getItem("automap:lastPrompt") || "";
-    const storedRecipe = window.localStorage.getItem("automap:lastRecipe");
-    setPrompt(storedPrompt);
-    if (storedRecipe) {
-      setRecipe(JSON.parse(storedRecipe) as MapRecipe);
+    const workflow = loadWorkflowState();
+    setPrompt(workflow.rawPrompt || window.localStorage.getItem("automap:lastPrompt") || "");
+    if (workflow.recipe) {
+      setRecipe(workflow.recipe);
+    } else {
+      const storedRecipe = window.localStorage.getItem("automap:lastRecipe");
+      if (storedRecipe) {
+        setRecipe(JSON.parse(storedRecipe) as MapRecipe);
+      }
     }
+    if (workflow.webmapDraft) {
+      setWebmapResult(workflow.webmapDraft);
+    }
+    if (workflow.reviewPacket) {
+      setPacketResult(workflow.reviewPacket);
+    }
+    mergeWorkflowState({ activeStep: "recipe" });
   }, []);
 
   async function runAction(kind: "webmap" | "packet") {
@@ -35,10 +56,20 @@ export function RecipeReviewClient() {
       if (kind === "webmap") {
         const response = await makeWebmapDraft(prompt);
         setWebmapResult(response);
+        mergeWorkflowState({ webmapDraft: response, activeStep: "webmap" });
+        setToast({ tone: "success", message: "WebMap draft generated and saved to workflow state." });
         window.localStorage.setItem("automap:lastWebmapDraft", JSON.stringify(response));
       } else {
         const response = await makeReviewPacket(prompt);
         setPacketResult(response);
+        const packetPath = typeof response.packet_path === "string" ? response.packet_path : "";
+        mergeWorkflowState({
+          reviewPacket: response,
+          selectedPacketPath: packetPath,
+          selectedPacketId: packetIdFromPath(packetPath),
+          activeStep: "review_packet",
+        });
+        setToast({ tone: "success", message: "Review packet created. Preview and adjustments are ready." });
         window.localStorage.setItem("automap:lastReviewPacket", JSON.stringify(response));
         if (typeof response.packet_path === "string") {
           window.localStorage.setItem("automap:lastPacketPath", response.packet_path);
@@ -56,9 +87,15 @@ export function RecipeReviewClient() {
       <section className="panel">
         <h3>No recipe loaded</h3>
         <p className="muted">Generate a recipe on the Map Request page to populate this review workspace.</p>
+        <Link className="button" href="/map-request">
+          Start Map Request
+        </Link>
       </section>
     );
   }
+
+  const workflow = loadWorkflowState();
+  const reviewPacketPath = primaryReviewPacketPath(workflow) || (typeof packetResult?.packet_path === "string" ? packetResult.packet_path : "");
 
   return (
     <div className="page-stack">
@@ -83,8 +120,14 @@ export function RecipeReviewClient() {
               Open Map Preview
             </a>
           ) : null}
+          {reviewPacketPath ? (
+            <Link className="button button-secondary" href="/adjustments">
+              Go to Adjustments
+            </Link>
+          ) : null}
         </div>
         {error ? <p className="error-text">{error}</p> : null}
+        <ToastMessage toast={toast} />
       </section>
 
       <section className="panel">
@@ -129,6 +172,23 @@ export function RecipeReviewClient() {
       </section>
 
       {webmapResult ? <JsonPanel title="WebMap draft result" value={webmapResult} /> : null}
+      {packetResult ? (
+        <section className="panel">
+          <h3>Review packet created</h3>
+          <p className="path-text">{reviewPacketPath}</p>
+          <div className="button-row">
+            <Link className="button" href="/map-preview">
+              Preview Map
+            </Link>
+            <Link className="button button-secondary" href="/adjustments">
+              Create Adjustment Template
+            </Link>
+            <Link className="button button-secondary" href="/adjustments">
+              Go to Adjustments
+            </Link>
+          </div>
+        </section>
+      ) : null}
       {packetResult ? <JsonPanel title="Review packet result" value={packetResult} /> : null}
     </div>
   );
