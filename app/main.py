@@ -13,6 +13,10 @@ from app.adjustment_engine import (
     create_adjustment_template,
     validate_adjusted_packet,
 )
+from app.arcgis_publisher import (
+    check_arcgis_connection,
+    publish_webmap_draft,
+)
 from app.catalog_builder import build_catalog_records, inspect_services
 from app.config import get_settings
 from app.data_gap_registry import list_data_gaps
@@ -312,6 +316,21 @@ def _validate_adjusted_packet(path: str) -> int:
     return 0 if validation["is_valid"] else 1
 
 
+def _portal_check() -> int:
+    result = check_arcgis_connection()
+    print(json.dumps(result, indent=2))
+    return 0 if result.get("connected") else 1
+
+
+def _publish_draft_webmap(path: str, dry_run: bool = True, confirm_publish: bool = False) -> int:
+    if not dry_run and not confirm_publish:
+        print("Real publishing requires --confirm-publish.")
+        return 1
+    result = publish_webmap_draft(path, dry_run=dry_run, confirm_publish=confirm_publish)
+    print(json.dumps(result, indent=2, default=str))
+    return 0 if result.get("status") in {"dry_run", "published_private_draft"} else 1
+
+
 def main() -> int:
     """Run the AutoMap command-line interface."""
     parser = argparse.ArgumentParser(description="AutoMap command-line tools")
@@ -424,6 +443,26 @@ def main() -> int:
         metavar="PATH",
         help="Validate a generated adjusted review packet folder.",
     )
+    parser.add_argument(
+        "--portal-check",
+        action="store_true",
+        help="Check ArcGIS portal credentials without publishing.",
+    )
+    parser.add_argument(
+        "--publish-draft-webmap",
+        metavar="ADJUSTED_PACKET_FOLDER",
+        help="Dry-run or publish an adjusted AutoMap packet as a private draft Web Map.",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Force publisher dry-run mode. This is the default.",
+    )
+    parser.add_argument(
+        "--confirm-publish",
+        action="store_true",
+        help="Explicitly allow real private ArcGIS draft publishing.",
+    )
     args = parser.parse_args()
 
     try:
@@ -465,6 +504,15 @@ def main() -> int:
             return _apply_adjustments(args.apply_adjustments[0], args.apply_adjustments[1])
         if args.validate_adjusted_packet:
             return _validate_adjusted_packet(args.validate_adjusted_packet)
+        if args.portal_check:
+            return _portal_check()
+        if args.publish_draft_webmap:
+            dry_run = True
+            if args.confirm_publish:
+                dry_run = False
+            if args.dry_run:
+                dry_run = True
+            return _publish_draft_webmap(args.publish_draft_webmap, dry_run=dry_run, confirm_publish=args.confirm_publish)
     except ValueError as exc:
         print(f"Configuration error: {exc}")
         return 1

@@ -4,7 +4,7 @@ AutoMap converts plain-English county GIS map requests into structured map recip
 
 ## Current Phase
 
-v0.6 human adjustment loop.
+v0.7 safe ArcGIS draft publisher.
 
 This repository is intentionally independent. It does not connect to CFS or import CFS code. AutoMap uses its own local PostGIS database and trusted layer catalog.
 
@@ -162,8 +162,20 @@ python -m app.main --validate-adjusted-packet outputs/review_packets_adjusted/<a
 
 Adjusted packets include original and adjusted recipe/WebMap JSON, applied adjustment audit details, adjusted warning status, layer review, and `adjusted_review.html`.
 
+## Safe ArcGIS Draft Publisher
+
+AutoMap v0.7 can validate an adjusted packet and prepare a private ArcGIS Web Map draft. The default is dry-run only, which writes `publish_receipt.json` and does not connect to ArcGIS or create an item.
+
+Real publishing requires `--confirm-publish`, and only adjusted packets can be published. AutoMap does not publish publicly, does not share to the organization, and does not overwrite or delete existing ArcGIS items.
+
+```bash
+python -m app.main --portal-check
+python -m app.main --publish-draft-webmap outputs/review_packets_adjusted/<adjusted-packet-folder> --dry-run
+python -m app.main --publish-draft-webmap outputs/review_packets_adjusted/<adjusted-packet-folder> --confirm-publish
+```
+
 ## Notes
 
 - Approved GIS layers come from AutoMap's local `automap.layer_catalog`.
 - Generated recipes, WebMap drafts, review packets, and adjusted packets are local artifacts and are not committed.
-- ArcGIS Online or Portal publishing is not part of v0.6.
+- ArcGIS Online or Portal publishing is dry-run only by default in v0.7.
