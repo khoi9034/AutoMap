@@ -175,8 +175,35 @@ def test_api_client_has_timeout_and_sanitized_fallback_version():
 
     assert "Backend API request timed out" in source
     assert "http://127.0.0.1:8010" in source
-    assert 'version: "1.8.0"' in source
+    assert 'version: "1.9.0"' in source
     assert "redactProtected" in source
+
+
+def test_learning_page_components_and_api_are_present():
+    navigation = read("components/navigation.ts")
+    page = read("app/learning/page.tsx")
+    center = read("components/learning-center-client.tsx")
+    pattern_card = read("components/pattern-card.tsx")
+    default_card = read("components/clarification-default-card.tsx")
+    suggestions = read("components/learning-suggestions-panel.tsx")
+    api = read("lib/api.ts")
+    map_request = read("components/map-request-client.tsx")
+    clarify_card = read("components/clarification-question-card.tsx")
+
+    assert 'href: "/learning"' in navigation
+    assert "Feedback Learning and Approved Pattern Library" in page
+    assert "Learn From Approved Packet" in center
+    assert "PatternCard" in pattern_card
+    assert "ClarificationDefaultCard" in default_card
+    assert "Suggested from approved patterns" in suggestions
+    assert "getPatterns" in api
+    assert "learnFromApprovedPacket" in api
+    assert "recordRecipeFeedback" in api
+    assert "getClarificationDefaults" in api
+    assert "LearningSuggestionsPanel" in map_request
+    assert "Use suggestion" in clarify_card
+    assert "confirm-publish" not in center.lower()
+    assert "publish-draft-webmap" not in center.lower()
 
 
 def test_reports_navigation_page_and_components_exist():
@@ -219,7 +246,9 @@ def test_frontend_types_include_request_intelligence_recipe_fields():
 
     assert "RequestIntelligence" in types
     assert "AnalysisPlan" in types
+    assert "LearnedContext" in types
     assert "request_intelligence" in types
     assert "analysis_plan" in types
+    assert "learned_context" in types
     assert "why_selected" in types
     assert "why_not_legacy" in types

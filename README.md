@@ -2,11 +2,11 @@
 
 AutoMap converts plain-English county GIS map requests into structured map recipes using only approved GIS layers from a local layer catalog.
 
-Version: `1.8.0`
+Version: `1.9.0`
 
 ## Current Phase
 
-v1.8 Interactive Clarification Loop on top of the deterministic Request Intelligence Brain.
+v1.9 Feedback Learning and Approved Pattern Library on top of the Interactive Clarification Loop.
 
 This repository is intentionally independent. It does not connect to CFS or import CFS code. AutoMap uses its own local PostGIS database and trusted layer catalog.
 
@@ -32,10 +32,11 @@ AutoMap helps GIS and planning staff turn plain-English county map requests into
 - local report/export packages for GIS review
 - deterministic request intelligence with intent classification, spatial planning, clarifying questions, and layer-selection explanations
 - interactive clarification sessions that refine recipes from reviewer answers
+- deterministic feedback learning from approved packets, clarification answers, and reviewer decisions
 
 ## What AutoMap Does Not Do Yet
 
-AutoMap does not ingest full feature geometries, does not download full feature datasets, does not publish from the local UI, does not publish publicly, does not share to the organization, and does not use an external LLM API.
+AutoMap does not ingest full feature geometries, does not download full feature datasets, does not publish from the local UI, does not publish publicly, does not share to the organization, does not train models, and does not use an external LLM API.
 
 ArcGIS publishing and smoke testing remain dry-run by default unless a guarded CLI path is explicitly confirmed with an approved packet and local environment safety flags. The frontend exposes dry-run actions only.
 
@@ -59,6 +60,7 @@ ArcGIS publishing and smoke testing remain dry-run by default unless a guarded C
 16. v1.7 report and export center
 17. v1.7 request intelligence brain
 18. v1.8 interactive clarification loop
+19. v1.9 feedback learning and approved pattern library
 
 ## Project Structure
 
@@ -101,7 +103,7 @@ python -m pytest
 
 ## Next.js Frontend
 
-AutoMap v1.8 adds an interactive clarification workflow to the Next.js + TypeScript shell under `frontend/`. The FastAPI backend remains the API and workflow engine, and the existing FastAPI/Jinja UI is preserved.
+AutoMap v1.9 adds feedback learning and an approved pattern library to the Next.js + TypeScript shell under `frontend/`. The FastAPI backend remains the API and workflow engine, and the existing FastAPI/Jinja UI is preserved.
 
 Start the backend API on port `8010`:
 
@@ -152,6 +154,7 @@ Frontend pages:
 - `/adjustments`
 - `/approval`
 - `/publish-center`
+- `/learning`
 - `/reports`
 - `/layer-catalog`
 - `/data-gaps`
@@ -160,11 +163,13 @@ Frontend pages:
 
 The frontend can run dry-run publish and portal smoke-test dry-run actions only. Real publish remains CLI-only.
 
-The workflow shell includes an operations dashboard, quick prompt bar, demo scenarios, clarification form, recipe review workspace, local map preview, layer panel, grouped warning panel, human adjustment editor, approval gate, dry-run publish center, report/export center, catalog search, data gaps, history, and sanitized system status.
+The workflow shell includes an operations dashboard, quick prompt bar, demo scenarios, clarification form, recipe review workspace, local map preview, layer panel, grouped warning panel, human adjustment editor, approval gate, dry-run publish center, approved-pattern learning center, report/export center, catalog search, data gaps, history, and sanitized system status.
 
 The Map Request and Recipe Review pages now show request intelligence details: detected intents, confidence by intent, spatial relationships, ambiguity flags, clarifying questions, unsupported parts, and the analysis plan. This is deterministic rule-based interpretation only; AutoMap does not call external LLM APIs.
 
 The Clarify Request page turns those clarifying questions into an interactive local review loop. Staff can answer distance, flood-scope, missing-data, recent-time, and zoning-code questions, then AutoMap regenerates request intelligence, the analysis plan, selected layers, filters, warnings, and the map recipe. The original recipe remains available for comparison, and the refined recipe records what changed.
+
+The Learning page stores approved local workflows as reviewable defaults. AutoMap can suggest common distances, flood-scope choices, preferred layers, accepted assumptions, and missing-data decisions from approved patterns. These learned suggestions are deterministic, local, and reviewable. They do not train a model, call external AI APIs, invent layers, or override the verified catalog.
 
 AutoMap persists the active local workflow in browser storage so staff can move from prompt to recipe review, preview, adjustments, approval, and dry-run publishing without losing context on refresh. The stored workflow state is sanitized and does not include secrets.
 
@@ -240,6 +245,14 @@ python -m app.main --make-recipe "Show 2014 parcels and zoning."
 Recipe JSON now includes `request_intelligence` and `analysis_plan`. See `docs/request_intelligence_brain.md`.
 
 Refined recipe JSON also includes a `clarification` section with the local session id, questions, answers, applied refinements, changes from the initial recipe, remaining questions, and unresolved blockers. See `docs/interactive_clarification_loop.md`.
+
+Recipe JSON also includes `learned_context` when similar approved patterns exist. Learned context includes similar patterns, suggested defaults, preferred layers, avoided layers, learned assumptions, missing-data decisions, confidence, and a review note. See `docs/approved_pattern_library.md` and `docs/feedback_learning.md`.
+
+```bash
+python -m app.main --learn-from-approved-packet outputs/review_packets_approved/<approved-packet-folder>
+python -m app.main --list-patterns
+python -m app.main --list-clarification-defaults
+```
 
 Use `--save-recipe` with `--make-recipe` to write a local JSON recipe under `outputs/sample_recipes/`. Generated outputs are local artifacts and are not committed.
 

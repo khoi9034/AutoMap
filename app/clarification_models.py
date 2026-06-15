@@ -40,6 +40,10 @@ class ClarificationQuestion:
     related_filter: str | None = None
     blocking_level: BlockingLevel = "review_needed"
     help_text: str | None = None
+    suggested_default: Any = None
+    default_source: str | None = None
+    default_confidence: float | None = None
+    explanation: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

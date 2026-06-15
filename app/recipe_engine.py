@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from app.data_gap_registry import upsert_data_gaps_from_recipe
+from app.default_suggester import build_learned_context
 from app.filter_planner import build_filter_plan, validate_filter_plan
 from app.layer_matcher import match_layers
 from app.prompt_parser import parse_prompt
@@ -195,6 +196,7 @@ def build_recipe(
     )
     request_intelligence = intelligence_bundle["request_intelligence"]
     analysis_plan = intelligence_bundle["analysis_plan"]
+    learned_context = build_learned_context(prompt, request_intelligence, analysis_plan)
     review_flags = _review_flags(parsed_request, matching, request_intelligence, analysis_plan)
 
     recipe = {
@@ -203,6 +205,7 @@ def build_recipe(
         "parsed_request": parsed_request,
         "request_intelligence": request_intelligence,
         "analysis_plan": analysis_plan,
+        "learned_context": learned_context,
         "selected_layers": selected_layers,
         "rejected_layers": rejected_layers,
         "filters": _filters(parsed_request),

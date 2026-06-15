@@ -29,6 +29,7 @@ from app.config import get_settings
 from app.data_gap_registry import list_data_gaps
 from app.db import test_db_connection
 from app.demo_workflow import run_demo_workflow
+from app.feedback_learning import learn_from_approved_packet
 from app.field_profiler import (
     log_recipe_validation,
     profile_catalog_fields,
@@ -54,6 +55,7 @@ from app.packet_index import (
 from app.ports import AUTOMAP_BACKEND_PORT, CFS_RESERVED_WARNING
 from app.portal_item_verifier import verify_portal_item
 from app.portal_smoke_test import run_publish_smoke_test
+from app.pattern_library import list_clarification_defaults, list_patterns
 from app.recipe_engine import build_recipe
 from app.report_generator import generate_report, list_reports, validate_report
 from app.review_packet_builder import (
@@ -480,6 +482,44 @@ def _list_reports() -> int:
     return 0
 
 
+def _learn_from_approved_packet(path: str) -> int:
+    pattern = learn_from_approved_packet(path)
+    print(f"learned pattern: {pattern['pattern_key']}")
+    print(f"primary intent: {pattern.get('primary_intent')}")
+    print(f"preferred layers: {len(pattern.get('preferred_layer_keys') or [])}")
+    print(f"clarification defaults upserted: {pattern.get('clarification_defaults_upserted', 0)}")
+    return 0
+
+
+def _list_patterns() -> int:
+    rows = list_patterns()
+    if not rows:
+        print("approved patterns: none")
+        return 0
+    for row in rows:
+        print(
+            f"{row['pattern_key']} | {row.get('primary_intent')} | "
+            f"layers={len(row.get('preferred_layer_keys') or [])} | "
+            f"ready={row.get('final_publish_ready')}"
+        )
+    print(f"patterns listed: {len(rows)}")
+    return 0
+
+
+def _list_clarification_defaults() -> int:
+    rows = list_clarification_defaults()
+    if not rows:
+        print("clarification defaults: none")
+        return 0
+    for row in rows:
+        print(
+            f"{row['default_key']} | {row.get('intent')} | {row.get('topic')} | "
+            f"{row.get('answer_label')} | confidence={row.get('confidence_score')}"
+        )
+    print(f"clarification defaults listed: {len(rows)}")
+    return 0
+
+
 def _validate_report(path: str) -> int:
     validation = validate_report(path)
     print(json.dumps(validation, indent=2, default=str))
@@ -718,6 +758,21 @@ def main() -> int:
         help="Validate a generated local report/export package.",
     )
     parser.add_argument(
+        "--learn-from-approved-packet",
+        metavar="APPROVED_PACKET_FOLDER",
+        help="Learn deterministic approved defaults from a local approved packet.",
+    )
+    parser.add_argument(
+        "--list-patterns",
+        action="store_true",
+        help="List approved pattern-library records.",
+    )
+    parser.add_argument(
+        "--list-clarification-defaults",
+        action="store_true",
+        help="List learned clarification defaults.",
+    )
+    parser.add_argument(
         "--preview-packet",
         metavar="PACKET_FOLDER_OR_WEBMAP_JSON",
         help="Print a local UI preview URL for a packet or generated WebMap JSON path.",
@@ -804,6 +859,12 @@ def main() -> int:
             return _list_reports()
         if args.validate_report:
             return _validate_report(args.validate_report)
+        if args.learn_from_approved_packet:
+            return _learn_from_approved_packet(args.learn_from_approved_packet)
+        if args.list_patterns:
+            return _list_patterns()
+        if args.list_clarification_defaults:
+            return _list_clarification_defaults()
         if args.preview_packet:
             return _preview_packet(args.preview_packet, args.ui_port)
         if args.system_status:

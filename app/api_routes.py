@@ -30,6 +30,12 @@ from app.clarification_engine import (
     refine_recipe_from_answers,
 )
 from app.data_gap_registry import data_gap_records_from_recipe, list_data_gaps
+from app.feedback_learning import (
+    learn_from_approved_packet,
+    learn_from_clarification_session,
+    recent_feedback,
+    record_recipe_feedback,
+)
 from app.layer_catalog_store import search_layers
 from app.packet_index import (
     build_preview_config,
@@ -39,6 +45,7 @@ from app.packet_index import (
     list_review_packets,
 )
 from app.portal_smoke_test import run_publish_smoke_test
+from app.pattern_library import get_pattern, list_clarification_defaults, list_patterns
 from app.recipe_engine import build_recipe
 from app.report_generator import generate_report, get_report, list_reports
 from app.request_history import list_request_history, record_request_history
@@ -103,6 +110,22 @@ class ReportRequest(BaseModel):
     """Report generation payload for local packet exports."""
 
     packet_folder: str
+
+
+class LearnApprovedRequest(BaseModel):
+    """Approved packet learning payload."""
+
+    approved_packet_folder: str
+
+
+class RecipeFeedbackRequest(BaseModel):
+    """Recipe feedback payload for deterministic local learning."""
+
+    raw_prompt: str
+    recipe: dict[str, Any] = {}
+    feedback_type: str
+    feedback_json: dict[str, Any] = {}
+    source_packet_path: str | None = None
 
 
 class ApplyAdjustmentsRequest(BaseModel):
@@ -316,6 +339,59 @@ def api_generate_report(payload: ReportRequest) -> Any:
     )
 
 
+@api_router.get("/patterns")
+def api_patterns(limit: int = Query(default=50, ge=1, le=200)) -> Any:
+    """Return approved local learning patterns."""
+    return _json_response(
+        {
+            "patterns": list_patterns(limit=limit),
+            "clarification_defaults": list_clarification_defaults(limit=limit),
+            "feedback_log": recent_feedback(limit=limit),
+        }
+    )
+
+
+@api_router.post("/patterns/learn-from-approved")
+def api_patterns_learn_from_approved(payload: LearnApprovedRequest) -> Any:
+    """Learn an approved local pattern from an approved packet."""
+    try:
+        pattern = learn_from_approved_packet(payload.approved_packet_folder)
+    except (FileNotFoundError, ValueError) as exc:
+        raise _handle_value_error(exc) from exc
+    return _json_response({"pattern": pattern})
+
+
+@api_router.get("/patterns/{pattern_key}")
+def api_pattern_detail(pattern_key: str) -> Any:
+    """Return one approved local learning pattern."""
+    try:
+        return _json_response(get_pattern(pattern_key))
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@api_router.post("/feedback/recipe")
+def api_recipe_feedback(payload: RecipeFeedbackRequest) -> Any:
+    """Record deterministic local recipe feedback."""
+    try:
+        feedback = record_recipe_feedback(
+            payload.raw_prompt,
+            payload.recipe,
+            payload.feedback_type,
+            payload.feedback_json,
+            source_packet_path=payload.source_packet_path,
+        )
+    except ValueError as exc:
+        raise _handle_value_error(exc) from exc
+    return _json_response({"feedback": feedback})
+
+
+@api_router.get("/clarification-defaults")
+def api_clarification_defaults(limit: int = Query(default=50, ge=1, le=200)) -> Any:
+    """Return learned clarification defaults."""
+    return _json_response({"defaults": list_clarification_defaults(limit=limit)})
+
+
 @api_router.get("/clarification")
 def api_clarification_sessions(limit: int = Query(default=50, ge=1, le=200)) -> Any:
     """List recent local clarification sessions."""
@@ -363,6 +439,16 @@ def api_clarification_answer(session_id: str, payload: ClarificationAnswerReques
     except ValueError as exc:
         raise _handle_value_error(exc) from exc
     return _json_response(session)
+
+
+@api_router.post("/clarification/{session_id}/learn")
+def api_clarification_learn(session_id: str) -> Any:
+    """Record a clarification session as local feedback."""
+    try:
+        feedback = learn_from_clarification_session(session_id)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return _json_response({"feedback": feedback})
 
 
 @api_router.post("/clarification/{session_id}/refine")

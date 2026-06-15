@@ -7,6 +7,7 @@ export const navigationItems = [
   { href: "/adjustments", label: "Adjustments" },
   { href: "/approval", label: "Approval" },
   { href: "/publish-center", label: "Publish Center" },
+  { href: "/learning", label: "Learning" },
   { href: "/reports", label: "Reports" },
   { href: "/layer-catalog", label: "Layer Catalog" },
   { href: "/data-gaps", label: "Data Gaps" },
@@ -30,4 +31,5 @@ export const workflowSteps = [
   { href: "/adjustments", label: "Adjustments", description: "Human YAML adjustment loop." },
   { href: "/approval", label: "Approval", description: "Local readiness gate." },
   { href: "/publish-center", label: "Dry-Run Publish", description: "Dry-run receipts only." },
+  { href: "/learning", label: "Learning", description: "Approved patterns and defaults." },
 ];

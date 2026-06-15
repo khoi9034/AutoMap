@@ -16,6 +16,7 @@ from app.clarification_models import (
     ClarificationSession,
 )
 from app.db import _quote_identifier, get_engine
+from app.default_suggester import suggest_clarification_defaults
 from app.filter_planner import build_filter_plan, validate_filter_plan
 from app.recipe_engine import build_recipe
 
@@ -257,7 +258,20 @@ def extract_clarification_questions(recipe: dict[str, Any]) -> list[dict[str, An
         )
         seen.add("flood_layer_scope")
 
-    return [question.to_dict() for question in questions]
+    question_dicts = [question.to_dict() for question in questions]
+    suggestions = suggest_clarification_defaults(
+        recipe.get("user_intent") or (recipe.get("parsed_request") or {}).get("raw_prompt") or "",
+        question_dicts,
+        recipe.get("request_intelligence") or {},
+    )
+    for question in question_dicts:
+        suggestion = suggestions.get(question.get("question_id"))
+        if not suggestion:
+            continue
+        question.update(suggestion)
+        if float(suggestion.get("default_confidence") or 0) >= 0.8:
+            question["default_answer"] = suggestion.get("suggested_default")
+    return question_dicts
 
 
 def _insert_session(session: ClarificationSession, schema_name: str = "automap") -> None:

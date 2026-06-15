@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { JsonPanel } from "@/components/json-panel";
+import { LearningSuggestionsPanel } from "@/components/learning-suggestions-panel";
 import { RequestIntelligencePanel } from "@/components/request-intelligence-panel";
 import { RefinementSummary } from "@/components/refinement-summary";
 import { StatusChip } from "@/components/status-chip";
@@ -155,6 +156,7 @@ export function RecipeReviewClient() {
       ) : null}
 
       <RequestIntelligencePanel recipe={recipe} />
+      <LearningSuggestionsPanel learnedContext={recipe.learned_context} />
 
       {clarification ? <RefinementSummary changes={clarification.changes_from_initial_recipe || {}} /> : null}
 

@@ -70,11 +70,17 @@ def test_frontend_workflow_api_routes_exist():
         "/api/packets",
         "/api/reports",
         "/api/reports/{report_id}",
+        "/api/patterns",
+        "/api/patterns/{pattern_key}",
+        "/api/patterns/learn-from-approved",
+        "/api/feedback/recipe",
+        "/api/clarification-defaults",
         "/api/clarification",
         "/api/clarification/start",
         "/api/clarification/{session_id}",
         "/api/clarification/{session_id}/answer",
         "/api/clarification/{session_id}/refine",
+        "/api/clarification/{session_id}/learn",
         "/api/preview-config/{packet_id}",
         "/api/recipe",
         "/api/review-packet",
@@ -89,6 +95,74 @@ def test_frontend_workflow_api_routes_exist():
     }
 
     assert expected_paths.issubset(set(paths))
+
+
+def test_api_learning_routes_are_json_and_sanitized(monkeypatch):
+    monkeypatch.setattr(
+        "app.api_routes.list_patterns",
+        lambda limit=50: [{"pattern_key": "pattern_1", "raw_prompt": "Show flood near schools"}],
+    )
+    monkeypatch.setattr(
+        "app.api_routes.list_clarification_defaults",
+        lambda limit=50: [{"default_key": "near_distance", "answer_label": "0.5 miles"}],
+    )
+    monkeypatch.setattr(
+        "app.api_routes.recent_feedback",
+        lambda limit=50: [{"id": 1, "feedback_type": "approved"}],
+    )
+    monkeypatch.setattr(
+        "app.api_routes.get_pattern",
+        lambda pattern_key: {"pattern_key": pattern_key, "raw_prompt": "Show flood near schools"},
+    )
+    monkeypatch.setattr(
+        "app.api_routes.learn_from_approved_packet",
+        lambda path: {"pattern_key": "pattern_1", "source_approved_packet": path, "final_publish_ready": True},
+    )
+    monkeypatch.setattr(
+        "app.api_routes.record_recipe_feedback",
+        lambda raw_prompt, recipe, feedback_type, feedback_json, source_packet_path=None: {
+            "id": 1,
+            "raw_prompt": raw_prompt,
+            "feedback_type": feedback_type,
+        },
+    )
+    monkeypatch.setattr(
+        "app.api_routes.learn_from_clarification_session",
+        lambda session_id: {"id": 2, "feedback_type": "clarification_answered", "session_id": session_id},
+    )
+    client = TestClient(create_app())
+
+    patterns = client.get("/api/patterns")
+    detail = client.get("/api/patterns/pattern_1")
+    learned = client.post("/api/patterns/learn-from-approved", json={"approved_packet_folder": "outputs/review_packets_approved/sample"})
+    feedback = client.post(
+        "/api/feedback/recipe",
+        json={"raw_prompt": "Show flood", "recipe": {}, "feedback_type": "approved", "feedback_json": {}},
+    )
+    defaults = client.get("/api/clarification-defaults")
+    clarification_learned = client.post("/api/clarification/clarify_1/learn")
+    serialized = json.dumps(
+        {
+            "patterns": patterns.json(),
+            "detail": detail.json(),
+            "learned": learned.json(),
+            "feedback": feedback.json(),
+            "defaults": defaults.json(),
+            "clarification_learned": clarification_learned.json(),
+        }
+    ).lower()
+
+    assert patterns.status_code == 200
+    assert detail.status_code == 200
+    assert learned.status_code == 200
+    assert feedback.status_code == 200
+    assert defaults.status_code == 200
+    assert clarification_learned.status_code == 200
+    assert learned.json()["pattern"]["pattern_key"] == "pattern_1"
+    assert "confirm-publish" not in serialized
+    assert "publish-draft-webmap" not in serialized
+    assert "database_url" not in serialized
+    assert "cfs" not in serialized
 
 
 def test_api_clarification_routes_are_json_and_sanitized(monkeypatch):

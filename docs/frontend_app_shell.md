@@ -1,6 +1,6 @@
 # AutoMap Frontend Workflow Shell
 
-AutoMap v1.8 provides a polished Next.js + TypeScript workflow shell with an interactive clarification loop while keeping the FastAPI backend as the API and workflow engine.
+AutoMap v1.9 provides a polished Next.js + TypeScript workflow shell with interactive clarification and deterministic feedback learning while keeping the FastAPI backend as the API and workflow engine.
 
 ## URLs
 
@@ -52,6 +52,7 @@ Cabarrus FutureScape keeps `http://localhost:3000` and `http://127.0.0.1:8000`. 
 - `/adjustments`
 - `/approval`
 - `/publish-center`
+- `/learning`
 - `/reports`
 - `/layer-catalog`
 - `/data-gaps`
@@ -72,7 +73,8 @@ The frontend presents a local, draft-only workflow:
 6. Human YAML adjustments that create separate adjusted packets
 7. Reviewer approval that records local readiness only
 8. Dry-run publish and dry-run portal smoke-test receipts
-9. Local report/export packages for GIS review
+9. Approved-pattern learning from local approved packets
+10. Local report/export packages for GIS review
 
 The shell uses compact cards, status chips, scan-friendly tables, grouped warning panels, layer review panels, and explicit draft-only labels. It does not expose real ArcGIS publishing.
 
@@ -83,6 +85,12 @@ Workflow state is stored in browser localStorage under an AutoMap-specific key. 
 v1.8 adds a `/clarify` page for answering AutoMap's deterministic GIS review questions. The page supports single choice, multi choice, text, number, distance, year, and date-range question types. Answers are saved to the local backend, converted into an explicit refinement context, and used to regenerate the request intelligence, analysis plan, selected layers, filter plan, warnings, and map recipe.
 
 The original recipe is preserved for comparison. The refined recipe records the local clarification session id, questions, answers, applied refinements, remaining questions, unresolved blockers, and a changes summary.
+
+## v1.9 Learning
+
+v1.9 adds a `/learning` page for the approved pattern library. The page lists approved patterns, common clarification defaults, learned layer preferences, learned assumptions, recent feedback rows, and a local action to learn from an approved packet.
+
+Learned suggestions are shown on Map Request, Recipe Review, and Clarify Request. They remain reviewable. The frontend does not expose real publishing or ArcGIS login.
 
 ## v1.6 UX Polish
 
@@ -109,11 +117,17 @@ The frontend uses JSON-only backend API routes:
 - `GET /api/packets`
 - `GET /api/reports`
 - `GET /api/reports/{report_id}`
+- `GET /api/patterns`
+- `GET /api/patterns/{pattern_key}`
+- `POST /api/patterns/learn-from-approved`
+- `POST /api/feedback/recipe`
+- `GET /api/clarification-defaults`
 - `GET /api/clarification`
 - `POST /api/clarification/start`
 - `GET /api/clarification/{session_id}`
 - `POST /api/clarification/{session_id}/answer`
 - `POST /api/clarification/{session_id}/refine`
+- `POST /api/clarification/{session_id}/learn`
 - `GET /api/preview-config/{packet_id}`
 - `POST /api/recipe`
 - `POST /api/review-packet`

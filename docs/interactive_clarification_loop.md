@@ -23,6 +23,8 @@ AutoMap can ask typed questions for:
 
 Each question records its intent, related layer or filter when known, blocking level, options, default answer, and help text.
 
+In v1.9, questions may also show a suggested default from approved local patterns. The reviewer can accept or override the suggestion. Suggestions are review aids only; they do not invent layers or bypass human review.
+
 ## Workflow
 
 1. A user submits a prompt on `/map-request`.

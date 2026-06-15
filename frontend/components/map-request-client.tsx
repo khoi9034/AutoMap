@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
+import { LearningSuggestionsPanel } from "@/components/learning-suggestions-panel";
 import { samplePrompts } from "@/components/navigation";
 import { RequestIntelligencePanel } from "@/components/request-intelligence-panel";
 import { StatusChip } from "@/components/status-chip";
@@ -199,6 +200,7 @@ export function MapRequestClient() {
           </section>
 
           <RequestIntelligencePanel recipe={recipe} />
+          <LearningSuggestionsPanel learnedContext={recipe.learned_context} />
 
           {clarificationQuestionCount(recipe) ? (
             <section className="panel">

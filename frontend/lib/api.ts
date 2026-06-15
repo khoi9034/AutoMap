@@ -1,7 +1,10 @@
 import type {
   ClarificationAnswerModel,
+  ClarificationDefault,
   ClarificationSession,
   DataGap,
+  ApprovedPattern,
+  FeedbackLogRow,
   HistoryRow,
   LayerRecord,
   MapRecipe,
@@ -102,7 +105,7 @@ export async function getStatusOrFallback(): Promise<SystemStatus> {
     return await getSystemStatus();
   } catch {
     return {
-      version: "1.8.0",
+      version: "1.9.0",
       database_connected: false,
       catalog: {},
       profiles: {},
@@ -112,6 +115,53 @@ export async function getStatusOrFallback(): Promise<SystemStatus> {
       errors: ["Backend API is not reachable."],
     };
   }
+}
+
+export async function getPatterns(): Promise<{
+  patterns: ApprovedPattern[];
+  clarification_defaults: ClarificationDefault[];
+  feedback_log: FeedbackLogRow[];
+}> {
+  return apiFetch<{
+    patterns: ApprovedPattern[];
+    clarification_defaults: ClarificationDefault[];
+    feedback_log: FeedbackLogRow[];
+  }>("/api/patterns");
+}
+
+export async function getPattern(patternKey: string): Promise<ApprovedPattern> {
+  return apiFetch<ApprovedPattern>(`/api/patterns/${encodeURIComponent(patternKey)}`);
+}
+
+export async function learnFromApprovedPacket(approvedPacketFolder: string): Promise<{ pattern: ApprovedPattern }> {
+  return apiFetch<{ pattern: ApprovedPattern }>("/api/patterns/learn-from-approved", {
+    method: "POST",
+    body: JSON.stringify({ approved_packet_folder: approvedPacketFolder }),
+  });
+}
+
+export async function getClarificationDefaults(): Promise<{ defaults: ClarificationDefault[] }> {
+  return apiFetch<{ defaults: ClarificationDefault[] }>("/api/clarification-defaults");
+}
+
+export async function recordRecipeFeedback(payload: {
+  raw_prompt: string;
+  recipe: Record<string, unknown>;
+  feedback_type: string;
+  feedback_json?: Record<string, unknown>;
+  source_packet_path?: string;
+}): Promise<{ feedback: FeedbackLogRow }> {
+  return apiFetch<{ feedback: FeedbackLogRow }>("/api/feedback/recipe", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function learnFromClarificationSession(sessionId: string): Promise<{ feedback: FeedbackLogRow }> {
+  return apiFetch<{ feedback: FeedbackLogRow }>(`/api/clarification/${encodeURIComponent(sessionId)}/learn`, {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
 }
 
 export async function searchCatalog(query: string): Promise<{ query: string; rows: LayerRecord[] }> {

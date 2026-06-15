@@ -490,6 +490,24 @@ button {
   gap: 12px;
 }
 
+.pattern-card {
+  align-content: start;
+}
+
+.learning-suggestions .panel-compact {
+  min-height: 150px;
+}
+
+.notice-info {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  color: #1e3a8a;
+}
+
+.compact-notice {
+  padding: 12px;
+}
+
 .choice-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));

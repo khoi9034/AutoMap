@@ -26,6 +26,16 @@ function stringValue(value: JsonValue | undefined): string {
   return JSON.stringify(value);
 }
 
+function suggestionLabel(question: ClarificationQuestionModel): string {
+  if (question.answer_label) {
+    return String(question.answer_label);
+  }
+  if (question.suggested_default !== undefined) {
+    return stringValue(question.suggested_default);
+  }
+  return "";
+}
+
 export function ClarificationQuestionCard({ question, value, onChange }: ClarificationQuestionCardProps) {
   const questionId = question.question_id || "";
   const type = question.question_type || "text";
@@ -56,6 +66,24 @@ export function ClarificationQuestionCard({ question, value, onChange }: Clarifi
         </div>
         <span className="chip chip-warning">{question.blocking_level || "review_needed"}</span>
       </div>
+
+      {question.suggested_default !== undefined ? (
+        <div className="notice notice-info compact-notice">
+          <strong>Suggested from approved patterns</strong>
+          <p>
+            {suggestionLabel(question)}
+            {question.default_confidence ? ` (${Math.round(question.default_confidence * 100)}% confidence)` : ""}
+          </p>
+          {question.explanation ? <p>{question.explanation}</p> : null}
+          <button
+            className="small-button"
+            type="button"
+            onClick={() => onChange(questionId, question.suggested_default ?? "", suggestionLabel(question))}
+          >
+            Use suggestion
+          </button>
+        </div>
+      ) : null}
 
       {type === "single_choice" || type === "distance" || type === "date_range" || type === "year" ? (
         <div className="choice-grid">

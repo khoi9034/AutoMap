@@ -98,6 +98,18 @@ export type RequestIntelligence = {
   understood?: boolean;
 };
 
+export type LearnedContext = {
+  similar_patterns?: Array<Record<string, JsonValue>>;
+  suggested_defaults?: Array<Record<string, JsonValue>>;
+  preferred_layers?: Array<Record<string, JsonValue>>;
+  avoided_layers?: Array<Record<string, JsonValue>>;
+  learned_assumptions?: string[];
+  missing_data_decisions?: JsonValue[];
+  confidence_score?: number;
+  review_note?: string;
+  analysis_goal?: string;
+};
+
 export type AnalysisPlan = {
   goal?: string;
   required_layers?: string[];
@@ -130,6 +142,11 @@ export type ClarificationQuestionModel = {
   related_filter?: string | null;
   blocking_level?: "optional" | "review_needed" | "blocks_recipe" | "blocks_publish";
   help_text?: string | null;
+  suggested_default?: JsonValue;
+  answer_label?: string | null;
+  default_source?: string | null;
+  default_confidence?: number | null;
+  explanation?: string | null;
 };
 
 export type ClarificationAnswerModel = {
@@ -167,6 +184,7 @@ export type MapRecipe = {
   };
   request_intelligence?: RequestIntelligence;
   analysis_plan?: AnalysisPlan;
+  learned_context?: LearnedContext;
   clarification?: {
     session_id?: string;
     questions?: ClarificationQuestionModel[];
@@ -188,6 +206,61 @@ export type MapRecipe = {
   review_reasons?: string[];
   missing_data_needed?: string[];
   data_gap_notes?: JsonValue[];
+};
+
+export type ApprovedPattern = {
+  pattern_key?: string;
+  source_approved_packet?: string;
+  raw_prompt?: string;
+  normalized_prompt?: string;
+  primary_intent?: string;
+  secondary_intents?: string[];
+  geographies?: JsonValue[];
+  topics?: string[];
+  selected_layer_keys?: string[];
+  rejected_layer_keys?: string[];
+  preferred_layer_keys?: string[];
+  avoided_layer_keys?: string[];
+  spatial_operations?: JsonValue[];
+  filter_plan?: Record<string, JsonValue>;
+  clarification_answers?: JsonValue[];
+  reviewer_notes?: JsonValue[];
+  accepted_assumptions?: string[];
+  warning_resolutions?: Record<string, JsonValue>;
+  missing_data_decisions?: JsonValue[];
+  confidence_score?: number;
+  approval_decision?: string;
+  final_publish_ready?: boolean;
+  usage_count?: number;
+  is_active?: boolean;
+  similarity_score?: number;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type ClarificationDefault = {
+  default_key?: string;
+  intent?: string;
+  topic?: string;
+  question_type?: string;
+  question_text?: string;
+  default_answer?: JsonValue;
+  answer_label?: string;
+  source_pattern_key?: string;
+  confidence_score?: number;
+  usage_count?: number;
+  is_active?: boolean;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type FeedbackLogRow = {
+  id?: number;
+  raw_prompt?: string;
+  feedback_type?: string;
+  feedback_json?: JsonValue;
+  source_packet_path?: string | null;
+  created_at?: string;
 };
 
 export type PacketSummary = {
