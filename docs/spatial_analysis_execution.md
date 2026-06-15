@@ -1,6 +1,6 @@
 # Spatial Analysis Execution
 
-AutoMap v2.1 adds safe bounded spatial execution for selected local review workflows with a bounded spatial query optimizer.
+AutoMap v2.2 adds user-guided refinement on top of safe bounded spatial execution and the bounded spatial query optimizer.
 
 The first fully supported operation is:
 
@@ -46,6 +46,8 @@ For a parcel/flood/geography request, AutoMap:
 9. Writes a local GeoJSON result under `outputs/analysis/`.
 10. Records an analysis receipt in the AutoMap database.
 
+If the optimized candidate count still exceeds the safety limit, AutoMap blocks execution and can create a refinement session instead of downloading geometry.
+
 Outputs are local review artifacts only. They are not official GIS layers.
 
 ## Output Files
@@ -59,6 +61,15 @@ Each run writes:
 
 The receipt includes target/geography/constraint layers, where clauses, broad count, optimized candidate count, ObjectID count, chunk receipts, feature limits, output count, warnings, narrowing suggestions, and no-publish status.
 
+Blocked runs can also produce refinement outputs under `outputs/analysis_refinements/`:
+
+- `refinement_summary.json`
+- `refinement_summary.md`
+- `refinement_receipt.json`
+- optional `batch_plan.json`
+- optional `batch_receipt.json`
+- optional `object_id_list.json`
+
 ## Frontend
 
 The Next.js frontend includes `/analysis`.
@@ -71,6 +82,8 @@ The page can:
 - show broad and optimized counts
 - show query strategy and chunks
 - show safety limits and narrowing suggestions
+- create refinement options for blocked runs
+- execute summary-only refinements without geometry download
 - show output count
 - link to local GeoJSON
 - pass a derived local result to the Map Preview layer panel
@@ -84,3 +97,4 @@ AutoMap does not bulk-ingest datasets, does not publish derived GeoJSON, does no
 The CFS database is separate and untouched.
 
 See `docs/spatial_query_optimizer.md` for the v2.1 optimizer details.
+See `docs/analysis_refinement.md` for the v2.2 blocked-analysis refinement workflow.

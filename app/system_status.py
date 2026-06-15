@@ -9,6 +9,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app.config import get_settings
 from app.arcgis_publisher import load_arcgis_publish_settings
+from app.analysis_refinement_engine import init_refinement_tables
 from app.analysis_result_store import init_analysis_tables
 from app.data_gap_registry import ensure_data_gap_registry_table
 from app.db import _quote_identifier, get_engine, test_db_connection
@@ -59,6 +60,7 @@ def get_system_status(schema_name: str | None = None) -> dict[str, Any]:
         "request_history_count": 0,
         "approval_history_count": 0,
         "analysis_run_count": 0,
+        "analysis_refinement_count": 0,
         "packets": {
             "review_packet_count": len(list_review_packets()),
             "adjusted_packet_count": len(list_adjusted_packets()),
@@ -103,6 +105,7 @@ def get_system_status(schema_name: str | None = None) -> dict[str, Any]:
         ensure_request_history_table(schema)
         ensure_review_approval_history_table(schema)
         init_analysis_tables(schema)
+        init_refinement_tables(schema)
         engine = get_engine(settings)
         with engine.connect() as connection:
             catalog_table = _qualified(schema, "layer_catalog")
@@ -112,6 +115,7 @@ def get_system_status(schema_name: str | None = None) -> dict[str, Any]:
             history_table = _qualified(schema, "request_history")
             approval_table = _qualified(schema, "review_approval_history")
             analysis_table = _qualified(schema, "analysis_runs")
+            refinement_table = _qualified(schema, "analysis_refinement_sessions")
             status["catalog"] = {
                 "layer_count": _scalar_count(connection, f"SELECT count(*) FROM {catalog_table};"),
                 "verified_layer_count": _scalar_count(connection, f"SELECT count(*) FROM {catalog_table} WHERE is_verified = true;"),
@@ -150,6 +154,7 @@ def get_system_status(schema_name: str | None = None) -> dict[str, Any]:
             status["request_history_count"] = _scalar_count(connection, f"SELECT count(*) FROM {history_table};")
             status["approval_history_count"] = _scalar_count(connection, f"SELECT count(*) FROM {approval_table};")
             status["analysis_run_count"] = _scalar_count(connection, f"SELECT count(*) FROM {analysis_table};")
+            status["analysis_refinement_count"] = _scalar_count(connection, f"SELECT count(*) FROM {refinement_table};")
     except (SQLAlchemyError, ValueError) as exc:
         status["errors"].append(str(exc))
 
@@ -178,6 +183,7 @@ def format_system_status(status: dict[str, Any]) -> str:
         f"Request history rows: {status['request_history_count']}",
         f"Approval history rows: {status['approval_history_count']}",
         f"Analysis runs: {status.get('analysis_run_count', 0)}",
+        f"Analysis refinements: {status.get('analysis_refinement_count', 0)}",
         f"Review packets: {packets['review_packet_count']}",
         f"Adjusted packets: {packets['adjusted_packet_count']}",
         f"Approved packets: {packets['approved_packet_count']}",

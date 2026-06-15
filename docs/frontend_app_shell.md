@@ -1,6 +1,6 @@
 # AutoMap Frontend Workflow Shell
 
-AutoMap v2.1 provides a polished Next.js + TypeScript workflow shell with interactive clarification, deterministic feedback learning, safe bounded analysis, and query optimization while keeping the FastAPI backend as the API and workflow engine.
+AutoMap v2.2 provides a polished Next.js + TypeScript workflow shell with interactive clarification, deterministic feedback learning, safe bounded analysis, query optimization, and user-guided analysis refinement while keeping the FastAPI backend as the API and workflow engine.
 
 ## URLs
 
@@ -71,7 +71,7 @@ The frontend presents a local, draft-only workflow:
 3. Interactive clarification when the request needs distance, time range, flood scope, zoning, or missing-data decisions
 4. Recipe review with selected layers, filters, operations, warnings, and gaps
 5. Local WebMap preview through the backend preview route
-6. Safe bounded analysis with local GeoJSON outputs
+6. Safe bounded analysis with local GeoJSON outputs or guided refinement when blocked
 7. Human YAML adjustments that create separate adjusted packets
 8. Reviewer approval that records local readiness only
 9. Dry-run publish and dry-run portal smoke-test receipts
@@ -82,11 +82,13 @@ The shell uses compact cards, status chips, scan-friendly tables, grouped warnin
 
 Workflow state is stored in browser localStorage under an AutoMap-specific key. It tracks the prompt, initial recipe, refined recipe, clarification session, clarification answers, WebMap draft, review packet, analysis plan, analysis run, adjustment template, adjusted packet, approval template, approved packet, dry-run receipt, smoke-test receipt, active step, warnings, missing data, and selected packet ids. Protected markers such as database URLs, passwords, tokens, and ArcGIS credential keys are redacted before storage.
 
-## v2.1 Analysis
+## v2.2 Analysis
 
-v2.1 includes an `/analysis` page for safe bounded local GIS execution. The page can plan feasibility, show broad and optimized counts, display the selected query strategy, show chunk and safety-limit metadata, execute supported parcel/flood intersection or attribute-filter requests, and link to local GeoJSON results under `outputs/analysis/`.
+v2.2 includes an `/analysis` page for safe bounded local GIS execution and user-guided refinement. The page can plan feasibility, show broad and optimized counts, display the selected query strategy, show chunk and safety-limit metadata, execute supported parcel/flood intersection or attribute-filter requests, and link to local GeoJSON results under `outputs/analysis/`.
 
 For parcel/flood/geography requests, AutoMap uses server-side spatial filtering and ObjectID deduplication before downloading parcel geometry.
+
+When execution is blocked because the optimized candidate count is still above the feature limit, the page shows a Refine Analysis panel. Reviewers can create refinement options, select `summary_only`, inspect batch and filter tradeoffs, and execute a local summary that avoids geometry download.
 
 The Map Preview layer panel can display a derived local analysis result badge when an execution result exists in workflow state. Derived results are not uploaded or published.
 

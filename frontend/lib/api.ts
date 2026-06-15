@@ -3,6 +3,7 @@ import type {
   ClarificationDefault,
   ClarificationSession,
   DataGap,
+  AnalysisRefinementSession,
   AnalysisRun,
   ApprovedPattern,
   FeedbackLogRow,
@@ -111,7 +112,7 @@ export async function getStatusOrFallback(): Promise<SystemStatus> {
     return await getSystemStatus();
   } catch {
     return {
-      version: "2.1.0",
+      version: "2.2.0",
       database_connected: false,
       catalog: {},
       profiles: {},
@@ -174,6 +175,51 @@ export async function listAnalysisRuns(): Promise<{ analysis_runs: AnalysisRun[]
 
 export async function getAnalysisRun(analysisRunId: string): Promise<AnalysisRun> {
   return apiFetch<AnalysisRun>(`/api/analysis/runs/${encodeURIComponent(analysisRunId)}`);
+}
+
+export async function createAnalysisRefinement(
+  analysisRunId: string,
+): Promise<{ refinement_session: AnalysisRefinementSession }> {
+  return apiFetch<{ refinement_session: AnalysisRefinementSession }>("/api/analysis/refinements", {
+    method: "POST",
+    timeoutMs: 120000,
+    body: JSON.stringify({ analysis_run_id: analysisRunId }),
+  });
+}
+
+export async function listAnalysisRefinements(): Promise<{ refinement_sessions: AnalysisRefinementSession[] }> {
+  return apiFetch<{ refinement_sessions: AnalysisRefinementSession[] }>("/api/analysis/refinements");
+}
+
+export async function getAnalysisRefinement(sessionId: string): Promise<AnalysisRefinementSession> {
+  return apiFetch<AnalysisRefinementSession>(`/api/analysis/refinements/${encodeURIComponent(sessionId)}`);
+}
+
+export async function selectAnalysisRefinement(
+  sessionId: string,
+  optionId: string,
+  parameters: Record<string, unknown> = {},
+): Promise<{ refinement_session: AnalysisRefinementSession }> {
+  return apiFetch<{ refinement_session: AnalysisRefinementSession }>(
+    `/api/analysis/refinements/${encodeURIComponent(sessionId)}/select`,
+    {
+      method: "POST",
+      body: JSON.stringify({ option_id: optionId, parameters }),
+    },
+  );
+}
+
+export async function executeAnalysisRefinement(
+  sessionId: string,
+): Promise<{ refinement_session: AnalysisRefinementSession }> {
+  return apiFetch<{ refinement_session: AnalysisRefinementSession }>(
+    `/api/analysis/refinements/${encodeURIComponent(sessionId)}/execute`,
+    {
+      method: "POST",
+      timeoutMs: 180000,
+      body: JSON.stringify({}),
+    },
+  );
 }
 
 export async function recordRecipeFeedback(payload: {

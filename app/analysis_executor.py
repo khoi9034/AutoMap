@@ -1,4 +1,4 @@
-"""Safe bounded spatial analysis execution for AutoMap v2.1."""
+"""Safe bounded spatial analysis execution for AutoMap v2.2."""
 
 from __future__ import annotations
 
@@ -148,7 +148,7 @@ def _plan_steps(operation_type: AnalysisOperationType, geography_name: str | Non
             "Only fetch bounded matching features if the count is below the configured max.",
             "Write local GeoJSON only when feature download is safe.",
         ]
-    return ["Operation is not executable in v2.1; return review guidance only."]
+    return ["Operation is not executable in v2.2; return review guidance only."]
 
 
 def _count_or_unavailable(client: SpatialQueryClient, layer: AnalysisLayerRef | None, where: str | None = None) -> dict[str, Any] | None:
@@ -212,9 +212,9 @@ def build_analysis_plan(
     blocked_reasons: list[str] = []
     warnings: list[str] = []
     if operation_type == AnalysisOperationType.UNSUPPORTED_OPERATION:
-        blocked_reasons.append("This request is not supported for v2.1 spatial execution.")
+        blocked_reasons.append("This request is not supported for v2.2 spatial execution.")
     if _is_historical_request(recipe):
-        blocked_reasons.append("Historical comparison requests are planning-only in v2.1 unless reviewed and narrowed.")
+        blocked_reasons.append("Historical comparison requests are planning-only in v2.2 unless reviewed and narrowed.")
     if operation_type == AnalysisOperationType.SELECT_BY_INTERSECTION:
         missing = []
         if not target_layer:
@@ -308,7 +308,7 @@ def build_analysis_plan(
 
 
 def analysis_execution_for_recipe(recipe: dict[str, Any], catalog_records: list[dict[str, Any]] | None = None) -> dict[str, Any]:
-    """Return the recipe-level v2.1 analysis execution block without live queries."""
+    """Return the recipe-level v2.2 analysis execution block without live queries."""
     plan = build_analysis_plan(recipe, catalog_records=catalog_records, estimate_counts=False)
     return {
         "executable": plan["executable"],
@@ -611,7 +611,7 @@ def execute_analysis(
         elif plan["operation_type"] == AnalysisOperationType.ATTRIBUTE_FILTER_ONLY.value:
             result = _execute_attribute_filter(recipe, plan, query_client=client, max_features=max_features)
         else:
-            result = _blocked_execution(recipe, plan, f"{plan['operation_type']} is stubbed in v2.1.")
+            result = _blocked_execution(recipe, plan, f"{plan['operation_type']} is stubbed in v2.2.")
             result = write_analysis_outputs(result)
     except (SpatialQueryError, GeometrySafetyError, ValueError) as exc:
         result = _blocked_execution(recipe, plan, str(exc))

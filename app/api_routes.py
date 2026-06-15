@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.adjustment_engine import (
     apply_adjustments_to_review_packet,
@@ -16,6 +16,13 @@ from app.adjustment_engine import (
     validate_adjusted_packet,
 )
 from app.analysis_executor import build_analysis_plan, execute_analysis, list_runs as list_analysis_runs
+from app.analysis_refinement_engine import (
+    create_refinement_session_from_blocked_run,
+    execute_refined_analysis,
+    get_refinement_session,
+    list_refinement_sessions,
+    select_refinement_option,
+)
 from app.analysis_result_store import get_analysis_run
 from app.approval_engine import (
     apply_approval_to_adjusted_packet,
@@ -119,6 +126,19 @@ class AnalysisPromptRequest(BaseModel):
 
     prompt: str
     max_features: int | None = None
+
+
+class AnalysisRefinementCreateRequest(BaseModel):
+    """Create a refinement session from a blocked analysis run."""
+
+    analysis_run_id: str
+
+
+class AnalysisRefinementSelectRequest(BaseModel):
+    """Select a refinement option."""
+
+    option_id: str
+    parameters: dict[str, Any] = Field(default_factory=dict)
 
 
 class LearnApprovedRequest(BaseModel):
@@ -392,6 +412,68 @@ def api_analysis_run_detail(analysis_run_id: str) -> Any:
         return _json_response(get_analysis_run(analysis_run_id))
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@api_router.post("/analysis/refinements")
+def api_create_analysis_refinement(payload: AnalysisRefinementCreateRequest) -> Any:
+    """Create refinement options from a blocked analysis run."""
+    try:
+        session = create_refinement_session_from_blocked_run(payload.analysis_run_id)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise _handle_value_error(exc) from exc
+    return _json_response({"refinement_session": session})
+
+
+@api_router.get("/analysis/refinements")
+def api_analysis_refinements(limit: int = Query(default=50, ge=1, le=200)) -> Any:
+    """List analysis refinement sessions."""
+    return _json_response({"refinement_sessions": list_refinement_sessions(limit=limit)})
+
+
+@api_router.get("/analysis/refinements/{session_id}")
+def api_analysis_refinement_detail(session_id: str) -> Any:
+    """Return one analysis refinement session."""
+    try:
+        return _json_response(get_refinement_session(session_id))
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@api_router.post("/analysis/refinements/{session_id}/select")
+def api_select_analysis_refinement(session_id: str, payload: AnalysisRefinementSelectRequest) -> Any:
+    """Select a refinement option."""
+    try:
+        session = select_refinement_option(session_id, payload.option_id, payload.parameters)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise _handle_value_error(exc) from exc
+    return _json_response({"refinement_session": session})
+
+
+@api_router.post("/analysis/refinements/{session_id}/execute")
+def api_execute_analysis_refinement(session_id: str) -> Any:
+    """Execute a selected analysis refinement option."""
+    try:
+        session = execute_refined_analysis(session_id)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise _handle_value_error(exc) from exc
+    _record_history_safely(
+        raw_prompt=session.get("raw_prompt"),
+        workflow_step="analysis_refinement",
+        map_title=None,
+        status=session.get("status"),
+        notes={
+            "session_id": session_id,
+            "selected_option": (session.get("selected_option") or {}).get("option_id"),
+            "geometry_downloaded": ((session.get("refined_result") or {}).get("summary") or {}).get("geometry_downloaded"),
+        },
+    )
+    return _json_response({"refinement_session": session})
 
 
 @api_router.get("/patterns")

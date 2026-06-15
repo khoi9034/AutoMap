@@ -186,6 +186,22 @@ button {
   padding: 18px;
 }
 
+.mini-card {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 16px;
+  box-shadow: var(--shadow);
+}
+
+.selected-card {
+  border-color: #78addf;
+  box-shadow: 0 0 0 3px rgba(34, 113, 177, 0.12);
+}
+
 .panel h3,
 .status-panel h3,
 .workflow-context-panel h3,

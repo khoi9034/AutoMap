@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
+import { AnalysisRefinementPanel } from "@/components/analysis-refinement-panel";
 import { JsonPanel } from "@/components/json-panel";
 import { samplePrompts } from "@/components/navigation";
 import { StatusChip } from "@/components/status-chip";
@@ -125,7 +126,7 @@ export function AnalysisClient() {
         <div className="panel-title-row">
           <div>
             <h3>Analysis request</h3>
-            <p className="muted">v2.1 optimizes parcel selection with geometry-first ObjectID queries.</p>
+            <p className="muted">v2.2 keeps optimized analysis bounded and guides safer refinement paths when counts are too high.</p>
           </div>
           <div className="chip-row">
             <StatusChip tone="success">No Portal login</StatusChip>
@@ -276,6 +277,8 @@ export function AnalysisClient() {
           </div>
         </section>
       ) : null}
+
+      {result?.status === "blocked" ? <AnalysisRefinementPanel analysisRun={result} /> : null}
 
       <section className="dashboard-grid">
         <JsonPanel title="Analysis plan JSON" value={plan || { status: "not planned" }} />

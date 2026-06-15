@@ -26,6 +26,8 @@ export type SystemStatus = {
   data_gap_count?: number;
   request_history_count?: number;
   approval_history_count?: number;
+  analysis_run_count?: number;
+  analysis_refinement_count?: number;
   packets?: {
     review_packet_count?: number;
     adjusted_packet_count?: number;
@@ -145,6 +147,38 @@ export type AnalysisRun = {
   blocked_reasons?: string[];
   derived_layer?: PreviewLayer | Record<string, JsonValue> | null;
   created_at?: string;
+};
+
+export type AnalysisRefinementOption = {
+  option_id?: string;
+  option_type?: string;
+  label?: string;
+  description?: string;
+  estimated_count?: number | null;
+  expected_output?: string;
+  safety_level?: "safe" | "review_needed" | "blocked" | string;
+  required_user_input?: string[];
+  suggested_parameters?: Record<string, JsonValue>;
+  tradeoffs?: string[];
+  recommended?: boolean;
+};
+
+export type AnalysisRefinementSession = {
+  session_id?: string;
+  source_analysis_run_id?: string;
+  raw_prompt?: string;
+  blocked_reason?: string;
+  broad_count?: number | null;
+  optimized_count?: number | null;
+  safety_limit?: number;
+  options?: AnalysisRefinementOption[];
+  selected_option?: AnalysisRefinementOption | Record<string, JsonValue> | null;
+  selected_parameters?: Record<string, JsonValue>;
+  refined_plan?: Record<string, JsonValue>;
+  refined_result?: Record<string, JsonValue>;
+  status?: string;
+  created_at?: string;
+  updated_at?: string;
 };
 
 export type AnalysisPlan = {

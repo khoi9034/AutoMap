@@ -175,7 +175,7 @@ def test_api_client_has_timeout_and_sanitized_fallback_version():
 
     assert "Backend API request timed out" in source
     assert "http://127.0.0.1:8010" in source
-    assert 'version: "2.1.0"' in source
+    assert 'version: "2.2.0"' in source
     assert "redactProtected" in source
 
 
@@ -183,6 +183,9 @@ def test_analysis_page_components_and_api_are_present():
     navigation = read("components/navigation.ts")
     page = read("app/analysis/page.tsx")
     client = read("components/analysis-client.tsx")
+    refinement_panel = read("components/analysis-refinement-panel.tsx")
+    option_card = read("components/refinement-option-card.tsx")
+    result_panel = read("components/refinement-result-panel.tsx")
     api = read("lib/api.ts")
     store = read("lib/workflow-store.ts")
     types = read("types/automap.ts")
@@ -196,21 +199,36 @@ def test_analysis_page_components_and_api_are_present():
     assert "Strategy" in client
     assert "Optimized count" in client
     assert "Narrowing suggestions" in client
+    assert "AnalysisRefinementPanel" in client
     assert "Add result to map preview" in client
+    assert "Refine Analysis" in refinement_panel
+    assert "Create Refinement Options" in refinement_panel
+    assert "Parameters JSON" in refinement_panel
+    assert "Execute Refinement" in refinement_panel
+    assert "Tradeoffs" in option_card
+    assert "No geometry download" in result_panel
     assert "planAnalysis" in api
     assert "executeAnalysis" in api
+    assert "createAnalysisRefinement" in api
+    assert "selectAnalysisRefinement" in api
+    assert "executeAnalysisRefinement" in api
     assert '"/api/analysis/plan"' in api
     assert '"/api/analysis/execute"' in api
+    assert '"/api/analysis/refinements"' in api
     assert 'id: "analysis"' in store
     assert "analysisPlan" in store
     assert "analysisRun" in store
     assert "AnalysisExecutionPlan" in types
     assert "optimized_query_plan" in types
     assert "AnalysisRun" in types
+    assert "AnalysisRefinementSession" in types
+    assert "AnalysisRefinementOption" in types
     assert "Derived Local Analysis Result" in preview
     assert "derived_local_analysis" in layer_panel
     assert "confirm-publish" not in client.lower()
     assert "publish-draft-webmap" not in client.lower()
+    assert "confirm-publish" not in refinement_panel.lower()
+    assert "publish-draft-webmap" not in refinement_panel.lower()
 
 
 def test_learning_page_components_and_api_are_present():

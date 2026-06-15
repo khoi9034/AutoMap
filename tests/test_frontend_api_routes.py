@@ -74,6 +74,10 @@ def test_frontend_workflow_api_routes_exist():
         "/api/analysis/execute",
         "/api/analysis/runs",
         "/api/analysis/runs/{analysis_run_id}",
+        "/api/analysis/refinements",
+        "/api/analysis/refinements/{session_id}",
+        "/api/analysis/refinements/{session_id}/select",
+        "/api/analysis/refinements/{session_id}/execute",
         "/api/patterns",
         "/api/patterns/{pattern_key}",
         "/api/patterns/learn-from-approved",
@@ -146,6 +150,70 @@ def test_api_analysis_routes_are_json_and_sanitized(monkeypatch):
     assert listed.status_code == 200
     assert detail.status_code == 200
     assert executed.json()["analysis_result"]["status"] == "completed"
+    assert "confirm-publish" not in serialized
+    assert "publish-draft-webmap" not in serialized
+    assert "database_url" not in serialized
+    assert "cfs_dev" not in serialized
+
+
+def test_api_analysis_refinement_routes_are_json_and_sanitized(monkeypatch):
+    session = {
+        "session_id": "refine_1",
+        "source_analysis_run_id": "analysis_1",
+        "status": "open",
+        "options": [{"option_id": "summary_only", "safety_level": "safe"}],
+        "refined_result": {},
+    }
+    monkeypatch.setattr("app.api_routes.create_refinement_session_from_blocked_run", lambda analysis_run_id: session)
+    monkeypatch.setattr("app.api_routes.list_refinement_sessions", lambda limit=50: [session])
+    monkeypatch.setattr("app.api_routes.get_refinement_session", lambda session_id: {**session, "session_id": session_id})
+    monkeypatch.setattr(
+        "app.api_routes.select_refinement_option",
+        lambda session_id, option_id, parameters: {
+            **session,
+            "session_id": session_id,
+            "status": "selected",
+            "selected_option": {"option_id": option_id},
+            "selected_parameters": parameters,
+        },
+    )
+    monkeypatch.setattr(
+        "app.api_routes.execute_refined_analysis",
+        lambda session_id: {
+            **session,
+            "session_id": session_id,
+            "status": "completed",
+            "selected_option": {"option_id": "summary_only"},
+            "refined_result": {"summary": {"geometry_downloaded": False}},
+        },
+    )
+    monkeypatch.setattr("app.api_routes.record_request_history", lambda **kwargs: 1)
+    client = TestClient(create_app())
+
+    created = client.post("/api/analysis/refinements", json={"analysis_run_id": "analysis_1"})
+    listed = client.get("/api/analysis/refinements")
+    detail = client.get("/api/analysis/refinements/refine_1")
+    selected = client.post(
+        "/api/analysis/refinements/refine_1/select",
+        json={"option_id": "summary_only", "parameters": {}},
+    )
+    executed = client.post("/api/analysis/refinements/refine_1/execute")
+    serialized = json.dumps(
+        {
+            "created": created.json(),
+            "listed": listed.json(),
+            "detail": detail.json(),
+            "selected": selected.json(),
+            "executed": executed.json(),
+        }
+    ).lower()
+
+    assert created.status_code == 200
+    assert listed.status_code == 200
+    assert detail.status_code == 200
+    assert selected.status_code == 200
+    assert executed.status_code == 200
+    assert executed.json()["refinement_session"]["status"] == "completed"
     assert "confirm-publish" not in serialized
     assert "publish-draft-webmap" not in serialized
     assert "database_url" not in serialized

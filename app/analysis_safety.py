@@ -30,7 +30,7 @@ def _env_int(name: str, default: int, *, minimum: int = 1, maximum: int | None =
 
 
 def load_analysis_safety_limits(max_features: int | None = None) -> dict[str, int]:
-    """Return local v2.1 analysis limits with safe defaults and env overrides."""
+    """Return local v2.2 analysis limits with safe defaults and env overrides."""
     configured_max = _env_int(
         "AUTOMAP_MAX_DOWNLOAD_FEATURES_PER_LAYER",
         max_features or DEFAULT_MAX_FEATURES,

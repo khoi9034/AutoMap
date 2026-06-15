@@ -2,11 +2,11 @@
 
 AutoMap converts plain-English county GIS map requests into structured map recipes using only approved GIS layers from a local layer catalog.
 
-Version: `2.1.0`
+Version: `2.2.0`
 
 ## Current Phase
 
-v2.1 Bounded Spatial Query Optimizer on top of the safe spatial analysis execution engine.
+v2.2 User-Guided Analysis Refinement on top of the safe spatial analysis execution engine and bounded spatial query optimizer.
 
 This repository is intentionally independent. It does not connect to CFS or import CFS code. AutoMap uses its own local PostGIS database and trusted layer catalog.
 
@@ -34,6 +34,7 @@ AutoMap helps GIS and planning staff turn plain-English county map requests into
 - interactive clarification sessions that refine recipes from reviewer answers
 - deterministic feedback learning from approved packets, clarification answers, and reviewer decisions
 - safe bounded spatial analysis execution with server-side query optimization and local GeoJSON outputs
+- user-guided refinement for blocked spatial analyses, including summary-only outputs without geometry download
 
 ## What AutoMap Does Not Do Yet
 
@@ -64,6 +65,7 @@ ArcGIS publishing and smoke testing remain dry-run by default unless a guarded C
 19. v1.9 feedback learning and approved pattern library
 20. v2.0 safe spatial analysis execution
 21. v2.1 bounded spatial query optimizer
+22. v2.2 user-guided analysis refinement
 
 ## Project Structure
 
@@ -106,7 +108,7 @@ python -m pytest
 
 ## Next.js Frontend
 
-AutoMap v2.1 adds a safe Analysis page to the Next.js + TypeScript shell under `frontend/`. The FastAPI backend remains the API and workflow engine, and the existing FastAPI/Jinja UI is preserved.
+AutoMap v2.2 adds user-guided refinement to the safe Analysis page in the Next.js + TypeScript shell under `frontend/`. The FastAPI backend remains the API and workflow engine, and the existing FastAPI/Jinja UI is preserved.
 
 Start the backend API on port `8010`:
 
@@ -176,6 +178,8 @@ The Clarify Request page turns those clarifying questions into an interactive lo
 The Learning page stores approved local workflows as reviewable defaults. AutoMap can suggest common distances, flood-scope choices, preferred layers, accepted assumptions, and missing-data decisions from approved patterns. These learned suggestions are deterministic, local, and reviewable. They do not train a model, call external AI APIs, invent layers, or override the verified catalog.
 
 The Analysis page plans and runs safe bounded local GIS analysis for supported operations. v2.1 optimizes parcel selection by geography/constraint intersection, such as parcels in Concord intersecting the 100-year floodplain. It counts first, uses server-side spatial filtering to collect parcel ObjectIDs before downloading parcel geometry, blocks oversized requests, writes local GeoJSON under `outputs/analysis/`, and marks derived outputs as local review results only.
+
+v2.2 adds a Refine Analysis panel for blocked runs. If the optimized candidate count still exceeds the feature limit, AutoMap can create reviewer-selectable options such as summary only, split batches, narrower constraints, real-field attribute filters, smaller geography, and ObjectID-only export. Summary-only refinement writes local Markdown/JSON outputs under `outputs/analysis_refinements/` without downloading parcel geometry.
 
 AutoMap persists the active local workflow in browser storage so staff can move from prompt to recipe review, preview, adjustments, approval, and dry-run publishing without losing context on refresh. The stored workflow state is sanitized and does not include secrets.
 
@@ -264,7 +268,7 @@ Use `--save-recipe` with `--make-recipe` to write a local JSON recipe under `out
 
 ## Spatial Analysis Execution
 
-AutoMap v2.1 can execute safe bounded local spatial analysis for selected common operations. It does not bulk-ingest countywide datasets and does not publish derived outputs.
+AutoMap v2.2 can execute safe bounded local spatial analysis for selected common operations and guide reviewers through safe refinement when a count remains too high. It does not bulk-ingest countywide datasets and does not publish derived outputs.
 
 Fully supported:
 
@@ -285,13 +289,19 @@ python -m app.main --plan-analysis "Show parcels in Concord that are in the 100-
 python -m app.main --execute-analysis "Show parcels in Concord that are in the 100-year floodplain."
 python -m app.main --list-analysis-runs
 python -m app.main --validate-analysis-run <analysis-run-id-or-output-folder>
+python -m app.main --create-analysis-refinement <blocked-analysis-run-id>
+python -m app.main --list-analysis-refinements
+python -m app.main --select-analysis-refinement <session-id> summary_only --params-json "{}"
+python -m app.main --execute-analysis-refinement <session-id>
 ```
 
 Analysis outputs are local files under `outputs/analysis/`, which is ignored by Git. A successful bounded intersection writes `analysis_result.geojson`, `analysis_receipt.json`, `input_recipe.json`, and `analysis_summary.md`.
 
 v2.1 improves parcel/flood intersection execution with a bounded spatial query optimizer. AutoMap narrows target parcel queries with server-side spatial filters, deduplicates ObjectIDs, and downloads parcel geometries only when the final candidate count is under the safety limit. If optimized candidates remain too high, AutoMap blocks and recommends narrower geography, flood type, parcel type, zoning, or acreage filters.
 
-See `docs/spatial_analysis_execution.md`, `docs/spatial_query_optimizer.md`, and `docs/analysis_safety_limits.md`.
+v2.2 turns those blocked cases into a local refinement workflow. Summary-only mode returns counts, chunk metadata, ObjectID counts when available, and review notes without geometry download. Split-batches mode creates a bounded plan and does not silently execute all batches. Attribute filters are suggested only from real target-layer fields or profiled fields.
+
+See `docs/spatial_analysis_execution.md`, `docs/spatial_query_optimizer.md`, `docs/analysis_refinement.md`, and `docs/analysis_safety_limits.md`.
 
 ## Field Intelligence And Filter Planning
 

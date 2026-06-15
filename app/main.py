@@ -15,6 +15,13 @@ from app.adjustment_engine import (
     validate_adjusted_packet,
 )
 from app.analysis_executor import build_analysis_plan, execute_analysis, list_runs as list_analysis_runs
+from app.analysis_refinement_engine import (
+    build_refined_analysis_plan,
+    create_refinement_session_from_blocked_run,
+    execute_refined_analysis,
+    list_refinement_sessions,
+    select_refinement_option,
+)
 from app.analysis_result_store import validate_analysis_run
 from app.approval_engine import (
     apply_approval_to_adjusted_packet,
@@ -561,6 +568,50 @@ def _validate_analysis_run(path_or_id: str) -> int:
     return 0 if validation["is_valid"] else 1
 
 
+def _create_analysis_refinement(analysis_run_id: str) -> int:
+    session = create_refinement_session_from_blocked_run(analysis_run_id)
+    print(json.dumps(session, indent=2, default=str))
+    return 0
+
+
+def _list_analysis_refinements() -> int:
+    rows = list_refinement_sessions()
+    if not rows:
+        print("analysis refinements: none")
+        return 0
+    for row in rows:
+        print(
+            f"{row['session_id']} | source={row.get('source_analysis_run_id')} | "
+            f"{row.get('status')} | optimized={row.get('optimized_count')} | limit={row.get('safety_limit')}"
+        )
+    print(f"analysis refinements listed: {len(rows)}")
+    return 0
+
+
+def _select_analysis_refinement(session_id: str, option_id: str, params_json: str | None) -> int:
+    try:
+        params = json.loads(params_json or "{}")
+    except json.JSONDecodeError as exc:
+        print(f"--params-json must be valid JSON: {exc}")
+        return 1
+    if not isinstance(params, dict):
+        print("--params-json must decode to a JSON object.")
+        return 1
+    session = select_refinement_option(session_id, option_id, params)
+    plan = build_refined_analysis_plan(session_id)
+    session["refined_plan"] = plan
+    session["status"] = "planned"
+    print(json.dumps(session, indent=2, default=str))
+    return 0
+
+
+def _execute_analysis_refinement(session_id: str) -> int:
+    session = execute_refined_analysis(session_id)
+    print(json.dumps(session, indent=2, default=str))
+    status = session.get("status")
+    return 0 if status in {"completed", "planned"} else 1
+
+
 def _preview_packet(path: str, port: int | None = None) -> int:
     try:
         config = build_preview_config(path)
@@ -813,6 +864,32 @@ def main() -> int:
         help="Validate a generated analysis output folder or stored run id.",
     )
     parser.add_argument(
+        "--create-analysis-refinement",
+        metavar="ANALYSIS_RUN_ID",
+        help="Create user-guided refinement options from a blocked analysis run.",
+    )
+    parser.add_argument(
+        "--list-analysis-refinements",
+        action="store_true",
+        help="List analysis refinement sessions.",
+    )
+    parser.add_argument(
+        "--select-analysis-refinement",
+        nargs=2,
+        metavar=("SESSION_ID", "OPTION_ID"),
+        help="Select an analysis refinement option with optional --params-json.",
+    )
+    parser.add_argument(
+        "--params-json",
+        metavar="JSON",
+        help="JSON parameters for --select-analysis-refinement.",
+    )
+    parser.add_argument(
+        "--execute-analysis-refinement",
+        metavar="SESSION_ID",
+        help="Execute the selected refinement option if it is safe.",
+    )
+    parser.add_argument(
         "--learn-from-approved-packet",
         metavar="APPROVED_PACKET_FOLDER",
         help="Learn deterministic approved defaults from a local approved packet.",
@@ -922,6 +999,18 @@ def main() -> int:
             return _list_analysis_runs()
         if args.validate_analysis_run:
             return _validate_analysis_run(args.validate_analysis_run)
+        if args.create_analysis_refinement:
+            return _create_analysis_refinement(args.create_analysis_refinement)
+        if args.list_analysis_refinements:
+            return _list_analysis_refinements()
+        if args.select_analysis_refinement:
+            return _select_analysis_refinement(
+                args.select_analysis_refinement[0],
+                args.select_analysis_refinement[1],
+                args.params_json,
+            )
+        if args.execute_analysis_refinement:
+            return _execute_analysis_refinement(args.execute_analysis_refinement)
         if args.learn_from_approved_packet:
             return _learn_from_approved_packet(args.learn_from_approved_packet)
         if args.list_patterns:
