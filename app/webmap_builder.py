@@ -601,9 +601,10 @@ def validate_webmap_json(webmap_json: dict[str, Any]) -> dict[str, Any]:
         layer_definition = layer.get("layerDefinition") or {}
         definition_expression = layer_definition.get("definitionExpression")
         if definition_expression:
-            if layer.get("autoMapDefinitionSource") != "filter_plan":
-                errors.append(f"{title or f'Layer {index}'} definitionExpression is not marked as filter_plan sourced.")
-            if layer.get("autoMapFilterPlanLayerKey") != layer_key:
+            definition_source = layer.get("autoMapDefinitionSource")
+            if definition_source not in {"filter_plan", "human_adjustment"}:
+                errors.append(f"{title or f'Layer {index}'} definitionExpression is not marked as filter_plan or human_adjustment sourced.")
+            if definition_source == "filter_plan" and layer.get("autoMapFilterPlanLayerKey") != layer_key:
                 errors.append(f"{title or f'Layer {index}'} definitionExpression is missing its filter plan layer key.")
 
     return {

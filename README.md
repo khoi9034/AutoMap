@@ -4,7 +4,7 @@ AutoMap converts plain-English county GIS map requests into structured map recip
 
 ## Current Phase
 
-v0.5 draft review packets and local preview dashboard.
+v0.6 human adjustment loop.
 
 This repository is intentionally independent. It does not connect to CFS or import CFS code. AutoMap uses its own local PostGIS database and trusted layer catalog.
 
@@ -147,8 +147,23 @@ python -m app.main --validate-review-packet outputs/review_packets/<packet-folde
 
 Generated review packets are local files under `outputs/review_packets/`, which is ignored by Git.
 
+## Human Adjustment Loop
+
+AutoMap v0.6 lets a reviewer edit a local YAML or JSON adjustment file to refine a draft before any future publishing phase. The original review packet is preserved, and AutoMap writes a separate adjusted packet under `outputs/review_packets_adjusted/`.
+
+`publish_ready` is only a review flag. It does not publish anything, does not create ArcGIS items, and does not require ArcGIS login.
+
+```bash
+python -m app.main --make-review-packet "Show parcels in Concord that are in the 100-year floodplain."
+python -m app.main --create-adjustment-template outputs/review_packets/<packet-folder>
+python -m app.main --apply-adjustments outputs/review_packets/<packet-folder> outputs/review_packets/<packet-folder>/adjustments.template.yaml
+python -m app.main --validate-adjusted-packet outputs/review_packets_adjusted/<adjusted-packet-folder>
+```
+
+Adjusted packets include original and adjusted recipe/WebMap JSON, applied adjustment audit details, adjusted warning status, layer review, and `adjusted_review.html`.
+
 ## Notes
 
 - Approved GIS layers come from AutoMap's local `automap.layer_catalog`.
-- Generated recipes and WebMap drafts are local artifacts and are not committed.
-- ArcGIS Online or Portal publishing is not part of v0.5.
+- Generated recipes, WebMap drafts, review packets, and adjusted packets are local artifacts and are not committed.
+- ArcGIS Online or Portal publishing is not part of v0.6.

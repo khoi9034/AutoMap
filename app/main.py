@@ -8,6 +8,11 @@ import sys
 
 from sqlalchemy.exc import SQLAlchemyError
 
+from app.adjustment_engine import (
+    apply_adjustments_to_review_packet,
+    create_adjustment_template,
+    validate_adjusted_packet,
+)
 from app.catalog_builder import build_catalog_records, inspect_services
 from app.config import get_settings
 from app.data_gap_registry import list_data_gaps
@@ -282,6 +287,31 @@ def _validate_review_packet(path: str) -> int:
     return 0 if validation["is_valid"] else 1
 
 
+def _create_adjustment_template(path: str) -> int:
+    template_path = create_adjustment_template(path)
+    print(f"adjustment template created: {template_path}")
+    return 0
+
+
+def _apply_adjustments(packet_folder: str, adjustment_file: str) -> int:
+    adjusted_path = apply_adjustments_to_review_packet(packet_folder, adjustment_file)
+    validation = validate_adjusted_packet(adjusted_path)
+    print(f"adjusted packet saved: {adjusted_path}")
+    print(f"validation passed: {validation['is_valid']}")
+    print(f"publish ready: {validation.get('publish_ready')}")
+    if validation["errors"]:
+        print("validation errors:")
+        for error in validation["errors"]:
+            print(f"- {error}")
+    return 0 if validation["is_valid"] else 1
+
+
+def _validate_adjusted_packet(path: str) -> int:
+    validation = validate_adjusted_packet(path)
+    print(json.dumps(validation, indent=2))
+    return 0 if validation["is_valid"] else 1
+
+
 def main() -> int:
     """Run the AutoMap command-line interface."""
     parser = argparse.ArgumentParser(description="AutoMap command-line tools")
@@ -378,6 +408,22 @@ def main() -> int:
         metavar="PATH",
         help="Validate a generated AutoMap review packet folder.",
     )
+    parser.add_argument(
+        "--create-adjustment-template",
+        metavar="REVIEW_PACKET_FOLDER",
+        help="Create a YAML adjustment template inside a review packet folder.",
+    )
+    parser.add_argument(
+        "--apply-adjustments",
+        nargs=2,
+        metavar=("REVIEW_PACKET_FOLDER", "ADJUSTMENT_FILE"),
+        help="Apply a YAML or JSON adjustment file to a review packet.",
+    )
+    parser.add_argument(
+        "--validate-adjusted-packet",
+        metavar="PATH",
+        help="Validate a generated adjusted review packet folder.",
+    )
     args = parser.parse_args()
 
     try:
@@ -413,6 +459,12 @@ def main() -> int:
             return _make_review_packet(args.make_review_packet)
         if args.validate_review_packet:
             return _validate_review_packet(args.validate_review_packet)
+        if args.create_adjustment_template:
+            return _create_adjustment_template(args.create_adjustment_template)
+        if args.apply_adjustments:
+            return _apply_adjustments(args.apply_adjustments[0], args.apply_adjustments[1])
+        if args.validate_adjusted_packet:
+            return _validate_adjusted_packet(args.validate_adjusted_packet)
     except ValueError as exc:
         print(f"Configuration error: {exc}")
         return 1
