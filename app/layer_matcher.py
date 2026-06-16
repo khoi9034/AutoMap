@@ -100,6 +100,8 @@ def _split_intelligence(intelligence: dict[str, Any] | None) -> tuple[dict[str, 
 
 
 def _candidate_matches_topic(record: dict[str, Any], topic: str) -> bool:
+    if record.get("approval_status") in {"candidate", "needs_review"}:
+        return False
     categories = TOPIC_CATEGORIES.get(topic, {topic})
     if record.get("category") in categories or record.get("canonical_topic") in categories:
         return True
@@ -191,6 +193,20 @@ def _score_record(
     if record.get("is_verified"):
         score += 15
         reasons.append("verified REST layer")
+    approval_status = record.get("approval_status") or "approved"
+    source_status = str(record.get("source_status") or "")
+    if approval_status == "approved":
+        score += 5
+        reasons.append("approved source")
+    else:
+        score -= 200
+        reasons.append("candidate source requires review")
+    if source_status == "proxy":
+        score -= 20
+        reasons.append("proxy/context source")
+    elif source_status == "reference":
+        score -= 10
+        reasons.append("reference/context source")
     if int(record.get("source_priority") or 999) == 1:
         score += 15
         reasons.append("new OpenData priority")
@@ -281,6 +297,12 @@ def _match_topic(
         candidate["why_selected"] = why_selected(candidate, topic, intelligence)
         candidate["why_not_legacy"] = why_not_legacy(candidate, intelligence)
         candidate["review_notes"] = review_notes_for_layer(candidate, topic)
+        if candidate.get("source_status") == "proxy":
+            candidate["review_notes"] = [
+                *candidate.get("review_notes", []),
+                "Proxy/context layer only; do not treat as official permit, planning approval, development approval, or capacity.",
+            ]
+            candidate["role"] = "reference_layer"
         scored.append(candidate)
 
     scored = sort_layer_candidates(scored)
@@ -387,15 +409,35 @@ def match_layers(
 
     development_terms = parsed_request.get("topic_details", {}).get("development_terms") or []
     if "development" in topics:
-        selected_blob = _text_blob({"selected": [layer["layer_name"] for layer in selected_layers]}, ["selected"])
+        official_parts: list[str] = []
+        for layer in selected_layers:
+            if layer.get("source_status") in {"proxy", "reference"}:
+                continue
+            if (layer.get("approval_status") or "approved") != "approved":
+                continue
+            official_parts.append(
+                _text_blob(
+                    layer,
+                    [
+                        "layer_name",
+                        "service_name",
+                        "category",
+                        "aliases",
+                        "description",
+                        "planning_use_cases",
+                        "canonical_topic",
+                    ],
+                )
+            )
+        official_blob = " ".join(official_parts)
         for term in development_terms:
-            if term == "planning_cases" and "planning" not in selected_blob:
+            if term == "planning_cases" and "planning" not in official_blob:
                 missing_data_needed.append("planning cases")
-            if term == "permits" and "permit" not in selected_blob:
+            if term == "permits" and "permit" not in official_blob:
                 missing_data_needed.append("permits")
-            if term in {"subdivision_activity", "development_pipeline"} and "subdivision" not in selected_blob and "development" not in selected_blob:
+            if term in {"subdivision_activity", "development_pipeline"} and "subdivision" not in official_blob and "development" not in official_blob:
                 missing_data_needed.append("subdivision activity" if term == "subdivision_activity" else "development")
-            if term == "construction_activity" and "construction" not in selected_blob and "permit" not in selected_blob:
+            if term == "construction_activity" and "construction" not in official_blob and "permit" not in official_blob:
                 missing_data_needed.append("permits")
 
     rejected_layers = sorted(

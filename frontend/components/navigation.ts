@@ -13,6 +13,7 @@ export const navigationItems = [
   { href: "/reports", label: "Reports" },
   { href: "/layer-catalog", label: "Layer Catalog" },
   { href: "/data-gaps", label: "Data Gaps" },
+  { href: "/external-sources", label: "External Sources" },
   { href: "/history", label: "History" },
   { href: "/system-status", label: "System Status" },
 ];

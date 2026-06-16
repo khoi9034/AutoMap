@@ -43,8 +43,18 @@ from app.arcgis_publisher import (
 from app.catalog_builder import build_catalog_records, inspect_services
 from app.config import get_settings
 from app.data_gap_registry import list_data_gaps
+from app.data_gap_resolver import (
+    list_gap_resolution_candidates,
+    map_gap_to_candidate_sources,
+    resolve_known_data_gaps,
+)
 from app.db import test_db_connection
 from app.demo_workflow import run_demo_workflow
+from app.external_source_registry import (
+    inspect_registered_external_sources,
+    list_external_sources,
+    load_seed_external_sources,
+)
 from app.feedback_learning import learn_from_approved_packet
 from app.field_profiler import (
     log_recipe_validation,
@@ -251,6 +261,60 @@ def _list_data_gaps() -> int:
             f"{gap['missing_layer_type']} | {gap['reason']}"
         )
     print(f"data gaps: {len(gaps)}")
+    return 0
+
+
+def _load_external_sources() -> int:
+    result = load_seed_external_sources()
+    print(f"external sources loaded: {result['loaded']}")
+    for source in result["sources"]:
+        print(
+            f"- {source['source_key']} | {source['approval_status']} | "
+            f"{source['source_status']} | gaps={', '.join(source.get('intended_gaps') or [])}"
+        )
+    return 0
+
+
+def _inspect_external_sources() -> int:
+    result = inspect_registered_external_sources()
+    print(f"external sources inspected: {result['inspected']}")
+    print(f"catalog records upserted: {result['catalog_upserts']}")
+    for source in result["sources"]:
+        metadata = source.get("inspected_metadata") or {}
+        print(
+            f"- {source['source_key']} | {metadata.get('inspection_status')} | "
+            f"verified={metadata.get('is_verified')} | geometry_downloaded={metadata.get('downloaded_geometry')}"
+        )
+    return 0
+
+
+def _list_external_sources() -> int:
+    rows = list_external_sources()
+    for row in rows:
+        metadata = row.get("inspected_metadata") or {}
+        print(
+            f"{row['source_key']} | {row['source_name']} | {row['approval_status']} | "
+            f"{row['source_status']} | inspect={metadata.get('inspection_status', 'not_inspected')}"
+        )
+    print(f"external sources: {len(rows)}")
+    return 0
+
+
+def _resolve_data_gaps() -> int:
+    result = resolve_known_data_gaps()
+    print(json.dumps(result, indent=2, default=str))
+    return 0
+
+
+def _gap_candidates(gap_key: str) -> int:
+    candidates = map_gap_to_candidate_sources(gap_key)
+    print(json.dumps({"gap_key": gap_key, "candidates": candidates}, indent=2, default=str))
+    return 0
+
+
+def _list_gap_resolution_candidates() -> int:
+    result = list_gap_resolution_candidates()
+    print(json.dumps(result, indent=2, default=str))
     return 0
 
 
@@ -775,6 +839,36 @@ def main() -> int:
         help="List missing-data topics recorded from recipe runs.",
     )
     parser.add_argument(
+        "--load-external-sources",
+        action="store_true",
+        help="Load data/external_rest_sources.seed.json into the external source registry.",
+    )
+    parser.add_argument(
+        "--inspect-external-sources",
+        action="store_true",
+        help="Inspect registered external source metadata without downloading feature geometries.",
+    )
+    parser.add_argument(
+        "--list-external-sources",
+        action="store_true",
+        help="List registered external data source candidates.",
+    )
+    parser.add_argument(
+        "--resolve-data-gaps",
+        action="store_true",
+        help="Evaluate known data gaps against registered external source candidates.",
+    )
+    parser.add_argument(
+        "--gap-candidates",
+        metavar="GAP_KEY",
+        help="Show candidate external sources for one data gap.",
+    )
+    parser.add_argument(
+        "--list-gap-resolution-candidates",
+        action="store_true",
+        help="List data gap candidates for all tracked gaps.",
+    )
+    parser.add_argument(
         "--make-webmap-draft",
         metavar="PROMPT",
         help="Create and save local-only ArcGIS WebMap draft JSON from a GIS request.",
@@ -1019,6 +1113,18 @@ def main() -> int:
             return _validate_recipe(args.validate_recipe)
         if args.list_data_gaps:
             return _list_data_gaps()
+        if args.load_external_sources:
+            return _load_external_sources()
+        if args.inspect_external_sources:
+            return _inspect_external_sources()
+        if args.list_external_sources:
+            return _list_external_sources()
+        if args.resolve_data_gaps:
+            return _resolve_data_gaps()
+        if args.gap_candidates:
+            return _gap_candidates(args.gap_candidates)
+        if args.list_gap_resolution_candidates:
+            return _list_gap_resolution_candidates()
         if args.make_webmap_draft:
             return _make_webmap_draft(args.make_webmap_draft)
         if args.validate_webmap_draft:

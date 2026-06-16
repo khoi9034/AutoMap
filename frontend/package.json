@@ -1,6 +1,6 @@
 {
   "name": "automap-frontend",
-  "version": "2.3.0",
+  "version": "2.4.0",
   "private": true,
   "scripts": {
     "dev": "node scripts/guard-ports.mjs && node scripts/clean-dev-cache.mjs && next dev -p 3010",

@@ -3,6 +3,8 @@ import type {
   ClarificationDefault,
   ClarificationSession,
   DataGap,
+  DataGapCandidate,
+  ExternalSource,
   AnalysisRefinementSession,
   AnalysisReportSummary,
   AnalysisRun,
@@ -113,7 +115,7 @@ export async function getStatusOrFallback(): Promise<SystemStatus> {
     return await getSystemStatus();
   } catch {
     return {
-      version: "2.3.0",
+      version: "2.4.0",
       database_connected: false,
       catalog: {},
       profiles: {},
@@ -277,6 +279,47 @@ export async function searchCatalog(query: string): Promise<{ query: string; row
 
 export async function getDataGaps(): Promise<{ rows: DataGap[] }> {
   return apiFetch<{ rows: DataGap[] }>("/api/data-gaps");
+}
+
+export async function getGapCandidates(gapKey: string): Promise<{ gap_key: string; candidates: DataGapCandidate[] }> {
+  return apiFetch<{ gap_key: string; candidates: DataGapCandidate[] }>(
+    `/api/data-gaps/${encodeURIComponent(gapKey)}/candidates`,
+  );
+}
+
+export async function resolveDataGap(payload: {
+  gap_key: string;
+  source_key?: string;
+  resolution_status?: string;
+  notes?: string;
+}): Promise<Record<string, unknown>> {
+  return apiFetch<Record<string, unknown>>("/api/data-gaps/resolve", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function getExternalSources(): Promise<{ external_sources: ExternalSource[] }> {
+  return apiFetch<{ external_sources: ExternalSource[] }>("/api/external-sources");
+}
+
+export async function loadExternalSources(): Promise<{ loaded: number; sources: ExternalSource[] }> {
+  return apiFetch<{ loaded: number; sources: ExternalSource[] }>("/api/external-sources/load", {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
+}
+
+export async function inspectExternalSources(): Promise<{
+  inspected: number;
+  catalog_upserts: number;
+  sources: ExternalSource[];
+}> {
+  return apiFetch<{ inspected: number; catalog_upserts: number; sources: ExternalSource[] }>("/api/external-sources/inspect", {
+    method: "POST",
+    timeoutMs: 180000,
+    body: JSON.stringify({}),
+  });
 }
 
 export async function getHistory(): Promise<{ request_history: HistoryRow[]; approval_history: HistoryRow[] }> {

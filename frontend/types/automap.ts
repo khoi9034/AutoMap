@@ -24,6 +24,7 @@ export type SystemStatus = {
     value_profile_count?: number;
   };
   data_gap_count?: number;
+  external_source_count?: number;
   request_history_count?: number;
   approval_history_count?: number;
   analysis_run_count?: number;
@@ -56,6 +57,7 @@ export type LayerRecord = {
   layer_url?: string;
   service_name?: string;
   aliases?: string[];
+  approval_status?: string;
 };
 
 export type SelectedLayer = {
@@ -67,6 +69,7 @@ export type SelectedLayer = {
   service_url?: string;
   source_status?: string;
   source_priority?: number;
+  approval_status?: string;
   geometry_type?: string;
   confidence_score?: number;
   match_score?: number;
@@ -343,6 +346,7 @@ export type MapRecipe = {
   review_reasons?: string[];
   missing_data_needed?: string[];
   data_gap_notes?: JsonValue[];
+  data_gap_resolution_context?: Record<string, JsonValue>;
 };
 
 export type ApprovedPattern = {
@@ -541,6 +545,32 @@ export type DataGap = {
   status?: string;
   created_at?: string;
   updated_at?: string;
+};
+
+export type ExternalSource = {
+  source_key?: string;
+  source_name?: string;
+  source_type?: string;
+  base_url?: string | null;
+  layer_url?: string | null;
+  priority?: number;
+  approval_status?: "approved" | "candidate" | "needs_review" | string;
+  source_status?: "active" | "proxy" | "reference" | "legacy" | string;
+  categories?: string[];
+  intended_gaps?: string[];
+  inspected_metadata?: Record<string, JsonValue>;
+  limitations?: string;
+  is_active?: boolean;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type DataGapCandidate = ExternalSource & {
+  gap_key?: string;
+  source_score?: number;
+  metadata_summary?: Record<string, JsonValue>;
+  classified_limitations?: string[];
+  resolution_recommendation?: string;
 };
 
 export type HistoryRow = {

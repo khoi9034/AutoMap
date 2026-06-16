@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from app.data_gap_registry import upsert_data_gaps_from_recipe
+from app.data_gap_resolver import safe_gap_context_for_recipe
 from app.default_suggester import build_learned_context
 from app.filter_planner import build_filter_plan, validate_filter_plan
 from app.layer_matcher import match_layers
@@ -154,10 +155,16 @@ def _review_flags(
     matching: dict[str, Any],
     request_intelligence: dict[str, Any] | None = None,
     analysis_plan: dict[str, Any] | None = None,
+    data_gap_context: dict[str, Any] | None = None,
 ) -> list[str]:
     flags: list[str] = []
     if matching["missing_data_needed"]:
         flags.append("Missing requested data from verified layer catalog.")
+    for gap_key, context in (data_gap_context or {}).items():
+        if context.get("candidates"):
+            flags.append(f"Data gap candidate sources available for review: {gap_key}.")
+            if any(candidate.get("source_status") == "proxy" for candidate in context.get("candidates") or []):
+                flags.append(f"Proxy/context source exists for {gap_key}; do not treat it as official approval or capacity.")
     if "recent" in parsed_request.get("time_references", []):
         flags.append("Recent time range and date field need review.")
     if parsed_request.get("analysis_intent") == "proximity":
@@ -186,6 +193,7 @@ def build_recipe(
     parsed_request = parse_prompt(prompt)
     initial_intelligence = build_request_intelligence(prompt, parsed_request)
     matching = match_layers(parsed_request, layer_catalog, request_intelligence=initial_intelligence)
+    data_gap_context = safe_gap_context_for_recipe(matching["missing_data_needed"])
     selected_layers = [selected_layer_from_match(layer) for layer in matching["selected_layers"]]
     rejected_layers = [rejected_layer_from_match(layer) for layer in matching["rejected_layers"]]
     intelligence_bundle = build_request_intelligence(
@@ -197,7 +205,7 @@ def build_recipe(
     request_intelligence = intelligence_bundle["request_intelligence"]
     analysis_plan = intelligence_bundle["analysis_plan"]
     learned_context = build_learned_context(prompt, request_intelligence, analysis_plan)
-    review_flags = _review_flags(parsed_request, matching, request_intelligence, analysis_plan)
+    review_flags = _review_flags(parsed_request, matching, request_intelligence, analysis_plan, data_gap_context)
 
     recipe = {
         "map_title": _title_from_prompt(parsed_request),
@@ -206,6 +214,7 @@ def build_recipe(
         "request_intelligence": request_intelligence,
         "analysis_plan": analysis_plan,
         "learned_context": learned_context,
+        "data_gap_resolution_context": data_gap_context,
         "selected_layers": selected_layers,
         "rejected_layers": rejected_layers,
         "filters": _filters(parsed_request),

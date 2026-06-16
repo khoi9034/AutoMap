@@ -163,11 +163,41 @@ def test_warning_panel_groups_human_review_warnings():
 
 def test_data_gaps_page_explains_missing_sources_not_failures():
     source = read("app/data-gaps/page.tsx")
+    resolver = read("components/data-gap-resolver-client.tsx")
 
     assert "These are not AutoMap failures" in source
-    assert "current_permits" in source
-    assert "current_planning_cases" in source
-    assert "current_development_pipeline" in source
+    assert "DataGapResolverClient" in source
+    assert "current_permits" in resolver
+    assert "current_planning_cases" in resolver
+    assert "current_development_pipeline" in resolver
+    assert "Proxy sources are not official approvals" in resolver
+    assert "getGapCandidates" in resolver
+    assert "resolveDataGap" in resolver
+
+
+def test_external_sources_page_components_and_api_are_present():
+    navigation = read("components/navigation.ts")
+    page = read("app/external-sources/page.tsx")
+    client = read("components/external-sources-client.tsx")
+    api = read("lib/api.ts")
+    types = read("types/automap.ts")
+
+    assert 'href: "/external-sources"' in navigation
+    assert "Candidate REST source connector registry" in page
+    assert "Load Seed Sources" in client
+    assert "Inspect Metadata" in client
+    assert "Proxy" in client
+    assert "context layers" in client
+    assert "No ArcGIS login is required" in client
+    assert "getExternalSources" in api
+    assert "loadExternalSources" in api
+    assert "inspectExternalSources" in api
+    assert '"/api/external-sources"' in api
+    assert "/api/data-gaps/${" in api
+    assert "ExternalSource" in types
+    assert "DataGapCandidate" in types
+    assert "confirm-publish" not in client.lower()
+    assert "publish-draft-webmap" not in client.lower()
 
 
 def test_api_client_has_timeout_and_sanitized_fallback_version():
@@ -175,7 +205,7 @@ def test_api_client_has_timeout_and_sanitized_fallback_version():
 
     assert "Backend API request timed out" in source
     assert "http://127.0.0.1:8010" in source
-    assert 'version: "2.3.0"' in source
+    assert 'version: "2.4.0"' in source
     assert "redactProtected" in source
 
 
@@ -333,5 +363,6 @@ def test_frontend_types_include_request_intelligence_recipe_fields():
     assert "request_intelligence" in types
     assert "analysis_plan" in types
     assert "learned_context" in types
+    assert "data_gap_resolution_context" in types
     assert "why_selected" in types
     assert "why_not_legacy" in types

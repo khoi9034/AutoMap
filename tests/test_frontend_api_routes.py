@@ -66,6 +66,11 @@ def test_frontend_workflow_api_routes_exist():
         "/api/status",
         "/api/catalog/search",
         "/api/data-gaps",
+        "/api/data-gaps/{gap_key}/candidates",
+        "/api/data-gaps/resolve",
+        "/api/external-sources",
+        "/api/external-sources/load",
+        "/api/external-sources/inspect",
         "/api/history",
         "/api/packets",
         "/api/reports",
@@ -153,6 +158,72 @@ def test_api_analysis_routes_are_json_and_sanitized(monkeypatch):
     assert listed.status_code == 200
     assert detail.status_code == 200
     assert executed.json()["analysis_result"]["status"] == "completed"
+    assert "confirm-publish" not in serialized
+    assert "publish-draft-webmap" not in serialized
+    assert "database_url" not in serialized
+    assert "cfs_dev" not in serialized
+
+
+def test_api_external_source_routes_are_json_and_sanitized(monkeypatch):
+    source = {
+        "source_key": "cabarrus_accela_plan_review_proxy",
+        "source_name": "Plan Review Proxy",
+        "approval_status": "candidate",
+        "source_status": "proxy",
+        "intended_gaps": ["current_development_pipeline"],
+        "inspected_metadata": {"inspection_status": "reference_only", "downloaded_geometry": False},
+    }
+    monkeypatch.setattr("app.api_routes.list_external_sources", lambda: [source])
+    monkeypatch.setattr("app.api_routes.load_seed_external_sources", lambda: {"loaded": 1, "sources": [source]})
+    monkeypatch.setattr(
+        "app.api_routes.inspect_registered_external_sources",
+        lambda: {"inspected": 1, "catalog_upserts": 0, "sources": [source]},
+    )
+    monkeypatch.setattr(
+        "app.api_routes.map_gap_to_candidate_sources",
+        lambda gap_key: [{**source, "gap_key": gap_key, "source_score": 80, "classified_limitations": ["Proxy/context only."]}],
+    )
+    monkeypatch.setattr(
+        "app.api_routes.resolve_gap_with_source",
+        lambda gap_key, source_key, resolution_status=None, notes=None: {
+            "resolution": {
+                "gap_key": gap_key,
+                "source_key": source_key,
+                "resolution_status": resolution_status or "needs_review",
+            }
+        },
+    )
+    client = TestClient(create_app())
+
+    listed = client.get("/api/external-sources")
+    loaded = client.post("/api/external-sources/load")
+    inspected = client.post("/api/external-sources/inspect")
+    candidates = client.get("/api/data-gaps/current_development_pipeline/candidates")
+    resolved = client.post(
+        "/api/data-gaps/resolve",
+        json={
+            "gap_key": "current_development_pipeline",
+            "source_key": "cabarrus_accela_plan_review_proxy",
+            "resolution_status": "needs_review",
+        },
+    )
+    serialized = json.dumps(
+        {
+            "listed": listed.json(),
+            "loaded": loaded.json(),
+            "inspected": inspected.json(),
+            "candidates": candidates.json(),
+            "resolved": resolved.json(),
+        }
+    ).lower()
+
+    assert listed.status_code == 200
+    assert loaded.status_code == 200
+    assert inspected.status_code == 200
+    assert candidates.status_code == 200
+    assert resolved.status_code == 200
+    assert inspected.json()["catalog_upserts"] == 0
+    assert candidates.json()["candidates"][0]["source_status"] == "proxy"
     assert "confirm-publish" not in serialized
     assert "publish-draft-webmap" not in serialized
     assert "database_url" not in serialized

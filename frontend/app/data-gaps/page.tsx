@@ -1,14 +1,8 @@
+import { DataGapResolverClient } from "@/components/data-gap-resolver-client";
 import { SectionHeader } from "@/components/section-header";
 import { StatusChip } from "@/components/status-chip";
 import { getDataGaps } from "@/lib/api";
 import type { DataGap } from "@/types/automap";
-
-function gapTitle(key: string): string {
-  return key
-    .split("_")
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
-}
 
 export default async function DataGapsPage() {
   let rows: DataGap[] = [];
@@ -18,10 +12,6 @@ export default async function DataGapsPage() {
   } catch (exc) {
     error = exc instanceof Error ? exc.message : "Data gaps failed.";
   }
-  const knownCurrentGapKeys = ["current_permits", "current_planning_cases", "current_development_pipeline"];
-  const knownCurrentGaps = knownCurrentGapKeys.map(
-    (gapKey) => rows.find((row) => row.gap_key === gapKey) || ({ gap_key: gapKey } as DataGap),
-  );
 
   return (
     <div className="page-stack">
@@ -37,38 +27,7 @@ export default async function DataGapsPage() {
         </div>
       ) : null}
 
-      <section className="notice">
-        <strong>How to read this page</strong>
-        <p>
-          AutoMap only selects layers that exist in the verified catalog. When a topic such as permits or planning
-          cases lacks an approved current layer, the request stays transparent and the missing source is tracked here.
-        </p>
-      </section>
-
-      <section className="data-gap-grid" aria-label="Known current data gaps">
-        {knownCurrentGaps.map((gap) => (
-          <article className="data-gap-card" key={gap.gap_key}>
-            <div className="panel-title-row">
-              <div>
-                <p className="eyebrow">Known gap</p>
-                <h3>{gapTitle(gap.gap_key || "unknown_gap")}</h3>
-              </div>
-              <StatusChip tone={gap.status === "closed" ? "success" : "warning"}>{gap.status || "open"}</StatusChip>
-            </div>
-            <dl className="layer-meta">
-              <div>
-                <dt>Topic</dt>
-                <dd>{gap.topic || "development activity"}</dd>
-              </div>
-              <div>
-                <dt>Missing layer type</dt>
-                <dd>{gap.missing_layer_type || "approved current layer"}</dd>
-              </div>
-            </dl>
-            <p className="muted">{gap.reason || "Tracked until a verified county source is available."}</p>
-          </article>
-        ))}
-      </section>
+      <DataGapResolverClient initialRows={rows} />
 
       <section className="panel">
         <div className="panel-title-row">

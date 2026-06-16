@@ -2,11 +2,11 @@
 
 AutoMap converts plain-English county GIS map requests into structured map recipes using only approved GIS layers from a local layer catalog.
 
-Version: `2.3.0`
+Version: `2.4.0`
 
 ## Current Phase
 
-v2.3 Summary Analytics and Report Export for Analysis Results on top of user-guided safe spatial analysis refinement.
+v2.4 Data Gap Resolver and External Source Connectors on top of analysis summary reporting and user-guided safe spatial analysis refinement.
 
 This repository is intentionally independent. It does not connect to CFS or import CFS code. AutoMap uses its own local PostGIS database and trusted layer catalog.
 
@@ -36,6 +36,7 @@ AutoMap helps GIS and planning staff turn plain-English county map requests into
 - safe bounded spatial analysis execution with server-side query optimization and local GeoJSON outputs
 - user-guided refinement for blocked spatial analyses, including summary-only outputs without geometry download
 - summary analytics reports from analysis runs and refinements using counts/statistics instead of geometry download
+- external source registry and data gap resolver for current permits, planning cases, development pipeline proxies, AADT, and STIP context
 
 ## What AutoMap Does Not Do Yet
 
@@ -68,6 +69,7 @@ ArcGIS publishing and smoke testing remain dry-run by default unless a guarded C
 21. v2.1 bounded spatial query optimizer
 22. v2.2 user-guided analysis refinement
 23. v2.3 summary analytics and report export for analysis results
+24. v2.4 data gap resolver and external source connectors
 
 ## Project Structure
 
@@ -110,7 +112,7 @@ python -m pytest
 
 ## Next.js Frontend
 
-AutoMap v2.3 adds analysis summary reports to the safe Analysis workflow in the Next.js + TypeScript shell under `frontend/`. The FastAPI backend remains the API and workflow engine, and the existing FastAPI/Jinja UI is preserved.
+AutoMap v2.4 adds a data gap resolver and external source connector registry to the safe Analysis workflow in the Next.js + TypeScript shell under `frontend/`. The FastAPI backend remains the API and workflow engine, and the existing FastAPI/Jinja UI is preserved.
 
 Start the backend API on port `8010`:
 
@@ -167,12 +169,13 @@ Frontend pages:
 - `/reports`
 - `/layer-catalog`
 - `/data-gaps`
+- `/external-sources`
 - `/history`
 - `/system-status`
 
 The frontend can run dry-run publish and portal smoke-test dry-run actions only. Real publish remains CLI-only.
 
-The workflow shell includes an operations dashboard, quick prompt bar, demo scenarios, clarification form, recipe review workspace, local map preview, layer panel, grouped warning panel, human adjustment editor, approval gate, dry-run publish center, approved-pattern learning center, report/export center, catalog search, data gaps, history, and sanitized system status.
+The workflow shell includes an operations dashboard, quick prompt bar, demo scenarios, clarification form, recipe review workspace, local map preview, layer panel, grouped warning panel, human adjustment editor, approval gate, dry-run publish center, approved-pattern learning center, report/export center, catalog search, data gaps, external source review, history, and sanitized system status.
 
 The Map Request and Recipe Review pages now show request intelligence details: detected intents, confidence by intent, spatial relationships, ambiguity flags, clarifying questions, unsupported parts, and the analysis plan. This is deterministic rule-based interpretation only; AutoMap does not call external LLM APIs.
 
@@ -336,6 +339,33 @@ python -m app.main --validate-recipe "Show parcels in Concord that are in the 10
 python -m app.main --list-data-gaps
 ```
 
+## Data Gap Resolver And External Sources
+
+AutoMap v2.4 adds a local external source registry for important missing-data needs:
+
+- current permits
+- current planning cases
+- current development pipeline
+- plan review / Accela pipeline signals
+- AADT traffic counts
+- STIP transportation projects
+
+Sources are marked `approved`, `candidate`, or `needs_review`, and as `active`, `proxy`, `reference`, or `legacy`. Candidate and proxy sources can improve review context, but they do not silently resolve official permit, planning case, or development pipeline gaps.
+
+```bash
+python -m app.main --load-external-sources
+python -m app.main --inspect-external-sources
+python -m app.main --list-external-sources
+python -m app.main --resolve-data-gaps
+python -m app.main --gap-candidates current_permits
+python -m app.main --gap-candidates current_planning_cases
+python -m app.main --gap-candidates current_development_pipeline
+```
+
+The frontend Data Gaps page shows candidate sources and limitation badges. The External Sources page shows the local registry and metadata inspection status.
+
+Metadata inspection uses REST metadata, fields, domains, counts, and non-geometry checks only. AutoMap does not download full feature datasets, does not bulk-ingest data, and does not treat proxy pipeline data as official development approval.
+
 ## ArcGIS WebMap Draft Generator
 
 AutoMap v0.4 creates local ArcGIS WebMap JSON drafts from map recipes. Drafts use verified catalog layer URLs and v0.3 filter-plan definition expressions only. AutoMap does not publish to ArcGIS Online or Portal, does not require an ArcGIS login, and does not ingest full geometries.
@@ -469,6 +499,11 @@ The FastAPI backend exposes JSON-only routes for the Next.js frontend:
 GET /api/status
 GET /api/catalog/search?q=flood
 GET /api/data-gaps
+GET /api/data-gaps/{gap_key}/candidates
+POST /api/data-gaps/resolve
+GET /api/external-sources
+POST /api/external-sources/load
+POST /api/external-sources/inspect
 GET /api/history
 GET /api/packets
 GET /api/preview-config/{packet_id}
@@ -576,6 +611,7 @@ Prompt -> Parser -> Layer Matcher -> Recipe Engine
        -> UX-Polished Local Map Preview
        -> Report And Export Center
        -> Safe Spatial Analysis Execution
+       -> Data Gap Resolver And External Source Review
 ```
 
 The trusted source for layer selection is `automap.layer_catalog`. Generated artifacts live under `outputs/`, which is ignored by Git.
@@ -593,6 +629,8 @@ See:
 - `docs/spatial_analysis_execution.md`
 - `docs/spatial_query_optimizer.md`
 - `docs/analysis_safety_limits.md`
+- `docs/data_gap_resolver.md`
+- `docs/external_source_connectors.md`
 
 ## Notes
 

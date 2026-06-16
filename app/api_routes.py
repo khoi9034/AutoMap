@@ -45,6 +45,12 @@ from app.clarification_engine import (
     refine_recipe_from_answers,
 )
 from app.data_gap_registry import data_gap_records_from_recipe, list_data_gaps
+from app.data_gap_resolver import map_gap_to_candidate_sources, resolve_gap_with_source, resolve_known_data_gaps
+from app.external_source_registry import (
+    inspect_registered_external_sources,
+    list_external_sources,
+    load_seed_external_sources,
+)
 from app.feedback_learning import (
     learn_from_approved_packet,
     learn_from_clarification_session,
@@ -157,6 +163,15 @@ class AnalysisRefinementReportRequest(BaseModel):
     """Generate a report from an analysis refinement session."""
 
     refinement_session_id: str
+
+
+class DataGapResolveRequest(BaseModel):
+    """Resolve or mark a data gap with an external source candidate."""
+
+    gap_key: str
+    source_key: str | None = None
+    resolution_status: str | None = None
+    notes: str | None = None
 
 
 class LearnApprovedRequest(BaseModel):
@@ -305,6 +320,59 @@ def api_catalog_search(q: str = Query(default="flood")) -> Any:
 def api_data_gaps() -> Any:
     """Return current AutoMap data gaps."""
     return _json_response({"rows": list_data_gaps()})
+
+
+@api_router.get("/data-gaps/{gap_key}/candidates")
+def api_data_gap_candidates(gap_key: str) -> Any:
+    """Return external source candidates for one data gap."""
+    try:
+        return _json_response({"gap_key": gap_key, "candidates": map_gap_to_candidate_sources(gap_key)})
+    except ValueError as exc:
+        raise _handle_value_error(exc) from exc
+
+
+@api_router.post("/data-gaps/resolve")
+def api_resolve_data_gap(payload: DataGapResolveRequest) -> Any:
+    """Resolve or mark data gaps using external source candidates."""
+    try:
+        if payload.source_key:
+            result = resolve_gap_with_source(
+                payload.gap_key,
+                payload.source_key,
+                payload.resolution_status,
+                payload.notes,
+            )
+        else:
+            result = resolve_known_data_gaps()
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise _handle_value_error(exc) from exc
+    return _json_response(result)
+
+
+@api_router.get("/external-sources")
+def api_external_sources() -> Any:
+    """Return registered external source candidates."""
+    return _json_response({"external_sources": list_external_sources()})
+
+
+@api_router.post("/external-sources/load")
+def api_load_external_sources() -> Any:
+    """Load seeded external source candidates."""
+    try:
+        return _json_response(load_seed_external_sources())
+    except ValueError as exc:
+        raise _handle_value_error(exc) from exc
+
+
+@api_router.post("/external-sources/inspect")
+def api_inspect_external_sources() -> Any:
+    """Inspect external source metadata without feature geometry downloads."""
+    try:
+        return _json_response(inspect_registered_external_sources())
+    except ValueError as exc:
+        raise _handle_value_error(exc) from exc
 
 
 @api_router.get("/history")

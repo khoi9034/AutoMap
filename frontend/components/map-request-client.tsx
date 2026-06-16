@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
+import { JsonPanel } from "@/components/json-panel";
 import { LearningSuggestionsPanel } from "@/components/learning-suggestions-panel";
 import { samplePrompts } from "@/components/navigation";
 import { RequestIntelligencePanel } from "@/components/request-intelligence-panel";
@@ -201,6 +202,9 @@ export function MapRequestClient() {
 
           <RequestIntelligencePanel recipe={recipe} />
           <LearningSuggestionsPanel learnedContext={recipe.learned_context} />
+          {recipe.data_gap_resolution_context ? (
+            <JsonPanel title="Data gap source candidates" value={recipe.data_gap_resolution_context} />
+          ) : null}
 
           {clarificationQuestionCount(recipe) ? (
             <section className="panel">

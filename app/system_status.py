@@ -14,6 +14,7 @@ from app.analysis_refinement_engine import init_refinement_tables
 from app.analysis_result_store import init_analysis_tables
 from app.data_gap_registry import ensure_data_gap_registry_table
 from app.db import _quote_identifier, get_engine, test_db_connection
+from app.external_source_registry import init_external_source_tables
 from app.field_profiler import ensure_field_intelligence_tables
 from app.layer_catalog_store import ensure_layer_catalog_table
 from app.packet_index import list_adjusted_packets, list_approved_packets, list_review_packets
@@ -58,6 +59,7 @@ def get_system_status(schema_name: str | None = None) -> dict[str, Any]:
             "value_profile_count": 0,
         },
         "data_gap_count": 0,
+        "external_source_count": 0,
         "request_history_count": 0,
         "approval_history_count": 0,
         "analysis_run_count": 0,
@@ -104,6 +106,7 @@ def get_system_status(schema_name: str | None = None) -> dict[str, Any]:
         ensure_layer_catalog_table(schema)
         ensure_field_intelligence_tables(schema)
         ensure_data_gap_registry_table(schema)
+        init_external_source_tables(schema)
         ensure_request_history_table(schema)
         ensure_review_approval_history_table(schema)
         init_analysis_tables(schema)
@@ -115,6 +118,7 @@ def get_system_status(schema_name: str | None = None) -> dict[str, Any]:
             field_table = _qualified(schema, "layer_field_profile")
             value_table = _qualified(schema, "layer_value_profile")
             gaps_table = _qualified(schema, "data_gap_registry")
+            external_source_table = _qualified(schema, "external_source_registry")
             history_table = _qualified(schema, "request_history")
             approval_table = _qualified(schema, "review_approval_history")
             analysis_table = _qualified(schema, "analysis_runs")
@@ -155,6 +159,7 @@ def get_system_status(schema_name: str | None = None) -> dict[str, Any]:
                 "value_profile_count": _scalar_count(connection, f"SELECT count(*) FROM {value_table};"),
             }
             status["data_gap_count"] = _scalar_count(connection, f"SELECT count(*) FROM {gaps_table};")
+            status["external_source_count"] = _scalar_count(connection, f"SELECT count(*) FROM {external_source_table};")
             status["request_history_count"] = _scalar_count(connection, f"SELECT count(*) FROM {history_table};")
             status["approval_history_count"] = _scalar_count(connection, f"SELECT count(*) FROM {approval_table};")
             status["analysis_run_count"] = _scalar_count(connection, f"SELECT count(*) FROM {analysis_table};")
@@ -185,6 +190,7 @@ def format_system_status(status: dict[str, Any]) -> str:
         f"Field profiles: {profiles['field_profile_count']}",
         f"Value profiles: {profiles['value_profile_count']}",
         f"Data gaps: {status['data_gap_count']}",
+        f"External sources: {status.get('external_source_count', 0)}",
         f"Request history rows: {status['request_history_count']}",
         f"Approval history rows: {status['approval_history_count']}",
         f"Analysis runs: {status.get('analysis_run_count', 0)}",

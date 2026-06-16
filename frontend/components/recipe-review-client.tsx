@@ -157,6 +157,9 @@ export function RecipeReviewClient() {
 
       <RequestIntelligencePanel recipe={recipe} />
       <LearningSuggestionsPanel learnedContext={recipe.learned_context} />
+      {recipe.data_gap_resolution_context ? (
+        <JsonPanel title="Data gap source candidates" value={recipe.data_gap_resolution_context} />
+      ) : null}
 
       {clarification ? <RefinementSummary changes={clarification.changes_from_initial_recipe || {}} /> : null}
 

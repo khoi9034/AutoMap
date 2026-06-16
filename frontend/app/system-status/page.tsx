@@ -21,6 +21,8 @@ export default async function SystemStatusPage() {
         <StatCard label="Verified layers" value={status.catalog?.verified_layer_count} />
         <StatCard label="Field profiles" value={status.profiles?.field_profile_count} />
         <StatCard label="Value profiles" value={status.profiles?.value_profile_count} />
+        <StatCard label="Data gaps" value={status.data_gap_count} />
+        <StatCard label="External sources" value={status.external_source_count} />
         <StatCard label="Review packets" value={status.packets?.review_packet_count} />
         <StatCard label="Approved packets" value={status.packets?.approved_packet_count} />
         <StatCard label="Analysis runs" value={status.analysis_run_count} />
