@@ -1212,7 +1212,14 @@ def api_recipe(payload: PromptRequest) -> Any:
         status="created",
         notes={"selected_layer_count": len(recipe.get("selected_layers") or [])},
     )
-    return _json_response({"prompt": payload.prompt, "recipe": recipe, "data_gaps": data_gap_records_from_recipe(recipe)})
+    return _json_response(
+        {
+            "prompt": payload.prompt,
+            "recipe": recipe,
+            "data_gaps": data_gap_records_from_recipe(recipe),
+            "recipe_timing": recipe.get("recipe_timing") or {},
+        }
+    )
 
 
 @api_router.post("/review-packet")

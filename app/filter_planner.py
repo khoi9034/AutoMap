@@ -8,8 +8,8 @@ from app.field_profiler import (
     infer_field_roles,
     load_field_profiles,
     load_value_profiles,
-    profile_selected_recipe_layers,
 )
+from app.layer_catalog_store import load_catalog_records
 
 
 COMMERCIAL_TERMS = ["commercial", "office", "business", "retail", "industrial", "c-"]
@@ -207,9 +207,12 @@ def _context_layers(
     selected_layers = recipe.get("selected_layers", [])
     selected_keys = [layer["layer_key"] for layer in selected_layers]
     if catalog_records is None:
-        profile_selected_recipe_layers(recipe)
         field_profiles = load_field_profiles(selected_keys)
         value_profiles = load_value_profiles(selected_keys)
+        inferred_profiles = _field_profiles_from_catalog_records(load_catalog_records(), set(selected_keys))
+        for layer_key, profiles in inferred_profiles.items():
+            if not field_profiles.get(layer_key):
+                field_profiles[layer_key] = profiles
     else:
         field_profiles = _field_profiles_from_catalog_records(catalog_records, set(selected_keys))
         value_profiles = {}

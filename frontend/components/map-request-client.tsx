@@ -28,6 +28,7 @@ type RecipeResponse = {
   prompt: string;
   recipe: MapRecipe;
   data_gaps: unknown[];
+  recipe_timing?: Record<string, number>;
 };
 
 function textList(values: unknown[] | undefined): string {
@@ -164,6 +165,9 @@ export function MapRequestClient() {
             </button>
           ) : null}
         </div>
+        {loading ? (
+          <p className="muted">AutoMap is checking the catalog, parcel fields, and context layers...</p>
+        ) : null}
         {error ? <p className="error-text">{error}</p> : null}
         <ToastMessage toast={toast} />
       </section>
@@ -200,6 +204,10 @@ export function MapRequestClient() {
               <StatusChip tone={recipe.needs_review ? "warning" : "success"}>
                 {recipe.needs_review ? "Needs review" : "Ready for packet"}
               </StatusChip>
+            </div>
+            <div className="panel">
+              <h3>Recipe timing</h3>
+              <p>{recipe.recipe_timing?.total_ms ? `${recipe.recipe_timing.total_ms} ms` : "Not reported"}</p>
             </div>
           </section>
 

@@ -77,6 +77,22 @@ export function redactProtected<T>(value: T): T {
 
 type ApiFetchInit = RequestInit & { timeoutMs?: number };
 
+async function checkBackendOnline(timeoutMs = 4000): Promise<boolean> {
+  const controller = new AbortController();
+  const timeout: ReturnType<typeof setTimeout> = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/status`, {
+      cache: "no-store",
+      signal: controller.signal,
+    });
+    return response.ok;
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 async function apiFetch<T>(path: string, init?: ApiFetchInit): Promise<T> {
   const controller = new AbortController();
   const timeoutMs = init?.timeoutMs ?? 15000;
@@ -107,7 +123,18 @@ async function apiFetch<T>(path: string, init?: ApiFetchInit): Promise<T> {
     return redactProtected((await response.json()) as T);
   } catch (exc) {
     if (exc instanceof Error && exc.name === "AbortError") {
-      throw new Error("Backend API request timed out. Confirm AutoMap is running on http://127.0.0.1:8010.");
+      const backendOnline = await checkBackendOnline();
+      if (backendOnline) {
+        throw new Error("Backend is online, but this request took too long. Try again or simplify the request.");
+      }
+      throw new Error(
+        "Backend is offline. Start it with: python -m app.main --serve-ui --ui-port 8010",
+      );
+    }
+    if (exc instanceof TypeError) {
+      throw new Error(
+        "Backend is offline. Start it with: python -m app.main --serve-ui --ui-port 8010",
+      );
     }
     throw exc;
   } finally {
@@ -642,9 +669,15 @@ export async function refineClarificationSession(sessionId: string): Promise<Cla
   });
 }
 
-export async function makeRecipe(prompt: string): Promise<{ prompt: string; recipe: MapRecipe; data_gaps: unknown[] }> {
+export async function makeRecipe(prompt: string): Promise<{
+  prompt: string;
+  recipe: MapRecipe;
+  data_gaps: unknown[];
+  recipe_timing?: Record<string, number>;
+}> {
   return apiFetch<{ prompt: string; recipe: MapRecipe; data_gaps: unknown[] }>("/api/recipe", {
     method: "POST",
+    timeoutMs: 60000,
     body: JSON.stringify({ prompt }),
   });
 }

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from time import perf_counter
 from typing import Any
 
 from app.data_gap_registry import upsert_data_gaps_from_recipe
@@ -15,6 +16,10 @@ from app.prompt_parser import parse_prompt
 from app.recipe_models import rejected_layer_from_match, selected_layer_from_match
 from app.request_intelligence import build_request_intelligence
 from app.source_usage_intelligence import build_source_coverage, enrich_selected_layers_with_source_usage
+
+
+def _elapsed_ms(start: float) -> int:
+    return int(round((perf_counter() - start) * 1000))
 
 
 def _title_from_prompt(parsed_request: dict[str, Any]) -> str:
@@ -227,10 +232,32 @@ def build_recipe(
     persist_data_gaps: bool = True,
 ) -> dict[str, Any]:
     """Build a structured map recipe from a plain-English GIS request."""
+    total_start = perf_counter()
+    timing = {
+        "parse_ms": 0,
+        "intelligence_ms": 0,
+        "layer_match_ms": 0,
+        "field_filter_ms": 0,
+        "parcel_context_ms": 0,
+        "analysis_planning_ms": 0,
+        "total_ms": 0,
+    }
+    stage_start = perf_counter()
     parsed_request = parse_prompt(prompt)
+    timing["parse_ms"] = _elapsed_ms(stage_start)
+
+    stage_start = perf_counter()
     parcel_context = _parcel_context_from_prompt(prompt)
+    timing["parcel_context_ms"] = _elapsed_ms(stage_start)
+
+    stage_start = perf_counter()
     initial_intelligence = build_request_intelligence(prompt, parsed_request)
+    timing["intelligence_ms"] += _elapsed_ms(stage_start)
+
+    stage_start = perf_counter()
     matching = match_layers(parsed_request, layer_catalog, request_intelligence=initial_intelligence)
+    timing["layer_match_ms"] = _elapsed_ms(stage_start)
+
     data_gap_context = safe_gap_context_for_recipe(matching["missing_data_needed"])
     selected_layers = enrich_selected_layers_with_source_usage(
         [selected_layer_from_match(layer) for layer in matching["selected_layers"]],
@@ -243,12 +270,14 @@ def build_recipe(
         data_gap_context,
         parsed_request,
     )
+    stage_start = perf_counter()
     intelligence_bundle = build_request_intelligence(
         prompt,
         parsed_request,
         missing_data=matching["missing_data_needed"],
         selected_layers=selected_layers,
     )
+    timing["intelligence_ms"] += _elapsed_ms(stage_start)
     request_intelligence = intelligence_bundle["request_intelligence"]
     analysis_plan = intelligence_bundle["analysis_plan"]
     learned_context = build_learned_context(prompt, request_intelligence, analysis_plan)
@@ -276,6 +305,7 @@ def build_recipe(
         "filter_plan": {},
         "validation": {},
         "analysis_execution": {},
+        "recipe_timing": timing,
         "created_at": datetime.now(UTC).isoformat(),
         "notes": [
             "Recipe uses verified AutoMap layer catalog metadata only.",
@@ -299,17 +329,21 @@ def build_recipe(
             recipe["suggested_extent"] = parcel_context["parcel_extent"]
 
     if include_filter_intelligence:
+        stage_start = perf_counter()
         recipe["filter_plan"] = build_filter_plan(recipe, catalog_records=layer_catalog)
         validation = validate_filter_plan(recipe)
         recipe["validation"] = validation
         if validation["warnings"]:
             recipe["review_reasons"] = sorted(set([*recipe["review_reasons"], *validation["warnings"]]))
             recipe["needs_review"] = True
+        timing["field_filter_ms"] = _elapsed_ms(stage_start)
 
     try:
         from app.analysis_executor import analysis_execution_for_recipe
 
+        stage_start = perf_counter()
         recipe["analysis_execution"] = analysis_execution_for_recipe(recipe, layer_catalog)
+        timing["analysis_planning_ms"] = _elapsed_ms(stage_start)
     except Exception as exc:
         recipe["analysis_execution"] = {
             "executable": False,
@@ -324,4 +358,6 @@ def build_recipe(
     if persist_data_gaps and recipe["missing_data_needed"]:
         upsert_data_gaps_from_recipe(recipe)
 
+    timing["total_ms"] = _elapsed_ms(total_start)
+    recipe["recipe_timing"] = timing
     return recipe

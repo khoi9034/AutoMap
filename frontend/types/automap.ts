@@ -396,6 +396,7 @@ export type MapRecipe = {
   missing_data_needed?: string[];
   data_gap_notes?: JsonValue[];
   data_gap_resolution_context?: Record<string, JsonValue>;
+  recipe_timing?: Record<string, number>;
 };
 
 export type ParcelIdentifier = {

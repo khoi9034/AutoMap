@@ -221,11 +221,15 @@ def test_external_sources_page_components_and_api_are_present():
 
 def test_api_client_has_timeout_and_sanitized_fallback_version():
     source = read("lib/api.ts")
+    map_request = read("components/map-request-client.tsx")
 
-    assert "Backend API request timed out" in source
+    assert "Backend is offline. Start it with: python -m app.main --serve-ui --ui-port 8010" in source
+    assert "Backend is online, but this request took too long" in source
     assert "http://127.0.0.1:8010" in source
+    assert "timeoutMs: 60000" in source
     assert 'version: "3.1.0"' in source
     assert "redactProtected" in source
+    assert "AutoMap is checking the catalog, parcel fields, and context layers" in map_request
 
 
 def test_parcel_workspace_page_components_and_api_are_present():

@@ -76,6 +76,9 @@ export function DashboardQuickStart() {
           </Link>
         ) : null}
       </div>
+      {loading ? (
+        <p className="muted">AutoMap is checking the catalog, parcel fields, and context layers...</p>
+      ) : null}
       {error ? <p className="error-text">{error}</p> : null}
       <ToastMessage toast={toast} />
       {recipe ? (
