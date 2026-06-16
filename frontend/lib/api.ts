@@ -18,6 +18,7 @@ import type {
   GenerateReportResponse,
   ReportDetail,
   ReportSummary,
+  SourceDiscoveryResult,
   SystemStatus,
 } from "@/types/automap";
 
@@ -115,7 +116,7 @@ export async function getStatusOrFallback(): Promise<SystemStatus> {
     return await getSystemStatus();
   } catch {
     return {
-      version: "2.4.0",
+      version: "2.5.0",
       database_connected: false,
       catalog: {},
       profiles: {},
@@ -316,6 +317,50 @@ export async function inspectExternalSources(): Promise<{
   sources: ExternalSource[];
 }> {
   return apiFetch<{ inspected: number; catalog_upserts: number; sources: ExternalSource[] }>("/api/external-sources/inspect", {
+    method: "POST",
+    timeoutMs: 180000,
+    body: JSON.stringify({}),
+  });
+}
+
+export async function discoverExternalSources(keyword?: string): Promise<SourceDiscoveryResult> {
+  return apiFetch<SourceDiscoveryResult>("/api/external-sources/discover", {
+    method: "POST",
+    timeoutMs: 180000,
+    body: JSON.stringify({ keyword: keyword || null }),
+  });
+}
+
+export async function verifyExternalSource(sourceKey: string): Promise<{
+  source_key: string;
+  source: ExternalSource;
+  catalog_upserts: number;
+  downloaded_geometry: boolean;
+}> {
+  return apiFetch<{
+    source_key: string;
+    source: ExternalSource;
+    catalog_upserts: number;
+    downloaded_geometry: boolean;
+  }>("/api/external-sources/verify", {
+    method: "POST",
+    timeoutMs: 120000,
+    body: JSON.stringify({ source_key: sourceKey }),
+  });
+}
+
+export async function verifyAllExternalSources(): Promise<{
+  verified_sources: number;
+  catalog_upserts: number;
+  results: Array<Record<string, unknown>>;
+  downloaded_geometry: boolean;
+}> {
+  return apiFetch<{
+    verified_sources: number;
+    catalog_upserts: number;
+    results: Array<Record<string, unknown>>;
+    downloaded_geometry: boolean;
+  }>("/api/external-sources/verify-all", {
     method: "POST",
     timeoutMs: 180000,
     body: JSON.stringify({}),

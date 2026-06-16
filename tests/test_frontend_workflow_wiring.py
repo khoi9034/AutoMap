@@ -173,6 +173,8 @@ def test_data_gaps_page_explains_missing_sources_not_failures():
     assert "Proxy sources are not official approvals" in resolver
     assert "getGapCandidates" in resolver
     assert "resolveDataGap" in resolver
+    assert "partially_supported" in resolver
+    assert "verified" in resolver
 
 
 def test_external_sources_page_components_and_api_are_present():
@@ -186,15 +188,25 @@ def test_external_sources_page_components_and_api_are_present():
     assert "Candidate REST source connector registry" in page
     assert "Load Seed Sources" in client
     assert "Inspect Metadata" in client
+    assert "Discover Sources" in client
+    assert "Verify All Sources" in client
+    assert "Verify Selected Source" in client
+    assert "Discovery results" in client
     assert "Proxy" in client
     assert "context layers" in client
     assert "No ArcGIS login is required" in client
     assert "getExternalSources" in api
     assert "loadExternalSources" in api
     assert "inspectExternalSources" in api
+    assert "discoverExternalSources" in api
+    assert "verifyExternalSource" in api
+    assert "verifyAllExternalSources" in api
     assert '"/api/external-sources"' in api
+    assert '"/api/external-sources/discover"' in api
+    assert '"/api/external-sources/verify-all"' in api
     assert "/api/data-gaps/${" in api
     assert "ExternalSource" in types
+    assert "SourceDiscoveryResult" in types
     assert "DataGapCandidate" in types
     assert "confirm-publish" not in client.lower()
     assert "publish-draft-webmap" not in client.lower()
@@ -205,7 +217,7 @@ def test_api_client_has_timeout_and_sanitized_fallback_version():
 
     assert "Backend API request timed out" in source
     assert "http://127.0.0.1:8010" in source
-    assert 'version: "2.4.0"' in source
+    assert 'version: "2.5.0"' in source
     assert "redactProtected" in source
 
 

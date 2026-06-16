@@ -77,6 +77,7 @@ from app.review_packet_builder import (
     validate_review_packet,
 )
 from app.system_status import get_system_status
+from app.source_discovery import discover_sources, verify_all_external_sources, verify_external_source
 from app.ui_models import output_file_url, repo_root
 from app.webmap_exporter import export_recipe_and_webmap
 
@@ -125,6 +126,18 @@ class PacketPathRequest(BaseModel):
     packet_folder: str | None = None
     adjusted_packet_folder: str | None = None
     approved_packet_folder: str | None = None
+
+
+class SourceDiscoveryRequest(BaseModel):
+    """External source discovery payload."""
+
+    keyword: str | None = None
+
+
+class ExternalSourceVerifyRequest(BaseModel):
+    """External source verification payload."""
+
+    source_key: str
 
 
 class ReportRequest(BaseModel):
@@ -371,6 +384,35 @@ def api_inspect_external_sources() -> Any:
     """Inspect external source metadata without feature geometry downloads."""
     try:
         return _json_response(inspect_registered_external_sources())
+    except ValueError as exc:
+        raise _handle_value_error(exc) from exc
+
+
+@api_router.post("/external-sources/discover")
+def api_discover_external_sources(payload: SourceDiscoveryRequest) -> Any:
+    """Discover candidate REST source layers with metadata-only inspection."""
+    try:
+        return _json_response(discover_sources(keyword=payload.keyword))
+    except ValueError as exc:
+        raise _handle_value_error(exc) from exc
+
+
+@api_router.post("/external-sources/verify")
+def api_verify_external_source(payload: ExternalSourceVerifyRequest) -> Any:
+    """Verify one external source and upsert trusted catalog rows if appropriate."""
+    try:
+        return _json_response(verify_external_source(payload.source_key))
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise _handle_value_error(exc) from exc
+
+
+@api_router.post("/external-sources/verify-all")
+def api_verify_all_external_sources() -> Any:
+    """Verify all registered external sources with no geometry download."""
+    try:
+        return _json_response(verify_all_external_sources())
     except ValueError as exc:
         raise _handle_value_error(exc) from exc
 

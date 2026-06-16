@@ -9,13 +9,8 @@ from typing import Any
 
 from sqlalchemy import text
 
-from app.arcgis_rest_inspector import (
-    ArcGISRestError,
-    inspect_layer,
-    inspect_mapserver,
-    try_layer_count,
-    verify_layer_exists,
-)
+from app.arcgis_rest_inspector import ArcGISRestError
+from app.arcgis_service_search import inspect_candidate_layer, inspect_candidate_service
 from app.db import _quote_identifier, get_engine
 from app.layer_catalog_store import upsert_layer_records
 from app.layer_semantics import date_fields_from_fields, slugify
@@ -273,20 +268,7 @@ def get_external_source(source_key: str, schema_name: str = "automap") -> dict[s
 
 
 def _inspect_arcgis_layer(layer_url: str) -> dict[str, Any]:
-    layer_metadata = inspect_layer(layer_url)
-    verification = verify_layer_exists(layer_url)
-    count = try_layer_count(layer_url)
-    return {
-        "inspection_status": "inspected",
-        "is_verified": bool(verification.get("is_verified")),
-        "verification_status": verification.get("verification_status"),
-        "verification_error": verification.get("verification_error"),
-        "record_count": count.get("record_count"),
-        "count_error": count.get("count_error"),
-        "layer_metadata": layer_metadata,
-        "inspected_at": datetime.now(UTC).isoformat(),
-        "downloaded_geometry": False,
-    }
+    return inspect_candidate_layer(layer_url)
 
 
 def inspect_external_source(source: dict[str, Any] | str) -> dict[str, Any]:
@@ -317,33 +299,7 @@ def inspect_external_source(source: dict[str, Any] | str) -> dict[str, Any]:
     else:
         service_url = str(record.get("base_url") or "").rstrip("/")
         try:
-            service_metadata = inspect_mapserver(service_url)
-            layers = []
-            for layer in service_metadata.get("layers") or []:
-                layer_id = layer.get("id") if isinstance(layer, dict) else None
-                if layer_id is None:
-                    continue
-                layer_url = f"{service_url}/{layer_id}"
-                try:
-                    layers.append({**_inspect_arcgis_layer(layer_url), "layer_url": layer_url, "layer_id": layer_id})
-                except ArcGISRestError as exc:
-                    layers.append(
-                        {
-                            "inspection_status": "failed",
-                            "is_verified": False,
-                            "layer_url": layer_url,
-                            "layer_id": layer_id,
-                            "verification_error": str(exc),
-                            "downloaded_geometry": False,
-                        }
-                    )
-            metadata = {
-                "inspection_status": "inspected",
-                "is_verified": any(layer.get("is_verified") for layer in layers),
-                "service_metadata": service_metadata,
-                "layers": layers,
-                "downloaded_geometry": False,
-            }
+            metadata = inspect_candidate_service(service_url)
         except ArcGISRestError as exc:
             metadata = {
                 "inspection_status": "failed",
@@ -424,10 +380,10 @@ def _catalog_record_from_source(source: dict[str, Any], layer_metadata: dict[str
         "fields": fields,
         "drawing_info": layer_metadata.get("drawing_info"),
         "service_item_id": None,
-        "record_count": (source.get("inspected_metadata") or {}).get("record_count"),
-        "is_verified": bool((source.get("inspected_metadata") or {}).get("is_verified")),
-        "verification_status": (source.get("inspected_metadata") or {}).get("verification_status"),
-        "verification_error": (source.get("inspected_metadata") or {}).get("verification_error"),
+        "record_count": layer_metadata.get("record_count") or (source.get("inspected_metadata") or {}).get("record_count"),
+        "is_verified": bool(layer_metadata.get("is_verified") or (source.get("inspected_metadata") or {}).get("is_verified")),
+        "verification_status": layer_metadata.get("verification_status") or (source.get("inspected_metadata") or {}).get("verification_status"),
+        "verification_error": layer_metadata.get("verification_error") or (source.get("inspected_metadata") or {}).get("verification_error"),
         "verified_at": datetime.now(UTC).isoformat(),
         "is_historical": False,
         "historical_year": None,

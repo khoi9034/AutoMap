@@ -180,6 +180,24 @@ def test_api_external_source_routes_are_json_and_sanitized(monkeypatch):
         lambda: {"inspected": 1, "catalog_upserts": 0, "sources": [source]},
     )
     monkeypatch.setattr(
+        "app.api_routes.discover_sources",
+        lambda keyword=None: {
+            "services_discovered": 1,
+            "services_inspected": 1,
+            "candidate_count": 1,
+            "candidate_records": [{**source, "layer_url": "https://example.test/AADT/FeatureServer/0"}],
+            "downloaded_geometry": False,
+        },
+    )
+    monkeypatch.setattr(
+        "app.api_routes.verify_external_source",
+        lambda source_key: {"source_key": source_key, "source": {**source, "inspected_metadata": {"is_verified": True}}, "catalog_upserts": 1, "downloaded_geometry": False},
+    )
+    monkeypatch.setattr(
+        "app.api_routes.verify_all_external_sources",
+        lambda: {"verified_sources": 1, "catalog_upserts": 1, "results": [], "downloaded_geometry": False},
+    )
+    monkeypatch.setattr(
         "app.api_routes.map_gap_to_candidate_sources",
         lambda gap_key: [{**source, "gap_key": gap_key, "source_score": 80, "classified_limitations": ["Proxy/context only."]}],
     )
@@ -198,6 +216,9 @@ def test_api_external_source_routes_are_json_and_sanitized(monkeypatch):
     listed = client.get("/api/external-sources")
     loaded = client.post("/api/external-sources/load")
     inspected = client.post("/api/external-sources/inspect")
+    discovered = client.post("/api/external-sources/discover", json={"keyword": "aadt"})
+    verified = client.post("/api/external-sources/verify", json={"source_key": "cabarrus_accela_plan_review_proxy"})
+    verified_all = client.post("/api/external-sources/verify-all")
     candidates = client.get("/api/data-gaps/current_development_pipeline/candidates")
     resolved = client.post(
         "/api/data-gaps/resolve",
@@ -212,6 +233,9 @@ def test_api_external_source_routes_are_json_and_sanitized(monkeypatch):
             "listed": listed.json(),
             "loaded": loaded.json(),
             "inspected": inspected.json(),
+            "discovered": discovered.json(),
+            "verified": verified.json(),
+            "verified_all": verified_all.json(),
             "candidates": candidates.json(),
             "resolved": resolved.json(),
         }
@@ -220,9 +244,14 @@ def test_api_external_source_routes_are_json_and_sanitized(monkeypatch):
     assert listed.status_code == 200
     assert loaded.status_code == 200
     assert inspected.status_code == 200
+    assert discovered.status_code == 200
+    assert verified.status_code == 200
+    assert verified_all.status_code == 200
     assert candidates.status_code == 200
     assert resolved.status_code == 200
     assert inspected.json()["catalog_upserts"] == 0
+    assert discovered.json()["downloaded_geometry"] is False
+    assert verified.json()["catalog_upserts"] == 1
     assert candidates.json()["candidates"][0]["source_status"] == "proxy"
     assert "confirm-publish" not in serialized
     assert "publish-draft-webmap" not in serialized

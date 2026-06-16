@@ -1,10 +1,15 @@
 # AutoMap Data Gap Resolver
 
-AutoMap v2.4 adds a local data gap resolver for the recurring gaps that appear in county GIS requests:
+AutoMap v2.4 added a local data gap resolver for recurring gaps. AutoMap v2.5 adds real source verification so those gaps can show verified, partial, or still-open status:
 
 - `current_permits`
 - `current_planning_cases`
 - `current_development_pipeline`
+
+Related transportation context sources are tracked separately:
+
+- `traffic_counts`
+- `stip_projects`
 
 The resolver does not make missing data disappear. It maps each gap to approved, candidate, or needs-review external source records and explains whether a source is authoritative, proxy/context only, limited by geography, or still uninspected.
 
@@ -21,6 +26,8 @@ The resolver does not make missing data disappear. It maps each gap to approved,
 ```bash
 python -m app.main --load-external-sources
 python -m app.main --inspect-external-sources
+python -m app.main --discover-sources --keyword planning
+python -m app.main --verify-all-external-sources
 python -m app.main --resolve-data-gaps
 python -m app.main --gap-candidates current_permits
 python -m app.main --gap-candidates current_planning_cases
@@ -32,6 +39,12 @@ python -m app.main --gap-candidates current_development_pipeline
 An approved, active, verified source can resolve a gap.
 
 A proxy source can be included as optional context with warnings, but it does not resolve official permit, planning case, or development pipeline gaps.
+
+Partial support is explicit:
+
+- Concord-only planning cases can partially support current planning context, but do not resolve countywide planning cases.
+- Cabarrus Accela plan reviews can partially support development-pipeline context, but do not resolve official current permits.
+- AADT and STIP are transportation context only, not development pipeline sources.
 
 A candidate or needs-review source remains reviewable evidence only. AutoMap records it in `automap.data_gap_resolution_log` and keeps the relevant missing-data warning visible.
 

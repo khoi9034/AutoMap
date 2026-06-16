@@ -4,8 +4,15 @@ import { useEffect, useMemo, useState } from "react";
 
 import { StatusChip } from "@/components/status-chip";
 import { ToastMessage } from "@/components/toast";
-import { getExternalSources, inspectExternalSources, loadExternalSources } from "@/lib/api";
-import type { ExternalSource, JsonValue } from "@/types/automap";
+import {
+  discoverExternalSources,
+  getExternalSources,
+  inspectExternalSources,
+  loadExternalSources,
+  verifyAllExternalSources,
+  verifyExternalSource,
+} from "@/lib/api";
+import type { DiscoveredSourceRecord, ExternalSource, JsonValue, SourceDiscoveryResult } from "@/types/automap";
 import type { WorkflowToast } from "@/types/workflow";
 
 function toneForStatus(status?: string): "default" | "success" | "warning" | "danger" {
@@ -38,6 +45,8 @@ function metadataValue(metadata: Record<string, JsonValue> | undefined, key: str
 export function ExternalSourcesClient() {
   const [sources, setSources] = useState<ExternalSource[]>([]);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const [keyword, setKeyword] = useState("");
+  const [discovery, setDiscovery] = useState<SourceDiscoveryResult | null>(null);
   const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<WorkflowToast | null>(null);
@@ -82,6 +91,62 @@ export function ExternalSourcesClient() {
     }
   }
 
+  async function onDiscover() {
+    setLoading("discover");
+    setError(null);
+    try {
+      const result = await discoverExternalSources(keyword.trim() || undefined);
+      setDiscovery(result);
+      setToast({
+        tone: "success",
+        message: `Discovery inspected ${result.services_inspected || 0} services and found ${result.candidate_count || 0} candidate records.`,
+      });
+    } catch (exc) {
+      setError(exc instanceof Error ? exc.message : "External source discovery failed.");
+    } finally {
+      setLoading(null);
+    }
+  }
+
+  async function onVerifySelected() {
+    const sourceKey = selectedSource?.source_key;
+    if (!sourceKey) {
+      setToast({ tone: "warning", message: "Select a registered source first." });
+      return;
+    }
+    setLoading("verify");
+    setError(null);
+    try {
+      const result = await verifyExternalSource(sourceKey);
+      await refresh();
+      setToast({
+        tone: "success",
+        message: `Verified ${sourceKey}; ${result.catalog_upserts || 0} catalog rows upserted.`,
+      });
+    } catch (exc) {
+      setError(exc instanceof Error ? exc.message : "External source verification failed.");
+    } finally {
+      setLoading(null);
+    }
+  }
+
+  async function onVerifyAll() {
+    setLoading("verify-all");
+    setError(null);
+    try {
+      const result = await verifyAllExternalSources();
+      await refresh();
+      setToast({
+        tone: "success",
+        message: `Verified ${result.verified_sources || 0} sources; ${result.catalog_upserts || 0} catalog rows upserted.`,
+      });
+    } catch (exc) {
+      setError(exc instanceof Error ? exc.message : "External source verification failed.");
+    } finally {
+      setLoading(null);
+    }
+  }
+
   const selectedSource = useMemo(
     () => sources.find((source) => source.source_key === selectedKey) || sources[0],
     [selectedKey, sources],
@@ -105,7 +170,63 @@ export function ExternalSourcesClient() {
         <button className="button button-secondary" type="button" onClick={onInspect} disabled={loading !== null}>
           {loading === "inspect" ? "Inspect Metadata" : "Inspect Metadata"}
         </button>
+        <button className="button button-secondary" type="button" onClick={onVerifyAll} disabled={loading !== null}>
+          {loading === "verify-all" ? "Verifying..." : "Verify All Sources"}
+        </button>
       </div>
+
+      <section className="panel">
+        <div className="panel-title-row">
+          <div>
+            <h3>Discovery results</h3>
+            <p className="muted">Search known ArcGIS REST roots for real candidate layers. Discovery is metadata-only.</p>
+          </div>
+          <StatusChip>{discovery?.candidate_count || 0} candidates</StatusChip>
+        </div>
+        <div className="prompt-row">
+          <input
+            aria-label="Discovery keyword"
+            className="text-input"
+            placeholder="permits, planning, accela, AADT, STIP, traffic"
+            value={keyword}
+            onChange={(event) => setKeyword(event.target.value)}
+          />
+          <button className="button" type="button" onClick={onDiscover} disabled={loading !== null}>
+            {loading === "discover" ? "Discovering..." : "Discover Sources"}
+          </button>
+        </div>
+        {discovery ? (
+          <div className="page-stack">
+            <div className="chip-row">
+              <StatusChip>{discovery.services_discovered || 0} services discovered</StatusChip>
+              <StatusChip>{discovery.services_inspected || 0} services inspected</StatusChip>
+              <StatusChip tone={discovery.downloaded_geometry ? "danger" : "success"}>No geometry download</StatusChip>
+            </div>
+            {discovery.report_path ? <p className="path-text">Report: {discovery.report_path}</p> : null}
+            <div className="mini-list">
+              {(discovery.candidate_records || []).slice(0, 8).map((record: DiscoveredSourceRecord) => (
+                <div key={record.source_key}>
+                  <strong>{record.source_name || record.source_key}</strong>
+                  <span>{record.layer_url || record.base_url || "URL not recorded"}</span>
+                  <div className="chip-row">
+                    <StatusChip tone={toneForStatus(record.approval_status)}>{record.approval_status}</StatusChip>
+                    <StatusChip tone={toneForStatus(record.source_status)}>{record.source_status}</StatusChip>
+                    {(record.intended_gaps || []).map((gap) => (
+                      <StatusChip key={gap}>{gap}</StatusChip>
+                    ))}
+                  </div>
+                  <p className="muted">{record.limitations}</p>
+                </div>
+              ))}
+              {!(discovery.candidate_records || []).length ? (
+                <p className="muted">No candidate layers matched strongly enough for the current keyword set.</p>
+              ) : null}
+            </div>
+          </div>
+        ) : (
+          <p className="muted">Run discovery to review possible real REST endpoints before adding anything to the catalog.</p>
+        )}
+      </section>
 
       {error ? (
         <div className="inline-error" role="alert">
@@ -209,6 +330,9 @@ export function ExternalSourcesClient() {
                   </div>
                 </dl>
                 <p className="muted">{selectedSource.limitations || "No limitation text recorded."}</p>
+                <button className="button button-secondary" type="button" onClick={onVerifySelected} disabled={loading !== null}>
+                  {loading === "verify" ? "Verifying..." : "Verify Selected Source"}
+                </button>
                 {(selectedSource.categories || []).length ? (
                   <div className="chip-row">
                     {(selectedSource.categories || []).map((category) => (

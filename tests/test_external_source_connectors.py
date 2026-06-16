@@ -135,7 +135,7 @@ def test_concord_only_planning_case_source_records_coverage_limitation():
 
 def test_aadt_and_stip_sources_categorize_as_transportation():
     assert recommend_catalog_category(source_record(categories=["aadt", "traffic"])) == "transportation"
-    assert recommend_catalog_category(source_record(categories=["stip", "planned_projects"])) == "transportation"
+    assert recommend_catalog_category(source_record(categories=["stip", "planned_projects"])) == "transportation_projects"
 
 
 def test_gap_resolution_log_inserts_without_protected_database_references(monkeypatch):

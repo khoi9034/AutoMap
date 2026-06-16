@@ -91,6 +91,7 @@ from app.review_packet_builder import (
 )
 from app.rest_sources import load_rest_sources
 from app.system_status import format_system_status, get_system_status
+from app.source_discovery import discovery_summary_lines, discover_sources, verify_all_external_sources, verify_external_source
 from app.version import AUTOMAP_VERSION
 from app.webmap_builder import validate_webmap_json
 from app.webmap_exporter import export_recipe_and_webmap
@@ -284,6 +285,44 @@ def _inspect_external_sources() -> int:
         print(
             f"- {source['source_key']} | {metadata.get('inspection_status')} | "
             f"verified={metadata.get('is_verified')} | geometry_downloaded={metadata.get('downloaded_geometry')}"
+        )
+    return 0
+
+
+def _discover_sources(keyword: str | None = None) -> int:
+    result = discover_sources(keyword=keyword)
+    print("external source discovery complete")
+    for line in discovery_summary_lines(result):
+        print(line)
+    if result.get("failures"):
+        print("failures:")
+        for failure in result["failures"]:
+            print(f"- {failure.get('root_url')}: {failure.get('error')}")
+    return 0
+
+
+def _verify_external_source(source_key: str) -> int:
+    result = verify_external_source(source_key)
+    source = result.get("source") or {}
+    metadata = source.get("inspected_metadata") or {}
+    print(f"external source verified: {source_key}")
+    print(f"inspection status: {metadata.get('inspection_status')}")
+    print(f"verified: {metadata.get('is_verified')}")
+    print(f"record count: {metadata.get('record_count')}")
+    print(f"catalog records upserted: {result.get('catalog_upserts', 0)}")
+    return 0
+
+
+def _verify_all_external_sources() -> int:
+    result = verify_all_external_sources()
+    print(f"external sources verified: {result['verified_sources']}")
+    print(f"catalog records upserted: {result['catalog_upserts']}")
+    for row in result["results"]:
+        source = row.get("source") or {}
+        metadata = source.get("inspected_metadata") or {}
+        print(
+            f"- {row.get('source_key')} | {metadata.get('inspection_status')} | "
+            f"verified={metadata.get('is_verified')} | catalog_upserts={row.get('catalog_upserts', 0)}"
         )
     return 0
 
@@ -854,6 +893,25 @@ def main() -> int:
         help="List registered external data source candidates.",
     )
     parser.add_argument(
+        "--discover-sources",
+        action="store_true",
+        help="Search known ArcGIS REST roots for real external source candidates.",
+    )
+    parser.add_argument(
+        "--keyword",
+        help="Optional keyword for --discover-sources, such as permits, planning, accela, AADT, or STIP.",
+    )
+    parser.add_argument(
+        "--verify-external-source",
+        metavar="SOURCE_KEY",
+        help="Verify one registered external source and upsert verified catalog metadata.",
+    )
+    parser.add_argument(
+        "--verify-all-external-sources",
+        action="store_true",
+        help="Verify all registered external sources and upsert verified catalog metadata.",
+    )
+    parser.add_argument(
         "--resolve-data-gaps",
         action="store_true",
         help="Evaluate known data gaps against registered external source candidates.",
@@ -1119,6 +1177,12 @@ def main() -> int:
             return _inspect_external_sources()
         if args.list_external_sources:
             return _list_external_sources()
+        if args.discover_sources:
+            return _discover_sources(args.keyword)
+        if args.verify_external_source:
+            return _verify_external_source(args.verify_external_source)
+        if args.verify_all_external_sources:
+            return _verify_all_external_sources()
         if args.resolve_data_gaps:
             return _resolve_data_gaps()
         if args.gap_candidates:

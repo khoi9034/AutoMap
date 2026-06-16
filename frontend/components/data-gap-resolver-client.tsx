@@ -26,7 +26,7 @@ function toneForStatus(status?: string): "default" | "success" | "warning" | "da
   if (status === "approved" || status === "resolved") {
     return "success";
   }
-  if (status === "needs_review" || status === "proxy" || status === "candidate") {
+  if (status === "partially_supported" || status === "needs_review" || status === "proxy" || status === "candidate" || status === "open") {
     return "warning";
   }
   if (status === "failed" || status === "rejected") {
@@ -147,7 +147,7 @@ export function DataGapResolverClient({ initialRows }: { initialRows: DataGap[] 
                   <p className="eyebrow">Known gap</p>
                   <h3>{gapTitle(gapKey)}</h3>
                 </div>
-                <StatusChip tone={gap.status === "resolved" ? "success" : "warning"}>{gap.status || "open"}</StatusChip>
+                <StatusChip tone={toneForStatus(gap.status)}>{gap.status || "open"}</StatusChip>
               </div>
               <dl className="layer-meta">
                 <div>
@@ -171,6 +171,7 @@ export function DataGapResolverClient({ initialRows }: { initialRows: DataGap[] 
                       <StatusChip tone={toneForStatus(candidate.approval_status)}>{candidate.approval_status}</StatusChip>
                       <StatusChip tone={toneForStatus(candidate.source_status)}>{candidate.source_status}</StatusChip>
                       <StatusChip>{candidate.resolution_recommendation || "review"}</StatusChip>
+                      {(candidate.metadata_summary || {}).is_verified ? <StatusChip tone="success">verified</StatusChip> : <StatusChip tone="warning">unverified</StatusChip>}
                     </div>
                     {(candidate.classified_limitations || []).length ? (
                       <ul className="plain-list">

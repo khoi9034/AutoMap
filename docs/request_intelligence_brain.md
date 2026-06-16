@@ -30,7 +30,7 @@ The request intelligence brain helps AutoMap explain what it understood before a
 
 AutoMap still uses only the verified layer catalog for layer selection. If a requested dataset is not available, such as current permits, active planning cases, or the current development pipeline, AutoMap reports missing data instead of hallucinating a source.
 
-In v2.4, request intelligence also checks the data gap resolver for reviewed external source candidates. If an approved active source exists, AutoMap can use it from the trusted catalog. If only candidate, proxy, reference, limited-coverage, or unverified sources exist, AutoMap keeps the missing-data warning and adds `data_gap_resolution_context` so reviewers can see the candidate source and limitations.
+In v2.5, request intelligence also checks the data gap resolver for verified external source candidates. If an approved active source exists, AutoMap can use it from the trusted catalog. If only candidate, proxy, reference, limited-coverage, or unverified sources exist, AutoMap keeps the missing-data warning and adds `data_gap_resolution_context` so reviewers can see the candidate source, verification status, and limitations.
 
 The request intelligence brain:
 

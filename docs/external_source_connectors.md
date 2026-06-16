@@ -1,6 +1,6 @@
 # External Source Connectors
 
-AutoMap v2.4 adds a connector framework for approved and candidate non-OpenData REST sources. The framework is deliberately conservative: it can inspect metadata and count availability, but it does not ingest full feature datasets or publish anything.
+AutoMap v2.4 added a connector framework for approved and candidate non-OpenData REST sources. AutoMap v2.5 adds real source discovery and verification on top of that framework. The workflow is deliberately conservative: it can inspect metadata, fields, counts, and tiny non-geometry samples, but it does not ingest full feature datasets or publish anything.
 
 ## Source Registry
 
@@ -45,9 +45,22 @@ AutoMap can inspect:
 - layer metadata
 - fields and domains when exposed by REST metadata
 - record counts where supported
+- tiny `returnGeometry=false` attribute samples for review
 - verification status
 
 AutoMap does not download full geometries during source inspection.
+
+## Discovery And Verification
+
+```bash
+python -m app.main --discover-sources
+python -m app.main --discover-sources --keyword AADT
+python -m app.main --discover-sources --keyword STIP
+python -m app.main --verify-external-source ncdot_aadt_reference
+python -m app.main --verify-all-external-sources
+```
+
+Discovery reports are written under `outputs/source_discovery/`, which is ignored by Git.
 
 ## Catalog Integration
 
@@ -63,7 +76,7 @@ Proxy layers remain proxy/context layers. They cannot silently become official p
 
 ## Current Candidate Areas
 
-The seed registry includes review placeholders for:
+The seed registry includes verified or reviewable records for:
 
 - current permits
 - current planning cases
@@ -73,7 +86,7 @@ The seed registry includes review placeholders for:
 - STIP transportation projects
 - utility context proxy sources
 
-Known unknown URLs are left as placeholders instead of invented.
+Known unknown URLs are left as placeholders instead of invented. Current permits still need an official verified source. Concord planning cases are limited coverage, and Accela plan reviews are proxy/context only.
 
 ## API
 
@@ -81,6 +94,9 @@ Known unknown URLs are left as placeholders instead of invented.
 GET /api/external-sources
 POST /api/external-sources/load
 POST /api/external-sources/inspect
+POST /api/external-sources/discover
+POST /api/external-sources/verify
+POST /api/external-sources/verify-all
 GET /api/data-gaps/{gap_key}/candidates
 POST /api/data-gaps/resolve
 ```

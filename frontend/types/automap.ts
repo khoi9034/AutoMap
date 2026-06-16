@@ -565,6 +565,34 @@ export type ExternalSource = {
   updated_at?: string;
 };
 
+export type DiscoveredSourceRecord = {
+  source_key?: string;
+  source_name?: string;
+  source_type?: string;
+  base_url?: string | null;
+  layer_url?: string | null;
+  approval_status?: string;
+  source_status?: string;
+  categories?: string[];
+  intended_gaps?: string[];
+  notes?: string;
+  limitations?: string;
+};
+
+export type SourceDiscoveryResult = {
+  discovered_at?: string;
+  roots?: string[];
+  keywords?: string[];
+  services_discovered?: number;
+  services_inspected?: number;
+  candidate_layers?: JsonValue[];
+  candidate_records?: DiscoveredSourceRecord[];
+  candidate_count?: number;
+  failures?: JsonValue[];
+  report_path?: string;
+  downloaded_geometry?: boolean;
+};
+
 export type DataGapCandidate = ExternalSource & {
   gap_key?: string;
   source_score?: number;

@@ -163,8 +163,11 @@ def _review_flags(
     for gap_key, context in (data_gap_context or {}).items():
         if context.get("candidates"):
             flags.append(f"Data gap candidate sources available for review: {gap_key}.")
-            if any(candidate.get("source_status") == "proxy" for candidate in context.get("candidates") or []):
-                flags.append(f"Proxy/context source exists for {gap_key}; do not treat it as official approval or capacity.")
+            if context.get("status") == "partially_supported":
+                flags.append(
+                    f"Verified proxy or limited-coverage source exists for {gap_key}; "
+                    "do not treat it as official countywide approval or capacity."
+                )
     if "recent" in parsed_request.get("time_references", []):
         flags.append("Recent time range and date field need review.")
     if parsed_request.get("analysis_intent") == "proximity":

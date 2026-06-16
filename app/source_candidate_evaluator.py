@@ -51,6 +51,10 @@ def score_source_for_gap(source: dict[str, Any], gap: dict[str, Any] | str) -> f
             score += 18
         if term in text:
             score += 8
+    transportation_categories = {"aadt", "traffic", "transportation", "stip", "planned_projects", "transportation_projects"}
+    development_categories = {"development", "development_pipeline_proxy", "plan_review", "subdivision", "current_projects"}
+    if gap_key in {"current_permits", "current_planning_cases", "current_development_pipeline"} and categories & transportation_categories and not categories & development_categories:
+        score -= 45
     if source.get("approval_status") == "approved":
         score += 20
     elif source.get("approval_status") == "candidate":
@@ -110,10 +114,16 @@ def classify_source_limitations(source: dict[str, Any]) -> list[str]:
 def recommend_catalog_category(source: dict[str, Any]) -> str:
     """Recommend a catalog category for verified external source layers."""
     categories = set(_as_list(source.get("categories")))
-    if {"aadt", "traffic", "transportation", "stip", "planned_projects"} & categories:
+    if {"stip", "planned_projects", "transportation_projects"} & categories:
+        return "transportation_projects"
+    if {"aadt", "traffic", "transportation"} & categories:
         return "transportation"
-    if {"permit", "plan_review", "planning", "development_pipeline_proxy"} & categories:
-        return "development"
+    if {"plan_review", "development_pipeline_proxy", "subdivision", "current_projects"} & categories:
+        return "development_activity_proxy"
+    if {"planning_cases", "planning", "rezoning", "zoning_cases"} & categories:
+        return "planning_cases"
+    if {"permit", "permits", "building_permit", "current_permits"} & categories:
+        return "permits"
     if {"utility", "infrastructure"} & categories:
         return "utility"
     return next(iter(categories), "reference")

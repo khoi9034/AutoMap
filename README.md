@@ -2,11 +2,11 @@
 
 AutoMap converts plain-English county GIS map requests into structured map recipes using only approved GIS layers from a local layer catalog.
 
-Version: `2.4.0`
+Version: `2.5.0`
 
 ## Current Phase
 
-v2.4 Data Gap Resolver and External Source Connectors on top of analysis summary reporting and user-guided safe spatial analysis refinement.
+v2.5 Real Source Verification and Gap Closure on top of the data gap resolver, external source connector registry, analysis summary reporting, and user-guided safe spatial analysis refinement.
 
 This repository is intentionally independent. It does not connect to CFS or import CFS code. AutoMap uses its own local PostGIS database and trusted layer catalog.
 
@@ -37,6 +37,7 @@ AutoMap helps GIS and planning staff turn plain-English county map requests into
 - user-guided refinement for blocked spatial analyses, including summary-only outputs without geometry download
 - summary analytics reports from analysis runs and refinements using counts/statistics instead of geometry download
 - external source registry and data gap resolver for current permits, planning cases, development pipeline proxies, AADT, and STIP context
+- metadata-only source discovery and verification for real REST endpoints, with proxy/limited-coverage gap closure rules
 
 ## What AutoMap Does Not Do Yet
 
@@ -70,6 +71,7 @@ ArcGIS publishing and smoke testing remain dry-run by default unless a guarded C
 22. v2.2 user-guided analysis refinement
 23. v2.3 summary analytics and report export for analysis results
 24. v2.4 data gap resolver and external source connectors
+25. v2.5 real source verification and gap closure
 
 ## Project Structure
 
@@ -112,7 +114,7 @@ python -m pytest
 
 ## Next.js Frontend
 
-AutoMap v2.4 adds a data gap resolver and external source connector registry to the safe Analysis workflow in the Next.js + TypeScript shell under `frontend/`. The FastAPI backend remains the API and workflow engine, and the existing FastAPI/Jinja UI is preserved.
+AutoMap v2.5 adds real source discovery and verification to the data gap resolver and external source connector registry in the Next.js + TypeScript shell under `frontend/`. The FastAPI backend remains the API and workflow engine, and the existing FastAPI/Jinja UI is preserved.
 
 Start the backend API on port `8010`:
 
@@ -341,7 +343,7 @@ python -m app.main --list-data-gaps
 
 ## Data Gap Resolver And External Sources
 
-AutoMap v2.4 adds a local external source registry for important missing-data needs:
+AutoMap v2.5 adds metadata-only source discovery and verification to the local external source registry for important missing-data needs:
 
 - current permits
 - current planning cases
@@ -352,9 +354,17 @@ AutoMap v2.4 adds a local external source registry for important missing-data ne
 
 Sources are marked `approved`, `candidate`, or `needs_review`, and as `active`, `proxy`, `reference`, or `legacy`. Candidate and proxy sources can improve review context, but they do not silently resolve official permit, planning case, or development pipeline gaps.
 
+Verified v2.5 sources include NCDOT AADT, NCDOT STIP, a Cabarrus Accela plan-review proxy, and a Concord-limited planning case layer. Current permits still need an official verified source, Concord planning cases remain limited coverage, and plan reviews remain proxy/context only.
+
 ```bash
 python -m app.main --load-external-sources
 python -m app.main --inspect-external-sources
+python -m app.main --discover-sources
+python -m app.main --discover-sources --keyword permits
+python -m app.main --discover-sources --keyword planning
+python -m app.main --discover-sources --keyword accela
+python -m app.main --verify-external-source ncdot_aadt_reference
+python -m app.main --verify-all-external-sources
 python -m app.main --list-external-sources
 python -m app.main --resolve-data-gaps
 python -m app.main --gap-candidates current_permits
@@ -362,7 +372,7 @@ python -m app.main --gap-candidates current_planning_cases
 python -m app.main --gap-candidates current_development_pipeline
 ```
 
-The frontend Data Gaps page shows candidate sources and limitation badges. The External Sources page shows the local registry and metadata inspection status.
+The frontend Data Gaps page shows open, partial, resolved, and needs-review statuses with candidate sources and limitation badges. The External Sources page shows the local registry, discovery results, and metadata verification status.
 
 Metadata inspection uses REST metadata, fields, domains, counts, and non-geometry checks only. AutoMap does not download full feature datasets, does not bulk-ingest data, and does not treat proxy pipeline data as official development approval.
 

@@ -4,6 +4,19 @@ import { StatusChip } from "@/components/status-chip";
 import { getDataGaps } from "@/lib/api";
 import type { DataGap } from "@/types/automap";
 
+function toneForGapStatus(status?: string): "default" | "success" | "warning" | "danger" {
+  if (status === "resolved") {
+    return "success";
+  }
+  if (status === "rejected" || status === "failed") {
+    return "danger";
+  }
+  if (status === "partially_supported" || status === "needs_review" || status === "open") {
+    return "warning";
+  }
+  return "default";
+}
+
 export default async function DataGapsPage() {
   let rows: DataGap[] = [];
   let error: string | null = null;
@@ -57,7 +70,7 @@ export default async function DataGapsPage() {
                   <td>{row.topic}</td>
                   <td>{row.missing_layer_type}</td>
                   <td>
-                    <StatusChip tone={row.status === "open" ? "warning" : "success"}>{row.status}</StatusChip>
+                    <StatusChip tone={toneForGapStatus(row.status)}>{row.status}</StatusChip>
                   </td>
                   <td>{row.reason}</td>
                   <td>{row.suggested_source || "Needs source confirmation"}</td>
