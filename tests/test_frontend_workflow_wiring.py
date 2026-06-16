@@ -224,7 +224,7 @@ def test_api_client_has_timeout_and_sanitized_fallback_version():
 
     assert "Backend API request timed out" in source
     assert "http://127.0.0.1:8010" in source
-    assert 'version: "2.7.0"' in source
+    assert 'version: "2.8.0"' in source
     assert "redactProtected" in source
 
 
@@ -446,3 +446,37 @@ def test_v27_scenarios_page_components_and_api_are_present():
     assert "ScenarioReport" in types
     assert "confirm-publish" not in builder.lower()
     assert "publish-draft-webmap" not in builder.lower()
+
+
+def test_v28_scenario_workbench_components_and_api_are_present():
+    navigation = read("components/navigation.ts")
+    page = read("app/scenario-workbench/page.tsx")
+    client = read("components/scenario-workbench-client.tsx")
+    editor = read("components/scenario-weight-editor.tsx")
+    card = read("components/scenario-variant-card.tsx")
+    comparison = read("components/scenario-comparison-table.tsx")
+    panel = read("components/scenario-to-recipe-panel.tsx")
+    api = read("lib/api.ts")
+    types = read("types/automap.ts")
+
+    assert 'href: "/scenario-workbench"' in navigation
+    assert "ScenarioWorkbenchClient" in page
+    assert "Tune weights" in page
+    assert "ScenarioWeightEditor" in client
+    assert "ScenarioComparisonTable" in client
+    assert "ScenarioToRecipePanel" in client
+    assert "Save Variant" in editor
+    assert "Proxy sources remain context only" in editor
+    assert "Scenario variant" in card
+    assert "Scenario comparison" in comparison
+    assert "Convert to Recipe" in panel
+    assert "createScenarioVariant" in api
+    assert "listScenarioVariants" in api
+    assert "compareScenarios" in api
+    assert "scenarioToRecipe" in api
+    assert "scenarioVariantToRecipe" in api
+    assert "ScenarioVariant" in types
+    assert "ScenarioComparison" in types
+    assert "ScenarioToRecipeResult" in types
+    assert "confirm-publish" not in client.lower()
+    assert "publish-draft-webmap" not in client.lower()

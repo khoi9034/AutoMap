@@ -520,6 +520,31 @@ button {
   color: #1e3a8a;
 }
 
+.notice-success {
+  background: #f2fbf6;
+  border-color: #b7e0c7;
+  color: var(--green);
+}
+
+.field-label {
+  display: grid;
+  gap: 6px;
+  margin: 12px 0;
+  color: #344054;
+  font-weight: 700;
+}
+
+.field-label input,
+.field-label textarea {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--ink);
+  padding: 10px 12px;
+  font-weight: 500;
+}
+
 .compact-notice {
   padding: 12px;
 }

@@ -31,6 +31,8 @@ export type SystemStatus = {
   analysis_refinement_count?: number;
   analysis_report_count?: number;
   planning_scenario_count?: number;
+  scenario_variant_count?: number;
+  scenario_comparison_count?: number;
   packets?: {
     review_packet_count?: number;
     adjusted_packet_count?: number;
@@ -406,6 +408,10 @@ export type ScenarioFactor = {
   factor_type?: "opportunity" | "constraint" | "context" | "proxy" | string;
   layer_keys?: string[];
   suggested_weight?: number;
+  reviewer_weight?: number;
+  normalized_weight?: number;
+  normalized_percent?: number;
+  enabled?: boolean;
   direction?:
     | "higher_is_better"
     | "lower_is_better"
@@ -422,6 +428,7 @@ export type ScenarioFactor = {
     | string;
   needs_review?: boolean;
   notes?: string;
+  reviewer_note?: string;
 };
 
 export type PlanningScenario = {
@@ -460,6 +467,61 @@ export type ScenarioReport = {
     is_valid?: boolean;
     errors?: string[];
   };
+};
+
+export type ScenarioVariant = {
+  variant_id?: string;
+  source_scenario_id?: string;
+  scenario_type?: string;
+  scenario_title?: string;
+  variant_name?: string;
+  variant_description?: string;
+  factor_weights?: ScenarioFactor[];
+  enabled_factors?: string[];
+  disabled_factors?: string[];
+  normalized_weights?: Array<Record<string, JsonValue>>;
+  weight_overrides?: Record<string, number>;
+  direction_overrides?: Record<string, string>;
+  reviewer_assumptions?: string[];
+  selected_layer_keys?: string[];
+  required_layers?: string[];
+  optional_layers?: string[];
+  source_coverage?: SourceCoverage;
+  missing_data?: string[];
+  changes_from_base?: Record<string, JsonValue>;
+  safety_warnings?: string[];
+  proxy_warnings?: string[];
+  missing_data_warnings?: string[];
+  blocked_reasons?: string[];
+  safety_level?: string;
+  is_safe?: boolean;
+  official_use_disclaimer?: string;
+  created_at?: string;
+  updated_at?: string;
+  variant_json?: ScenarioVariant;
+};
+
+export type ScenarioComparison = {
+  comparison_id?: string;
+  scenario_ids?: string[];
+  variant_ids?: string[];
+  items?: Array<Record<string, JsonValue>>;
+  factor_differences?: Array<Record<string, JsonValue>>;
+  layer_differences?: Record<string, JsonValue>;
+  source_coverage_differences?: Record<string, JsonValue>;
+  missing_data_differences?: Record<string, string[]>;
+  review_question_differences?: Record<string, string[]>;
+  recommended_review_focus?: string[];
+  created_at?: string;
+};
+
+export type ScenarioToRecipeResult = {
+  scenario_id?: string;
+  variant_id?: string | null;
+  recipe?: MapRecipe;
+  scenario_context?: Record<string, JsonValue>;
+  warnings?: string[];
+  published?: boolean;
 };
 
 export type ApprovedPattern = {

@@ -2,11 +2,11 @@
 
 AutoMap converts plain-English county GIS map requests into structured map recipes using only approved GIS layers from a local layer catalog.
 
-Version: `2.7.0`
+Version: `2.8.0`
 
 ## Current Phase
 
-v2.7 Planning Scenario and Suitability Intelligence on top of development/transportation source intelligence, real source verification, data gap resolution, analysis summary reporting, and user-guided safe spatial analysis refinement.
+v2.8 Scenario Workbench and Weight Tuning on top of planning scenario and suitability intelligence, development/transportation source intelligence, real source verification, data gap resolution, analysis summary reporting, and user-guided safe spatial analysis refinement.
 
 This repository is intentionally independent. It does not connect to CFS or import CFS code. AutoMap uses its own local PostGIS database and trusted layer catalog.
 
@@ -41,6 +41,7 @@ AutoMap helps GIS and planning staff turn plain-English county map requests into
 - source coverage intelligence that labels official, proxy, reference, limited-coverage, historical, and missing official sources
 - development and transportation request handling for AADT, STIP, Accela/plan-review proxy activity, and Concord-limited planning cases
 - planning scenario and suitability frameworks with transparent reviewable weights, assumptions, source warnings, and local report exports
+- scenario workbench variants, reviewer weight tuning, scenario comparison, and scenario-to-recipe conversion
 
 ## What AutoMap Does Not Do Yet
 
@@ -77,6 +78,7 @@ ArcGIS publishing and smoke testing remain dry-run by default unless a guarded C
 25. v2.5 real source verification and gap closure
 26. v2.6 development and transportation source intelligence
 27. v2.7 planning scenario and suitability intelligence
+28. v2.8 scenario workbench and weight tuning
 
 ## Project Structure
 
@@ -119,7 +121,7 @@ python -m pytest
 
 ## Next.js Frontend
 
-AutoMap v2.7 adds planning scenario and suitability intelligence to the Next.js + TypeScript shell under `frontend/`. The FastAPI backend remains the API and workflow engine, and the existing FastAPI/Jinja UI is preserved.
+AutoMap v2.8 adds scenario workbench and weight tuning to the Next.js + TypeScript shell under `frontend/`. The FastAPI backend remains the API and workflow engine, and the existing FastAPI/Jinja UI is preserved.
 
 Start the backend API on port `8010`:
 
@@ -167,6 +169,8 @@ Frontend pages:
 - `/clarify`
 - `/recipe-review`
 - `/map-preview`
+- `/scenarios`
+- `/scenario-workbench`
 - `/analysis`
 - `/analysis-reports`
 - `/adjustments`
@@ -182,7 +186,9 @@ Frontend pages:
 
 The frontend can run dry-run publish and portal smoke-test dry-run actions only. Real publish remains CLI-only.
 
-The workflow shell includes an operations dashboard, quick prompt bar, demo scenarios, clarification form, recipe review workspace, local map preview, layer panel, grouped warning panel, human adjustment editor, approval gate, dry-run publish center, approved-pattern learning center, report/export center, catalog search, data gaps, external source review, history, and sanitized system status.
+The workflow shell includes an operations dashboard, quick prompt bar, demo scenarios, clarification form, recipe review workspace, local map preview, scenario workbench, layer panel, grouped warning panel, human adjustment editor, approval gate, dry-run publish center, approved-pattern learning center, report/export center, catalog search, data gaps, external source review, history, and sanitized system status.
+
+The Scenario Workbench page lets reviewers tune scenario weights, enable or disable factors, add reviewer assumptions, save variants, compare scenarios/variants, and convert a reviewed scenario into a draft map recipe. Scenario scores are planning-support drafts, not official recommendations. Proxy sources remain context only unless reviewed, missing official permit data remains unresolved, and no geometry scoring runs from the workbench.
 
 The Map Request and Recipe Review pages now show request intelligence details: detected intents, confidence by intent, spatial relationships, ambiguity flags, clarifying questions, unsupported parts, and the analysis plan. This is deterministic rule-based interpretation only; AutoMap does not call external LLM APIs.
 
@@ -417,7 +423,21 @@ Scenario reports are written under `outputs/scenario_reports/` and include HTML,
 
 Scenario scoring is plan-only by default. AutoMap does not execute countywide parcel scoring, does not raise safety limits to force execution, and does not download full datasets. If execution is requested later, it must go through the existing bounded analysis planner and safety limits.
 
-See `docs/planning_scenarios.md` and `docs/suitability_scoring.md`.
+## Scenario Workbench And Weight Tuning
+
+AutoMap v2.8 adds scenario variants, reviewer weight tuning, comparison summaries, and scenario-to-recipe conversion.
+
+```bash
+python -m app.main --create-scenario-variant <scenario_id> --params-json '{""variant_name"":""Road access priority"",""weight_overrides"":{""aadt_high_traffic"":40,""floodplain_avoidance"":-30}}'
+python -m app.main --list-scenario-variants
+python -m app.main --compare-scenarios --scenario-ids "<scenario_id>" --variant-ids "<variant_id>"
+python -m app.main --scenario-to-recipe <scenario_id>
+python -m app.main --scenario-to-recipe <scenario_id> --variant-id <variant_id>
+```
+
+The `/scenario-workbench` frontend page supports opening existing scenarios, editing factor weights, enabling/disabling factors, saving variants, comparing variants, and converting a scenario or variant into a draft map recipe. Conversion preserves source coverage warnings, proxy warnings, missing official data, and the official-use disclaimer. It does not publish, score geometry, or require ArcGIS login.
+
+See `docs/planning_scenarios.md`, `docs/suitability_scoring.md`, `docs/scenario_workbench.md`, and `docs/scenario_weight_tuning.md`.
 
 ## ArcGIS WebMap Draft Generator
 

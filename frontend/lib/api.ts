@@ -19,7 +19,10 @@ import type {
   GenerateReportResponse,
   ReportDetail,
   ReportSummary,
+  ScenarioComparison,
   ScenarioReport,
+  ScenarioToRecipeResult,
+  ScenarioVariant,
   SourceDiscoveryResult,
   SystemStatus,
 } from "@/types/automap";
@@ -118,7 +121,7 @@ export async function getStatusOrFallback(): Promise<SystemStatus> {
     return await getSystemStatus();
   } catch {
     return {
-      version: "2.7.0",
+      version: "2.8.0",
       database_connected: false,
       catalog: {},
       profiles: {},
@@ -276,6 +279,61 @@ export async function generateScenarioReport(scenarioId: string): Promise<Scenar
   return apiFetch<ScenarioReport>(`/api/scenarios/${encodeURIComponent(scenarioId)}/report`, {
     method: "POST",
     timeoutMs: 180000,
+    body: JSON.stringify({}),
+  });
+}
+
+export async function createScenarioVariant(
+  scenarioId: string,
+  payload: {
+    variant_name?: string;
+    variant_description?: string;
+    weight_overrides?: Record<string, number>;
+    enabled_factors?: string[];
+    disabled_factors?: string[];
+    direction_overrides?: Record<string, string>;
+    reviewer_notes?: Record<string, string>;
+    reviewer_assumptions?: string[];
+  },
+): Promise<{ variant: ScenarioVariant }> {
+  return apiFetch<{ variant: ScenarioVariant }>(`/api/scenarios/${encodeURIComponent(scenarioId)}/variants`, {
+    method: "POST",
+    timeoutMs: 120000,
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function listScenarioVariants(scenarioId: string): Promise<{ variants: ScenarioVariant[] }> {
+  return apiFetch<{ variants: ScenarioVariant[] }>(`/api/scenarios/${encodeURIComponent(scenarioId)}/variants`);
+}
+
+export async function getScenarioVariant(variantId: string): Promise<ScenarioVariant> {
+  return apiFetch<ScenarioVariant>(`/api/scenario-variants/${encodeURIComponent(variantId)}`);
+}
+
+export async function compareScenarios(payload: {
+  scenario_ids?: string[];
+  variant_ids?: string[];
+}): Promise<ScenarioComparison> {
+  return apiFetch<ScenarioComparison>("/api/scenario-comparisons", {
+    method: "POST",
+    timeoutMs: 120000,
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function scenarioToRecipe(scenarioId: string, variantId?: string): Promise<ScenarioToRecipeResult> {
+  return apiFetch<ScenarioToRecipeResult>(`/api/scenarios/${encodeURIComponent(scenarioId)}/to-recipe`, {
+    method: "POST",
+    timeoutMs: 120000,
+    body: JSON.stringify({ variant_id: variantId || null }),
+  });
+}
+
+export async function scenarioVariantToRecipe(variantId: string): Promise<ScenarioToRecipeResult> {
+  return apiFetch<ScenarioToRecipeResult>(`/api/scenario-variants/${encodeURIComponent(variantId)}/to-recipe`, {
+    method: "POST",
+    timeoutMs: 120000,
     body: JSON.stringify({}),
   });
 }

@@ -77,7 +77,10 @@ from app.review_packet_builder import (
     validate_review_packet,
 )
 from app.scenario_builder import build_scenario, get_scenario, list_scenarios
+from app.scenario_comparison import compare_scenarios
 from app.scenario_reporter import generate_scenario_report
+from app.scenario_variant_engine import create_scenario_variant, get_scenario_variant, list_scenario_variants
+from app.scenario_workbench import build_recipe_from_scenario
 from app.system_status import get_system_status
 from app.source_discovery import discover_sources, verify_all_external_sources, verify_external_source
 from app.ui_models import output_file_url, repo_root
@@ -184,6 +187,32 @@ class ScenarioReportRequest(BaseModel):
     """Generate a local planning scenario report."""
 
     scenario_id: str
+
+
+class ScenarioVariantRequest(BaseModel):
+    """Create a tuned scenario variant."""
+
+    variant_name: str | None = None
+    variant_description: str | None = None
+    weight_overrides: dict[str, float] = Field(default_factory=dict)
+    enabled_factors: list[str] = Field(default_factory=list)
+    disabled_factors: list[str] = Field(default_factory=list)
+    direction_overrides: dict[str, str] = Field(default_factory=dict)
+    reviewer_notes: dict[str, str] = Field(default_factory=dict)
+    reviewer_assumptions: list[str] = Field(default_factory=list)
+
+
+class ScenarioComparisonRequest(BaseModel):
+    """Compare scenarios and/or tuned variants."""
+
+    scenario_ids: list[str] = Field(default_factory=list)
+    variant_ids: list[str] = Field(default_factory=list)
+
+
+class ScenarioToRecipeRequest(BaseModel):
+    """Convert a scenario or variant to a draft map recipe."""
+
+    variant_id: str | None = None
 
 
 class DataGapResolveRequest(BaseModel):
@@ -731,6 +760,68 @@ def api_generate_scenario_report(payload: ScenarioReportRequest) -> Any:
     """Generate a local scenario report package."""
     try:
         return _json_response(generate_scenario_report(payload.scenario_id))
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise _handle_value_error(exc) from exc
+
+
+@api_router.post("/scenarios/{scenario_id}/variants")
+def api_create_scenario_variant(scenario_id: str, payload: ScenarioVariantRequest) -> Any:
+    """Create a local reviewer-tuned scenario variant."""
+    try:
+        variant = create_scenario_variant(scenario_id, payload.model_dump(exclude_none=True))
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise _handle_value_error(exc) from exc
+    return _json_response({"variant": variant})
+
+
+@api_router.get("/scenarios/{scenario_id}/variants")
+def api_list_scenario_variants(scenario_id: str, limit: int = Query(default=50, ge=1, le=200)) -> Any:
+    """List variants for one scenario."""
+    return _json_response({"variants": list_scenario_variants(scenario_id=scenario_id, limit=limit)})
+
+
+@api_router.get("/scenario-variants/{variant_id}")
+def api_scenario_variant_detail(variant_id: str) -> Any:
+    """Return one scenario variant."""
+    try:
+        return _json_response(get_scenario_variant(variant_id))
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@api_router.post("/scenario-comparisons")
+def api_compare_scenarios(payload: ScenarioComparisonRequest) -> Any:
+    """Compare scenario and variant weights, layers, source coverage, and missing data."""
+    try:
+        return _json_response(compare_scenarios(payload.scenario_ids, payload.variant_ids))
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise _handle_value_error(exc) from exc
+
+
+@api_router.post("/scenarios/{scenario_id}/to-recipe")
+def api_scenario_to_recipe(scenario_id: str, payload: ScenarioToRecipeRequest | None = None) -> Any:
+    """Convert a scenario or selected variant into a draft map recipe."""
+    try:
+        variant_id = payload.variant_id if payload else None
+        return _json_response(build_recipe_from_scenario(scenario_id, variant_id=variant_id))
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise _handle_value_error(exc) from exc
+
+
+@api_router.post("/scenario-variants/{variant_id}/to-recipe")
+def api_scenario_variant_to_recipe(variant_id: str) -> Any:
+    """Convert a scenario variant into a draft map recipe."""
+    try:
+        variant = get_scenario_variant(variant_id)
+        return _json_response(build_recipe_from_scenario(variant["source_scenario_id"], variant_id=variant_id))
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except ValueError as exc:

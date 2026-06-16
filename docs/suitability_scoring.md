@@ -2,6 +2,8 @@
 
 AutoMap v2.7 suitability scoring is transparent and reviewable. It is not a model, not an official recommendation, and not an automated planning decision.
 
+AutoMap v2.8 adds reviewer tuning through scenario variants. Tuning changes review assumptions only; it does not execute parcel scoring or create official recommendations.
+
 ## Scoring Framework
 
 Each factor records:
@@ -15,6 +17,13 @@ Each factor records:
 - `scoring_method`
 - `needs_review`
 - `notes`
+
+Scenario variants add:
+
+- `reviewer_weight`
+- `enabled`
+- `reviewer_note`
+- normalized display weight
 
 Factor types:
 
@@ -76,6 +85,10 @@ AutoMap does not:
 - treat suitability scores as official planning decisions
 
 If a reviewer wants execution, the request must go through the existing bounded analysis planner. Large jobs remain blocked and can use analysis refinement.
+
+## Weight Tuning
+
+The Scenario Workbench lets reviewers tune weights and save variants. Proxy/reference factors default to context-only. Missing official data is never scored as if it were present. Flood constraints remain penalties unless a reviewer explicitly changes that assumption and accepts the warning.
 
 ## Review Questions
 

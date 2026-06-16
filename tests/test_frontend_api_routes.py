@@ -90,6 +90,11 @@ def test_frontend_workflow_api_routes_exist():
         "/api/scenarios/{scenario_id}",
         "/api/scenarios/{scenario_id}/report",
         "/api/scenarios/report",
+        "/api/scenarios/{scenario_id}/variants",
+        "/api/scenario-variants/{variant_id}",
+        "/api/scenario-comparisons",
+        "/api/scenarios/{scenario_id}/to-recipe",
+        "/api/scenario-variants/{variant_id}/to-recipe",
         "/api/patterns",
         "/api/patterns/{pattern_key}",
         "/api/patterns/learn-from-approved",
@@ -130,6 +135,41 @@ def test_api_scenario_routes_are_json_and_sanitized(monkeypatch):
     monkeypatch.setattr("app.api_routes.list_scenarios", lambda limit=50: [scenario])
     monkeypatch.setattr("app.api_routes.get_scenario", lambda scenario_id: scenario)
     monkeypatch.setattr(
+        "app.api_routes.create_scenario_variant",
+        lambda scenario_id, payload: {
+            "variant_id": "variant_test",
+            "source_scenario_id": scenario_id,
+            "variant_name": payload.get("variant_name"),
+            "safety_warnings": ["proxy context only"],
+        },
+    )
+    monkeypatch.setattr(
+        "app.api_routes.list_scenario_variants",
+        lambda scenario_id=None, limit=50: [{"variant_id": "variant_test", "source_scenario_id": scenario_id}],
+    )
+    monkeypatch.setattr(
+        "app.api_routes.get_scenario_variant",
+        lambda variant_id: {"variant_id": variant_id, "source_scenario_id": "scenario_test", "variant_name": "Road access"},
+    )
+    monkeypatch.setattr(
+        "app.api_routes.compare_scenarios",
+        lambda scenario_ids, variant_ids: {
+            "comparison_id": "comparison_test",
+            "scenario_ids": scenario_ids,
+            "variant_ids": variant_ids,
+            "recommended_review_focus": ["review weights"],
+        },
+    )
+    monkeypatch.setattr(
+        "app.api_routes.build_recipe_from_scenario",
+        lambda scenario_id, variant_id=None: {
+            "scenario_id": scenario_id,
+            "variant_id": variant_id,
+            "published": False,
+            "recipe": {"map_title": "Scenario Draft Recipe", "needs_review": True},
+        },
+    )
+    monkeypatch.setattr(
         "app.api_routes.generate_scenario_report",
         lambda scenario_id: {
             "scenario_id": scenario_id,
@@ -143,13 +183,40 @@ def test_api_scenario_routes_are_json_and_sanitized(monkeypatch):
     listed = client.get("/api/scenarios")
     detail = client.get("/api/scenarios/scenario_test")
     report = client.post("/api/scenarios/scenario_test/report", json={})
-    serialized = json.dumps([created.json(), listed.json(), detail.json(), report.json()]).lower()
+    variant = client.post("/api/scenarios/scenario_test/variants", json={"variant_name": "Road access priority"})
+    variants = client.get("/api/scenarios/scenario_test/variants")
+    variant_detail = client.get("/api/scenario-variants/variant_test")
+    comparison = client.post("/api/scenario-comparisons", json={"scenario_ids": ["scenario_test"], "variant_ids": ["variant_test"]})
+    recipe = client.post("/api/scenarios/scenario_test/to-recipe", json={"variant_id": "variant_test"})
+    variant_recipe = client.post("/api/scenario-variants/variant_test/to-recipe", json={})
+    serialized = json.dumps(
+        [
+            created.json(),
+            listed.json(),
+            detail.json(),
+            report.json(),
+            variant.json(),
+            variants.json(),
+            variant_detail.json(),
+            comparison.json(),
+            recipe.json(),
+            variant_recipe.json(),
+        ]
+    ).lower()
 
     assert created.status_code == 200
     assert listed.status_code == 200
     assert detail.status_code == 200
     assert report.status_code == 200
+    assert variant.status_code == 200
+    assert variants.status_code == 200
+    assert variant_detail.status_code == 200
+    assert comparison.status_code == 200
+    assert recipe.status_code == 200
+    assert variant_recipe.status_code == 200
     assert "commercial_growth_suitability" in serialized
+    assert "variant_test" in serialized
+    assert "comparison_test" in serialized
     assert "database_url" not in serialized
     assert "secret" not in serialized
     assert "confirm-publish" not in serialized

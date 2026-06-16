@@ -91,7 +91,10 @@ from app.review_packet_builder import (
 )
 from app.rest_sources import load_rest_sources
 from app.scenario_builder import build_scenario, list_scenarios
+from app.scenario_comparison import compare_scenarios
 from app.scenario_reporter import generate_scenario_report
+from app.scenario_variant_engine import create_scenario_variant, list_scenario_variants
+from app.scenario_workbench import build_recipe_from_scenario
 from app.system_status import format_system_status, get_system_status
 from app.source_discovery import discovery_summary_lines, discover_sources, verify_all_external_sources, verify_external_source
 from app.version import AUTOMAP_VERSION
@@ -793,6 +796,50 @@ def _generate_scenario_report(scenario_id: str) -> int:
     return 0 if (report.get("validation") or {}).get("is_valid") else 1
 
 
+def _load_params_json(raw: str | None) -> dict[str, Any]:
+    if not raw:
+        return {}
+    loaded = json.loads(raw)
+    if not isinstance(loaded, dict):
+        raise ValueError("--params-json must decode to a JSON object.")
+    return loaded
+
+
+def _split_ids(raw: str | None) -> list[str]:
+    if not raw:
+        return []
+    return [item.strip() for item in raw.split(",") if item.strip()]
+
+
+def _create_scenario_variant(scenario_id: str, raw_params: str | None) -> int:
+    variant = create_scenario_variant(scenario_id, _load_params_json(raw_params))
+    print(json.dumps(variant, indent=2, default=str))
+    return 0 if not variant.get("blocked_reasons") else 1
+
+
+def _list_scenario_variants() -> int:
+    rows = list_scenario_variants()
+    for row in rows:
+        print(
+            f"{row['variant_id']} | scenario={row['source_scenario_id']} | "
+            f"{row.get('variant_name')} | updated={row.get('updated_at')}"
+        )
+    print(f"scenario variants listed: {len(rows)}")
+    return 0
+
+
+def _compare_scenarios(raw_scenario_ids: str | None, raw_variant_ids: str | None) -> int:
+    comparison = compare_scenarios(_split_ids(raw_scenario_ids), _split_ids(raw_variant_ids))
+    print(json.dumps(comparison, indent=2, default=str))
+    return 0
+
+
+def _scenario_to_recipe(scenario_id: str, variant_id: str | None = None) -> int:
+    result = build_recipe_from_scenario(scenario_id, variant_id=variant_id)
+    print(json.dumps(result, indent=2, default=str))
+    return 0
+
+
 def _preview_packet(path: str, port: int | None = None) -> int:
     try:
         config = build_preview_config(path)
@@ -1112,7 +1159,7 @@ def main() -> int:
     parser.add_argument(
         "--params-json",
         metavar="JSON",
-        help="JSON parameters for --select-analysis-refinement.",
+        help="JSON parameters for --select-analysis-refinement or --create-scenario-variant.",
     )
     parser.add_argument(
         "--execute-analysis-refinement",
@@ -1153,6 +1200,41 @@ def main() -> int:
         "--generate-scenario-report",
         metavar="SCENARIO_ID",
         help="Generate a local report package for a stored planning scenario.",
+    )
+    parser.add_argument(
+        "--create-scenario-variant",
+        metavar="SCENARIO_ID",
+        help="Create a scenario workbench variant with --params-json overrides.",
+    )
+    parser.add_argument(
+        "--list-scenario-variants",
+        action="store_true",
+        help="List stored scenario workbench variants.",
+    )
+    parser.add_argument(
+        "--compare-scenarios",
+        action="store_true",
+        help="Compare scenario ids and/or variant ids.",
+    )
+    parser.add_argument(
+        "--scenario-ids",
+        metavar="IDS",
+        help="Comma-separated scenario ids for --compare-scenarios.",
+    )
+    parser.add_argument(
+        "--variant-ids",
+        metavar="IDS",
+        help="Comma-separated variant ids for --compare-scenarios or scenario-to-recipe.",
+    )
+    parser.add_argument(
+        "--variant-id",
+        metavar="VARIANT_ID",
+        help="Optional scenario variant id for --scenario-to-recipe.",
+    )
+    parser.add_argument(
+        "--scenario-to-recipe",
+        metavar="SCENARIO_ID",
+        help="Convert a planning scenario or variant into a draft map recipe.",
     )
     parser.add_argument(
         "--learn-from-approved-packet",
@@ -1308,6 +1390,14 @@ def main() -> int:
             return _list_scenarios()
         if args.generate_scenario_report:
             return _generate_scenario_report(args.generate_scenario_report)
+        if args.create_scenario_variant:
+            return _create_scenario_variant(args.create_scenario_variant, args.params_json)
+        if args.list_scenario_variants:
+            return _list_scenario_variants()
+        if args.compare_scenarios:
+            return _compare_scenarios(args.scenario_ids, args.variant_ids)
+        if args.scenario_to_recipe:
+            return _scenario_to_recipe(args.scenario_to_recipe, args.variant_id)
         if args.learn_from_approved_packet:
             return _learn_from_approved_packet(args.learn_from_approved_packet)
         if args.list_patterns:

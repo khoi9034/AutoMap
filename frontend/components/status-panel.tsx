@@ -38,6 +38,10 @@ export function StatusPanel({ status }: StatusPanelProps) {
           <dd>{status.planning_scenario_count ?? 0}</dd>
         </div>
         <div>
+          <dt>Scenario variants</dt>
+          <dd>{status.scenario_variant_count ?? 0}</dd>
+        </div>
+        <div>
           <dt>Frontend</dt>
           <dd>{status.ports?.frontend || 3010}</dd>
         </div>

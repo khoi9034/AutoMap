@@ -1,6 +1,6 @@
 # Planning Scenarios
 
-AutoMap v2.7 adds deterministic planning scenario workflows for growth, suitability, constraints, transportation access, development pressure, planning cases, school context, flood avoidance, and historical change.
+AutoMap v2.7 adds deterministic planning scenario workflows for growth, suitability, constraints, transportation access, development pressure, planning cases, school context, flood avoidance, and historical change. AutoMap v2.8 adds a local Scenario Workbench for weight tuning, variants, comparisons, and scenario-to-recipe conversion.
 
 Scenarios are planning frameworks. They are not official recommendations, entitlement decisions, permit approvals, capacity findings, or public-facing scores.
 
@@ -44,6 +44,8 @@ python -m app.main --make-scenario "Show development pressure near schools and f
 python -m app.main --make-scenario "Find areas suitable for residential growth but avoid flood risk."
 python -m app.main --list-scenarios
 python -m app.main --generate-scenario-report <scenario_id>
+python -m app.main --create-scenario-variant <scenario_id> --params-json '{""variant_name"":""Road access priority"",""weight_overrides"":{""aadt_high_traffic"":40}}'
+python -m app.main --scenario-to-recipe <scenario_id> --variant-id <variant_id>
 ```
 
 ## API
@@ -53,6 +55,9 @@ POST /api/scenarios
 GET /api/scenarios
 GET /api/scenarios/{scenario_id}
 POST /api/scenarios/{scenario_id}/report
+POST /api/scenarios/{scenario_id}/variants
+POST /api/scenario-comparisons
+POST /api/scenarios/{scenario_id}/to-recipe
 ```
 
 Responses are sanitized and do not expose database URLs, ArcGIS credentials, `.env` values, secrets, or real publish actions.
@@ -70,6 +75,9 @@ The `/scenarios` page provides:
 - review questions
 - local report generation
 - optional draft map recipe generation from the same prompt
+- weight tuning and variant creation
+
+The `/scenario-workbench` page provides a fuller workbench for selecting stored scenarios, comparing variants, and converting a reviewed variant into a recipe.
 
 ## Safety
 

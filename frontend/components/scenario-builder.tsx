@@ -6,10 +6,13 @@ import { ScenarioFactorTable } from "@/components/scenario-factor-table";
 import { ScenarioReviewQuestions } from "@/components/scenario-review-questions";
 import { ScenarioScorecard } from "@/components/scenario-scorecard";
 import { ScenarioSourceCoverage } from "@/components/scenario-source-coverage";
+import { ScenarioToRecipePanel } from "@/components/scenario-to-recipe-panel";
+import { ScenarioVariantCard } from "@/components/scenario-variant-card";
+import { ScenarioWeightEditor } from "@/components/scenario-weight-editor";
 import { StatusChip } from "@/components/status-chip";
 import { ToastMessage } from "@/components/toast";
-import { generateScenarioReport, listScenarios, makeRecipe, makeScenario } from "@/lib/api";
-import type { MapRecipe, PlanningScenario, ScenarioReport } from "@/types/automap";
+import { generateScenarioReport, listScenarios, makeScenario, scenarioToRecipe } from "@/lib/api";
+import type { MapRecipe, PlanningScenario, ScenarioReport, ScenarioVariant } from "@/types/automap";
 import type { WorkflowToast } from "@/types/workflow";
 
 const SAMPLE_SCENARIOS = [
@@ -25,6 +28,7 @@ export function ScenarioBuilder() {
   const [scenarios, setScenarios] = useState<PlanningScenario[]>([]);
   const [report, setReport] = useState<ScenarioReport | null>(null);
   const [recipe, setRecipe] = useState<MapRecipe | null>(null);
+  const [variant, setVariant] = useState<ScenarioVariant | null>(null);
   const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<WorkflowToast | null>(null);
@@ -52,6 +56,7 @@ export function ScenarioBuilder() {
     try {
       const response = await makeScenario(selectedPrompt);
       setScenario(response.scenario);
+      setVariant(null);
       await refreshScenarios();
       setToast({ tone: "success", message: "Scenario framework generated." });
     } catch (exc) {
@@ -63,16 +68,16 @@ export function ScenarioBuilder() {
   }
 
   async function buildRecipeFromScenario() {
-    const scenarioPrompt = scenario?.raw_prompt || prompt;
-    if (!scenarioPrompt) {
+    if (!scenario?.scenario_id) {
+      setError("Generate or select a scenario first.");
       return;
     }
     setLoading("recipe");
     setError(null);
     try {
-      const response = await makeRecipe(scenarioPrompt);
-      setRecipe(response.recipe);
-      setToast({ tone: "success", message: "Draft map recipe generated from scenario prompt." });
+      const response = await scenarioToRecipe(scenario.scenario_id, variant?.variant_id);
+      setRecipe(response.recipe || null);
+      setToast({ tone: "success", message: "Draft map recipe generated from scenario workbench context." });
     } catch (exc) {
       setError(exc instanceof Error ? exc.message : "Recipe generation failed.");
     } finally {
@@ -105,6 +110,7 @@ export function ScenarioBuilder() {
     setPrompt(full.raw_prompt || prompt);
     setReport(null);
     setRecipe(null);
+    setVariant(null);
   }
 
   return (
@@ -138,6 +144,9 @@ export function ScenarioBuilder() {
               <button className="button button-secondary" type="button" onClick={buildScenarioReport} disabled={!scenario || loading === "report"}>
                 {loading === "report" ? "Generating..." : "Generate Scenario Report"}
               </button>
+              <a className="button button-secondary" href="/scenario-workbench">
+                Open Workbench
+              </a>
             </div>
             <div className="sample-grid">
               {SAMPLE_SCENARIOS.map((sample) => (
@@ -184,12 +193,25 @@ export function ScenarioBuilder() {
           ) : null}
 
           <ScenarioFactorTable factors={scenario?.scoring_framework || []} />
+          <ScenarioWeightEditor
+            scenario={scenario}
+            onVariantCreated={(created) => {
+              setVariant(created);
+              setToast({ tone: "success", message: "Scenario variant saved." });
+            }}
+          />
           <ScenarioReviewQuestions questions={scenario?.review_questions || []} assumptions={scenario?.assumptions || []} />
           <ScenarioSourceCoverage scenario={scenario} />
+          <ScenarioToRecipePanel
+            scenario={scenario}
+            variant={variant}
+            onRecipeCreated={(result) => setRecipe(result.recipe || null)}
+          />
         </div>
 
         <aside className="dashboard-side">
           <ScenarioScorecard scenario={scenario} />
+          <ScenarioVariantCard variant={variant} />
           <section className="panel">
             <h3>Latest scenarios</h3>
             <div className="mini-list">
