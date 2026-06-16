@@ -33,6 +33,8 @@ export type SystemStatus = {
   planning_scenario_count?: number;
   scenario_variant_count?: number;
   scenario_comparison_count?: number;
+  parcel_set_count?: number;
+  parcel_context_session_count?: number;
   packets?: {
     review_packet_count?: number;
     adjusted_packet_count?: number;
@@ -122,6 +124,16 @@ export type RequestIntelligence = {
     proxy_context?: string;
     confidence_score?: number;
     classification_reasons?: string[];
+  };
+  parcel_context?: {
+    parcel_context_detected?: boolean;
+    input_type?: string;
+    parsed_identifier_count?: number;
+    address_candidate_count?: number;
+    owner_lookup_requested?: boolean;
+    privacy_sensitive?: boolean;
+    warnings?: string[];
+    recommended_workflow?: string | null;
   };
 };
 
@@ -356,6 +368,7 @@ export type MapRecipe = {
     remaining_questions?: ClarificationQuestionModel[];
     unresolved_blockers?: string[];
   };
+  parcel_context?: ParcelContext;
   selected_layers?: SelectedLayer[];
   rejected_layers?: JsonValue[];
   filter_plan?: Record<string, JsonValue>;
@@ -369,6 +382,92 @@ export type MapRecipe = {
   missing_data_needed?: string[];
   data_gap_notes?: JsonValue[];
   data_gap_resolution_context?: Record<string, JsonValue>;
+};
+
+export type ParcelIdentifier = {
+  identifier_type?: string;
+  value?: string;
+  normalized_value?: string;
+  source_text?: string | null;
+  confidence?: number;
+  needs_review?: boolean;
+  notes?: string[];
+};
+
+export type ParcelParseResult = {
+  raw_input?: string;
+  input_type?: string;
+  parsed_identifiers?: ParcelIdentifier[];
+  address_candidates?: ParcelIdentifier[];
+  parcel_intent?: boolean;
+  owner_lookup_requested?: boolean;
+  privacy_sensitive?: boolean;
+  needs_review?: boolean;
+  warnings?: string[];
+};
+
+export type ParcelMatchSummary = {
+  pin14?: string | number | null;
+  pin?: string | number | null;
+  parcel_id?: string | number | null;
+  address?: string | null;
+  object_id?: string | number | null;
+  source_layer_key?: string | null;
+  attributes?: Record<string, JsonValue>;
+  input_identifier?: ParcelIdentifier;
+};
+
+export type ParcelSet = {
+  parcel_set_id?: string;
+  raw_input?: string;
+  input_type?: string;
+  parsed_identifiers?: ParcelIdentifier[];
+  matched_parcels?: ParcelMatchSummary[];
+  unmatched_identifiers?: ParcelIdentifier[];
+  match_status?: "matched" | "partial" | "unmatched" | "needs_review" | string;
+  source_layer_key?: string | null;
+  matched_count?: number;
+  warnings?: string[];
+  downloaded_geometry?: boolean;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type ParcelContext = {
+  parcel_set_id?: string | null;
+  input_type?: string;
+  parsed_identifiers?: ParcelIdentifier[];
+  matched_count?: number | null;
+  unmatched_identifiers?: ParcelIdentifier[];
+  matched_parcels_summary?: ParcelMatchSummary[];
+  parcel_extent?: Record<string, JsonValue>;
+  context_layers?: SelectedLayer[];
+  nearby_distance?: string | null;
+  parcel_warnings?: string[];
+};
+
+export type ParcelContextSession = {
+  session_id?: string;
+  parcel_set_id?: string;
+  raw_prompt?: string;
+  context_layers?: SelectedLayer[];
+  context_recipe?: MapRecipe;
+  context_report?: Record<string, JsonValue>;
+  warnings?: string[];
+  created_at?: string;
+};
+
+export type ParcelReport = {
+  report_id?: string;
+  parcel_set_id?: string;
+  report_folder?: string;
+  report_title?: string;
+  files?: ReportFileLink[];
+  validation?: {
+    is_valid?: boolean;
+    errors?: string[];
+  };
+  published?: boolean;
 };
 
 export type SourceCoverageEntry = {

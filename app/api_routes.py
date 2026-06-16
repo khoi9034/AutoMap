@@ -65,6 +65,15 @@ from app.packet_index import (
     list_approved_packets,
     list_review_packets,
 )
+from app.parcel_context_engine import (
+    build_parcel_context_recipe,
+    create_parcel_context_session,
+    create_parcel_set,
+    get_parcel_set,
+    list_parcel_sets,
+)
+from app.parcel_input_parser import parse_parcel_input
+from app.parcel_reporter import generate_parcel_report
 from app.portal_smoke_test import run_publish_smoke_test
 from app.pattern_library import get_pattern, list_clarification_defaults, list_patterns
 from app.recipe_engine import build_recipe
@@ -213,6 +222,20 @@ class ScenarioToRecipeRequest(BaseModel):
     """Convert a scenario or variant to a draft map recipe."""
 
     variant_id: str | None = None
+
+
+class ParcelInputRequest(BaseModel):
+    """Parcel input payload for parsing or parcel-set creation."""
+
+    raw_input: str
+
+
+class ParcelContextRequest(BaseModel):
+    """Parcel context map payload."""
+
+    prompt: str
+    requested_topics: list[str] = Field(default_factory=list)
+    nearby_distance: str | None = None
 
 
 class DataGapResolveRequest(BaseModel):
@@ -822,6 +845,80 @@ def api_scenario_variant_to_recipe(variant_id: str) -> Any:
     try:
         variant = get_scenario_variant(variant_id)
         return _json_response(build_recipe_from_scenario(variant["source_scenario_id"], variant_id=variant_id))
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise _handle_value_error(exc) from exc
+
+
+@api_router.post("/parcels/parse")
+def api_parse_parcels(payload: ParcelInputRequest) -> Any:
+    """Parse parcel IDs, PINs, PIN14s, and address-like inputs without querying geometry."""
+    return _json_response(parse_parcel_input(payload.raw_input))
+
+
+@api_router.post("/parcels/sets")
+def api_create_parcel_set(payload: ParcelInputRequest) -> Any:
+    """Create a local parcel set with count/attribute-first safe matching."""
+    try:
+        parcel_set = create_parcel_set(payload.raw_input)
+    except ValueError as exc:
+        raise _handle_value_error(exc) from exc
+    _record_history_safely(
+        raw_prompt=payload.raw_input,
+        workflow_step="parcel_set",
+        map_title="Parcel Set",
+        status=parcel_set.get("match_status"),
+        notes={
+            "parcel_set_id": parcel_set.get("parcel_set_id"),
+            "matched_count": parcel_set.get("matched_count"),
+            "downloaded_geometry": False,
+        },
+    )
+    return _json_response({"parcel_set": parcel_set})
+
+
+@api_router.get("/parcels/sets")
+def api_list_parcel_sets(limit: int = Query(default=50, ge=1, le=200)) -> Any:
+    """List local parcel workspace sets."""
+    return _json_response({"parcel_sets": list_parcel_sets(limit=limit)})
+
+
+@api_router.get("/parcels/sets/{parcel_set_id}")
+def api_get_parcel_set(parcel_set_id: str) -> Any:
+    """Return one local parcel set."""
+    try:
+        return _json_response(get_parcel_set(parcel_set_id))
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@api_router.post("/parcels/context")
+def api_parcel_context(payload: ParcelContextRequest) -> Any:
+    """Create a parcel-centered context recipe and local session."""
+    try:
+        session = create_parcel_context_session(
+            payload.prompt,
+            requested_topics=payload.requested_topics,
+            nearby_distance=payload.nearby_distance,
+        )
+    except ValueError as exc:
+        raise _handle_value_error(exc) from exc
+    _record_history_safely(
+        raw_prompt=payload.prompt,
+        workflow_step="parcel_context",
+        map_title=(session.get("context_recipe") or {}).get("map_title"),
+        status="created",
+        notes={"parcel_set_id": session.get("parcel_set_id"), "session_id": session.get("session_id")},
+    )
+    return _json_response({"parcel_context_session": session, "recipe": session.get("context_recipe")})
+
+
+@api_router.post("/parcels/{parcel_set_id}/report")
+def api_generate_parcel_report(parcel_set_id: str) -> Any:
+    """Generate a local parcel context report package."""
+    try:
+        return _json_response(generate_parcel_report(parcel_set_id))
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except ValueError as exc:

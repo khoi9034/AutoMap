@@ -95,6 +95,11 @@ def test_frontend_workflow_api_routes_exist():
         "/api/scenario-comparisons",
         "/api/scenarios/{scenario_id}/to-recipe",
         "/api/scenario-variants/{variant_id}/to-recipe",
+        "/api/parcels/parse",
+        "/api/parcels/sets",
+        "/api/parcels/sets/{parcel_set_id}",
+        "/api/parcels/context",
+        "/api/parcels/{parcel_set_id}/report",
         "/api/patterns",
         "/api/patterns/{pattern_key}",
         "/api/patterns/learn-from-approved",
@@ -218,6 +223,67 @@ def test_api_scenario_routes_are_json_and_sanitized(monkeypatch):
     assert "variant_test" in serialized
     assert "comparison_test" in serialized
     assert "database_url" not in serialized
+
+
+def test_api_parcel_routes_are_json_and_sanitized(monkeypatch):
+    monkeypatch.setattr(
+        "app.api_routes.parse_parcel_input",
+        lambda raw_input: {
+            "raw_input": raw_input,
+            "input_type": "pin",
+            "parsed_identifiers": [{"identifier_type": "pin", "value": "5528-12-3456"}],
+            "DATABASE_URL": "postgresql://secret",
+        },
+    )
+    monkeypatch.setattr(
+        "app.api_routes.create_parcel_set",
+        lambda raw_input: {
+            "parcel_set_id": "parcel_set_test",
+            "match_status": "unmatched",
+            "matched_count": 0,
+            "downloaded_geometry": False,
+        },
+    )
+    monkeypatch.setattr("app.api_routes.list_parcel_sets", lambda limit=50: [{"parcel_set_id": "parcel_set_test"}])
+    monkeypatch.setattr("app.api_routes.get_parcel_set", lambda parcel_set_id: {"parcel_set_id": parcel_set_id})
+    monkeypatch.setattr(
+        "app.api_routes.create_parcel_context_session",
+        lambda prompt, requested_topics=None, nearby_distance=None: {
+            "session_id": "parcel_context_test",
+            "parcel_set_id": "parcel_set_test",
+            "context_recipe": {"map_title": "Parcel Context Map", "needs_review": True},
+            "warnings": ["draft only"],
+        },
+    )
+    monkeypatch.setattr(
+        "app.api_routes.generate_parcel_report",
+        lambda parcel_set_id: {
+            "report_id": "parcel_report_test",
+            "parcel_set_id": parcel_set_id,
+            "published": False,
+            "DATABASE_URL": "postgresql://secret",
+        },
+    )
+    client = TestClient(create_app())
+
+    parsed = client.post("/api/parcels/parse", json={"raw_input": "5528-12-3456"})
+    created = client.post("/api/parcels/sets", json={"raw_input": "5528-12-3456"})
+    listed = client.get("/api/parcels/sets")
+    detail = client.get("/api/parcels/sets/parcel_set_test")
+    context = client.post("/api/parcels/context", json={"prompt": "Make a map of parcel 5528-12-3456"})
+    report = client.post("/api/parcels/parcel_set_test/report", json={})
+    serialized = json.dumps([parsed.json(), created.json(), listed.json(), detail.json(), context.json(), report.json()]).lower()
+
+    assert parsed.status_code == 200
+    assert created.status_code == 200
+    assert listed.status_code == 200
+    assert detail.status_code == 200
+    assert context.status_code == 200
+    assert report.status_code == 200
+    assert "parcel_set_test" in serialized
+    assert "parcel_context_test" in serialized
+    assert "database_url" not in serialized
+    assert "secret" not in serialized
     assert "secret" not in serialized
     assert "confirm-publish" not in serialized
     assert "publish-draft-webmap" not in serialized

@@ -1,0 +1,314 @@
+import json
+
+from app.parcel_context_engine import build_parcel_context_recipe, create_parcel_set, init_parcel_tables
+from app.parcel_input_parser import parse_parcel_input
+from app.parcel_matcher import build_parcel_where_clause, infer_parcel_id_fields, match_parcels_by_identifier
+from app.parcel_reporter import generate_parcel_report
+
+
+def mock_parcel_layer():
+    return {
+        "layer_key": "cabarrus_new_tax_parcels_0_tax_parcels",
+        "layer_name": "Tax Parcels",
+        "category": "parcel",
+        "canonical_topic": "parcel",
+        "is_verified": True,
+        "is_active": True,
+        "is_historical": False,
+        "is_group_layer": False,
+        "source_status": "active",
+        "source_priority": 1,
+        "layer_url": "https://example.test/Tax_Parcels/MapServer/0",
+        "object_id_field": "OBJECTID",
+        "fields": [
+            {"name": "OBJECTID", "type": "esriFieldTypeOID", "alias": "OBJECTID"},
+            {"name": "PIN14", "type": "esriFieldTypeString", "alias": "PIN14"},
+            {"name": "PARCEL_ID", "type": "esriFieldTypeString", "alias": "Parcel ID"},
+            {"name": "SITE_ADDRESS", "type": "esriFieldTypeString", "alias": "Site Address"},
+        ],
+    }
+
+
+def parcel_context_catalog():
+    return [
+        mock_parcel_layer(),
+        {
+            "layer_key": "zoning",
+            "layer_name": "Cabarrus County Zoning",
+            "category": "zoning",
+            "is_verified": True,
+            "is_active": True,
+            "is_historical": False,
+            "is_group_layer": False,
+            "source_status": "active",
+            "source_priority": 1,
+            "layer_url": "https://example.test/Zoning/0",
+        },
+        {
+            "layer_key": "flood_100",
+            "layer_name": "FloodPlain100year",
+            "category": "flood",
+            "is_verified": True,
+            "is_active": True,
+            "is_historical": False,
+            "is_group_layer": False,
+            "source_status": "active",
+            "source_priority": 1,
+            "layer_url": "https://example.test/Flood/2",
+        },
+        {
+            "layer_key": "schools",
+            "layer_name": "Elementary School District",
+            "category": "schools",
+            "is_verified": True,
+            "is_active": True,
+            "is_historical": False,
+            "is_group_layer": False,
+            "source_status": "active",
+            "source_priority": 1,
+            "layer_url": "https://example.test/Schools/0",
+        },
+        {
+            "layer_key": "roads",
+            "layer_name": "Road Centerlines",
+            "category": "transportation",
+            "is_verified": True,
+            "is_active": True,
+            "is_historical": False,
+            "is_group_layer": False,
+            "source_status": "active",
+            "source_priority": 1,
+            "layer_url": "https://example.test/Roads/0",
+        },
+        {
+            "layer_key": "accela_proxy",
+            "layer_name": "Plan Reviews",
+            "category": "development_activity_proxy",
+            "is_verified": True,
+            "is_active": True,
+            "is_historical": False,
+            "is_group_layer": False,
+            "source_status": "proxy",
+            "approval_status": "approved",
+            "source_key": "cabarrus_accela_plan_review_proxy",
+            "source_priority": 3,
+            "layer_url": "https://example.test/Accela/0",
+            "known_limitations": "Proxy only; not final permit approval.",
+        },
+    ]
+
+
+def stored_parcel_set():
+    return {
+        "parcel_set_id": "parcel_set_test",
+        "raw_input": "5528-12-3456",
+        "input_type": "pin",
+        "parsed_identifiers": [{"identifier_type": "pin", "value": "5528-12-3456", "normalized_value": "5528-12-3456"}],
+        "matched_parcels": [{"pin": "5528-12-3456", "source_layer_key": "cabarrus_new_tax_parcels_0_tax_parcels"}],
+        "unmatched_identifiers": [],
+        "match_status": "matched",
+        "source_layer_key": "cabarrus_new_tax_parcels_0_tax_parcels",
+        "matched_count": 1,
+        "warnings": [],
+        "downloaded_geometry": False,
+    }
+
+
+class MockSpatialQueryClient:
+    def __init__(self, count=1):
+        self.count = count
+        self.feature_queries = []
+
+    def query_count(self, layer_url, *, where=None, **kwargs):
+        return {"count": self.count, "where": where, "return_geometry": False}
+
+    def query_features(self, layer_url, *, where=None, out_fields="*", return_geometry=True, **kwargs):
+        self.feature_queries.append({"where": where, "return_geometry": return_geometry})
+        return {
+            "status": "ok",
+            "features": [
+                {
+                    "properties": {
+                        "OBJECTID": 1,
+                        "PIN14": "55281234567890",
+                        "PARCEL_ID": "5528-12-3456",
+                        "SITE_ADDRESS": "65 CHURCH ST S",
+                    },
+                    "geometry": None,
+                }
+            ],
+            "count": self.count,
+        }
+
+
+def test_parcel_parser_extracts_pin_pin14_and_address():
+    result = parse_parcel_input("PIN14: 55281234567890, parcel 5528-12-3456, 65 Church St S")
+    identifiers = result["parsed_identifiers"]
+
+    assert result["parcel_intent"] is True
+    assert any(item["identifier_type"] == "pin14" for item in identifiers)
+    assert any(item["identifier_type"] == "pin" for item in identifiers)
+    assert result["address_candidates"][0]["identifier_type"] == "address"
+
+
+def test_owner_lookup_is_privacy_sensitive_and_needs_review():
+    result = parse_parcel_input("Find parcels owned by Smith")
+
+    assert result["owner_lookup_requested"] is True
+    assert result["privacy_sensitive"] is True
+    assert result["needs_review"] is True
+    assert "Owner-name lookup" in result["warnings"][0]
+
+
+def test_parcel_matcher_uses_real_fields_and_return_geometry_false(monkeypatch):
+    monkeypatch.setattr("app.parcel_matcher.load_field_profiles", lambda layer_keys, schema_name="automap": {})
+    client = MockSpatialQueryClient()
+    identifier = parse_parcel_input("5528-12-3456")["parsed_identifiers"][0]
+
+    result = match_parcels_by_identifier([identifier], layer_catalog=[mock_parcel_layer()], client=client)
+
+    assert result["matched_count"] == 1
+    assert result["match_status"] == "matched"
+    assert client.feature_queries[0]["return_geometry"] is False
+    assert result["downloaded_geometry"] is False
+
+
+def test_build_where_clause_does_not_invent_fields(monkeypatch):
+    monkeypatch.setattr("app.parcel_matcher.load_field_profiles", lambda layer_keys, schema_name="automap": {})
+    field_map = infer_parcel_id_fields(mock_parcel_layer())
+    identifier = {"identifier_type": "pin14", "normalized_value": "55281234567890"}
+    where_clause, warnings = build_parcel_where_clause([identifier], field_map)
+
+    assert "PIN14" in where_clause
+    assert warnings == []
+    no_field_clause, no_field_warnings = build_parcel_where_clause([{"identifier_type": "owner", "normalized_value": "SMITH"}], field_map)
+    assert no_field_clause is None
+    assert no_field_warnings
+
+
+def test_multiple_matches_trigger_needs_review(monkeypatch):
+    monkeypatch.setattr("app.parcel_matcher.load_field_profiles", lambda layer_keys, schema_name="automap": {})
+    client = MockSpatialQueryClient(count=2)
+    identifier = parse_parcel_input("5528-12-3456")["parsed_identifiers"][0]
+
+    result = match_parcels_by_identifier([identifier], layer_catalog=[mock_parcel_layer()], client=client)
+
+    assert result["match_status"] == "needs_review"
+    assert result["multiple_match_identifiers"]
+
+
+def test_parcel_set_creation_works_with_mocked_matcher(monkeypatch):
+    monkeypatch.setattr(
+        "app.parcel_context_engine.match_parcels_by_identifier",
+        lambda identifiers, **kwargs: {
+            "source_layer_key": "cabarrus_new_tax_parcels_0_tax_parcels",
+            "matched_parcels": [{"pin": "5528-12-3456"}],
+            "unmatched_identifiers": [],
+            "match_status": "matched",
+            "warnings": [],
+            "downloaded_geometry": False,
+        },
+    )
+
+    result = create_parcel_set("5528-12-3456", layer_catalog=[mock_parcel_layer()], persist=False)
+
+    assert result["match_status"] == "matched"
+    assert result["matched_count"] == 1
+    assert result["downloaded_geometry"] is False
+
+
+def test_parcel_context_recipe_selects_tax_parcels_first_and_requested_context(monkeypatch):
+    stored = stored_parcel_set()
+    monkeypatch.setattr("app.parcel_context_engine.get_parcel_set", lambda parcel_set_id, schema_name="automap": stored)
+
+    recipe = build_parcel_context_recipe(
+        stored["parcel_set_id"],
+        requested_topics=["zoning", "flood", "schools", "transportation"],
+        raw_prompt="Make a map of parcel 5528-12-3456 and show zoning, floodplain, schools, and roads.",
+        layer_catalog=parcel_context_catalog(),
+    )
+
+    categories = [layer["category"] for layer in recipe["selected_layers"]]
+    assert categories[0] == "parcel"
+    assert {"zoning", "flood", "schools", "transportation"}.issubset(set(categories))
+    assert recipe["parcel_context"]["parcel_set_id"] == stored["parcel_set_id"]
+    assert "current_permits" not in recipe["missing_data_needed"]
+
+
+def test_nearby_prompt_requires_distance_question(monkeypatch):
+    stored = stored_parcel_set()
+    monkeypatch.setattr("app.parcel_context_engine.get_parcel_set", lambda parcel_set_id, schema_name="automap": stored)
+
+    recipe = build_parcel_context_recipe(
+        stored["parcel_set_id"],
+        raw_prompt="Show parcel 5528-12-3456 near roads.",
+        layer_catalog=parcel_context_catalog(),
+    )
+
+    assert "nearby_distance_missing" in recipe["request_intelligence"]["ambiguity_flags"]
+    assert recipe["request_intelligence"]["clarifying_questions"]
+
+
+def test_current_permits_remains_missing_and_proxy_labeled(monkeypatch):
+    stored = stored_parcel_set()
+    monkeypatch.setattr("app.parcel_context_engine.get_parcel_set", lambda parcel_set_id, schema_name="automap": stored)
+
+    recipe = build_parcel_context_recipe(
+        stored["parcel_set_id"],
+        requested_topics=["development"],
+        raw_prompt="Map my parcels and show permits or planning activity around them.",
+        layer_catalog=parcel_context_catalog(),
+    )
+    serialized = json.dumps(recipe).lower()
+
+    assert "current_permits" in recipe["missing_data_needed"]
+    assert "proxy" in serialized
+    assert "cfs_dev" not in serialized
+    assert "database_url" not in serialized
+
+
+def test_parcel_tables_created_in_automap_schema(monkeypatch):
+    statements = []
+
+    class FakeConnection:
+        def execute(self, statement, params=None):
+            statements.append(str(statement))
+
+    class FakeBegin:
+        def __enter__(self):
+            return FakeConnection()
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    class FakeEngine:
+        def begin(self):
+            return FakeBegin()
+
+    monkeypatch.setattr("app.parcel_context_engine.get_engine", lambda: FakeEngine())
+
+    init_parcel_tables()
+
+    joined = "\n".join(statements).lower()
+    assert "parcel_sets" in joined
+    assert "parcel_context_sessions" in joined
+    assert "automap" in joined
+    assert "cfs_dev" not in joined
+
+
+def test_parcel_report_writes_required_files(monkeypatch, tmp_path):
+    stored = stored_parcel_set()
+    monkeypatch.setattr("app.parcel_reporter.get_parcel_set", lambda parcel_set_id, schema_name="automap": stored)
+    monkeypatch.setattr("app.parcel_context_engine.get_parcel_set", lambda parcel_set_id, schema_name="automap": stored)
+    monkeypatch.setattr("app.parcel_reporter._output_root", lambda: tmp_path)
+
+    report = generate_parcel_report(stored["parcel_set_id"])
+
+    assert report["validation"]["is_valid"] is True
+    report_folder = tmp_path / report["report_id"]
+    assert (report_folder / "parcel_context_report.html").exists()
+    assert (report_folder / "parcel_layer_summary.csv").exists()
+    combined = "\n".join(path.read_text(encoding="utf-8") for path in report_folder.iterdir() if path.is_file()).lower()
+    assert "draft" in combined
+    assert "no arcgis item" in combined
+    assert "database_url" not in combined

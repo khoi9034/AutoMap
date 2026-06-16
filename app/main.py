@@ -78,6 +78,15 @@ from app.packet_index import (
     list_approved_packets,
     list_review_packets,
 )
+from app.parcel_context_engine import (
+    build_parcel_context_recipe,
+    create_parcel_context_session,
+    create_parcel_set,
+    get_parcel_set,
+    list_parcel_sets,
+)
+from app.parcel_input_parser import parse_parcel_input
+from app.parcel_reporter import generate_parcel_report
 from app.ports import AUTOMAP_BACKEND_PORT, CFS_RESERVED_WARNING
 from app.portal_item_verifier import verify_portal_item
 from app.portal_smoke_test import run_publish_smoke_test
@@ -840,6 +849,49 @@ def _scenario_to_recipe(scenario_id: str, variant_id: str | None = None) -> int:
     return 0
 
 
+def _parse_parcels(raw_input: str) -> int:
+    result = parse_parcel_input(raw_input)
+    print(json.dumps(result, indent=2, default=str))
+    return 0
+
+
+def _create_parcel_set(raw_input: str) -> int:
+    parcel_set = create_parcel_set(raw_input)
+    print(json.dumps(parcel_set, indent=2, default=str))
+    return 0
+
+
+def _parcel_context(prompt: str) -> int:
+    session = create_parcel_context_session(prompt)
+    print(json.dumps(session, indent=2, default=str))
+    return 0
+
+
+def _list_parcel_sets() -> int:
+    rows = list_parcel_sets()
+    if not rows:
+        print("parcel sets: none")
+        return 0
+    for row in rows:
+        print(
+            f"{row['parcel_set_id']} | {row.get('input_type')} | {row.get('match_status')} | "
+            f"matched={len(row.get('matched_parcels') or [])} | unmatched={len(row.get('unmatched_identifiers') or [])}"
+        )
+    print(f"parcel sets listed: {len(rows)}")
+    return 0
+
+
+def _get_parcel_set(parcel_set_id: str) -> int:
+    print(json.dumps(get_parcel_set(parcel_set_id), indent=2, default=str))
+    return 0
+
+
+def _generate_parcel_report(parcel_set_id: str) -> int:
+    report = generate_parcel_report(parcel_set_id)
+    print(json.dumps(report, indent=2, default=str))
+    return 0 if (report.get("validation") or {}).get("is_valid") else 1
+
+
 def _preview_packet(path: str, port: int | None = None) -> int:
     try:
         config = build_preview_config(path)
@@ -1237,6 +1289,36 @@ def main() -> int:
         help="Convert a planning scenario or variant into a draft map recipe.",
     )
     parser.add_argument(
+        "--parse-parcels",
+        metavar="RAW_INPUT",
+        help="Parse parcel IDs, PINs, PIN14s, addresses, or pasted parcel lists without matching geometry.",
+    )
+    parser.add_argument(
+        "--create-parcel-set",
+        metavar="RAW_INPUT",
+        help="Create a local parcel set with safe count/attribute-first matching.",
+    )
+    parser.add_argument(
+        "--parcel-context",
+        metavar="PROMPT",
+        help="Create a parcel-centered context recipe from a prompt.",
+    )
+    parser.add_argument(
+        "--list-parcel-sets",
+        action="store_true",
+        help="List local parcel workspace sets.",
+    )
+    parser.add_argument(
+        "--get-parcel-set",
+        metavar="PARCEL_SET_ID",
+        help="Show one local parcel set.",
+    )
+    parser.add_argument(
+        "--generate-parcel-report",
+        metavar="PARCEL_SET_ID",
+        help="Generate a local parcel context report package.",
+    )
+    parser.add_argument(
         "--learn-from-approved-packet",
         metavar="APPROVED_PACKET_FOLDER",
         help="Learn deterministic approved defaults from a local approved packet.",
@@ -1398,6 +1480,18 @@ def main() -> int:
             return _compare_scenarios(args.scenario_ids, args.variant_ids)
         if args.scenario_to_recipe:
             return _scenario_to_recipe(args.scenario_to_recipe, args.variant_id)
+        if args.parse_parcels:
+            return _parse_parcels(args.parse_parcels)
+        if args.create_parcel_set:
+            return _create_parcel_set(args.create_parcel_set)
+        if args.parcel_context:
+            return _parcel_context(args.parcel_context)
+        if args.list_parcel_sets:
+            return _list_parcel_sets()
+        if args.get_parcel_set:
+            return _get_parcel_set(args.get_parcel_set)
+        if args.generate_parcel_report:
+            return _generate_parcel_report(args.generate_parcel_report)
         if args.learn_from_approved_packet:
             return _learn_from_approved_packet(args.learn_from_approved_packet)
         if args.list_patterns:

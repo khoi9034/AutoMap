@@ -14,6 +14,10 @@ import type {
   LayerRecord,
   MapRecipe,
   PacketsResponse,
+  ParcelContextSession,
+  ParcelParseResult,
+  ParcelReport,
+  ParcelSet,
   PlanningScenario,
   PreviewConfig,
   GenerateReportResponse,
@@ -121,7 +125,7 @@ export async function getStatusOrFallback(): Promise<SystemStatus> {
     return await getSystemStatus();
   } catch {
     return {
-      version: "2.8.0",
+      version: "2.9.0",
       database_connected: false,
       catalog: {},
       profiles: {},
@@ -332,6 +336,49 @@ export async function scenarioToRecipe(scenarioId: string, variantId?: string): 
 
 export async function scenarioVariantToRecipe(variantId: string): Promise<ScenarioToRecipeResult> {
   return apiFetch<ScenarioToRecipeResult>(`/api/scenario-variants/${encodeURIComponent(variantId)}/to-recipe`, {
+    method: "POST",
+    timeoutMs: 120000,
+    body: JSON.stringify({}),
+  });
+}
+
+export async function parseParcels(rawInput: string): Promise<ParcelParseResult> {
+  return apiFetch<ParcelParseResult>("/api/parcels/parse", {
+    method: "POST",
+    body: JSON.stringify({ raw_input: rawInput }),
+  });
+}
+
+export async function createParcelSet(rawInput: string): Promise<{ parcel_set: ParcelSet }> {
+  return apiFetch<{ parcel_set: ParcelSet }>("/api/parcels/sets", {
+    method: "POST",
+    timeoutMs: 120000,
+    body: JSON.stringify({ raw_input: rawInput }),
+  });
+}
+
+export async function listParcelSets(): Promise<{ parcel_sets: ParcelSet[] }> {
+  return apiFetch<{ parcel_sets: ParcelSet[] }>("/api/parcels/sets");
+}
+
+export async function getParcelSet(parcelSetId: string): Promise<ParcelSet> {
+  return apiFetch<ParcelSet>(`/api/parcels/sets/${encodeURIComponent(parcelSetId)}`);
+}
+
+export async function createParcelContext(payload: {
+  prompt: string;
+  requested_topics?: string[];
+  nearby_distance?: string | null;
+}): Promise<{ parcel_context_session: ParcelContextSession; recipe?: MapRecipe }> {
+  return apiFetch<{ parcel_context_session: ParcelContextSession; recipe?: MapRecipe }>("/api/parcels/context", {
+    method: "POST",
+    timeoutMs: 120000,
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function generateParcelReport(parcelSetId: string): Promise<ParcelReport> {
+  return apiFetch<ParcelReport>(`/api/parcels/${encodeURIComponent(parcelSetId)}/report`, {
     method: "POST",
     timeoutMs: 120000,
     body: JSON.stringify({}),

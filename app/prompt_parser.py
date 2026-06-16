@@ -20,7 +20,25 @@ GEOGRAPHY_PATTERNS = [
 ]
 
 TOPIC_PATTERNS = [
-    ("parcel", ["parcels", "parcel", "property", "properties", "tax parcels", "tax parcel"]),
+    (
+        "parcel",
+        [
+            "parcels",
+            "parcel",
+            "property",
+            "properties",
+            "tax parcels",
+            "tax parcel",
+            "parcel id",
+            "parcel ids",
+            "pin",
+            "pins",
+            "pin14",
+            "pin14s",
+            "my parcels",
+            "these parcels",
+        ],
+    ),
     ("zoning", ["zoning", "zone districts", "zoning districts", "commercial zoning", "allowed use", "land use regulation"]),
     ("flood", ["floodplain", "flood plain", "floodway", "flood way", "flood hazard", "flood zone", "flood zones", "fema", "flood"]),
     ("schools", ["school districts", "school district", "school zones", "attendance zones", "schools", "elementary", "middle school", "high school"]),

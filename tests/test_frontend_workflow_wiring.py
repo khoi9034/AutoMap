@@ -224,8 +224,45 @@ def test_api_client_has_timeout_and_sanitized_fallback_version():
 
     assert "Backend API request timed out" in source
     assert "http://127.0.0.1:8010" in source
-    assert 'version: "2.8.0"' in source
+    assert 'version: "2.9.0"' in source
     assert "redactProtected" in source
+
+
+def test_parcel_workspace_page_components_and_api_are_present():
+    navigation = read("components/navigation.ts")
+    page = read("app/parcel-workspace/page.tsx")
+    input_panel = read("components/parcel-input-panel.tsx")
+    match_table = read("components/parcel-match-table.tsx")
+    layer_picker = read("components/parcel-context-layer-picker.tsx")
+    summary = read("components/parcel-context-summary.tsx")
+    report_card = read("components/parcel-report-card.tsx")
+    api = read("lib/api.ts")
+    types = read("types/automap.ts")
+
+    assert 'href: "/parcel-workspace"' in navigation
+    assert "Parcel Workspace" in page
+    assert "ParcelInputPanel" in page
+    assert "ParcelMatchTable" in page
+    assert "ParcelContextLayerPicker" in page
+    assert "ParcelContextSummary" in page
+    assert "ParcelReportCard" in page
+    assert "Parse Identifiers" in input_panel
+    assert "Create Parcel Set" in input_panel
+    assert "returnGeometry=false" in match_table
+    assert "planning/development proxy" in layer_picker
+    assert "SourceCoveragePanel" in summary
+    assert "outputs/parcel_reports" in page
+    assert "parseParcels" in api
+    assert "createParcelSet" in api
+    assert "createParcelContext" in api
+    assert "generateParcelReport" in api
+    assert '"/api/parcels/parse"' in api
+    assert '"/api/parcels/context"' in api
+    assert "ParcelSet" in types
+    assert "ParcelContext" in types
+    assert "ParcelReport" in types
+    assert "confirm-publish" not in page.lower()
+    assert "publish-draft-webmap" not in page.lower()
 
 
 def test_analysis_page_components_and_api_are_present():

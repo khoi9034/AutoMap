@@ -10,6 +10,7 @@ from app.data_gap_resolver import safe_gap_context_for_recipe
 from app.default_suggester import build_learned_context
 from app.filter_planner import build_filter_plan, validate_filter_plan
 from app.layer_matcher import match_layers
+from app.parcel_input_parser import parse_parcel_input
 from app.prompt_parser import parse_prompt
 from app.recipe_models import rejected_layer_from_match, selected_layer_from_match
 from app.request_intelligence import build_request_intelligence
@@ -151,6 +152,29 @@ def _suggested_extent(parsed_request: dict[str, Any]) -> dict[str, Any]:
     return {"type": "countywide", "value": "Cabarrus County", "notes": "Default countywide extent."}
 
 
+def _parcel_context_from_prompt(prompt: str) -> dict[str, Any] | None:
+    parsed = parse_parcel_input(prompt)
+    if not parsed.get("parcel_intent"):
+        return None
+    identifiers = [*(parsed.get("parsed_identifiers") or []), *(parsed.get("address_candidates") or [])]
+    return {
+        "parcel_set_id": None,
+        "input_type": parsed.get("input_type"),
+        "parsed_identifiers": identifiers,
+        "matched_count": None,
+        "unmatched_identifiers": [],
+        "matched_parcels_summary": [],
+        "parcel_extent": {
+            "type": "parcel_workspace_required",
+            "value": None,
+            "notes": "Use the Parcel Workspace to safely match parcel identifiers before geometry retrieval.",
+        },
+        "context_layers": [],
+        "nearby_distance": None,
+        "parcel_warnings": parsed.get("warnings") or [],
+    }
+
+
 def _review_flags(
     parsed_request: dict[str, Any],
     matching: dict[str, Any],
@@ -204,6 +228,7 @@ def build_recipe(
 ) -> dict[str, Any]:
     """Build a structured map recipe from a plain-English GIS request."""
     parsed_request = parse_prompt(prompt)
+    parcel_context = _parcel_context_from_prompt(prompt)
     initial_intelligence = build_request_intelligence(prompt, parsed_request)
     matching = match_layers(parsed_request, layer_catalog, request_intelligence=initial_intelligence)
     data_gap_context = safe_gap_context_for_recipe(matching["missing_data_needed"])
@@ -257,6 +282,21 @@ def build_recipe(
             "No feature geometries were downloaded and no ArcGIS web map was created.",
         ],
     }
+
+    if parcel_context:
+        recipe["parcel_context"] = parcel_context
+        recipe["review_reasons"] = sorted(
+            set(
+                [
+                    *recipe["review_reasons"],
+                    "Parcel-centered request detected; use Parcel Workspace for safe identifier matching.",
+                    *parcel_context.get("parcel_warnings", []),
+                ]
+            )
+        )
+        recipe["needs_review"] = True
+        if recipe["suggested_extent"]["type"] == "countywide":
+            recipe["suggested_extent"] = parcel_context["parcel_extent"]
 
     if include_filter_intelligence:
         recipe["filter_plan"] = build_filter_plan(recipe, catalog_records=layer_catalog)

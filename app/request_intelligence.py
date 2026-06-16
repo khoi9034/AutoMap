@@ -6,6 +6,7 @@ from typing import Any
 
 from app.clarifying_questions import generate_clarifying_questions
 from app.intent_classifier import INTENT_LAYER_REQUIREMENTS, classify_intents
+from app.parcel_input_parser import parse_parcel_input
 from app.prompt_parser import parse_prompt
 from app.request_explainer import build_reasoning_summary
 from app.request_quality_evaluator import evaluate_request_quality
@@ -107,6 +108,7 @@ def build_request_intelligence(
     required_layers, optional_layers = _layer_requirements(parsed_request, classification, spatial_plan)
     questions = generate_clarifying_questions(prompt, parsed_request, spatial_plan, missing_data)
     quality = evaluate_request_quality(prompt, parsed_request, classification, spatial_plan, missing_data)
+    parcel_parse = parse_parcel_input(prompt)
 
     analysis_plan = {
         "goal": _goal_from_intent(classification, parsed_request),
@@ -135,6 +137,20 @@ def build_request_intelligence(
         "quality_score": quality.get("quality_score"),
         "understood": quality.get("understood"),
         "scenario_context": _scenario_context(prompt, parsed_request, spatial_plan),
+        "parcel_context": {
+            "parcel_context_detected": bool(parcel_parse.get("parcel_intent")),
+            "input_type": parcel_parse.get("input_type"),
+            "parsed_identifier_count": len(parcel_parse.get("parsed_identifiers") or []),
+            "address_candidate_count": len(parcel_parse.get("address_candidates") or []),
+            "owner_lookup_requested": bool(parcel_parse.get("owner_lookup_requested")),
+            "privacy_sensitive": bool(parcel_parse.get("privacy_sensitive")),
+            "warnings": parcel_parse.get("warnings") or [],
+            "recommended_workflow": (
+                "Use the Parcel Workspace to safely parse, match, and review parcel-centered map context."
+                if parcel_parse.get("parcel_intent")
+                else None
+            ),
+        },
     }
     request_intelligence["reasoning_summary"] = build_reasoning_summary(
         request_intelligence,

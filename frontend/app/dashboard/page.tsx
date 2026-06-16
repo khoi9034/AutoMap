@@ -129,6 +129,8 @@ export default async function DashboardPage() {
         <StatCard label="Analysis reports" value={status.analysis_report_count} />
         <StatCard label="Planning scenarios" value={status.planning_scenario_count} />
         <StatCard label="Scenario variants" value={status.scenario_variant_count} />
+        <StatCard label="Parcel sets" value={status.parcel_set_count} />
+        <StatCard label="Parcel contexts" value={status.parcel_context_session_count} />
       </section>
 
       <section className="dashboard-grid">

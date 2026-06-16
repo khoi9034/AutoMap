@@ -76,6 +76,18 @@ Examples:
 - `NCDOT AADT Traffic Counts`
 - `NCDOT STIP Projects`
 
+## Parcel Context
+
+AutoMap v2.9 reuses the same source coverage object in parcel-centered recipes and reports.
+
+Parcel context maps can include official context layers such as Tax Parcels, Addresses, Zoning, Municipal District, ETJ Boundary, Flood Hazard layers, School Districts, roads, AADT, and STIP. Development and planning activity layers retain their proxy or limited-coverage labels:
+
+- Accela and plan-review activity remain proxy context.
+- Concord planning cases remain limited coverage.
+- Current permits remain unresolved unless an official verified source is added.
+
+Parcel reports include source coverage warnings so reviewers can distinguish official context from proxy activity and missing official data.
+
 ## Safety
 
 Source coverage is metadata and review context only. AutoMap does not publish real ArcGIS items, require ArcGIS login, ingest full datasets, or connect to CFS.

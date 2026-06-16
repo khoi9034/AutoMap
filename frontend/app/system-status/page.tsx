@@ -31,6 +31,8 @@ export default async function SystemStatusPage() {
         <StatCard label="Planning scenarios" value={status.planning_scenario_count} />
         <StatCard label="Scenario variants" value={status.scenario_variant_count} />
         <StatCard label="Scenario comparisons" value={status.scenario_comparison_count} />
+        <StatCard label="Parcel sets" value={status.parcel_set_count} />
+        <StatCard label="Parcel contexts" value={status.parcel_context_session_count} />
         <StatCard label="Frontend port" value={status.ports?.frontend || 3010} />
         <StatCard label="Backend/API port" value={status.ports?.backend_api || 8010} />
       </section>

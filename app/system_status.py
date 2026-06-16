@@ -19,6 +19,7 @@ from app.field_profiler import ensure_field_intelligence_tables
 from app.layer_catalog_store import ensure_layer_catalog_table
 from app.packet_index import list_adjusted_packets, list_approved_packets, list_review_packets
 from app.approval_engine import ensure_review_approval_history_table
+from app.parcel_context_engine import init_parcel_tables
 from app.ports import (
     AUTOMAP_BACKEND_PORT,
     AUTOMAP_FRONTEND_PORT,
@@ -70,6 +71,8 @@ def get_system_status(schema_name: str | None = None) -> dict[str, Any]:
         "planning_scenario_count": 0,
         "scenario_variant_count": 0,
         "scenario_comparison_count": 0,
+        "parcel_set_count": 0,
+        "parcel_context_session_count": 0,
         "packets": {
             "review_packet_count": len(list_review_packets()),
             "adjusted_packet_count": len(list_adjusted_packets()),
@@ -119,6 +122,7 @@ def get_system_status(schema_name: str | None = None) -> dict[str, Any]:
         init_analysis_report_history_table(schema)
         init_planning_scenario_table(schema)
         init_scenario_workbench_tables(schema)
+        init_parcel_tables(schema)
         engine = get_engine(settings)
         with engine.connect() as connection:
             catalog_table = _qualified(schema, "layer_catalog")
@@ -134,6 +138,8 @@ def get_system_status(schema_name: str | None = None) -> dict[str, Any]:
             scenario_table = _qualified(schema, "planning_scenarios")
             scenario_variant_table = _qualified(schema, "scenario_variants")
             scenario_comparison_table = _qualified(schema, "scenario_comparisons")
+            parcel_sets_table = _qualified(schema, "parcel_sets")
+            parcel_context_sessions_table = _qualified(schema, "parcel_context_sessions")
             status["catalog"] = {
                 "layer_count": _scalar_count(connection, f"SELECT count(*) FROM {catalog_table};"),
                 "verified_layer_count": _scalar_count(connection, f"SELECT count(*) FROM {catalog_table} WHERE is_verified = true;"),
@@ -178,6 +184,8 @@ def get_system_status(schema_name: str | None = None) -> dict[str, Any]:
             status["planning_scenario_count"] = _scalar_count(connection, f"SELECT count(*) FROM {scenario_table};")
             status["scenario_variant_count"] = _scalar_count(connection, f"SELECT count(*) FROM {scenario_variant_table};")
             status["scenario_comparison_count"] = _scalar_count(connection, f"SELECT count(*) FROM {scenario_comparison_table};")
+            status["parcel_set_count"] = _scalar_count(connection, f"SELECT count(*) FROM {parcel_sets_table};")
+            status["parcel_context_session_count"] = _scalar_count(connection, f"SELECT count(*) FROM {parcel_context_sessions_table};")
     except (SQLAlchemyError, ValueError) as exc:
         status["errors"].append(str(exc))
 
@@ -212,6 +220,8 @@ def format_system_status(status: dict[str, Any]) -> str:
         f"Planning scenarios: {status.get('planning_scenario_count', 0)}",
         f"Scenario variants: {status.get('scenario_variant_count', 0)}",
         f"Scenario comparisons: {status.get('scenario_comparison_count', 0)}",
+        f"Parcel sets: {status.get('parcel_set_count', 0)}",
+        f"Parcel context sessions: {status.get('parcel_context_session_count', 0)}",
         f"Review packets: {packets['review_packet_count']}",
         f"Adjusted packets: {packets['adjusted_packet_count']}",
         f"Approved packets: {packets['approved_packet_count']}",

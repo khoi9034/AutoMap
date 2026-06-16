@@ -2,11 +2,11 @@
 
 AutoMap converts plain-English county GIS map requests into structured map recipes using only approved GIS layers from a local layer catalog.
 
-Version: `2.8.0`
+Version: `2.9.0`
 
 ## Current Phase
 
-v2.8 Scenario Workbench and Weight Tuning on top of planning scenario and suitability intelligence, development/transportation source intelligence, real source verification, data gap resolution, analysis summary reporting, and user-guided safe spatial analysis refinement.
+v2.9 Parcel Workspace and Parcel-Centered Map Requests on top of scenario workbench, planning scenario and suitability intelligence, development/transportation source intelligence, real source verification, data gap resolution, analysis summary reporting, and user-guided safe spatial analysis refinement.
 
 This repository is intentionally independent. It does not connect to CFS or import CFS code. AutoMap uses its own local PostGIS database and trusted layer catalog.
 
@@ -42,6 +42,7 @@ AutoMap helps GIS and planning staff turn plain-English county map requests into
 - development and transportation request handling for AADT, STIP, Accela/plan-review proxy activity, and Concord-limited planning cases
 - planning scenario and suitability frameworks with transparent reviewable weights, assumptions, source warnings, and local report exports
 - scenario workbench variants, reviewer weight tuning, scenario comparison, and scenario-to-recipe conversion
+- parcel-centered workflows for PIN/PIN14/parcel ID/address parsing, safe parcel-set matching, context overlays, and local parcel reports
 
 ## What AutoMap Does Not Do Yet
 
@@ -79,6 +80,7 @@ ArcGIS publishing and smoke testing remain dry-run by default unless a guarded C
 26. v2.6 development and transportation source intelligence
 27. v2.7 planning scenario and suitability intelligence
 28. v2.8 scenario workbench and weight tuning
+29. v2.9 parcel workspace and parcel-centered map requests
 
 ## Project Structure
 
@@ -121,7 +123,7 @@ python -m pytest
 
 ## Next.js Frontend
 
-AutoMap v2.8 adds scenario workbench and weight tuning to the Next.js + TypeScript shell under `frontend/`. The FastAPI backend remains the API and workflow engine, and the existing FastAPI/Jinja UI is preserved.
+AutoMap v2.9 adds parcel workspace and parcel-centered map requests to the Next.js + TypeScript shell under `frontend/`. The FastAPI backend remains the API and workflow engine, and the existing FastAPI/Jinja UI is preserved.
 
 Start the backend API on port `8010`:
 
@@ -166,6 +168,7 @@ Frontend pages:
 
 - `/dashboard`
 - `/map-request`
+- `/parcel-workspace`
 - `/clarify`
 - `/recipe-review`
 - `/map-preview`
@@ -186,7 +189,7 @@ Frontend pages:
 
 The frontend can run dry-run publish and portal smoke-test dry-run actions only. Real publish remains CLI-only.
 
-The workflow shell includes an operations dashboard, quick prompt bar, demo scenarios, clarification form, recipe review workspace, local map preview, scenario workbench, layer panel, grouped warning panel, human adjustment editor, approval gate, dry-run publish center, approved-pattern learning center, report/export center, catalog search, data gaps, external source review, history, and sanitized system status.
+The workflow shell includes an operations dashboard, quick prompt bar, demo scenarios, parcel workspace, clarification form, recipe review workspace, local map preview, scenario workbench, layer panel, grouped warning panel, human adjustment editor, approval gate, dry-run publish center, approved-pattern learning center, report/export center, catalog search, data gaps, external source review, history, and sanitized system status.
 
 The Scenario Workbench page lets reviewers tune scenario weights, enable or disable factors, add reviewer assumptions, save variants, compare scenarios/variants, and convert a reviewed scenario into a draft map recipe. Scenario scores are planning-support drafts, not official recommendations. Proxy sources remain context only unless reviewed, missing official permit data remains unresolved, and no geometry scoring runs from the workbench.
 
@@ -438,6 +441,27 @@ python -m app.main --scenario-to-recipe <scenario_id> --variant-id <variant_id>
 The `/scenario-workbench` frontend page supports opening existing scenarios, editing factor weights, enabling/disabling factors, saving variants, comparing variants, and converting a scenario or variant into a draft map recipe. Conversion preserves source coverage warnings, proxy warnings, missing official data, and the official-use disclaimer. It does not publish, score geometry, or require ArcGIS login.
 
 See `docs/planning_scenarios.md`, `docs/suitability_scoring.md`, `docs/scenario_workbench.md`, and `docs/scenario_weight_tuning.md`.
+
+## Parcel Workspace And Parcel Context Maps
+
+AutoMap v2.9 adds parcel-centered workflows for PINs, PIN14s, parcel IDs, addresses, pasted parcel lists, and prompts such as `my parcels` or `these parcels`.
+
+```bash
+python -m app.main --parse-parcels "5528-12-3456, 5528-12-7890"
+python -m app.main --create-parcel-set "5528-12-3456, 5528-12-7890"
+python -m app.main --parcel-context "Make a map of parcel 5528-12-3456 and show zoning, floodplain, schools, and roads."
+python -m app.main --list-parcel-sets
+python -m app.main --get-parcel-set <parcel_set_id>
+python -m app.main --generate-parcel-report <parcel_set_id>
+```
+
+The `/parcel-workspace` frontend page supports parsing identifiers, creating parcel sets, showing matched and unmatched identifiers, selecting context overlays, setting a nearby distance, generating a parcel context recipe, and exporting local parcel reports.
+
+Parcel matching uses the verified Tax Parcels layer and real field metadata. It runs `returnGeometry=false` count/attribute checks first, preserves unmatched identifiers, marks multiple matches for review, and does not download countywide parcel geometry. Current permits remain unresolved unless an official verified source is added; Accela/plan-review sources remain proxy context, and Concord planning cases remain limited coverage.
+
+Parcel reports are written under `outputs/parcel_reports/` and include HTML, Markdown, JSON, CSV layer summary, warnings JSON, and a manifest. They are local review drafts only.
+
+See `docs/parcel_workspace.md` and `docs/parcel_context_maps.md`.
 
 ## ArcGIS WebMap Draft Generator
 
