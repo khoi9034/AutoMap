@@ -10,7 +10,7 @@ export default async function SystemStatusPage() {
   return (
     <div className="page-stack">
       <SectionHeader
-        eyebrow="System Status"
+        eyebrow="Developer / GIS Analyst Tools"
         title="Backend health and publish safety"
         description="Sanitized status from the FastAPI backend. Secrets, database URLs, and credentials are never displayed."
       />

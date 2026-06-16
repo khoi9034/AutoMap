@@ -1,6 +1,6 @@
 # Parcel-Focused Preview
 
-AutoMap v3.3 keeps parcel-centered preview behavior strict inside Map Composer. A parcel prompt cannot silently fall back to a broad county/context map.
+AutoMap v3.4 keeps parcel-centered preview behavior strict inside Map Composer. A parcel prompt cannot silently fall back to a broad county/context map.
 
 ## Preview Readiness
 

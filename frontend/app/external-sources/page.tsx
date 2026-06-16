@@ -5,7 +5,7 @@ export default function ExternalSourcesPage() {
   return (
     <div className="page-stack">
       <SectionHeader
-        eyebrow="External Sources"
+        eyebrow="Developer / GIS Analyst Tools"
         title="Candidate REST source connector registry"
         description="Review approved, candidate, and proxy REST sources before they can help resolve AutoMap data gaps."
       />

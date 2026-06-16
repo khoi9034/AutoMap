@@ -9,7 +9,7 @@ export default function MapComposerPage() {
       <SectionHeader
         eyebrow="Simple workflow"
         title="Map Composer"
-        description="Prompt, preview, adjust, and print/export a local draft map without moving through the advanced workflow pages."
+        description="Describe the map you need. AutoMap drafts it, previews it, lets you adjust it, then exports a review report."
       />
       <Suspense fallback={<div className="panel">Loading Map Composer...</div>}>
         <MapComposerClient />

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import {
@@ -15,9 +16,30 @@ import {
 import type { WorkflowState } from "@/types/workflow";
 
 export function WorkflowContextPanel() {
+  const pathname = usePathname();
   const [workflow, setWorkflow] = useState<WorkflowState>(() => loadWorkflowState(null));
+  const internalPaths = [
+    "/workflow",
+    "/map-request",
+    "/clarify",
+    "/recipe-review",
+    "/map-preview",
+    "/scenario-workbench",
+    "/analysis-reports",
+    "/adjustments",
+    "/approval",
+    "/publish-center",
+    "/learning",
+    "/layer-catalog",
+    "/data-gaps",
+    "/external-sources",
+    "/history",
+    "/system-status",
+  ];
+  const showInternalContext = internalPaths.some((path) => pathname === path || pathname.startsWith(`${path}/`));
 
   useEffect(() => {
+    if (!showInternalContext) return;
     setWorkflow(loadWorkflowState());
 
     function onWorkflowUpdated() {
@@ -26,7 +48,11 @@ export function WorkflowContextPanel() {
 
     window.addEventListener(WORKFLOW_EVENT, onWorkflowUpdated);
     return () => window.removeEventListener(WORKFLOW_EVENT, onWorkflowUpdated);
-  }, []);
+  }, [showInternalContext]);
+
+  if (!showInternalContext) {
+    return null;
+  }
 
   function resetWorkflow() {
     setWorkflow(clearWorkflowState());
@@ -46,7 +72,7 @@ export function WorkflowContextPanel() {
   return (
     <aside className="workflow-context-panel">
       <div className="panel-title-row">
-        <h3>Workflow Context</h3>
+        <h3>Internal Workflow Context</h3>
         <button className="small-button" type="button" onClick={resetWorkflow}>
           Reset
         </button>

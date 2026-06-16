@@ -1,17 +1,15 @@
 # Simple Map Composer
 
-AutoMap v3.3 makes `/map-composer` the primary local workflow for normal map requests.
+AutoMap v3.4 makes `/map-composer` the primary local workflow for normal map requests.
 
 The intended path is:
 
-1. Prompt
-2. Generate Draft Map
-3. Preview Map
-4. Adjust Map
-5. Preview Adjusted Map
-6. Print / Export
+1. Request
+2. Preview
+3. Adjust
+4. Print / Export
 
-The composer runs request intelligence, builds a recipe, builds a local WebMap JSON draft, creates a review packet when preview is valid, and returns one clean response to the frontend. It does not run analysis by default, publish to ArcGIS, require ArcGIS login, or create public items.
+The composer runs request intelligence, builds the technical map artifacts, creates local preview files when preview is valid, and returns one clean response to the frontend. It does not run analysis by default, publish to ArcGIS, require ArcGIS login, or create public items.
 
 ## Simple Adjustments
 

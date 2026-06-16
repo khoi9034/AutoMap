@@ -2,11 +2,11 @@
 
 AutoMap converts plain-English county GIS map requests into structured map recipes using only approved GIS layers from a local layer catalog.
 
-Version: `3.3.0`
+Version: `3.4.0`
 
 ## Current Phase
 
-v3.3 Simple Map Composer Workflow and True Preview Behavior on top of proximity, real parcel lookup, parcel workspace, scenario workbench, planning scenario and suitability intelligence, development/transportation source intelligence, real source verification, data gap resolution, analysis summary reporting, and user-guided safe spatial analysis refinement.
+v3.4 Four-Step Map Composer UI on top of simple preview behavior, proximity, real parcel lookup, parcel workspace, scenario workbench, planning scenario and suitability intelligence, development/transportation source intelligence, real source verification, data gap resolution, analysis summary reporting, and user-guided safe spatial analysis refinement.
 
 This repository is intentionally independent. It does not connect to CFS or import CFS code. AutoMap uses its own local PostGIS database and trusted layer catalog.
 
@@ -88,6 +88,7 @@ ArcGIS publishing and smoke testing remain dry-run by default unless a guarded C
 31. v3.1 proximity, nearest facility, and route drafts
 32. v3.2 simplified workflow and parcel-focused preview
 33. v3.3 simple map composer workflow and true preview behavior
+34. v3.4 four-step map composer UI
 
 ## Project Structure
 
@@ -494,13 +495,13 @@ See `docs/proximity_nearest_facility.md` and `docs/route_drafts.md`.
 
 ## Simple Map Composer And True Preview Behavior
 
-AutoMap v3.3 makes `/map-composer` the primary local path:
+AutoMap v3.4 makes `/map-composer` the primary local path:
 
 ```text
-Prompt -> Generate Draft Map -> Preview Map -> Adjust Map -> Preview Adjusted Map -> Print/Export
+Request -> Preview -> Adjust -> Print / Export
 ```
 
-Composer generation runs request intelligence, builds the recipe, builds local WebMap JSON, creates a review packet behind the scenes when preview is valid, and returns one clean response to the frontend. The normal user does not need to jump through Recipe Review, Analysis, Approval, or Publish Center for a basic map request.
+Composer generation runs request intelligence, builds the technical draft-map artifacts behind the scenes, creates local preview files when preview is valid, and returns one clean response to the frontend. The normal user does not need to jump through Recipe Review, Analysis, Approval, or Publish Center for a basic map request.
 
 For parcel-centered prompts, AutoMap now requires a real parcel/PIN/address match before showing a focused parcel preview. If a parcel is unmatched, the recipe keeps the draft layer plan but marks `can_focus_map=false`, blocks parcel-focused preview/analysis, shows `Parcel not matched`, and asks the user to correct the identifier. It does not zoom to a broad county map as if the parcel were selected.
 

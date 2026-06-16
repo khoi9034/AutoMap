@@ -78,6 +78,7 @@ def test_composer_unmatched_parcel_blocks_preview_without_countywide_extent(monk
     )
 
     assert result["can_preview"] is False
+    assert result["can_analyze"] is False
     assert result["next_action"] == "correct_parcel_identifier"
     assert result["review_packet_id"] is None
     assert result["preview_config"] is None
@@ -158,6 +159,11 @@ def test_geography_prompt_uses_focused_review_extent(monkeypatch, tmp_path):
 
     extent = result["webmap_json"]["initialState"]["viewpoint"]["targetGeometry"]
     assert result["can_preview"] is True
+    assert result["review_packet_id"] == "packet"
+    assert result["packet_id"] == "packet"
+    assert result["recipe"]["selected_layers"]
+    assert result["webmap_json"]["operationalLayers"]
+    assert result["preview_config"] == {"operational_layers": []}
     assert extent["xmin"] == -80.72
     assert extent["xmax"] == -80.46
 

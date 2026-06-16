@@ -29,7 +29,7 @@ export default async function DataGapsPage() {
   return (
     <div className="page-stack">
       <SectionHeader
-        eyebrow="Data Gaps"
+        eyebrow="Developer / GIS Analyst Tools"
         title="Missing approved source registry"
         description="These are not AutoMap failures. They are missing approved data sources needed for better map automation."
       />

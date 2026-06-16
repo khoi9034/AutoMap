@@ -9,7 +9,10 @@ export function TopHeader({ status }: TopHeaderProps) {
     <header className="top-header">
       <div>
         <p className="eyebrow">AutoMap: County GIS Request Engine</p>
-        <h2>Planning map workflow console</h2>
+        <h2>Map Composer</h2>
+        <p className="header-subtitle">
+          Describe the map you need. AutoMap drafts it, previews it, lets you adjust it, then exports a review report.
+        </p>
       </div>
       <div className="header-actions">
         <span className="chip">FE {status.ports?.frontend || 3010}</span>

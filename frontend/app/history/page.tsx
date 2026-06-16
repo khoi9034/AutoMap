@@ -20,7 +20,7 @@ export default async function HistoryPage() {
   return (
     <div className="page-stack">
       <SectionHeader
-        eyebrow="History"
+        eyebrow="Internal Review Tools"
         title="Local workflow history"
         description="Recent local recipe, packet, adjustment, approval, and dry-run actions from the AutoMap backend."
       />

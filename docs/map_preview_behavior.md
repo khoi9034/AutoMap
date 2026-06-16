@@ -1,6 +1,6 @@
 # Map Preview Behavior
 
-AutoMap v3.3 makes preview behavior explicit and conservative.
+AutoMap v3.4 makes preview behavior explicit and conservative.
 
 ## Parcel-Focused Prompts
 

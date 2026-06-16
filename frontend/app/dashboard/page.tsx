@@ -1,11 +1,9 @@
 import Link from "next/link";
 
-import { DashboardQuickStart } from "@/components/dashboard-quick-start";
 import { samplePrompts } from "@/components/navigation";
 import { SectionHeader } from "@/components/section-header";
 import { StatCard } from "@/components/stat-card";
 import { StatusChip } from "@/components/status-chip";
-import { WorkflowCards } from "@/components/workflow-cards";
 import { getDataGaps, getHistory, getStatusOrFallback, listPackets } from "@/lib/api";
 import type { DataGap, HistoryRow, PacketSummary, PacketsResponse } from "@/types/automap";
 
@@ -139,14 +137,35 @@ export default async function DashboardPage() {
             <div>
               <p className="eyebrow">Recommended start</p>
               <h3>Open Map Composer</h3>
-              <p className="muted">Prompt to Generate Draft Map to Preview to Adjust to Print/Export.</p>
+              <p className="muted">Request to Preview to Adjust to Print / Export.</p>
             </div>
             <Link className="button" href="/map-composer">
               Start composing
             </Link>
           </section>
-          <DashboardQuickStart />
-          <WorkflowCards />
+          <section className="panel">
+            <div className="panel-title-row">
+              <div>
+                <p className="eyebrow">Four-step map composer</p>
+                <h3>Normal users only need one page</h3>
+                <p className="muted">
+                  AutoMap still creates the technical artifacts behind the scenes, but the visible workflow stays simple.
+                </p>
+              </div>
+              <StatusChip tone="success">4 steps</StatusChip>
+            </div>
+            <div className="simple-step-list">
+              {["Request", "Preview", "Adjust", "Print / Export"].map((step, index) => (
+                <div className={index === 0 ? "simple-step simple-step-active" : "simple-step simple-step-pending"} key={step}>
+                  <span>{index + 1}</span>
+                  <div>
+                    <strong>{step}</strong>
+                    <small>{index === 0 ? "Start in Map Composer." : "Handled from the same page."}</small>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
         </div>
         <aside className="dashboard-side">
           <section className="panel safety-card">
@@ -227,7 +246,7 @@ export default async function DashboardPage() {
           ) : (
             <div className="empty-state compact-empty">
               <h3>No recent workflow history</h3>
-              <p>Create a recipe or review packet to populate this list.</p>
+              <p>Create a draft map in Map Composer to populate this list.</p>
             </div>
           )}
         </section>
@@ -251,7 +270,7 @@ export default async function DashboardPage() {
           ) : (
             <div className="empty-state compact-empty">
               <h3>No packets found</h3>
-              <p>Generate a review packet from Recipe Review to enable preview and adjustment steps.</p>
+              <p>Generate a draft map in Map Composer to create local preview and export artifacts.</p>
             </div>
           )}
         </section>

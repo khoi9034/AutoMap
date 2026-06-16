@@ -6,7 +6,7 @@ export default function PublishCenterPage() {
   return (
     <>
       <SectionHeader
-        eyebrow="Publish Center"
+        eyebrow="Developer / GIS Analyst Tools"
         title="Dry-run publish and smoke-test center"
         description="The frontend only runs dry-run publish checks and smoke-test dry-runs. Real private publishing remains CLI-only."
       />

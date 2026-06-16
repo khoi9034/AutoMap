@@ -1,14 +1,14 @@
 # Simplified Workflow
 
-AutoMap v3.3 makes `/map-composer` the primary normal local review path:
+AutoMap v3.4 makes `/map-composer` the primary normal local review path:
 
 ```text
-Prompt -> Generate Draft Map -> Preview Map -> Adjust Map -> Preview Adjusted Map -> Print/Export
+Request -> Preview -> Adjust -> Print / Export
 ```
 
 The composer keeps the primary actions in one place:
 
-- generate a recipe, WebMap draft, and preview packet from a prompt
+- generate the technical draft-map artifacts behind the scenes from a prompt
 - review selected layers, warnings, missing data, and parcel match status
 - preview the map only when the request is truly focusable
 - adjust the draft with simple title, layer, opacity, order, filter, and note controls

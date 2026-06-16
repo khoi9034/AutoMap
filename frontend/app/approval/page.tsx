@@ -6,7 +6,7 @@ export default function ApprovalPage() {
   return (
     <>
       <SectionHeader
-        eyebrow="Approval"
+        eyebrow="Internal Review Tools"
         title="Local reviewer approval gate"
         description="Approval records draft readiness only. It does not publish and does not create ArcGIS items."
       />

@@ -82,7 +82,7 @@ def test_clarification_page_components_and_workflow_state_exist():
     store = read("lib/workflow-store.ts")
     api = read("lib/api.ts")
 
-    assert 'href: "/clarify"' in navigation
+    assert 'href: "/clarify"' not in navigation
     assert "Clarify Request" in page
     assert "Start Clarification" in panel
     assert "Submit Answers" in panel
@@ -152,7 +152,7 @@ def test_simplified_workflow_page_guides_preview_and_blocks_fake_parcels():
     api = read("lib/api.ts")
     types = read("types/automap.ts")
 
-    assert 'href: "/workflow"' in navigation
+    assert 'href: "/workflow"' not in navigation
     assert "WorkflowClient" in page
     assert "Prompt to parcel-focused preview" in page
     assert "Generate Recipe" in client
@@ -177,6 +177,7 @@ def test_map_composer_is_primary_simple_workflow():
     sidebar = read("components/sidebar.tsx")
     page = read("app/map-composer/page.tsx")
     client = read("components/map-composer-client.tsx")
+    stepper = read("components/simple-map-composer-stepper.tsx")
     print_page = read("app/map-composer/[sessionId]/print/page.tsx")
     print_client = read("components/composer-print-client.tsx")
     api = read("lib/api.ts")
@@ -186,18 +187,31 @@ def test_map_composer_is_primary_simple_workflow():
     assert 'label: "Map Composer"' in navigation
     assert 'group: "Main"' in navigation
     assert 'group: "Advanced"' in navigation
+    assert 'href: "/map-request"' not in navigation
+    assert 'href: "/clarify"' not in navigation
+    assert 'href: "/workflow"' not in navigation
+    assert 'href: "/scenario-workbench"' not in navigation
+    assert 'href: "/analysis-reports"' not in navigation
     assert "nav-section-label" in sidebar
     assert "MapComposerClient" in page
-    assert "Prompt to preview to print" in client
+    assert "SimpleMapComposerStepper" in client
     assert "Generate Draft Map" in client
-    assert "Preview Map" in client
-    assert "Adjust Map" in client
     assert "Apply Adjustments" in client
     assert "Generate Review Report" in client
     assert "Export WebMap JSON" in client
     assert "Print Draft Map" in client
     assert "Parcel not matched" in client
     assert "Analysis is optional" in client
+    assert "Request" in stepper
+    assert "Preview" in stepper
+    assert "Adjust" in stepper
+    assert "Print / Export" in stepper
+    assert "Clarify" not in stepper
+    assert "Recipe" not in stepper
+    assert "Review Packet" not in stepper
+    assert "Dry-Run Publish" not in stepper
+    assert "Generate WebMap Draft" not in client
+    assert "Generate Review Packet" not in client
     assert "ComposerPrintClient" in print_page
     assert "Not an official print map" in print_client
     assert "generateComposerDraft" in api
@@ -295,7 +309,7 @@ def test_api_client_has_timeout_and_sanitized_fallback_version():
     assert "Backend is online, but this request took too long" in source
     assert "http://127.0.0.1:8010" in source
     assert "timeoutMs: 60000" in source
-    assert 'version: "3.3.0"' in source
+    assert 'version: "3.4.0"' in source
     assert "redactProtected" in source
     assert "AutoMap is checking the catalog, parcel fields, and context layers" in map_request
 
@@ -454,7 +468,7 @@ def test_analysis_reports_page_components_and_api_are_present():
     api = read("lib/api.ts")
     types = read("types/automap.ts")
 
-    assert 'href: "/analysis-reports"' in navigation
+    assert 'href: "/analysis-reports"' not in navigation
     assert "Summary analytics and report exports" in page
     assert "listAnalysisRuns" in center
     assert "listAnalysisRefinements" in center
@@ -621,7 +635,7 @@ def test_v28_scenario_workbench_components_and_api_are_present():
     api = read("lib/api.ts")
     types = read("types/automap.ts")
 
-    assert 'href: "/scenario-workbench"' in navigation
+    assert 'href: "/scenario-workbench"' not in navigation
     assert "ScenarioWorkbenchClient" in page
     assert "Tune weights" in page
     assert "ScenarioWeightEditor" in client

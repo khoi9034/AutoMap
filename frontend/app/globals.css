@@ -138,6 +138,13 @@ button {
   font-size: 24px;
 }
 
+.header-subtitle {
+  margin: 4px 0 0;
+  max-width: 680px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
 .header-actions,
 .button-row,
 .chip-row {
@@ -948,6 +955,81 @@ button {
 .simple-step-list {
   display: grid;
   gap: 14px;
+}
+
+.simple-map-composer-stepper {
+  display: grid;
+  gap: 10px;
+}
+
+.simple-composer-step {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f8fafc;
+  padding: 11px;
+}
+
+.simple-composer-step-number {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  background: #e8eef6;
+  color: #1d344d;
+  font-weight: 800;
+}
+
+.simple-composer-step strong,
+.simple-composer-step em,
+.simple-composer-step small {
+  display: block;
+}
+
+.simple-composer-step strong {
+  font-size: 14px;
+}
+
+.simple-composer-step em {
+  color: var(--muted);
+  font-size: 12px;
+  font-style: normal;
+  text-transform: capitalize;
+}
+
+.simple-composer-step small {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.simple-composer-step-active {
+  border-color: #8eb8e0;
+  background: #f3f8fd;
+}
+
+.simple-composer-step-complete {
+  border-color: #b7e0c7;
+  background: #f2fbf6;
+}
+
+.simple-composer-step-complete .simple-composer-step-number {
+  background: #d9f2e4;
+  color: var(--green);
+}
+
+.simple-composer-step-blocked {
+  border-color: #fecdca;
+  background: #fff1f0;
+}
+
+.simple-composer-step-blocked .simple-composer-step-number {
+  background: #fee4e2;
+  color: var(--red);
 }
 
 .composer-textarea {

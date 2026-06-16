@@ -6,8 +6,8 @@ export default function MapPreviewPage() {
   return (
     <>
       <SectionHeader
-        eyebrow="Map Preview"
-        title="Preview local draft WebMap JSON"
+        eyebrow="Internal Review Tools"
+        title="Advanced map preview"
         description="The preview uses backend packet metadata and existing local preview routes. It is not an ArcGIS publish action."
       />
       <WorkflowStepper activeStep="preview" />

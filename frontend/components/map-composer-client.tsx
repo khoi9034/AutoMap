@@ -6,6 +6,7 @@ import { useMemo, useState } from "react";
 
 import { ArcGISMapPreview } from "@/components/arcgis-map-preview";
 import { samplePrompts } from "@/components/navigation";
+import { SimpleMapComposerStepper } from "@/components/simple-map-composer-stepper";
 import { StatusChip } from "@/components/status-chip";
 import { ToastMessage } from "@/components/toast";
 import { API_BASE_URL, adjustComposerDraft, exportComposerDraft, generateComposerDraft } from "@/lib/api";
@@ -72,37 +73,26 @@ function packetIdForPreview(response: ComposerResponse | null): string {
 function ComposerSteps({ response, exported }: { response: ComposerResponse | null; exported: boolean }) {
   const previewReady = Boolean(response?.can_preview);
   const adjusted = Boolean(response?.adjusted_packet_id || response?.applied_adjustments);
-  const steps = [
-    { label: "Prompt", status: response ? "completed" : "active", note: "Describe the map." },
-    {
-      label: "Generate Draft Map",
-      status: response ? "completed" : "pending",
-      note: response?.map_title || "Recipe, WebMap draft, and preview packet are created together.",
-    },
-    {
-      label: "Preview Map",
-      status: response?.preview_blockers?.length ? "blocked" : previewReady ? "completed" : "pending",
-      note: response?.preview_blockers?.[0] || "Preview only appears when the request is truly focusable.",
-    },
-    { label: "Adjust Map", status: adjusted ? "completed" : previewReady ? "active" : "pending", note: "Use simple controls, not YAML." },
-    { label: "Print / Export", status: exported ? "completed" : previewReady ? "active" : "pending", note: "Local draft files only." },
-  ];
+  const blocked = Boolean(response?.preview_blockers?.length);
 
   return (
     <section className="panel composer-status-panel">
-      <p className="eyebrow">Composer flow</p>
+      <p className="eyebrow">Four-step composer</p>
       <h3>{actionLabel(response?.next_action)}</h3>
-      <div className="simple-step-list">
-        {steps.map((step, index) => (
-          <div className={`simple-step simple-step-${step.status}`} key={step.label}>
-            <span>{index + 1}</span>
-            <div>
-              <strong>{step.label}</strong>
-              <small>{step.note}</small>
-            </div>
-          </div>
-        ))}
-      </div>
+      <SimpleMapComposerStepper
+        statuses={{
+          request: response ? "complete" : "active",
+          preview: blocked ? "blocked" : previewReady ? "complete" : "pending",
+          adjust: adjusted ? "complete" : previewReady ? "active" : "pending",
+          export: exported ? "complete" : previewReady ? "active" : "pending",
+        }}
+        notes={{
+          request: response?.map_title || "Describe the map you need.",
+          preview: response?.preview_blockers?.[0] || "Only appears when the map can focus correctly.",
+          adjust: previewReady ? "Use the controls on this page." : "Preview must be ready first.",
+          export: "Local draft files only.",
+        }}
+      />
     </section>
   );
 }
@@ -311,7 +301,7 @@ export function MapComposerClient() {
     <div className="map-composer-grid">
       <section className="panel composer-prompt-panel">
         <p className="eyebrow">Map Composer</p>
-        <h2>Prompt to preview to print, in one place.</h2>
+        <h2>Request to preview to print, in one place.</h2>
         <textarea
           className="textarea composer-textarea"
           value={prompt}
@@ -337,7 +327,7 @@ export function MapComposerClient() {
         {!response ? (
           <section className="panel empty-state">
             <h3>One simple map workflow</h3>
-            <p>Prompt to Generate Draft Map to Preview Map to Adjust Map to Preview Adjusted Map to Print/Export.</p>
+            <p>Request to Preview to Adjust to Print / Export.</p>
             <p className="muted">Analysis stays optional unless the request asks to calculate, select, count, summarize, or measure.</p>
           </section>
         ) : null}
@@ -389,7 +379,7 @@ export function MapComposerClient() {
                 <div>
                   <p className="eyebrow">Adjust Map</p>
                   <h3>Simple draft controls</h3>
-                  <p className="muted">YAML adjustments remain available on the advanced page, but normal edits can happen here.</p>
+                  <p className="muted">Normal edits happen here; advanced file-based adjustments remain available for GIS analysts.</p>
                 </div>
                 <StatusChip tone={canAdjust ? "success" : "default"}>{canAdjust ? "Ready" : "Waiting for preview"}</StatusChip>
               </div>

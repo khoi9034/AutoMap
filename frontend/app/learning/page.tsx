@@ -5,7 +5,7 @@ export default function LearningPage() {
   return (
     <div className="page-stack">
       <SectionHeader
-        eyebrow="Learning"
+        eyebrow="Developer / GIS Analyst Tools"
         title="Feedback Learning and Approved Pattern Library"
         description="Reuse approved local workflow decisions as reviewable defaults for future county GIS requests."
       />
