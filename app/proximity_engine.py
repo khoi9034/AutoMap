@@ -12,6 +12,7 @@ from uuid import uuid4
 from sqlalchemy import text
 
 from app.address_field_mapper import build_verified_address_field_map
+from app.address_parcel_resolver import ADDRESS_NOT_MATCHED_WARNING, looks_like_address
 from app.db import _quote_identifier, get_engine
 from app.geometry_utils import (
     GeometrySafetyError,
@@ -24,6 +25,7 @@ from app.geometry_utils import (
 from app.layer_catalog_store import load_catalog_records
 from app.layer_semantics import slugify
 from app.parcel_context_engine import create_parcel_set, fetch_selected_parcels, get_parcel_set
+from app.parcel_input_parser import parse_parcel_input
 from app.proximity_models import (
     DEFAULT_MAX_ORIGIN_FEATURES,
     DISTANCE_RINGS_MILES,
@@ -326,6 +328,9 @@ def extract_origin_and_destination(prompt: str, *, origin_input: str | None = No
     if parcel_match:
         origin = re.split(r"\b(?:from|to|and|with|near|nearest|closest)\b", parcel_match.group(1), flags=re.IGNORECASE)[0]
         return {"origin_input": origin.strip(" ."), "destination_input": None}
+    parsed = parse_parcel_input(prompt)
+    if parsed.get("address_candidates"):
+        return {"origin_input": parsed["address_candidates"][0]["value"], "destination_input": None}
     address_match = re.search(r"\bfrom\s+(.+)$", prompt, flags=re.IGNORECASE)
     if address_match:
         return {"origin_input": address_match.group(1).strip(" ."), "destination_input": None}
@@ -353,6 +358,67 @@ def resolve_origin(
 ) -> dict[str, Any]:
     """Resolve an origin parcel/address with returnGeometry=false before geometry fetch."""
     warnings: list[str] = []
+    parsed_origin = parse_parcel_input(origin_input)
+    address_candidates = parsed_origin.get("address_candidates") or []
+    identifiers = parsed_origin.get("parsed_identifiers") or []
+    prefer_address = bool(address_candidates) and (
+        not identifiers
+        or looks_like_address(origin_input)
+        or re.search(r"\b(my\s+address|my\s+home|address|home)\b", origin_input, re.IGNORECASE)
+    )
+
+    if prefer_address:
+        address_value = address_candidates[0]["value"]
+        address_result = resolve_address_point(address_value, client=client, schema_name=schema_name)
+        if address_result.get("status") == "matched":
+            return address_result
+
+        parcel_set = create_parcel_set(address_value, schema_name=schema_name)
+        matched_count = int(parcel_set.get("matched_count") or len(parcel_set.get("matched_parcels") or []))
+        if matched_count == 1:
+            geometry_result = fetch_selected_parcels(parcel_set["parcel_set_id"], schema_name=schema_name)
+            if geometry_result.get("status") == "ok" and geometry_result.get("geometry_output_path"):
+                feature = _load_first_geojson_feature(geometry_result["geometry_output_path"])
+                if feature:
+                    return {
+                        "status": "matched",
+                        "origin_type": "address",
+                        "origin_feature": feature,
+                        "parcel_set": get_parcel_set(parcel_set["parcel_set_id"], schema_name),
+                        "warnings": [
+                            "Address matched through verified parcel/address fields; selected parcel geometry was fetched only after a safe match count.",
+                            *(geometry_result.get("warnings") or []),
+                        ],
+                    }
+        if matched_count > max_origins:
+            return {
+                "status": "blocked",
+                "origin_type": "address",
+                "origin_feature": None,
+                "parcel_set": parcel_set,
+                "candidate_matches": parcel_set.get("candidate_matches") or [],
+                "warnings": [
+                    *warnings,
+                    *(address_result.get("warnings") or []),
+                    f"Address matched {matched_count} parcel candidates, above max {max_origins}. Choose a single candidate.",
+                ],
+            }
+        return {
+            "status": "needs_review",
+            "origin_type": "address",
+            "origin_feature": None,
+            "parcel_set": parcel_set,
+            "candidate_matches": [
+                *(parcel_set.get("candidate_matches") or []),
+                *(address_result.get("candidate_matches") or []),
+            ],
+            "warnings": [
+                *(address_result.get("warnings") or []),
+                *(parcel_set.get("warnings") or []),
+                ADDRESS_NOT_MATCHED_WARNING,
+            ],
+        }
+
     parcel_set = create_parcel_set(origin_input, schema_name=schema_name)
     matched_count = int(parcel_set.get("matched_count") or len(parcel_set.get("matched_parcels") or []))
     if matched_count == 1:
@@ -412,9 +478,15 @@ def resolve_address_point(
     schema_name: str = "automap",
 ) -> dict[str, Any]:
     """Resolve a supplied address against the verified Addresses layer."""
+    parsed = parse_parcel_input(address)
+    address_value = (
+        (parsed.get("address_candidates") or [{}])[0].get("value")
+        if parsed.get("address_candidates")
+        else address
+    )
     field_map = build_verified_address_field_map(schema_name=schema_name)
     layer_url = field_map.get("layer_url")
-    where_clause, warnings = _address_where(address, field_map)
+    where_clause, warnings = _address_where(str(address_value or address), field_map)
     if not layer_url or not where_clause:
         return {"status": "needs_review", "origin_type": "address", "origin_feature": None, "warnings": warnings}
     query_client = client or SpatialQueryClient(max_features=MAX_TARGET_CANDIDATES)
@@ -424,7 +496,7 @@ def resolve_address_point(
         return {"status": "needs_review", "origin_type": "address", "origin_feature": None, "warnings": [str(exc)]}
     count = int(count_result.get("count") or 0)
     if count == 0:
-        return {"status": "unmatched", "origin_type": "address", "origin_feature": None, "warnings": [f"No address match found for {address}."]}
+        return {"status": "unmatched", "origin_type": "address", "origin_feature": None, "warnings": [ADDRESS_NOT_MATCHED_WARNING]}
     if count > 1:
         candidates = query_client.query_features(
             layer_url,

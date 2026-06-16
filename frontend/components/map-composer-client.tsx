@@ -11,7 +11,7 @@ import { StatusChip } from "@/components/status-chip";
 import { ToastMessage } from "@/components/toast";
 import { API_BASE_URL, adjustComposerDraft, exportComposerDraft, generateComposerDraft } from "@/lib/api";
 import { mergeWorkflowState, packetIdFromPath } from "@/lib/workflow-store";
-import type { ComposerResponse, PreviewLayer } from "@/types/automap";
+import type { ComposerResponse, PreviewLayer, ProximityResult } from "@/types/automap";
 import type { WorkflowToast } from "@/types/workflow";
 
 type ComposerLayerEdit = {
@@ -23,18 +23,31 @@ type ComposerLayerEdit = {
   definition_expression?: string;
 };
 
-const defaultPrompt = "Make a map of parcel 5528-12-3456 and show zoning, floodplain, and nearby roads.";
+const defaultPrompt = "make a map of my address 793 bartram ave and include nearest line to the nearest fire station";
 
 function localFileUrl(path?: string | null): string {
   return path ? `${API_BASE_URL}/local-file?path=${encodeURIComponent(path)}` : "#";
 }
 
 function actionLabel(action?: string): string {
+  if (action === "correct_address") return "Correct address";
   if (action === "correct_parcel_identifier") return "Correct parcel/PIN/address";
   if (action === "preview_map") return "Preview Map";
   if (action === "preview_adjusted_map") return "Preview Adjusted Map";
   if (action === "print_or_export") return "Print / Export";
   return "Review Draft";
+}
+
+function isAddressFocused(response: ComposerResponse): boolean {
+  const blockerText = (response.preview_blockers || []).join(" ").toLowerCase();
+  return (
+    response.origin_type === "address" ||
+    response.request_type === "address_context" ||
+    blockerText.includes("address not matched") ||
+    response.recipe?.origin_context?.origin_type === "address" ||
+    response.parcel_context?.origin_type === "address" ||
+    response.parcel_context?.input_type === "address"
+  );
 }
 
 function identifierText(value: unknown): string {
@@ -77,8 +90,6 @@ function ComposerSteps({ response, exported }: { response: ComposerResponse | nu
 
   return (
     <section className="panel composer-status-panel">
-      <p className="eyebrow">Four-step composer</p>
-      <h3>{actionLabel(response?.next_action)}</h3>
       <SimpleMapComposerStepper
         statuses={{
           request: response ? "complete" : "active",
@@ -97,30 +108,46 @@ function ComposerSteps({ response, exported }: { response: ComposerResponse | nu
   );
 }
 
-function ParcelBlocker({ response }: { response: ComposerResponse }) {
+function PreviewBlocker({ response }: { response: ComposerResponse }) {
   const context = response.parcel_context;
-  if (!response.preview_blockers?.length && context?.can_focus_map !== false) return null;
+  const isAddress = isAddressFocused(response);
+  const blockerText = response.preview_blockers?.[0] || context?.reason_if_not_focusable || "";
+  if (!response.preview_blockers?.length && context?.can_focus_map !== false && response.recipe?.origin_context?.can_preview !== false) return null;
+  const candidates = [
+    ...(response.origin_candidates || []),
+    ...(context?.candidate_matches || []),
+  ];
   return (
     <section className="panel parcel-preview-blocked" role="alert">
-      <p className="eyebrow">Parcel-focused preview blocked</p>
-      <h3>Parcel not matched</h3>
+      <p className="eyebrow">{isAddress ? "Address-focused preview blocked" : "Parcel-focused preview blocked"}</p>
+      <h3>{isAddress ? "Address not matched" : "Parcel not matched"}</h3>
       <p>
-        {context?.reason_if_not_focusable ||
-          "Parcel not matched. AutoMap cannot zoom to or map this parcel until a valid parcel/PIN/address is provided."}
+        {blockerText ||
+          (isAddress
+            ? "Address not matched. AutoMap cannot zoom to or map this address until a valid public address record or related parcel/PIN is matched."
+            : "Parcel not matched. AutoMap cannot zoom to or map this parcel until a valid parcel/PIN/address is provided.")}
       </p>
       <div className="detail-grid">
         <div>
           <span className="muted">Match status</span>
-          <strong>{context?.match_status || "needs_review"}</strong>
+          <strong>{response.origin_match_status || context?.match_status || "needs_review"}</strong>
         </div>
         <div>
-          <span className="muted">Matched count</span>
-          <strong>{context?.matched_count ?? 0}</strong>
+          <span className="muted">Origin type</span>
+          <strong>{response.origin_type || context?.origin_type || context?.input_type || "unknown"}</strong>
         </div>
         <div>
           <span className="muted">Next action</span>
           <strong>{actionLabel(response.next_action)}</strong>
         </div>
+      </div>
+      <div className="definition-box">
+        <strong>What AutoMap tried</strong>
+        <p>
+          {isAddress
+            ? "It searched verified public address and parcel/address fields without using owner/name fields."
+            : "It searched verified parcel/PIN/PIN14 fields and did not fetch parcel geometry."}
+        </p>
       </div>
       {context?.unmatched_identifiers?.length ? (
         <div className="definition-box">
@@ -128,6 +155,88 @@ function ParcelBlocker({ response }: { response: ComposerResponse }) {
           <p>{context.unmatched_identifiers.map(identifierText).join(", ")}</p>
         </div>
       ) : null}
+      {candidates.length ? (
+        <div className="definition-box">
+          <strong>Candidate matches</strong>
+          <p>{candidates.slice(0, 4).map(identifierText).join(", ")}</p>
+        </div>
+      ) : null}
+      <p className="muted">Try corrected address/PIN in the request box, then generate the draft again.</p>
+    </section>
+  );
+}
+
+function ProximityResultSummary({ result }: { result?: ProximityResult | null }) {
+  if (!result) return null;
+  return (
+    <section className="panel proximity-summary-panel">
+      <div className="panel-title-row">
+        <div>
+          <p className="eyebrow">Nearest facility draft</p>
+          <h3>{result.target_name || result.target_type || "Proximity result"}</h3>
+          <p className="muted">Straight-line reference only unless an approved road-network routing service is configured.</p>
+        </div>
+        <StatusChip tone={result.status === "ok" ? "success" : "warning"}>{result.status || "needs_review"}</StatusChip>
+      </div>
+      <div className="result-strip">
+        <div>
+          <span>Origin</span>
+          <strong>{result.origin_type || "address"}</strong>
+        </div>
+        <div>
+          <span>Target</span>
+          <strong>{result.target_type || "nearest facility"}</strong>
+        </div>
+        <div>
+          <span>Distance</span>
+          <strong>
+            {typeof result.distance_value === "number" ? `${result.distance_value.toFixed(2)} ${result.distance_unit || "miles"}` : "Needs review"}
+          </strong>
+        </div>
+      </div>
+      {result.line_geojson_path ? <p className="muted">Line output: {result.line_geojson_path}</p> : null}
+    </section>
+  );
+}
+
+function SelectedLayersAndWarnings({ response }: { response: ComposerResponse }) {
+  return (
+    <section className="panel composer-layer-summary">
+      <div className="panel-title-row">
+        <div>
+          <p className="eyebrow">Draft contents</p>
+          <h3>Layers and review notes</h3>
+        </div>
+      </div>
+      <div className="composer-summary-columns">
+        <div>
+          <h4>Selected layers</h4>
+          {response.selected_layers?.length ? (
+            <ul className="compact-list">
+              {response.selected_layers.slice(0, 8).map((layer) => (
+                <li key={`${layer.layer_key}-${layer.role}`}>
+                  <strong>{layer.layer_name || layer.layer_key}</strong>
+                  <span>{layer.role || layer.category || "context"}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="muted">No map layers are ready until the origin is matched.</p>
+          )}
+        </div>
+        <div>
+          <h4>Warnings</h4>
+          {response.warnings?.length ? (
+            <ul className="compact-list">
+              {response.warnings.slice(0, 8).map((warning) => (
+                <li key={warning}>{warning}</li>
+              ))}
+            </ul>
+          ) : (
+            <p className="muted">No warnings yet.</p>
+          )}
+        </div>
+      </div>
     </section>
   );
 }
@@ -243,7 +352,7 @@ export function MapComposerClient() {
       });
       setToast({
         tone: result.can_preview ? "success" : "warning",
-        message: result.can_preview ? "Draft map and preview are ready." : "Draft created, but preview is blocked until the parcel matches.",
+        message: result.can_preview ? "Draft map and preview are ready." : "Draft created, but preview is blocked until the address or parcel matches.",
       });
     } catch (exc) {
       setError(exc instanceof Error ? exc.message : "Composer draft generation failed.");
@@ -300,8 +409,6 @@ export function MapComposerClient() {
   return (
     <div className="map-composer-grid">
       <section className="panel composer-prompt-panel">
-        <p className="eyebrow">Map Composer</p>
-        <h2>Request to preview to print, in one place.</h2>
         <textarea
           className="textarea composer-textarea"
           value={prompt}
@@ -324,11 +431,13 @@ export function MapComposerClient() {
       </section>
 
       <main className="composer-main">
+        <ComposerSteps response={response} exported={Boolean(response?.export)} />
+
         {!response ? (
           <section className="panel empty-state">
             <h3>One simple map workflow</h3>
             <p>Request to Preview to Adjust to Print / Export.</p>
-            <p className="muted">Analysis stays optional unless the request asks to calculate, select, count, summarize, or measure.</p>
+            <p className="muted">Analysis is optional unless the request asks to calculate, select, count, summarize, or measure.</p>
           </section>
         ) : null}
 
@@ -366,7 +475,8 @@ export function MapComposerClient() {
               </div>
             </section>
 
-            <ParcelBlocker response={response} />
+            <PreviewBlocker response={response} />
+            <ProximityResultSummary result={response.proximity_result} />
 
             {previewPacketId ? (
               <section className="composer-preview-section">
@@ -374,78 +484,71 @@ export function MapComposerClient() {
               </section>
             ) : null}
 
-            <section className="panel">
-              <div className="panel-title-row">
-                <div>
-                  <p className="eyebrow">Adjust Map</p>
-                  <h3>Simple draft controls</h3>
-                  <p className="muted">Normal edits happen here; advanced file-based adjustments remain available for GIS analysts.</p>
-                </div>
-                <StatusChip tone={canAdjust ? "success" : "default"}>{canAdjust ? "Ready" : "Waiting for preview"}</StatusChip>
-              </div>
-              <label className="field-stack">
-                <span>Map title</span>
-                <input value={mapTitle} onChange={(event) => setMapTitle(event.target.value)} />
-              </label>
-              <LayerAdjustmentControls layers={layers} setLayers={setLayers} />
-              <label className="field-stack">
-                <span>Reviewer notes</span>
-                <textarea value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Optional draft review notes" />
-              </label>
-              <button className="button" type="button" onClick={applyAdjustments} disabled={loading !== null || !canAdjust}>
-                {loading === "adjust" ? "Applying..." : "Apply Adjustments"}
-              </button>
-            </section>
+            <SelectedLayersAndWarnings response={response} />
 
-            <section className="panel">
-              <div className="panel-title-row">
-                <div>
-                  <p className="eyebrow">Print / Export</p>
-                  <h3>Local draft outputs</h3>
-                  <p className="muted">Draft report/export, not an official print map. Nothing is published.</p>
+            {response.can_preview ? (
+              <section className="panel">
+                <div className="panel-title-row">
+                  <div>
+                    <p className="eyebrow">Adjust Map</p>
+                    <h3>Simple draft controls</h3>
+                    <p className="muted">Normal edits happen here; advanced file-based adjustments remain available for GIS analysts.</p>
+                  </div>
+                  <StatusChip tone={canAdjust ? "success" : "default"}>{canAdjust ? "Ready" : "Waiting for preview"}</StatusChip>
                 </div>
-                <StatusChip tone={canExport ? "success" : "default"}>{canExport ? "Export available" : "Preview required"}</StatusChip>
-              </div>
-              <div className="button-row">
-                <button className="button" type="button" onClick={exportDraft} disabled={loading !== null || !canExport}>
-                  {loading === "export" ? "Exporting..." : "Generate Review Report"}
+                <label className="field-stack">
+                  <span>Map title</span>
+                  <input value={mapTitle} onChange={(event) => setMapTitle(event.target.value)} />
+                </label>
+                <LayerAdjustmentControls layers={layers} setLayers={setLayers} />
+                <label className="field-stack">
+                  <span>Reviewer notes</span>
+                  <textarea value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Optional draft review notes" />
+                </label>
+                <button className="button" type="button" onClick={applyAdjustments} disabled={loading !== null || !canAdjust}>
+                  {loading === "adjust" ? "Applying..." : "Apply Adjustments"}
                 </button>
-                <a className="button button-secondary" href={localFileUrl(response.webmap_path)} target="_blank" rel="noreferrer">
-                  Export WebMap JSON
-                </a>
-                {response.composer_session_id ? (
-                  <Link className="button button-secondary" href={`/map-composer/${response.composer_session_id}/print`}>
-                    Print Draft Map
-                  </Link>
-                ) : null}
-              </div>
-              {response.export?.files?.length ? (
-                <div className="export-link-grid">
-                  {response.export.files.map((file) => (
-                    <a className="export-link" key={`${file.name}-${file.path}`} href={file.url ? `${API_BASE_URL}${file.url}` : localFileUrl(file.path)} target="_blank" rel="noreferrer">
-                      <strong>{file.name}</strong>
-                      <span>{file.path}</span>
-                    </a>
-                  ))}
+              </section>
+            ) : null}
+
+            {response.can_preview ? (
+              <section className="panel">
+                <div className="panel-title-row">
+                  <div>
+                    <p className="eyebrow">Print / Export</p>
+                    <h3>Local draft outputs</h3>
+                    <p className="muted">Draft report/export, not an official print map. Nothing is published.</p>
+                  </div>
+                  <StatusChip tone={canExport ? "success" : "default"}>{canExport ? "Export available" : "Preview required"}</StatusChip>
                 </div>
-              ) : null}
-            </section>
+                <div className="button-row">
+                  <button className="button" type="button" onClick={exportDraft} disabled={loading !== null || !canExport}>
+                    {loading === "export" ? "Exporting..." : "Generate Review Report"}
+                  </button>
+                  <a className="button button-secondary" href={localFileUrl(response.webmap_path)} target="_blank" rel="noreferrer">
+                    Export WebMap JSON
+                  </a>
+                  {response.composer_session_id ? (
+                    <Link className="button button-secondary" href={`/map-composer/${response.composer_session_id}/print`}>
+                      Print Draft Map
+                    </Link>
+                  ) : null}
+                </div>
+                {response.export?.files?.length ? (
+                  <div className="export-link-grid">
+                    {response.export.files.map((file) => (
+                      <a className="export-link" key={`${file.name}-${file.path}`} href={file.url ? `${API_BASE_URL}${file.url}` : localFileUrl(file.path)} target="_blank" rel="noreferrer">
+                        <strong>{file.name}</strong>
+                        <span>{file.path}</span>
+                      </a>
+                    ))}
+                  </div>
+                ) : null}
+              </section>
+            ) : null}
           </>
         ) : null}
       </main>
-
-      <aside className="composer-side">
-        <ComposerSteps response={response} exported={Boolean(response?.export)} />
-        <section className="panel">
-          <p className="eyebrow">Preview rules</p>
-          <ul className="compact-list">
-            <li>Parcel maps require a real parcel/PIN/address match.</li>
-            <li>Unmatched parcel prompts do not show broad county maps as success.</li>
-            <li>Context layers are reference layers around the selected focus.</li>
-            <li>Analysis is optional and never starts from this page automatically.</li>
-          </ul>
-        </section>
-      </aside>
     </div>
   );
 }

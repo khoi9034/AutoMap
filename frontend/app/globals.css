@@ -935,7 +935,7 @@ button {
 
 .map-composer-grid {
   display: grid;
-  grid-template-columns: 330px minmax(0, 1fr) 286px;
+  grid-template-columns: 340px minmax(0, 1fr);
   gap: 16px;
   align-items: start;
 }
@@ -960,6 +960,10 @@ button {
 .simple-map-composer-stepper {
   display: grid;
   gap: 10px;
+}
+
+.composer-status-panel .simple-map-composer-stepper {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .simple-composer-step {
@@ -1047,6 +1051,21 @@ button {
 
 .composer-preview-section .page-stack {
   gap: 12px;
+}
+
+.composer-summary-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.composer-summary-columns h4 {
+  margin: 0 0 8px;
+}
+
+.proximity-summary-panel {
+  border-color: #bfdbfe;
+  background: #f8fbff;
 }
 
 .composer-layer-editor {
@@ -1469,6 +1488,8 @@ th {
   .map-preview-shell,
   .workflow-page-grid,
   .map-composer-grid,
+  .composer-status-panel .simple-map-composer-stepper,
+  .composer-summary-columns,
   .composer-layer-row {
     grid-template-columns: 1fr;
   }

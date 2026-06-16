@@ -2,11 +2,11 @@
 
 AutoMap converts plain-English county GIS map requests into structured map recipes using only approved GIS layers from a local layer catalog.
 
-Version: `3.4.0`
+Version: `3.5.0`
 
 ## Current Phase
 
-v3.4 Four-Step Map Composer UI on top of simple preview behavior, proximity, real parcel lookup, parcel workspace, scenario workbench, planning scenario and suitability intelligence, development/transportation source intelligence, real source verification, data gap resolution, analysis summary reporting, and user-guided safe spatial analysis refinement.
+v3.5 Clean Map Composer UI and Address-to-Parcel Resolver on top of the four-step composer, simple preview behavior, proximity, real parcel lookup, parcel workspace, scenario workbench, planning scenario and suitability intelligence, development/transportation source intelligence, real source verification, data gap resolution, analysis summary reporting, and user-guided safe spatial analysis refinement.
 
 This repository is intentionally independent. It does not connect to CFS or import CFS code. AutoMap uses its own local PostGIS database and trusted layer catalog.
 
@@ -46,6 +46,9 @@ AutoMap helps GIS and planning staff turn plain-English county map requests into
 - proximity, nearest-facility, containing-district, and straight-line route draft workflows with local GeoJSON/report outputs
 - simple Map Composer workflow for prompt, preview, adjustment, and print/export
 - parcel-focused preview blocking until a parcel is matched
+- address-focused prompts resolved through verified address/parcel fields without owner-name lookup by default
+- nearest-facility address prompts routed to straight-line proximity drafts when safe
+- clean composer blocked states that hide adjust/export controls until preview is ready
 
 ## What AutoMap Does Not Do Yet
 
@@ -89,6 +92,7 @@ ArcGIS publishing and smoke testing remain dry-run by default unless a guarded C
 32. v3.2 simplified workflow and parcel-focused preview
 33. v3.3 simple map composer workflow and true preview behavior
 34. v3.4 four-step map composer UI
+35. v3.5 clean composer UI and address-to-parcel resolver
 
 ## Project Structure
 

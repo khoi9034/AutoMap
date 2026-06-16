@@ -1,3 +1,7 @@
+"use client";
+
+import { usePathname } from "next/navigation";
+
 import type { SystemStatus } from "@/types/automap";
 
 type StatusPanelProps = {
@@ -5,6 +9,11 @@ type StatusPanelProps = {
 };
 
 export function StatusPanel({ status }: StatusPanelProps) {
+  const pathname = usePathname();
+  if (pathname === "/map-composer" || pathname.startsWith("/map-composer/")) {
+    return null;
+  }
+
   return (
     <aside className="status-panel">
       <h3>System Snapshot</h3>

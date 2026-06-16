@@ -12,6 +12,8 @@ from uuid import uuid4
 
 from app.adjustment_engine import apply_adjustments_to_recipe, apply_adjustments_to_webmap, write_adjusted_packet
 from app.adjustment_models import normalize_adjustments
+from app.address_parcel_resolver import ADDRESS_NOT_MATCHED_WARNING, resolve_address_or_parcel_origin
+from app.geometry_utils import buffer_extent, geojson_extent
 from app.packet_index import build_preview_config
 from app.recipe_engine import PARCEL_NOT_MATCHED_WARNING, build_recipe
 from app.report_generator import generate_report
@@ -23,6 +25,7 @@ from app.review_packet_builder import (
 )
 from app.ui_models import output_file_url, repo_root
 from app.webmap_builder import build_webmap_json
+from app.proximity_engine import build_proximity_context, run_proximity_request
 
 
 COMPOSER_ROOT = Path("outputs/composer_sessions")
@@ -67,6 +70,15 @@ def _repo_relative(path: str | Path | None) -> str | None:
         return Path(path).as_posix()
 
 
+def _local_output_path(path: str | Path | None) -> Path | None:
+    if not path:
+        return None
+    candidate = Path(path)
+    if candidate.is_absolute():
+        return candidate
+    return repo_root() / candidate
+
+
 def _file_link(path: str | Path, name: str | None = None) -> dict[str, str]:
     relative = _repo_relative(path) or Path(path).as_posix()
     return {"name": name or Path(path).name, "path": relative, "url": output_file_url(relative)}
@@ -89,9 +101,13 @@ def _selected_layers(recipe: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def _review_warnings(recipe: dict[str, Any], parcel_context: dict[str, Any]) -> list[str]:
+    origin_context = recipe.get("origin_context") or {}
+    proximity_result = recipe.get("proximity_result") or {}
     warnings = [
         *[str(item) for item in recipe.get("review_reasons") or [] if item],
         *[str(item) for item in parcel_context.get("parcel_warnings") or [] if item],
+        *[str(item) for item in origin_context.get("warnings") or [] if item],
+        *[str(item) for item in proximity_result.get("warnings") or [] if item],
     ]
     return sorted({warning for warning in warnings if warning})
 
@@ -100,6 +116,11 @@ def _preview_blockers(recipe: dict[str, Any]) -> list[str]:
     parcel_context = recipe.get("parcel_context") or {}
     if parcel_context and parcel_context.get("can_focus_map") is False:
         return [parcel_context.get("reason_if_not_focusable") or PARCEL_NOT_MATCHED_WARNING]
+    origin_context = recipe.get("origin_context") or {}
+    if origin_context and origin_context.get("can_preview") is False:
+        origin_type = str(origin_context.get("origin_type") or "origin")
+        fallback = ADDRESS_NOT_MATCHED_WARNING if origin_type == "address" else "Origin not matched. AutoMap cannot preview this focused map until the origin is matched."
+        return [origin_context.get("reason_if_not_focusable") or fallback]
     validation = recipe.get("validation") or {}
     return [str(item) for item in validation.get("errors") or [] if item]
 
@@ -108,7 +129,8 @@ def _can_preview(recipe: dict[str, Any], webmap_json: dict[str, Any]) -> bool:
     if _preview_blockers(recipe):
         return False
     validation = webmap_json.get("autoMapValidation") or {}
-    return bool(recipe.get("selected_layers")) and not bool(validation.get("errors"))
+    derived_outputs = (recipe.get("analysis_execution") or {}).get("derived_outputs") or []
+    return bool(recipe.get("selected_layers") or derived_outputs) and not bool(validation.get("errors"))
 
 
 def _can_analyze(recipe: dict[str, Any]) -> bool:
@@ -120,8 +142,123 @@ def _can_analyze(recipe: dict[str, Any]) -> bool:
 
 def _next_action(can_preview: bool, blockers: list[str]) -> str:
     if blockers:
-        return "correct_parcel_identifier" if any("parcel" in blocker.lower() for blocker in blockers) else "review_blockers"
+        lowered = " ".join(blockers).lower()
+        if "address" in lowered:
+            return "correct_address"
+        if "parcel" in lowered:
+            return "correct_parcel_identifier"
+        return "review_blockers"
     return "preview_map" if can_preview else "review_recipe"
+
+
+def _is_proximity_prompt(prompt: str) -> bool:
+    context = build_proximity_context(prompt)
+    return bool(context.get("proximity_detected"))
+
+
+def _append_unique_warning(recipe: dict[str, Any], warning: str) -> None:
+    if not warning:
+        return
+    reasons = list(recipe.get("review_reasons") or [])
+    if warning not in reasons:
+        reasons.append(warning)
+    recipe["review_reasons"] = reasons
+    recipe["needs_review"] = True
+
+
+def _target_layer_as_selected(target_layer: dict[str, Any]) -> dict[str, Any]:
+    return {
+        **target_layer,
+        "role": "nearest_facility_target",
+        "source_role": target_layer.get("source_role") or "official_context",
+        "confidence_score": 0.9,
+        "match_score": 140,
+        "match_reasons": ["selected as nearest-facility target layer"],
+        "why_selected": "Selected from the verified catalog for the requested nearest-facility search.",
+        "review_notes": ["Review nearest-facility target layer coverage before official use."],
+    }
+
+
+def _extent_from_proximity_result(result: dict[str, Any]) -> dict[str, Any] | None:
+    path = result.get("line_geojson_path")
+    if not path:
+        return None
+    local_path = _local_output_path(path)
+    if local_path and local_path.exists():
+        return buffer_extent(geojson_extent(local_path), ratio=0.3, minimum=0.004)
+    return None
+
+
+def _origin_context_from_proximity(prompt: str, result: dict[str, Any]) -> dict[str, Any]:
+    origin_type = result.get("origin_type") or resolve_address_or_parcel_origin(prompt, match=False).get("origin_type") or "unknown"
+    status = "matched" if result.get("status") == "ok" else "needs_review"
+    reason = None
+    if result.get("status") != "ok":
+        reason = ADDRESS_NOT_MATCHED_WARNING if origin_type == "address" else "Origin not matched. AutoMap cannot preview this focused map until the origin is matched."
+    return {
+        "origin_type": origin_type,
+        "origin_input": result.get("origin_input"),
+        "origin_match_status": status,
+        "match_status": status,
+        "candidate_matches": result.get("candidate_matches") or [],
+        "related_parcel": (result.get("parcel_set") or {}).get("matched_parcels", [None])[0] if isinstance(result.get("parcel_set"), dict) and (result.get("parcel_set") or {}).get("matched_parcels") else None,
+        "can_preview": result.get("status") == "ok",
+        "reason_if_not_focusable": reason,
+        "warnings": result.get("warnings") or [],
+    }
+
+
+def _apply_proximity_result_to_recipe(recipe: dict[str, Any], prompt: str, result: dict[str, Any]) -> None:
+    """Attach proximity metadata/output to a recipe without publishing anything."""
+    recipe["request_type"] = "proximity"
+    recipe["proximity_result"] = result
+    recipe["origin_context"] = _origin_context_from_proximity(prompt, result)
+    recipe["proximity_context"] = {
+        "proximity_requested": True,
+        "target_type": result.get("target_type"),
+        "route_mode": "straight_line_reference",
+        "road_route_supported": False,
+        "straight_line_supported": True,
+        "route_status": result.get("route_status"),
+    }
+    target_layer = result.get("target_layer")
+    if isinstance(target_layer, dict) and target_layer.get("layer_key"):
+        selected_keys = {layer.get("layer_key") for layer in recipe.get("selected_layers") or []}
+        if target_layer["layer_key"] not in selected_keys:
+            recipe.setdefault("selected_layers", []).append(_target_layer_as_selected(target_layer))
+    if result.get("status") == "ok":
+        line_path = result.get("line_geojson_path")
+        if line_path:
+            recipe.setdefault("analysis_execution", {}).setdefault("derived_outputs", []).append(
+                {
+                    "type": "proximity_line_geojson",
+                    "path": line_path,
+                    "url": result.get("line_geojson_url") or output_file_url(line_path),
+                    "title": "Straight-line distance",
+                    "layer_key": (result.get("derived_layer") or {}).get("layer_key") or f"derived_proximity_{result.get('proximity_result_id')}",
+                    "derived_layer": result.get("derived_layer") or {},
+                    "analysis_run_id": result.get("proximity_result_id"),
+                }
+            )
+        extent = _extent_from_proximity_result(result)
+        if extent:
+            recipe["suggested_extent"] = extent
+        recipe["preview_status"] = "ready_for_proximity_preview"
+        recipe["focus_mode"] = "proximity"
+        _append_unique_warning(recipe, "Straight-line reference, not a driving route.")
+    else:
+        reason = recipe["origin_context"].get("reason_if_not_focusable")
+        if reason:
+            _append_unique_warning(recipe, reason)
+        recipe["preview_status"] = "blocked_until_origin_matched"
+        recipe.setdefault("analysis_execution", {}).update(
+            {
+                "analysis_status": "blocked_until_origin_matched",
+                "operation_type": "proximity_preview_blocked",
+                "executable": False,
+                "blocked_reasons": [reason or "Origin not matched."],
+            }
+        )
 
 
 def _preview_config_for(path: Path, can_preview: bool) -> dict[str, Any] | None:
@@ -148,6 +285,8 @@ def _base_session_response(
     export_files: list[dict[str, str]] | None = None,
 ) -> dict[str, Any]:
     parcel_context = recipe.get("parcel_context") or {}
+    origin_context = recipe.get("origin_context") or {}
+    proximity_result = recipe.get("proximity_result") or None
     blockers = _preview_blockers(recipe)
     can_preview = _can_preview(recipe, webmap_json)
     if blockers:
@@ -157,8 +296,15 @@ def _base_session_response(
     webmap_path = session_folder / ("adjusted_webmap.json" if (session_folder / "adjusted_webmap.json").exists() else "webmap.json")
     response = {
         "composer_session_id": session_id,
+        "prompt": raw_prompt,
         "raw_prompt": raw_prompt,
         "map_title": recipe.get("map_title") or webmap_json.get("title"),
+        "request_type": recipe.get("request_type") or ("proximity" if proximity_result else (parcel_context.get("request_type") if parcel_context else "general_map")),
+        "origin_type": origin_context.get("origin_type") or parcel_context.get("origin_type"),
+        "origin_match_status": origin_context.get("origin_match_status") or parcel_context.get("origin_match_status") or parcel_context.get("match_status"),
+        "origin_candidates": origin_context.get("candidate_matches") or parcel_context.get("candidate_matches") or [],
+        "related_parcel": origin_context.get("related_parcel"),
+        "proximity_result": proximity_result,
         "recipe": recipe,
         "webmap_json": webmap_json,
         "preview_config": preview_config,
@@ -171,6 +317,13 @@ def _base_session_response(
         "can_report": bool(packet_path),
         "preview_blockers": blockers,
         "next_action": _next_action(can_preview, blockers),
+        "simple_steps": [
+            {"step": "Request", "status": "complete"},
+            {"step": "Preview", "status": "blocked" if blockers else "complete" if can_preview else "pending"},
+            {"step": "Adjust", "status": "pending" if can_preview else "blocked"},
+            {"step": "Print / Export", "status": "pending" if can_preview else "blocked"},
+        ],
+        "debug_details": {"recipe_timing": recipe.get("recipe_timing")},
         "review_packet_id": review_packet_path.name if review_packet_path else None,
         "review_packet_path": _repo_relative(review_packet_path),
         "adjusted_packet_id": adjusted_packet_path.name if adjusted_packet_path else None,
@@ -226,6 +379,19 @@ def generate_composer_draft(prompt: str) -> dict[str, Any]:
     session_folder.mkdir(parents=True, exist_ok=False)
 
     recipe = build_recipe(prompt)
+    if _is_proximity_prompt(prompt):
+        try:
+            proximity_result = run_proximity_request(prompt)
+        except Exception as exc:
+            proximity_result = {
+                "status": "needs_review",
+                "raw_prompt": prompt,
+                "origin_type": resolve_address_or_parcel_origin(prompt, match=False).get("origin_type"),
+                "target_type": build_proximity_context(prompt).get("target_type"),
+                "warnings": [f"Proximity workflow could not complete safely: {exc}"],
+                "published": False,
+            }
+        _apply_proximity_result_to_recipe(recipe, prompt, proximity_result)
     webmap_json = build_webmap_json(recipe)
     _write_session_files(session_folder, recipe, webmap_json)
     blockers = _preview_blockers(recipe)

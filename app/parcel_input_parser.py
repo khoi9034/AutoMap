@@ -15,7 +15,7 @@ PIN_DASH_RE = re.compile(r"\b\d{3,6}-\d{2,4}-\d{3,8}\b")
 PIN_LABEL_RE = re.compile(r"\b(?:pin14|pin|parcel(?:\s+id)?|parcel)\s*[:#]?\s*([A-Za-z0-9][A-Za-z0-9\-]{3,32})\b", re.I)
 ADDRESS_RE = re.compile(
     r"\b\d{1,7}\s+[A-Za-z0-9.' -]+?\s+"
-    r"(?:st|street|rd|road|ave|avenue|blvd|boulevard|dr|drive|ln|lane|ct|court|cir|circle|hwy|highway|pkwy|parkway|pl|place)"
+    r"(?:st|street|rd|road|ave|avenue|blvd|boulevard|dr|drive|ln|lane|ct|court|cir|circle|hwy|highway|pkwy|parkway|pl|place|way|ter|terrace|trl|trail)"
     r"(?:\s+[NSEW])?\b",
     re.I,
 )

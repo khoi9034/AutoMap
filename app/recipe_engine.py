@@ -16,6 +16,7 @@ from app.layer_matcher import match_layers
 from app.parcel_context_engine import create_parcel_set, fetch_selected_parcels
 from app.parcel_input_parser import parse_parcel_input
 from app.prompt_parser import parse_prompt
+from app.proximity_engine import build_proximity_context
 from app.recipe_models import rejected_layer_from_match, selected_layer_from_match
 from app.request_intelligence import build_request_intelligence
 from app.source_usage_intelligence import build_source_coverage, enrich_selected_layers_with_source_usage
@@ -25,6 +26,10 @@ from app.ui_models import output_file_url, repo_root
 PARCEL_NOT_MATCHED_WARNING = (
     "This parcel ID was not matched. AutoMap cannot zoom to or analyze the parcel until a valid "
     "parcel/PIN/address is provided."
+)
+ADDRESS_NOT_MATCHED_WARNING = (
+    "Address not matched. AutoMap cannot zoom to or map this address until a valid public "
+    "address record or related parcel/PIN is matched."
 )
 
 
@@ -196,11 +201,20 @@ def _selected_parcel_derived_output(parcel_context: dict[str, Any]) -> dict[str,
 
 def _base_unmatched_parcel_context(parsed: dict[str, Any], *, reason: str = PARCEL_NOT_MATCHED_WARNING) -> dict[str, Any]:
     identifiers = [*(parsed.get("parsed_identifiers") or []), *(parsed.get("address_candidates") or [])]
+    input_type = parsed.get("input_type")
+    is_address = input_type == "address" and bool(parsed.get("address_candidates")) and not parsed.get("parsed_identifiers")
+    if is_address and reason == PARCEL_NOT_MATCHED_WARNING:
+        reason = ADDRESS_NOT_MATCHED_WARNING
+    blocked_status = "blocked_until_address_matched" if is_address else "blocked_until_parcel_matched"
     return {
         "parcel_set_id": None,
-        "input_type": parsed.get("input_type"),
+        "input_type": input_type,
+        "origin_type": "address" if is_address else input_type,
+        "request_type": "address_context" if is_address else "parcel_context",
         "parsed_identifiers": identifiers,
+        "address_candidates": parsed.get("address_candidates") or [],
         "match_status": "needs_review",
+        "origin_match_status": "needs_review",
         "matched_count": 0,
         "unmatched_identifiers": identifiers,
         "candidate_matches": [],
@@ -208,11 +222,11 @@ def _base_unmatched_parcel_context(parsed: dict[str, Any], *, reason: str = PARC
         "can_focus_map": False,
         "can_fetch_geometry": False,
         "reason_if_not_focusable": reason,
-        "preview_status": "blocked_until_parcel_matched",
-        "analysis_status": "blocked_until_parcel_matched",
-        "focus_mode": "parcel",
+        "preview_status": blocked_status,
+        "analysis_status": blocked_status,
+        "focus_mode": "address" if is_address else "parcel",
         "parcel_extent": {
-            "type": "blocked_until_parcel_matched",
+            "type": blocked_status,
             "value": None,
             "notes": reason,
         },
@@ -232,6 +246,8 @@ def _matched_parcel_context_from_set(
 ) -> dict[str, Any]:
     matched_count = int(parcel_set.get("matched_count") or len(parcel_set.get("matched_parcels") or []))
     match_status = str(parcel_set.get("match_status") or ("matched" if matched_count else "unmatched"))
+    input_type = parcel_set.get("input_type")
+    is_address = input_type == "address"
     warnings = [str(item) for item in parcel_set.get("warnings") or [] if item]
     can_fetch_geometry = match_status == "matched" and 0 < matched_count <= 100
     geometry_result: dict[str, Any] = {}
@@ -252,7 +268,7 @@ def _matched_parcel_context_from_set(
 
     can_focus_map = bool(extent and buffered)
     if matched_count < 1:
-        reason = PARCEL_NOT_MATCHED_WARNING
+        reason = ADDRESS_NOT_MATCHED_WARNING if is_address else PARCEL_NOT_MATCHED_WARNING
     elif match_status != "matched":
         reason = "Parcel match needs review before AutoMap can focus the map or fetch selected parcel geometry."
     elif not can_fetch_geometry:
@@ -267,10 +283,13 @@ def _matched_parcel_context_from_set(
 
     return {
         "parcel_set_id": parcel_set.get("parcel_set_id"),
-        "input_type": parcel_set.get("input_type"),
+        "input_type": input_type,
+        "origin_type": "address" if is_address else input_type,
+        "request_type": "address_context" if is_address else "parcel_context",
         "raw_input": parcel_set.get("raw_input") or raw_prompt,
         "parsed_identifiers": parcel_set.get("parsed_identifiers") or [],
         "match_status": match_status,
+        "origin_match_status": match_status,
         "matched_count": matched_count,
         "unmatched_identifiers": parcel_set.get("unmatched_identifiers") or [],
         "candidate_matches": parcel_set.get("candidate_matches") or [],
@@ -278,12 +297,12 @@ def _matched_parcel_context_from_set(
         "can_focus_map": can_focus_map,
         "can_fetch_geometry": can_fetch_geometry,
         "reason_if_not_focusable": reason,
-        "preview_status": "ready_for_parcel_focus" if can_focus_map else "blocked_until_parcel_matched",
-        "analysis_status": "available_if_explicitly_requested" if can_focus_map else "blocked_until_parcel_matched",
-        "focus_mode": "parcel",
+        "preview_status": "ready_for_address_focus" if is_address and can_focus_map else "ready_for_parcel_focus" if can_focus_map else "blocked_until_address_matched" if is_address else "blocked_until_parcel_matched",
+        "analysis_status": "available_if_explicitly_requested" if can_focus_map else "blocked_until_address_matched" if is_address else "blocked_until_parcel_matched",
+        "focus_mode": "address" if is_address else "parcel",
         "parcel_extent": extent
         or {
-            "type": "blocked_until_parcel_matched",
+            "type": "blocked_until_address_matched" if is_address else "blocked_until_parcel_matched",
             "value": None,
             "notes": reason or "Parcel extent is unavailable.",
         },
@@ -307,10 +326,22 @@ def _parcel_context_from_prompt(
     parsed = parse_parcel_input(prompt)
     if not parsed.get("parcel_intent"):
         return None
+    proximity_context = build_proximity_context(prompt)
+    if (
+        parsed.get("input_type") == "address"
+        and parsed.get("address_candidates")
+        and not parsed.get("parsed_identifiers")
+        and proximity_context.get("proximity_detected")
+    ):
+        return None
     if not match_parcel_context:
         return _base_unmatched_parcel_context(
             parsed,
-            reason="Parcel-centered request detected; match the parcel before creating a focused preview.",
+            reason=(
+                "Address-centered request detected; match the address before creating a focused preview."
+                if parsed.get("input_type") == "address"
+                else "Parcel-centered request detected; match the parcel before creating a focused preview."
+            ),
         )
     try:
         parcel_set = create_parcel_set(prompt, layer_catalog=layer_catalog, persist=True)
@@ -529,17 +560,22 @@ def build_recipe(
                 }
             )
         else:
+            block_status = parcel_context.get("analysis_status") or "blocked_until_parcel_matched"
+            operation_type = "address_context_preview_blocked" if parcel_context.get("origin_type") == "address" else "parcel_context_preview_blocked"
             recipe["analysis_execution"].update(
                 {
-                    "analysis_status": "blocked_until_parcel_matched",
-                    "operation_type": "parcel_context_preview_blocked",
+                    "analysis_status": block_status,
+                    "operation_type": operation_type,
                     "executable": False,
                     "supported_operations": [],
-                    "blocked_reasons": [parcel_context.get("reason_if_not_focusable") or PARCEL_NOT_MATCHED_WARNING],
+                    "blocked_reasons": [
+                        parcel_context.get("reason_if_not_focusable")
+                        or (ADDRESS_NOT_MATCHED_WARNING if parcel_context.get("origin_type") == "address" else PARCEL_NOT_MATCHED_WARNING)
+                    ],
                     "recommended_execution_plan": [
-                        "Correct the parcel/PIN/address.",
-                        "Match the parcel in AutoMap.",
-                        "Fetch selected parcel geometry only after a safe match count is confirmed.",
+                        "Correct the address/PIN/parcel identifier.",
+                        "Match the address or parcel in AutoMap.",
+                        "Fetch selected parcel or origin geometry only after a safe match count is confirmed.",
                     ],
                 }
             )

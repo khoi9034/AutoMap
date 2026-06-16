@@ -3,8 +3,10 @@ import json
 from app.geometry_utils import build_straight_line_geojson, compute_straight_line_distance
 from app.proximity_engine import (
     build_proximity_context,
+    extract_origin_and_destination,
     find_target_layer,
     resolve_address_point,
+    resolve_origin,
     run_nearest_facility,
     run_route_draft,
 )
@@ -112,6 +114,46 @@ def test_proximity_intent_detected_for_nearest_school():
     assert context["straight_line_supported"] is True
     assert context["road_route_supported"] is False
     assert context["clarifying_questions"]
+
+
+def test_address_fire_station_prompt_extracts_address_origin():
+    prompt = "make a map of my address 793 bartram ave and include nearest line to the nearest fire station"
+    context = build_proximity_context(prompt)
+    parts = extract_origin_and_destination(prompt)
+
+    assert context["proximity_detected"] is True
+    assert context["target_type"] == "nearest_fire_station"
+    assert parts["origin_input"].lower() == "793 bartram ave"
+    assert parts["destination_input"] is None
+
+
+def test_address_origin_unmatched_uses_address_warning(monkeypatch):
+    monkeypatch.setattr(
+        "app.proximity_engine.resolve_address_point",
+        lambda address_value, **kwargs: {
+            "status": "unmatched",
+            "origin_type": "address",
+            "origin_feature": None,
+            "warnings": ["Address not matched. AutoMap cannot zoom to or map this address until a valid public address record or related parcel/PIN is matched."],
+        },
+    )
+    monkeypatch.setattr(
+        "app.proximity_engine.create_parcel_set",
+        lambda raw_input, **kwargs: {
+            "parcel_set_id": "parcel_set_unmatched",
+            "input_type": "address",
+            "matched_count": 0,
+            "matched_parcels": [],
+            "candidate_matches": [],
+            "warnings": [],
+        },
+    )
+
+    result = resolve_origin("793 bartram ave")
+
+    assert result["status"] == "needs_review"
+    assert result["origin_type"] == "address"
+    assert "Address not matched" in " ".join(result["warnings"])
 
 
 def test_target_layer_mapping_uses_verified_catalog_only():

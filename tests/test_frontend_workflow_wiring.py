@@ -213,6 +213,13 @@ def test_map_composer_is_primary_simple_workflow():
     assert "Export WebMap JSON" in client
     assert "Print Draft Map" in client
     assert "Parcel not matched" in client
+    assert "Address not matched" in client
+    assert "Try corrected address/PIN" in client
+    assert "System Snapshot" not in client
+    assert "Request to preview to print" not in client
+    assert "composer-side" not in client
+    assert "response.can_preview ? (" in client
+    assert "Nearest facility draft" in client
     assert "Analysis is optional" in client
     assert "Request" in stepper
     assert "Preview" in stepper
@@ -342,7 +349,7 @@ def test_api_client_has_timeout_and_sanitized_fallback_version():
     assert "Backend is online, but this request took too long" in source
     assert "http://127.0.0.1:8010" in source
     assert "timeoutMs: 60000" in source
-    assert 'version: "3.4.0"' in source
+    assert 'version: "3.5.0"' in source
     assert "redactProtected" in source
     assert "AutoMap is checking the catalog, parcel fields, and context layers" in map_request
 

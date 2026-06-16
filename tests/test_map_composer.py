@@ -88,6 +88,103 @@ def test_composer_unmatched_parcel_blocks_preview_without_countywide_extent(monk
     assert "parcel" in result["preview_blockers"][0].lower()
 
 
+def test_composer_address_proximity_unmatched_says_address_not_parcel(monkeypatch, tmp_path):
+    prompt = "make a map of my address 793 bartram ave and include nearest line to the nearest fire station"
+    monkeypatch.setattr("app.map_composer._session_root", lambda: tmp_path / "composer_sessions")
+    monkeypatch.setattr(
+        "app.map_composer.build_recipe",
+        lambda prompt: build_recipe(prompt, sample_catalog(), persist_data_gaps=False),
+    )
+    monkeypatch.setattr(
+        "app.map_composer.run_proximity_request",
+        lambda prompt: {
+            "status": "needs_review",
+            "raw_prompt": prompt,
+            "origin_input": "793 bartram ave",
+            "origin_type": "address",
+            "target_type": "nearest_fire_station",
+            "candidate_matches": [],
+            "warnings": [
+                "Address not matched. AutoMap cannot zoom to or map this address until a valid public address record or related parcel/PIN is matched."
+            ],
+            "published": False,
+        },
+    )
+
+    result = generate_composer_draft(prompt)
+
+    assert result["request_type"] == "proximity"
+    assert result["origin_type"] == "address"
+    assert result["origin_match_status"] == "needs_review"
+    assert result["can_preview"] is False
+    assert result["next_action"] == "correct_address"
+    assert "Address not matched" in result["preview_blockers"][0]
+    assert "Parcel not matched" not in result["preview_blockers"][0]
+    assert result["review_packet_id"] is None
+
+
+def test_composer_address_proximity_matched_adds_line_output(monkeypatch, tmp_path):
+    prompt = "make a map of my address 793 bartram ave and include nearest line to the nearest fire station"
+    line_path = tmp_path / "proximity_line.geojson"
+    line_path.write_text(
+        json.dumps(
+            {
+                "type": "FeatureCollection",
+                "features": [
+                    {
+                        "type": "Feature",
+                        "properties": {"label": "Straight-line distance"},
+                        "geometry": {"type": "LineString", "coordinates": [[-80.6, 35.4], [-80.58, 35.42]]},
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    packet_path = tmp_path / "review_packets" / "packet"
+    packet_path.mkdir(parents=True)
+    monkeypatch.setattr("app.map_composer._session_root", lambda: tmp_path / "composer_sessions")
+    monkeypatch.setattr(
+        "app.map_composer.build_recipe",
+        lambda prompt: build_recipe(prompt, sample_catalog(), persist_data_gaps=False),
+    )
+    monkeypatch.setattr("app.map_composer.save_review_packet", lambda prompt, recipe, webmap: packet_path)
+    monkeypatch.setattr("app.map_composer._preview_config_for", lambda path, can_preview: {"operational_layers": []})
+    monkeypatch.setattr(
+        "app.map_composer.run_proximity_request",
+        lambda prompt: {
+            "status": "ok",
+            "raw_prompt": prompt,
+            "origin_input": "793 bartram ave",
+            "origin_type": "address",
+            "target_type": "nearest_fire_station",
+            "target_name": "Fire Station 1",
+            "distance_value": 1.25,
+            "distance_unit": "miles",
+            "line_geojson_path": str(line_path),
+            "proximity_result_id": "prox_result_test",
+            "target_layer": {
+                "layer_key": "fire_stations",
+                "layer_name": "Fire and EMS Stations",
+                "category": "public_facilities",
+                "layer_url": "https://example.test/Fire/0",
+            },
+            "derived_layer": {"layer_key": "derived_proximity_line_test"},
+            "warnings": [],
+            "published": False,
+        },
+    )
+
+    result = generate_composer_draft(prompt)
+
+    assert result["can_preview"] is True
+    assert result["request_type"] == "proximity"
+    assert result["origin_type"] == "address"
+    assert result["proximity_result"]["target_type"] == "nearest_fire_station"
+    assert result["webmap_json"]["operationalLayers"][-1]["title"] == "Straight-line distance"
+    assert result["review_packet_id"] == "packet"
+
+
 def test_composer_matched_parcel_adds_selected_layer_on_top(monkeypatch, tmp_path):
     geojson_path = tmp_path / "selected_parcels.geojson"
     selected_parcel_geojson(geojson_path)

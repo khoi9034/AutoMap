@@ -2,6 +2,8 @@
 
 AutoMap v3.1 adds draft proximity workflows for parcel/address origins and verified catalog destination layers.
 
+AutoMap v3.5 routes address prompts such as `my address 793 bartram ave ... nearest fire station` directly into proximity handling. The address is treated only as a user-supplied origin.
+
 Supported local outputs:
 
 - nearest straight-line distance
@@ -29,5 +31,7 @@ Target examples:
 - nearest polling place
 
 Fire district wording matters. If the user asks what district a parcel is in, AutoMap treats that as polygon containment. If the user asks for nearest fire station, AutoMap uses station point layers when verified.
+
+Road-network routing is not implied by a line request. Unless an approved routing/network service exists, AutoMap labels the output as a straight-line reference, not a driving route.
 
 CFS remains separate. AutoMap does not connect to or modify `cfs_dev`.

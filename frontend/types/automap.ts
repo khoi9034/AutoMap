@@ -360,6 +360,7 @@ export type ClarificationSession = {
 
 export type MapRecipe = {
   map_title?: string;
+  request_type?: string;
   user_intent?: string;
   parsed_request?: {
     raw_prompt?: string;
@@ -383,6 +384,9 @@ export type MapRecipe = {
     unresolved_blockers?: string[];
   };
   parcel_context?: ParcelContext;
+  origin_context?: OriginContext;
+  proximity_context?: Record<string, JsonValue>;
+  proximity_result?: ProximityResult;
   selected_layers?: SelectedLayer[];
   rejected_layers?: JsonValue[];
   filter_plan?: Record<string, JsonValue>;
@@ -484,9 +488,13 @@ export type ParcelSet = {
 export type ParcelContext = {
   parcel_set_id?: string | null;
   input_type?: string;
+  origin_type?: string;
+  request_type?: string;
   raw_input?: string;
   parsed_identifiers?: ParcelIdentifier[];
+  address_candidates?: ParcelIdentifier[];
   match_status?: "matched" | "partial" | "unmatched" | "needs_review" | string;
+  origin_match_status?: string;
   matched_count?: number | null;
   unmatched_identifiers?: ParcelIdentifier[];
   candidate_matches?: ParcelMatchSummary[];
@@ -505,6 +513,18 @@ export type ParcelContext = {
   geometry_output_path?: string | null;
   geometry_receipt?: Record<string, JsonValue>;
   parcel_warnings?: string[];
+};
+
+export type OriginContext = {
+  origin_type?: string;
+  origin_input?: string | null;
+  origin_match_status?: string;
+  match_status?: string;
+  candidate_matches?: Array<Record<string, JsonValue>> | JsonValue[];
+  related_parcel?: Record<string, JsonValue> | null;
+  can_preview?: boolean;
+  reason_if_not_focusable?: string | null;
+  warnings?: string[];
 };
 
 export type SelectedParcelGeometryResult = {
@@ -975,8 +995,15 @@ export type ComposerExport = {
 
 export type ComposerResponse = {
   composer_session_id?: string;
+  prompt?: string;
   raw_prompt?: string;
   map_title?: string;
+  request_type?: string;
+  origin_type?: string;
+  origin_match_status?: string;
+  origin_candidates?: Array<Record<string, JsonValue>> | JsonValue[];
+  related_parcel?: Record<string, JsonValue> | null;
+  proximity_result?: ProximityResult | null;
   recipe?: MapRecipe;
   webmap_json?: Record<string, JsonValue>;
   preview_config?: PreviewConfig | null;
@@ -989,6 +1016,8 @@ export type ComposerResponse = {
   can_report?: boolean;
   preview_blockers?: string[];
   next_action?: string;
+  simple_steps?: Array<{ step?: string; status?: string }>;
+  debug_details?: Record<string, JsonValue>;
   review_packet_id?: string | null;
   review_packet_path?: string | null;
   adjusted_packet_id?: string | null;

@@ -3,6 +3,7 @@ import json
 from app.parcel_context_engine import build_parcel_context_recipe, create_parcel_set, init_parcel_tables
 from app.parcel_field_mapper import build_verified_parcel_field_map, identify_pin14_fields, identify_pin_fields
 from app.parcel_input_parser import parse_parcel_input
+from app.address_parcel_resolver import resolve_address_or_parcel_origin
 from app.parcel_matcher import (
     build_parcel_where_clause,
     fetch_selected_parcel_geometry,
@@ -161,6 +162,50 @@ def test_parcel_parser_extracts_pin_pin14_and_address():
     assert any(item["identifier_type"] == "pin14" for item in identifiers)
     assert any(item["identifier_type"] == "pin" for item in identifiers)
     assert result["address_candidates"][0]["identifier_type"] == "address"
+
+
+def test_address_prompt_parses_as_address_not_parcel_id():
+    result = parse_parcel_input("my address 793 bartram ave")
+
+    assert result["input_type"] == "address"
+    assert result["address_candidates"][0]["value"].lower() == "793 bartram ave"
+    assert result["parsed_identifiers"] == []
+
+
+def test_bare_street_address_is_likely_address_not_parcel_id():
+    result = parse_parcel_input("793 bartram ave")
+
+    assert result["input_type"] == "address"
+    assert result["address_candidates"]
+    assert result["parsed_identifiers"] == []
+
+
+def test_labeled_parcel_still_parses_as_pin():
+    result = parse_parcel_input("parcel 5528-12-3456")
+
+    assert result["input_type"] == "pin"
+    assert result["parsed_identifiers"][0]["identifier_type"] == "pin"
+
+
+def test_address_resolver_does_not_use_owner_lookup_by_default(monkeypatch):
+    monkeypatch.setattr(
+        "app.address_parcel_resolver.match_parcels_by_address",
+        lambda addresses, **kwargs: {
+            "matched_parcels": [],
+            "candidate_matches": [],
+            "address_candidates": [],
+            "unmatched_identifiers": addresses,
+            "match_status": "unmatched",
+            "warnings": [],
+        },
+    )
+
+    result = resolve_address_or_parcel_origin("my address 793 bartram ave")
+
+    assert result["origin_type"] == "address"
+    assert result["match_status"] == "unmatched"
+    assert result["owner_lookup_used"] is False
+    assert "Address not matched" in " ".join(result["warnings"])
 
 
 def test_owner_lookup_is_privacy_sensitive_and_needs_review():

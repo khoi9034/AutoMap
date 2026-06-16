@@ -1,6 +1,6 @@
 # Parcel Workspace
 
-AutoMap v3.0 adds a parcel-centered workspace for real parcel lookup and selected-parcel GIS review drafts. AutoMap v3.1 adds parcel-origin proximity actions for nearest-facility and route-draft review. AutoMap v3.2 adds guided workflow behavior so parcel previews are blocked until a parcel is actually matched.
+AutoMap v3.0 adds a parcel-centered workspace for real parcel lookup and selected-parcel GIS review drafts. AutoMap v3.1 adds parcel-origin proximity actions for nearest-facility and route-draft review. AutoMap v3.2 adds guided workflow behavior so parcel previews are blocked until a parcel is actually matched. AutoMap v3.5 separates address origins from parcel/PIN inputs so address prompts do not show parcel-unmatched errors.
 
 The workspace accepts:
 
@@ -14,6 +14,8 @@ The workspace accepts:
 - prompts such as `my parcels` or `these parcels`
 
 Owner-name searches are not assumed. If a user asks for owner lookup, AutoMap marks the request as privacy-sensitive and needs review. It only uses verified public parcel fields when a reviewer confirms the field and purpose.
+
+Address prompts such as `my address 793 bartram ave` are treated as address origins. AutoMap first searches verified address fields and then verified parcel/address crosswalk fields if available. It does not infer private ownership or guess a parcel from ambiguous address candidates.
 
 ## Safe Matching
 
@@ -47,6 +49,8 @@ If the identifier is unmatched, AutoMap:
 - asks the user to correct the parcel ID, PIN, or address
 
 If the identifier is matched safely, AutoMap fetches only the matched parcel geometry, computes a buffered parcel extent, and focuses the preview on that extent.
+
+If an address is unmatched, the normal composer says `Address not matched`, not `Parcel not matched`, and blocks focused preview until the user corrects the address.
 
 ## CLI
 
