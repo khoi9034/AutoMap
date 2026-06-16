@@ -1,6 +1,6 @@
 # AutoMap Data Gap Resolver
 
-AutoMap v2.4 added a local data gap resolver for recurring gaps. AutoMap v2.5 adds real source verification so those gaps can show verified, partial, or still-open status:
+AutoMap v2.4 added a local data gap resolver for recurring gaps. AutoMap v2.5 adds real source verification so those gaps can show verified, partial, or still-open status. AutoMap v2.6 adds source-coverage intelligence so recipes can show exactly which selected layers are official, proxy, reference, limited coverage, historical fallback, or missing official sources:
 
 - `current_permits`
 - `current_planning_cases`
@@ -12,6 +12,8 @@ Related transportation context sources are tracked separately:
 - `stip_projects`
 
 The resolver does not make missing data disappear. It maps each gap to approved, candidate, or needs-review external source records and explains whether a source is authoritative, proxy/context only, limited by geography, or still uninspected.
+
+Recipe outputs now include a `source_coverage` object. It preserves unresolved official gaps even when proxy or reference layers are selected for context.
 
 ## Safety Rules
 
@@ -45,6 +47,8 @@ Partial support is explicit:
 - Concord-only planning cases can partially support current planning context, but do not resolve countywide planning cases.
 - Cabarrus Accela plan reviews can partially support development-pipeline context, but do not resolve official current permits.
 - AADT and STIP are transportation context only, not development pipeline sources.
+
+For Concord planning case requests, the Concord source may be selected as limited coverage and the recipe warns reviewers not to imply countywide coverage. For current permits near Kannapolis, AutoMap keeps the official permit gap visible because no official current permit layer is verified.
 
 A candidate or needs-review source remains reviewable evidence only. AutoMap records it in `automap.data_gap_resolution_log` and keeps the relevant missing-data warning visible.
 

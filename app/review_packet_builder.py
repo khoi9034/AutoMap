@@ -116,6 +116,11 @@ def build_layer_review_table(recipe: dict[str, Any], webmap_json: dict[str, Any]
                 "layer_url": recipe_layer.get("layer_url") or operational_layer.get("layerUrl") or operational_layer.get("url"),
                 "service_url": recipe_layer.get("service_url") or operational_layer.get("serviceUrl"),
                 "source_status": source_status,
+                "approval_status": recipe_layer.get("approval_status") or operational_layer.get("autoMapApprovalStatus"),
+                "source_role": recipe_layer.get("source_role") or operational_layer.get("autoMapSourceRole"),
+                "coverage_geography": recipe_layer.get("coverage_geography") or operational_layer.get("autoMapCoverageGeography"),
+                "source_limitation": recipe_layer.get("source_limitation") or recipe_layer.get("known_limitations"),
+                "gap_support": recipe_layer.get("gap_support") or operational_layer.get("autoMapGapSupport") or {},
                 "source_priority": recipe_layer.get("source_priority") or operational_layer.get("autoMapSourcePriority"),
                 "geometry_type": recipe_layer.get("geometry_type"),
                 "definition_expression": _definition_expression(operational_layer),
@@ -138,6 +143,7 @@ def build_warning_report(recipe: dict[str, Any], webmap_json: dict[str, Any]) ->
     filter_warnings: list[str] = []
     symbology_warnings: list[str] = []
     missing_data_warnings: list[str] = []
+    source_coverage_warnings: list[str] = []
     historical_data_warnings: list[str] = []
 
     for warning in _as_list(recipe.get("review_reasons")):
@@ -154,6 +160,9 @@ def build_warning_report(recipe: dict[str, Any], webmap_json: dict[str, Any]) ->
         if not any(missing_text in warning.lower() for warning in missing_data_warnings):
             missing_data_warnings.append(f"Missing requested data: {missing}")
 
+    for warning in _as_list((recipe.get("source_coverage") or {}).get("warnings")):
+        source_coverage_warnings.append(str(warning))
+
     for layer_key, plan in (recipe.get("filter_plan") or {}).items():
         if plan.get("needs_review"):
             reason = plan.get("review_reason") or "Filter plan needs review."
@@ -168,6 +177,8 @@ def build_warning_report(recipe: dict[str, Any], webmap_json: dict[str, Any]) ->
                 symbology_warnings.append(text)
             elif "filter" in lowered or "field" in lowered or "zoning" in lowered:
                 filter_warnings.append(text)
+            elif "proxy" in lowered or "coverage" in lowered or "reference/context" in lowered:
+                source_coverage_warnings.append(text)
             else:
                 layer_selection_warnings.append(text)
 
@@ -198,6 +209,7 @@ def build_warning_report(recipe: dict[str, Any], webmap_json: dict[str, Any]) ->
         "filter_warnings": _dedupe(filter_warnings),
         "symbology_warnings": _dedupe(symbology_warnings),
         "missing_data_warnings": _dedupe(missing_data_warnings),
+        "source_coverage_warnings": _dedupe(source_coverage_warnings),
         "historical_data_warnings": _dedupe(historical_data_warnings),
         "publishing_blockers": _dedupe(publishing_blockers),
     }
@@ -237,6 +249,30 @@ def build_review_summary(recipe: dict[str, Any], webmap_json: dict[str, Any]) ->
             "## Source Preference",
             "",
             _new_opendata_preference_statement(recipe),
+            "",
+            "## Source Coverage",
+            "",
+        ]
+    )
+    source_coverage = recipe.get("source_coverage") or {}
+    coverage_rows = []
+    for group_name in ["official_sources", "proxy_sources", "limited_coverage_sources", "reference_sources", "missing_official_sources"]:
+        for item in source_coverage.get(group_name) or []:
+            coverage_rows.append((group_name, item))
+    if coverage_rows:
+        lines.append("| Type | Source | Role/Status | Coverage | Limitation |")
+        lines.append("| --- | --- | --- | --- | --- |")
+        for group_name, item in coverage_rows:
+            title = item.get("display_title") or item.get("layer_name") or item.get("gap_key") or "Source"
+            role = item.get("source_role") or item.get("status") or ""
+            coverage = item.get("coverage_geography") or ""
+            limitation = item.get("limitation") or item.get("reason") or ""
+            lines.append(f"| {group_name.replace('_', ' ')} | {title} | {role} | {coverage} | {limitation} |")
+    else:
+        lines.append("No source coverage metadata was recorded.")
+
+    lines.extend(
+        [
             "",
             "## Filters And Definition Expressions",
             "",
@@ -324,6 +360,8 @@ def _build_review_html(
             f"<td>{escape(str(row.get('title') or ''))}</td>"
             f"<td>{escape(str(row.get('role') or ''))}</td>"
             f"<td>{escape(str(row.get('source_status') or ''))}</td>"
+            f"<td>{escape(str(row.get('source_role') or ''))}</td>"
+            f"<td>{escape(str(row.get('coverage_geography') or ''))}</td>"
             f"<td>{escape(str(row.get('confidence_score') or ''))}</td>"
             f"<td>{link}</td>"
             "</tr>"
@@ -345,6 +383,18 @@ def _build_review_html(
         _render_warning_group_html(group_name.replace("_", " ").title(), group_warnings)
         for group_name, group_warnings in warnings.items()
     )
+    coverage_rows = []
+    for group_name in ["official_sources", "proxy_sources", "limited_coverage_sources", "reference_sources", "missing_official_sources"]:
+        for item in (recipe.get("source_coverage") or {}).get(group_name) or []:
+            coverage_rows.append(
+                "<tr>"
+                f"<td>{escape(group_name.replace('_', ' '))}</td>"
+                f"<td>{escape(str(item.get('display_title') or item.get('layer_name') or item.get('gap_key') or ''))}</td>"
+                f"<td>{escape(str(item.get('source_role') or item.get('status') or ''))}</td>"
+                f"<td>{escape(str(item.get('coverage_geography') or ''))}</td>"
+                f"<td>{escape(str(item.get('limitation') or item.get('reason') or ''))}</td>"
+                "</tr>"
+            )
 
     return f"""<!doctype html>
 <html lang="en">
@@ -425,8 +475,15 @@ def _build_review_html(
     <section>
       <h2>Selected Layers</h2>
       <table>
-        <thead><tr><th>Layer</th><th>Role</th><th>Source</th><th>Confidence</th><th>REST URL</th></tr></thead>
-        <tbody>{''.join(layer_rows) or '<tr><td colspan="5">No layers selected.</td></tr>'}</tbody>
+        <thead><tr><th>Layer</th><th>Role</th><th>Source</th><th>Usage</th><th>Coverage</th><th>Confidence</th><th>REST URL</th></tr></thead>
+        <tbody>{''.join(layer_rows) or '<tr><td colspan="7">No layers selected.</td></tr>'}</tbody>
+      </table>
+    </section>
+    <section>
+      <h2>Source Coverage</h2>
+      <table>
+        <thead><tr><th>Type</th><th>Source</th><th>Role/Status</th><th>Coverage</th><th>Limitation</th></tr></thead>
+        <tbody>{''.join(coverage_rows) or '<tr><td colspan="5">No source coverage metadata recorded.</td></tr>'}</tbody>
       </table>
     </section>
     <section>

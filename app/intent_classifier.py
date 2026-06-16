@@ -202,6 +202,7 @@ TOPIC_INTENT_HINTS = {
     "schools": "school_district_lookup",
     "traffic": "transportation_corridor",
     "transportation": "transportation_corridor",
+    "transportation_projects": "transportation_corridor",
     "development": "development_activity",
     "addresses": "property_lookup",
     "environmental": "environmental_constraint",

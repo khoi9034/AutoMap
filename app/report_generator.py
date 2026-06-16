@@ -176,6 +176,11 @@ def _layer_rows(source: ReportSource) -> list[dict[str, Any]]:
                 "layer_url": recipe_layer.get("layer_url") or layer.get("layerUrl") or layer.get("url"),
                 "service_url": recipe_layer.get("service_url") or layer.get("serviceUrl"),
                 "source_status": recipe_layer.get("source_status") or layer.get("autoMapSourceStatus"),
+                "approval_status": recipe_layer.get("approval_status") or layer.get("autoMapApprovalStatus"),
+                "source_role": recipe_layer.get("source_role") or layer.get("autoMapSourceRole"),
+                "coverage_geography": recipe_layer.get("coverage_geography") or layer.get("autoMapCoverageGeography"),
+                "source_limitation": recipe_layer.get("source_limitation"),
+                "gap_support": recipe_layer.get("gap_support") or layer.get("autoMapGapSupport"),
                 "source_priority": recipe_layer.get("source_priority") or layer.get("autoMapSourcePriority"),
                 "geometry_type": recipe_layer.get("geometry_type"),
                 "definition_expression": _definition_expression(layer),
@@ -232,6 +237,8 @@ def _group_warnings(source: ReportSource) -> dict[str, list[str]]:
         groups.setdefault(_warning_bucket(text), []).append(text)
     for text in _as_list(source.recipe.get("review_reasons")):
         groups.setdefault(_warning_bucket(str(text)), []).append(str(text))
+    for text in _as_list((source.recipe.get("source_coverage") or {}).get("warnings")):
+        groups.setdefault("source_coverage", []).append(str(text))
     for text in _as_list(source.recipe.get("missing_data_needed")):
         groups["missing_data"].append(f"Missing requested data: {text}")
     for reason in _as_list(source.approval_receipt.get("block_reasons")):
@@ -350,6 +357,7 @@ def build_report_data(source: ReportSource) -> dict[str, Any]:
         "warnings": warning_groups,
         "missing_data": source.recipe.get("missing_data_needed") or [],
         "data_gaps": source.recipe.get("data_gap_notes") or data_gap_records_from_recipe(source.recipe),
+        "source_coverage": source.recipe.get("source_coverage") or {},
         "adjustment_notes": adjustment_notes,
         "approval": approval,
         "final_publish_ready": source.approval_receipt.get("final_publish_ready"),
@@ -414,8 +422,8 @@ def _markdown_table(rows: list[dict[str, Any]]) -> list[str]:
     if not rows:
         return ["No selected layers were recorded."]
     lines = [
-        "| Layer | Role | Source Status | Definition Expression | REST URL |",
-        "| --- | --- | --- | --- | --- |",
+        "| Layer | Role | Source Status | Usage | Coverage | Definition Expression | REST URL |",
+        "| --- | --- | --- | --- | --- | --- | --- |",
     ]
     for row in rows:
         lines.append(
@@ -425,6 +433,8 @@ def _markdown_table(rows: list[dict[str, Any]]) -> list[str]:
                     str(row.get("title") or row.get("layer_key") or ""),
                     str(row.get("role") or ""),
                     str(row.get("source_status") or ""),
+                    str(row.get("source_role") or ""),
+                    str(row.get("coverage_geography") or ""),
                     f"`{row.get('definition_expression')}`" if row.get("definition_expression") else "",
                     _layer_url(row),
                 ]
@@ -454,9 +464,34 @@ def build_report_markdown(report_data: dict[str, Any]) -> str:
         "",
         *_markdown_table(report_data.get("selected_layers") or []),
         "",
-        "## Spatial Operations",
-        "",
     ]
+    source_coverage = report_data.get("source_coverage") or {}
+    coverage_rows = []
+    for group_name in ["official_sources", "proxy_sources", "limited_coverage_sources", "reference_sources", "missing_official_sources"]:
+        for item in source_coverage.get(group_name) or []:
+            coverage_rows.append((group_name, item))
+    lines.extend(["## Source Coverage", ""])
+    if coverage_rows:
+        lines.append("| Type | Source | Role/Status | Coverage | Limitation |")
+        lines.append("| --- | --- | --- | --- | --- |")
+        for group_name, item in coverage_rows:
+            lines.append(
+                "| "
+                + " | ".join(
+                    [
+                        group_name.replace("_", " "),
+                        str(item.get("display_title") or item.get("layer_name") or item.get("gap_key") or ""),
+                        str(item.get("source_role") or item.get("status") or ""),
+                        str(item.get("coverage_geography") or ""),
+                        str(item.get("limitation") or item.get("reason") or ""),
+                    ]
+                )
+                + " |"
+            )
+    else:
+        lines.append("No source coverage metadata was recorded.")
+    lines.extend(["", "## Spatial Operations", ""])
+
     spatial = report_data.get("spatial_operations") or []
     if spatial:
         for operation in spatial:
@@ -507,10 +542,24 @@ def build_report_html(report_data: dict[str, Any]) -> str:
             f"<td>{escape(str(row.get('title') or row.get('layer_key') or ''))}</td>"
             f"<td>{escape(str(row.get('role') or ''))}</td>"
             f"<td>{escape(str(row.get('source_status') or ''))}</td>"
+            f"<td>{escape(str(row.get('source_role') or ''))}</td>"
+            f"<td>{escape(str(row.get('coverage_geography') or ''))}</td>"
             f"<td><code>{escape(str(row.get('definition_expression') or ''))}</code></td>"
             f"<td>{link}</td>"
             "</tr>"
         )
+    coverage_rows = []
+    for group_name in ["official_sources", "proxy_sources", "limited_coverage_sources", "reference_sources", "missing_official_sources"]:
+        for item in (report_data.get("source_coverage") or {}).get(group_name) or []:
+            coverage_rows.append(
+                "<tr>"
+                f"<td>{escape(group_name.replace('_', ' '))}</td>"
+                f"<td>{escape(str(item.get('display_title') or item.get('layer_name') or item.get('gap_key') or ''))}</td>"
+                f"<td>{escape(str(item.get('source_role') or item.get('status') or ''))}</td>"
+                f"<td>{escape(str(item.get('coverage_geography') or ''))}</td>"
+                f"<td>{escape(str(item.get('limitation') or item.get('reason') or ''))}</td>"
+                "</tr>"
+            )
     warning_sections = []
     for group, warnings in (report_data.get("warnings") or {}).items():
         items = "".join(f"<li>{escape(str(warning))}</li>" for warning in warnings) or "<li>None</li>"
@@ -599,8 +648,15 @@ def build_report_html(report_data: dict[str, Any]) -> str:
     <section>
       <h2>Selected Layers</h2>
       <table>
-        <thead><tr><th>Layer</th><th>Role</th><th>Source</th><th>Definition Expression</th><th>REST URL</th></tr></thead>
-        <tbody>{''.join(layer_rows) or '<tr><td colspan="5">No selected layers recorded.</td></tr>'}</tbody>
+        <thead><tr><th>Layer</th><th>Role</th><th>Source</th><th>Usage</th><th>Coverage</th><th>Definition Expression</th><th>REST URL</th></tr></thead>
+        <tbody>{''.join(layer_rows) or '<tr><td colspan="7">No selected layers recorded.</td></tr>'}</tbody>
+      </table>
+    </section>
+    <section>
+      <h2>Source Coverage</h2>
+      <table>
+        <thead><tr><th>Type</th><th>Source</th><th>Role/Status</th><th>Coverage</th><th>Limitation</th></tr></thead>
+        <tbody>{''.join(coverage_rows) or '<tr><td colspan="5">No source coverage metadata recorded.</td></tr>'}</tbody>
       </table>
     </section>
     <section>
@@ -634,6 +690,10 @@ def _write_layer_csv(path: Path, rows: list[dict[str, Any]]) -> None:
         "layer_url",
         "service_url",
         "source_status",
+        "approval_status",
+        "source_role",
+        "coverage_geography",
+        "source_limitation",
         "source_priority",
         "geometry_type",
         "definition_expression",

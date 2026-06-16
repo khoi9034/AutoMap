@@ -66,7 +66,7 @@ def evaluate_request_quality(
 
     return {
         "quality_score": score,
-        "understood": score >= 0.55 and "unknown_or_unsupported" not in detected_intents,
+        "understood": score >= 0.55 and "unknown_or_unsupported" not in detected_intents and not missing_data,
         "ambiguity_flags": ambiguity_flags,
         "unsupported_parts": unsupported_parts,
         "missing_data": missing_data,

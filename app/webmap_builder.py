@@ -8,6 +8,7 @@ from typing import Any
 
 from app.layer_catalog_store import load_catalog_records
 from app.layer_semantics import slugify
+from app.source_usage_intelligence import display_label_for_layer, source_warnings
 from app.ui_models import output_file_url
 
 
@@ -133,7 +134,7 @@ def _recipe_implies_selected_parcels(recipe_context: dict[str, Any] | None) -> b
 
 
 def _display_title(layer: dict[str, Any], recipe_context: dict[str, Any] | None = None) -> str:
-    layer_name = layer.get("layer_name") or "Untitled Layer"
+    layer_name = display_label_for_layer(layer)
     if layer.get("category") == "parcel" and _recipe_implies_selected_parcels(recipe_context):
         return f"Affected {layer_name}"
     return str(layer_name)
@@ -301,6 +302,7 @@ def _review_warnings(
             warnings.append(filter_plan_entry.get("review_reason") or "Filter plan needs review.")
     if not (selected_layer.get("layer_url") or selected_layer.get("rest_url")):
         warnings.append("Layer URL is missing.")
+    warnings.extend(source_warnings(selected_layer))
     return sorted({warning for warning in warnings if warning})
 
 
@@ -344,6 +346,10 @@ def build_operational_layer(
             "autoMapReviewWarnings": review_warnings,
             "autoMapSourceKey": selected_layer.get("source_key"),
             "autoMapSourceStatus": selected_layer.get("source_status"),
+            "autoMapApprovalStatus": selected_layer.get("approval_status"),
+            "autoMapSourceRole": selected_layer.get("source_role"),
+            "autoMapCoverageGeography": selected_layer.get("coverage_geography"),
+            "autoMapGapSupport": selected_layer.get("gap_support"),
             "autoMapSourcePriority": selected_layer.get("source_priority"),
         }
     )
@@ -550,6 +556,7 @@ def build_webmap_json(recipe: dict[str, Any]) -> dict[str, Any]:
             "review_reasons": recipe.get("review_reasons") or [],
             "missing_data_needed": recipe.get("missing_data_needed") or [],
             "suggested_extent": recipe.get("suggested_extent") or {},
+            "source_coverage": recipe.get("source_coverage") or {},
         },
         "autoMapWarnings": list(recipe.get("review_reasons") or []),
     }

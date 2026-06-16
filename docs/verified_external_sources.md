@@ -2,6 +2,8 @@
 
 AutoMap v2.5 replaced several placeholder source candidates with real verified REST endpoints where possible. These sources are stored in `data/external_rest_sources.seed.json` and verified into the AutoMap database only.
 
+AutoMap v2.6 uses these verified sources through the source coverage model. Verification means the REST metadata exists and can be trusted as catalog metadata; it does not automatically mean a source is official for every planning use.
+
 ## Verified Reference / Proxy Sources
 
 | Source key | Source | Status | Use | Notes |
@@ -34,6 +36,16 @@ Verified source upserts from v2.5:
 - NCDOT STIP lines layer
 
 These are trusted catalog metadata records, but their approval/source statuses still control whether recipes may select them and how warnings are shown.
+
+## v2.6 Usage Rules
+
+- AADT is selected for traffic, AADT, high-traffic, and road-volume requests as transportation context.
+- STIP is selected for planned road project and transportation project requests as reference context.
+- Accela and plan-review layers can support development pressure as proxy context only.
+- Concord planning cases can support Concord planning case requests, but they remain limited coverage.
+- Current permits remain unresolved until an official current permit source is verified.
+
+Recipe, WebMap, review packet, report, and frontend outputs expose those roles through `source_coverage` and visible proxy/reference/limited-coverage labels.
 
 ## Safety Notes
 

@@ -15,6 +15,7 @@ from app.db import _quote_identifier, get_engine
 from app.layer_catalog_store import upsert_layer_records
 from app.layer_semantics import date_fields_from_fields, slugify
 from app.source_candidate_evaluator import classify_source_limitations, recommend_catalog_category
+from app.source_usage_intelligence import catalog_semantics_for_category
 from app.ui_models import repo_root
 
 
@@ -335,7 +336,10 @@ def update_external_source_metadata(source_key: str, inspected_metadata: dict[st
 def _catalog_record_from_source(source: dict[str, Any], layer_metadata: dict[str, Any], layer_url: str, layer_id: int = 0) -> dict[str, Any]:
     name = str(layer_metadata.get("layer_name") or layer_metadata.get("name") or source["source_name"])
     category = recommend_catalog_category(source)
+    semantics = catalog_semantics_for_category(category, source)
     limitations = source.get("limitations") or ""
+    if semantics.get("known_limitations"):
+        limitations = f"{limitations} {semantics['known_limitations']}".strip()
     source_status = source.get("source_status") or "reference"
     if source_status == "proxy":
         limitations = f"{limitations} Proxy/context only; not official approval or capacity.".strip()
@@ -346,12 +350,12 @@ def _catalog_record_from_source(source: dict[str, Any], layer_metadata: dict[str
         "layer_name": name,
         "rest_url": layer_url,
         "category": category,
-        "aliases": sorted(set([category, *source.get("categories", []), name.lower()])),
+        "aliases": sorted(set([name.lower(), *semantics["aliases"]])),
         "description": source.get("notes"),
         "geometry_type": layer_metadata.get("geometry_type"),
         "date_fields": date_fields_from_fields(fields),
         "common_filters": [],
-        "planning_use_cases": sorted(set([category, *source.get("intended_gaps", [])])),
+        "planning_use_cases": sorted(set(semantics["planning_use_cases"])),
         "recommended_symbology": {},
         "known_limitations": limitations,
         "is_public": True,
@@ -387,7 +391,7 @@ def _catalog_record_from_source(source: dict[str, Any], layer_metadata: dict[str
         "verified_at": datetime.now(UTC).isoformat(),
         "is_historical": False,
         "historical_year": None,
-        "canonical_topic": category,
+        "canonical_topic": semantics["canonical_topic"],
         "superseded_by_layer_key": None,
         "source_notes": source.get("notes"),
     }

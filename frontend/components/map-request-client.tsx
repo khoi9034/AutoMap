@@ -8,8 +8,11 @@ import { JsonPanel } from "@/components/json-panel";
 import { LearningSuggestionsPanel } from "@/components/learning-suggestions-panel";
 import { samplePrompts } from "@/components/navigation";
 import { RequestIntelligencePanel } from "@/components/request-intelligence-panel";
+import { DevelopmentContextPanel } from "@/components/development-context-panel";
+import { SourceCoveragePanel } from "@/components/source-coverage-panel";
 import { StatusChip } from "@/components/status-chip";
 import { ToastMessage } from "@/components/toast";
+import { TransportationContextPanel } from "@/components/transportation-context-panel";
 import { makeRecipe, makeReviewPacket } from "@/lib/api";
 import {
   loadWorkflowState,
@@ -202,6 +205,11 @@ export function MapRequestClient() {
 
           <RequestIntelligencePanel recipe={recipe} />
           <LearningSuggestionsPanel learnedContext={recipe.learned_context} />
+          <SourceCoveragePanel coverage={recipe.source_coverage} />
+          <section className="stats-grid">
+            <DevelopmentContextPanel coverage={recipe.source_coverage} />
+            <TransportationContextPanel coverage={recipe.source_coverage} />
+          </section>
           {recipe.data_gap_resolution_context ? (
             <JsonPanel title="Data gap source candidates" value={recipe.data_gap_resolution_context} />
           ) : null}
@@ -243,7 +251,7 @@ export function MapRequestClient() {
                       <td>{layer.layer_name}</td>
                       <td>{layer.category}</td>
                       <td>{layer.role}</td>
-                      <td>{layer.source_status}</td>
+                      <td>{layer.source_role || layer.source_status}</td>
                       <td className="url-cell">{layer.layer_url}</td>
                       <td>{Math.round((layer.confidence_score || 0) * 100)}%</td>
                     </tr>

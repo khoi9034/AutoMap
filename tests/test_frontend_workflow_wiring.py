@@ -55,10 +55,14 @@ def test_map_request_and_recipe_review_store_workflow_state():
     assert "workflowMissingDataFromRecipe" in map_request
     assert "Continue to Recipe Review" in map_request
     assert "RequestIntelligencePanel" in map_request
+    assert "SourceCoveragePanel" in map_request
+    assert "DevelopmentContextPanel" in map_request
+    assert "TransportationContextPanel" in map_request
     assert "makeReviewPacket" in recipe_review
     assert "selectedPacketId" in recipe_review
     assert "Create Adjustment Template" in recipe_review
     assert "RequestIntelligencePanel" in recipe_review
+    assert "SourceCoveragePanel" in recipe_review
     assert "detected_intents" in intelligence_panel
     assert "clarifying_questions" in intelligence_panel
     assert "Analysis plan" in intelligence_panel
@@ -171,6 +175,7 @@ def test_data_gaps_page_explains_missing_sources_not_failures():
     assert "current_planning_cases" in resolver
     assert "current_development_pipeline" in resolver
     assert "Proxy sources are not official approvals" in resolver
+    assert "ProxySourceBadge" in resolver
     assert "getGapCandidates" in resolver
     assert "resolveDataGap" in resolver
     assert "partially_supported" in resolver
@@ -193,6 +198,7 @@ def test_external_sources_page_components_and_api_are_present():
     assert "Verify Selected Source" in client
     assert "Discovery results" in client
     assert "Proxy" in client
+    assert "ProxySourceBadge" in client
     assert "context layers" in client
     assert "No ArcGIS login is required" in client
     assert "getExternalSources" in api
@@ -217,7 +223,7 @@ def test_api_client_has_timeout_and_sanitized_fallback_version():
 
     assert "Backend API request timed out" in source
     assert "http://127.0.0.1:8010" in source
-    assert 'version: "2.5.0"' in source
+    assert 'version: "2.6.0"' in source
     assert "redactProtected" in source
 
 
@@ -378,3 +384,31 @@ def test_frontend_types_include_request_intelligence_recipe_fields():
     assert "data_gap_resolution_context" in types
     assert "why_selected" in types
     assert "why_not_legacy" in types
+
+
+def test_v26_source_coverage_components_are_wired_and_safe():
+    source_panel = read("components/source-coverage-panel.tsx")
+    proxy_badge = read("components/proxy-source-badge.tsx")
+    development_panel = read("components/development-context-panel.tsx")
+    transportation_panel = read("components/transportation-context-panel.tsx")
+    catalog = read("components/catalog-search-client.tsx")
+    types = read("types/automap.ts")
+
+    assert "official_sources" in source_panel
+    assert "proxy_sources" in source_panel
+    assert "limited_coverage_sources" in source_panel
+    assert "reference_sources" in source_panel
+    assert "missing_official_sources" in source_panel
+    assert "Proxy and reference layers are review context" in source_panel
+    assert "Official" in proxy_badge
+    assert "Proxy" in proxy_badge
+    assert "Limited coverage" in proxy_badge
+    assert "Reference" in proxy_badge
+    assert "not be treated as official approvals" in development_panel
+    assert "AADT and STIP are context layers" in transportation_panel
+    assert "ProxySourceBadge" in catalog
+    assert "known_limitations" in catalog
+    assert "source_coverage" in types
+    assert "SourceCoverageEntry" in types
+    assert "confirm-publish" not in source_panel.lower()
+    assert "publish-draft-webmap" not in source_panel.lower()

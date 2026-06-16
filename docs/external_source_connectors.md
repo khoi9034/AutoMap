@@ -1,6 +1,6 @@
 # External Source Connectors
 
-AutoMap v2.4 added a connector framework for approved and candidate non-OpenData REST sources. AutoMap v2.5 adds real source discovery and verification on top of that framework. The workflow is deliberately conservative: it can inspect metadata, fields, counts, and tiny non-geometry samples, but it does not ingest full feature datasets or publish anything.
+AutoMap v2.4 added a connector framework for approved and candidate non-OpenData REST sources. AutoMap v2.5 adds real source discovery and verification on top of that framework. AutoMap v2.6 adds source usage intelligence so verified sources are selected with clear official, proxy, reference, and limited-coverage labels. The workflow is deliberately conservative: it can inspect metadata, fields, counts, and tiny non-geometry samples, but it does not ingest full feature datasets or publish anything.
 
 ## Source Registry
 
@@ -73,6 +73,15 @@ If a candidate source is an ArcGIS REST layer or service and its metadata endpoi
 - aliases and planning use cases
 
 Proxy layers remain proxy/context layers. They cannot silently become official permit or development approval layers.
+
+v2.6 catalog semantics add richer aliases and planning use cases for:
+
+- AADT traffic context
+- STIP planned transportation project context
+- Accela or plan-review proxy activity
+- Concord-limited planning cases
+
+These semantics improve matching, but source status still controls warnings and gap resolution.
 
 ## Current Candidate Areas
 

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { StatusChip } from "@/components/status-chip";
 import { ToastMessage } from "@/components/toast";
+import { ProxySourceBadge } from "@/components/proxy-source-badge";
 import {
   discoverExternalSources,
   getExternalSources,
@@ -210,7 +211,7 @@ export function ExternalSourcesClient() {
                   <span>{record.layer_url || record.base_url || "URL not recorded"}</span>
                   <div className="chip-row">
                     <StatusChip tone={toneForStatus(record.approval_status)}>{record.approval_status}</StatusChip>
-                    <StatusChip tone={toneForStatus(record.source_status)}>{record.source_status}</StatusChip>
+                    <ProxySourceBadge status={record.source_status} approval={record.approval_status} />
                     {(record.intended_gaps || []).map((gap) => (
                       <StatusChip key={gap}>{gap}</StatusChip>
                     ))}
@@ -274,7 +275,7 @@ export function ExternalSourcesClient() {
                         <StatusChip tone={toneForStatus(source.approval_status)}>{source.approval_status}</StatusChip>
                       </td>
                       <td>
-                        <StatusChip tone={toneForStatus(source.source_status)}>{source.source_status}</StatusChip>
+                        <ProxySourceBadge status={source.source_status} approval={source.approval_status} />
                       </td>
                       <td>{(source.intended_gaps || []).join(", ") || "none"}</td>
                       <td>{metadataValue(source.inspected_metadata, "inspection_status")}</td>
@@ -309,7 +310,7 @@ export function ExternalSourcesClient() {
                   <StatusChip tone={toneForStatus(selectedSource.approval_status)}>
                     {selectedSource.approval_status}
                   </StatusChip>
-                  <StatusChip tone={toneForStatus(selectedSource.source_status)}>{selectedSource.source_status}</StatusChip>
+                  <ProxySourceBadge status={selectedSource.source_status} approval={selectedSource.approval_status} />
                 </div>
                 <dl className="layer-meta">
                   <div>

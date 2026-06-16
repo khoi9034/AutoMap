@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { StatusChip } from "@/components/status-chip";
+import { ProxySourceBadge } from "@/components/proxy-source-badge";
 import { searchCatalog } from "@/lib/api";
 import type { LayerRecord } from "@/types/automap";
 
@@ -115,9 +116,11 @@ export function CatalogSearchClient() {
                 <th>Layer</th>
                 <th>Category</th>
                 <th>Source</th>
+                <th>Use</th>
                 <th>Priority</th>
                 <th>Verified</th>
                 <th>Historical</th>
+                <th>Limitation</th>
                 <th>URL</th>
               </tr>
             </thead>
@@ -127,11 +130,15 @@ export function CatalogSearchClient() {
                   <td>{row.layer_name}</td>
                   <td>{row.category}</td>
                   <td>{row.source_status}</td>
+                  <td>
+                    <ProxySourceBadge status={row.source_status} approval={row.approval_status} />
+                  </td>
                   <td>{row.source_priority}</td>
                   <td>
                     <StatusChip tone={row.is_verified ? "success" : "warning"}>{String(row.is_verified)}</StatusChip>
                   </td>
                   <td>{String(row.is_historical || false)}</td>
+                  <td>{row.known_limitations || row.canonical_topic || ""}</td>
                   <td className="url-cell">{row.layer_url}</td>
                 </tr>
               ))}

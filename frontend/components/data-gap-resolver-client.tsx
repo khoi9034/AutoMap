@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { StatusChip } from "@/components/status-chip";
 import { ToastMessage } from "@/components/toast";
+import { ProxySourceBadge } from "@/components/proxy-source-badge";
 import {
   getGapCandidates,
   inspectExternalSources,
@@ -169,7 +170,7 @@ export function DataGapResolverClient({ initialRows }: { initialRows: DataGap[] 
                     </span>
                     <div className="chip-row">
                       <StatusChip tone={toneForStatus(candidate.approval_status)}>{candidate.approval_status}</StatusChip>
-                      <StatusChip tone={toneForStatus(candidate.source_status)}>{candidate.source_status}</StatusChip>
+                      <ProxySourceBadge status={candidate.source_status} approval={candidate.approval_status} />
                       <StatusChip>{candidate.resolution_recommendation || "review"}</StatusChip>
                       {(candidate.metadata_summary || {}).is_verified ? <StatusChip tone="success">verified</StatusChip> : <StatusChip tone="warning">unverified</StatusChip>}
                     </div>

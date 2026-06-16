@@ -139,7 +139,8 @@ def test_missing_development_data_generates_question_and_blocker():
     recipe = build_recipe("Show current permits near Kannapolis.", sample_catalog(), persist_data_gaps=False)
     questions = [item["question"] for item in recipe["request_intelligence"]["clarifying_questions"]]
 
-    assert {"development", "permits"}.issubset(set(recipe["missing_data_needed"]))
+    assert "permits" in recipe["missing_data_needed"]
+    assert "development" not in recipe["missing_data_needed"]
     assert "How should AutoMap handle missing current development activity data?" in questions
     assert any("Missing verified catalog layer for permits" in blocker for blocker in recipe["analysis_plan"]["blockers"])
     assert recipe["request_intelligence"]["understood"] is False

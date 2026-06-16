@@ -5,10 +5,13 @@ import { useEffect, useState } from "react";
 
 import { JsonPanel } from "@/components/json-panel";
 import { LearningSuggestionsPanel } from "@/components/learning-suggestions-panel";
+import { DevelopmentContextPanel } from "@/components/development-context-panel";
 import { RequestIntelligencePanel } from "@/components/request-intelligence-panel";
 import { RefinementSummary } from "@/components/refinement-summary";
+import { SourceCoveragePanel } from "@/components/source-coverage-panel";
 import { StatusChip } from "@/components/status-chip";
 import { ToastMessage } from "@/components/toast";
+import { TransportationContextPanel } from "@/components/transportation-context-panel";
 import { makeReviewPacket, makeWebmapDraft } from "@/lib/api";
 import {
   loadWorkflowState,
@@ -157,6 +160,11 @@ export function RecipeReviewClient() {
 
       <RequestIntelligencePanel recipe={recipe} />
       <LearningSuggestionsPanel learnedContext={recipe.learned_context} />
+      <SourceCoveragePanel coverage={recipe.source_coverage} />
+      <section className="stats-grid">
+        <DevelopmentContextPanel coverage={recipe.source_coverage} />
+        <TransportationContextPanel coverage={recipe.source_coverage} />
+      </section>
       {recipe.data_gap_resolution_context ? (
         <JsonPanel title="Data gap source candidates" value={recipe.data_gap_resolution_context} />
       ) : null}
@@ -172,6 +180,7 @@ export function RecipeReviewClient() {
                 <th>Layer</th>
                 <th>Role</th>
                 <th>New vs legacy</th>
+                <th>Usage</th>
                 <th>Priority</th>
                 <th>Confidence</th>
                 <th>URL</th>
@@ -187,6 +196,7 @@ export function RecipeReviewClient() {
                       {layer.source_status || "unknown"}
                     </StatusChip>
                   </td>
+                  <td>{layer.source_role || "standard"}</td>
                   <td>{layer.source_priority}</td>
                   <td>{Math.round((layer.confidence_score || 0) * 100)}%</td>
                   <td className="url-cell">{layer.layer_url}</td>

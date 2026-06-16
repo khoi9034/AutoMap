@@ -58,6 +58,8 @@ export type LayerRecord = {
   service_name?: string;
   aliases?: string[];
   approval_status?: string;
+  known_limitations?: string;
+  canonical_topic?: string;
 };
 
 export type SelectedLayer = {
@@ -70,6 +72,12 @@ export type SelectedLayer = {
   source_status?: string;
   source_priority?: number;
   approval_status?: string;
+  source_role?: string;
+  coverage_geography?: string;
+  source_limitation?: string;
+  gap_support?: Record<string, JsonValue>;
+  coverage_warnings?: string[];
+  display_title?: string;
   geometry_type?: string;
   confidence_score?: number;
   match_score?: number;
@@ -324,6 +332,7 @@ export type MapRecipe = {
   request_intelligence?: RequestIntelligence;
   analysis_plan?: AnalysisPlan;
   learned_context?: LearnedContext;
+  source_coverage?: SourceCoverage;
   analysis_execution?: AnalysisExecutionPlan;
   clarification?: {
     session_id?: string;
@@ -347,6 +356,37 @@ export type MapRecipe = {
   missing_data_needed?: string[];
   data_gap_notes?: JsonValue[];
   data_gap_resolution_context?: Record<string, JsonValue>;
+};
+
+export type SourceCoverageEntry = {
+  layer_key?: string;
+  layer_name?: string;
+  display_title?: string;
+  category?: string;
+  source_key?: string;
+  source_status?: string;
+  approval_status?: string;
+  source_role?: string;
+  coverage_geography?: string;
+  limitation?: string;
+  gap_key?: string;
+  status?: string;
+  reason?: string;
+  gap_support?: Record<string, JsonValue>;
+  warnings?: string[];
+  partial_sources?: SourceCoverageEntry[];
+  candidate_sources?: Array<Record<string, JsonValue>>;
+};
+
+export type SourceCoverage = {
+  official_sources?: SourceCoverageEntry[];
+  proxy_sources?: SourceCoverageEntry[];
+  limited_coverage_sources?: SourceCoverageEntry[];
+  reference_sources?: SourceCoverageEntry[];
+  historical_fallback_sources?: SourceCoverageEntry[];
+  missing_official_sources?: SourceCoverageEntry[];
+  selected_source_roles?: Record<string, SourceCoverageEntry>;
+  warnings?: string[];
 };
 
 export type ApprovedPattern = {

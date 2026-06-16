@@ -2,11 +2,11 @@
 
 AutoMap converts plain-English county GIS map requests into structured map recipes using only approved GIS layers from a local layer catalog.
 
-Version: `2.5.0`
+Version: `2.6.0`
 
 ## Current Phase
 
-v2.5 Real Source Verification and Gap Closure on top of the data gap resolver, external source connector registry, analysis summary reporting, and user-guided safe spatial analysis refinement.
+v2.6 Development and Transportation Intelligence on top of real source verification, data gap resolution, analysis summary reporting, and user-guided safe spatial analysis refinement.
 
 This repository is intentionally independent. It does not connect to CFS or import CFS code. AutoMap uses its own local PostGIS database and trusted layer catalog.
 
@@ -38,6 +38,8 @@ AutoMap helps GIS and planning staff turn plain-English county map requests into
 - summary analytics reports from analysis runs and refinements using counts/statistics instead of geometry download
 - external source registry and data gap resolver for current permits, planning cases, development pipeline proxies, AADT, and STIP context
 - metadata-only source discovery and verification for real REST endpoints, with proxy/limited-coverage gap closure rules
+- source coverage intelligence that labels official, proxy, reference, limited-coverage, historical, and missing official sources
+- development and transportation request handling for AADT, STIP, Accela/plan-review proxy activity, and Concord-limited planning cases
 
 ## What AutoMap Does Not Do Yet
 
@@ -72,6 +74,7 @@ ArcGIS publishing and smoke testing remain dry-run by default unless a guarded C
 23. v2.3 summary analytics and report export for analysis results
 24. v2.4 data gap resolver and external source connectors
 25. v2.5 real source verification and gap closure
+26. v2.6 development and transportation source intelligence
 
 ## Project Structure
 
@@ -114,7 +117,7 @@ python -m pytest
 
 ## Next.js Frontend
 
-AutoMap v2.5 adds real source discovery and verification to the data gap resolver and external source connector registry in the Next.js + TypeScript shell under `frontend/`. The FastAPI backend remains the API and workflow engine, and the existing FastAPI/Jinja UI is preserved.
+AutoMap v2.6 adds development and transportation source intelligence to the Next.js + TypeScript shell under `frontend/`. The FastAPI backend remains the API and workflow engine, and the existing FastAPI/Jinja UI is preserved.
 
 Start the backend API on port `8010`:
 
@@ -376,6 +379,26 @@ The frontend Data Gaps page shows open, partial, resolved, and needs-review stat
 
 Metadata inspection uses REST metadata, fields, domains, counts, and non-geometry checks only. AutoMap does not download full feature datasets, does not bulk-ingest data, and does not treat proxy pipeline data as official development approval.
 
+## Development and Transportation Intelligence
+
+AutoMap v2.6 uses verified external sources more carefully in recipes, review packets, WebMap drafts, reports, and frontend panels:
+
+- AADT is selected for traffic-volume and high-traffic corridor context.
+- STIP is selected for planned transportation project context.
+- Accela and plan-review activity are labeled as proxy activity and never treated as official permit approval.
+- Concord planning cases are labeled as limited coverage and are used only with a coverage warning.
+- Official current permit data remains unresolved unless a verified official current permit source exists.
+
+```bash
+python -m app.main --make-recipe "Show high traffic corridors and nearby development activity."
+python -m app.main --make-recipe "Map commercial growth opportunities near high traffic roads."
+python -m app.main --make-recipe "Show planned road projects near development pressure areas."
+python -m app.main --make-recipe "Show current permits near Kannapolis."
+python -m app.main --make-recipe "Show planning cases around Concord."
+```
+
+Recipes include `source_coverage` with official, proxy, limited-coverage, reference, historical, and missing-official source groups. See `docs/source_coverage_model.md` and `docs/development_transportation_intelligence.md`.
+
 ## ArcGIS WebMap Draft Generator
 
 AutoMap v0.4 creates local ArcGIS WebMap JSON drafts from map recipes. Drafts use verified catalog layer URLs and v0.3 filter-plan definition expressions only. AutoMap does not publish to ArcGIS Online or Portal, does not require an ArcGIS login, and does not ingest full geometries.
@@ -622,6 +645,7 @@ Prompt -> Parser -> Layer Matcher -> Recipe Engine
        -> Report And Export Center
        -> Safe Spatial Analysis Execution
        -> Data Gap Resolver And External Source Review
+       -> Source Coverage And Transportation/Development Intelligence
 ```
 
 The trusted source for layer selection is `automap.layer_catalog`. Generated artifacts live under `outputs/`, which is ignored by Git.
@@ -641,6 +665,9 @@ See:
 - `docs/analysis_safety_limits.md`
 - `docs/data_gap_resolver.md`
 - `docs/external_source_connectors.md`
+- `docs/verified_external_sources.md`
+- `docs/source_coverage_model.md`
+- `docs/development_transportation_intelligence.md`
 
 ## Notes
 

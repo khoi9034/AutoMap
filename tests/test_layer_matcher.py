@@ -98,7 +98,6 @@ def test_match_layers_selects_school_district_sublayers():
 def test_match_layers_reports_missing_requested_data():
     result = match_layers(parse_prompt("Map recent permits and planning cases near Kannapolis."), [])
 
-    assert "development" in result["missing_data_needed"]
     assert "planning cases" in result["missing_data_needed"]
     assert "permits" in result["missing_data_needed"]
-
+    assert "development" not in result["missing_data_needed"]

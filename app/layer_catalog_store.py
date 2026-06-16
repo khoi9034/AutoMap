@@ -223,7 +223,8 @@ def search_layers(query: str, schema_name: str = "automap", limit: int = 25) -> 
             text(
                 f"""
                 SELECT layer_key, layer_name, service_name, category, aliases, description,
-                       planning_use_cases, source_status, source_priority, layer_url,
+                       planning_use_cases, known_limitations, canonical_topic,
+                       source_status, approval_status, source_priority, layer_url,
                        is_verified, is_historical, record_count
                 FROM {table_name}
                 WHERE is_active = true

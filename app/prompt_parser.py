@@ -26,6 +26,7 @@ TOPIC_PATTERNS = [
     ("schools", ["school districts", "school district", "school zones", "attendance zones", "schools", "elementary", "middle school", "high school"]),
     ("transportation", ["roads", "road", "streets", "street", "centerlines", "centerline", "corridors", "corridor", "road access", "highway", "highways", "major roads"]),
     ("traffic", ["traffic", "aadt", "annual average daily traffic", "high traffic"]),
+    ("transportation_projects", ["stip", "planned road project", "planned road projects", "transportation project", "transportation projects", "road improvement", "road improvements"]),
     ("development", ["development", "development pressure", "growth pressure", "new construction", "buildout", "permit", "permits", "planning case", "planning cases", "planning activity", "subdivision", "subdivisions", "development pipeline", "construction activity"]),
     ("addresses", ["addresses", "address", "address points", "site address"]),
     ("environmental", ["hydrology", "streams", "stream", "creeks", "creek", "water", "watershed"]),

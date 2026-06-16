@@ -5,6 +5,14 @@ from __future__ import annotations
 from copy import deepcopy
 from typing import Any
 
+from app.development_intelligence import (
+    allows_development_proxy,
+    is_development_pressure_request,
+    is_planning_case_request,
+    is_permit_specific_request,
+    planning_case_source_matches_geography,
+    selected_planning_case_supports_request,
+)
 from app.layer_catalog_store import load_catalog_records
 from app.layer_semantics import sort_layer_candidates
 from app.request_explainer import (
@@ -23,6 +31,7 @@ TOPIC_CATEGORIES = {
     "schools": {"schools"},
     "transportation": {"transportation"},
     "traffic": {"transportation", "traffic", "transportation_projects"},
+    "transportation_projects": {"transportation_projects"},
     "development": {
         "development",
         "planning",
@@ -48,6 +57,7 @@ ROLE_BY_TOPIC = {
     "schools": "school_boundary_layer",
     "transportation": "transportation_layer",
     "traffic": "transportation_layer",
+    "transportation_projects": "transportation_layer",
     "development": "development_activity_layer",
     "addresses": "reference_layer",
     "environmental": "environmental_layer",
@@ -64,6 +74,7 @@ TOPIC_SEARCH_TERMS = {
     "schools": ["school", "district"],
     "transportation": ["road", "street", "centerline"],
     "traffic": ["traffic", "aadt"],
+    "transportation_projects": ["stip", "planned road", "road project", "transportation project", "road improvement"],
     "development": ["permit", "permits", "planning case", "planning cases", "development", "plan review", "subdivision"],
     "addresses": ["address", "addresses"],
     "environmental": ["hydrology", "stream", "creek", "water"],
@@ -107,7 +118,10 @@ def _split_intelligence(intelligence: dict[str, Any] | None) -> tuple[dict[str, 
 
 
 def _candidate_matches_topic(record: dict[str, Any], topic: str) -> bool:
-    if record.get("approval_status") in {"candidate", "needs_review"}:
+    approval_status = record.get("approval_status") or "approved"
+    if approval_status == "needs_review":
+        return False
+    if approval_status == "candidate" and not record.get("is_verified"):
         return False
     categories = TOPIC_CATEGORIES.get(topic, {topic})
     if record.get("category") in categories or record.get("canonical_topic") in categories:
@@ -205,6 +219,9 @@ def _score_record(
     if approval_status == "approved":
         score += 5
         reasons.append("approved source")
+    elif approval_status == "candidate" and record.get("is_verified"):
+        score -= 5
+        reasons.append("verified candidate source; review-labeled use only")
     else:
         score -= 200
         reasons.append("candidate source requires review")
@@ -280,6 +297,28 @@ def _score_record(
     if topic == "zoning" and "commercial" in (topic_details.get("zoning_modifiers") or []):
         score += 5
         reasons.append("commercial zoning modifier requires attribute review")
+
+    if topic == "development" and record.get("category") == "development_activity_proxy":
+        if not allows_development_proxy(parsed_request):
+            score -= 180
+            reasons.append("proxy plan-review source is not an official current permit layer")
+        elif is_permit_specific_request(parsed_request):
+            score -= 90
+            reasons.append("permit-specific request still needs official permit source")
+        elif is_development_pressure_request(parsed_request):
+            score += 80
+            reasons.append("development pressure can use verified proxy activity as context")
+
+    if record.get("category") == "planning_cases" and not planning_case_source_matches_geography(record, parsed_request):
+        score -= 220
+        reasons.append("limited planning case source does not match requested geography")
+    if topic == "development" and record.get("category") == "planning_cases" and not is_planning_case_request(parsed_request):
+        if is_permit_specific_request(parsed_request):
+            score -= 260
+            reasons.append("planning case source is not an official current permit layer")
+        else:
+            score -= 60
+            reasons.append("planning case source is secondary unless cases are requested")
 
     return score, reasons
 
@@ -378,6 +417,17 @@ def _target_topics(parsed_request: dict[str, Any], request_intelligence: dict[st
         geo["type"] not in {"county", "countywide"} for geo in parsed_request["geography_terms"]
     ):
         topics.append("jurisdiction")
+    try:
+        from app.transportation_intelligence import transportation_topics_for_request
+
+        topics.extend(transportation_topics_for_request(parsed_request))
+    except Exception:
+        pass
+    detected_intents = set((request_intelligence or {}).get("request_intelligence", {}).get("detected_intents", []))
+    detected_intents.update((request_intelligence or {}).get("detected_intents", []))
+    prompt_text = str(parsed_request.get("normalized_prompt") or "")
+    if "growth_suitability" in detected_intents and ("opportunit" in prompt_text or "suitab" in prompt_text or "avoid" in prompt_text):
+        topics.append("flood")
     seen: set[str] = set()
     return [topic for topic in topics if not (topic in seen or seen.add(topic))]
 
@@ -408,7 +458,8 @@ def match_layers(
 
         new_items = [item for item in topic_selected if item["layer_key"] not in selected_keys]
         if not new_items and not _topic_satisfied_by_selected(topic, selected_layers):
-            missing_data_needed.append(topic)
+            if not (topic == "development" and parsed_request.get("topic_details", {}).get("development_terms")):
+                missing_data_needed.append(topic)
         for item in new_items:
             selected_layers.append(item)
             selected_keys.add(item["layer_key"])
@@ -438,7 +489,11 @@ def match_layers(
             )
         official_blob = " ".join(official_parts)
         for term in development_terms:
-            if term == "planning_cases" and "planning" not in official_blob:
+            if (
+                term == "planning_cases"
+                and "planning" not in official_blob
+                and not selected_planning_case_supports_request(selected_layers, parsed_request)
+            ):
                 missing_data_needed.append("planning cases")
             if term == "permits" and "permit" not in official_blob:
                 missing_data_needed.append("permits")

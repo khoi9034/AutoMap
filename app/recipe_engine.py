@@ -13,6 +13,7 @@ from app.layer_matcher import match_layers
 from app.prompt_parser import parse_prompt
 from app.recipe_models import rejected_layer_from_match, selected_layer_from_match
 from app.request_intelligence import build_request_intelligence
+from app.source_usage_intelligence import build_source_coverage, enrich_selected_layers_with_source_usage
 
 
 def _title_from_prompt(parsed_request: dict[str, Any]) -> str:
@@ -156,6 +157,7 @@ def _review_flags(
     request_intelligence: dict[str, Any] | None = None,
     analysis_plan: dict[str, Any] | None = None,
     data_gap_context: dict[str, Any] | None = None,
+    source_coverage: dict[str, Any] | None = None,
 ) -> list[str]:
     flags: list[str] = []
     if matching["missing_data_needed"]:
@@ -168,6 +170,8 @@ def _review_flags(
                     f"Verified proxy or limited-coverage source exists for {gap_key}; "
                     "do not treat it as official countywide approval or capacity."
                 )
+    for warning in (source_coverage or {}).get("warnings") or []:
+        flags.append(str(warning))
     if "recent" in parsed_request.get("time_references", []):
         flags.append("Recent time range and date field need review.")
     if parsed_request.get("analysis_intent") == "proximity":
@@ -197,8 +201,17 @@ def build_recipe(
     initial_intelligence = build_request_intelligence(prompt, parsed_request)
     matching = match_layers(parsed_request, layer_catalog, request_intelligence=initial_intelligence)
     data_gap_context = safe_gap_context_for_recipe(matching["missing_data_needed"])
-    selected_layers = [selected_layer_from_match(layer) for layer in matching["selected_layers"]]
+    selected_layers = enrich_selected_layers_with_source_usage(
+        [selected_layer_from_match(layer) for layer in matching["selected_layers"]],
+        parsed_request,
+    )
     rejected_layers = [rejected_layer_from_match(layer) for layer in matching["rejected_layers"]]
+    source_coverage = build_source_coverage(
+        selected_layers,
+        matching["missing_data_needed"],
+        data_gap_context,
+        parsed_request,
+    )
     intelligence_bundle = build_request_intelligence(
         prompt,
         parsed_request,
@@ -208,7 +221,7 @@ def build_recipe(
     request_intelligence = intelligence_bundle["request_intelligence"]
     analysis_plan = intelligence_bundle["analysis_plan"]
     learned_context = build_learned_context(prompt, request_intelligence, analysis_plan)
-    review_flags = _review_flags(parsed_request, matching, request_intelligence, analysis_plan, data_gap_context)
+    review_flags = _review_flags(parsed_request, matching, request_intelligence, analysis_plan, data_gap_context, source_coverage)
 
     recipe = {
         "map_title": _title_from_prompt(parsed_request),
@@ -218,6 +231,7 @@ def build_recipe(
         "analysis_plan": analysis_plan,
         "learned_context": learned_context,
         "data_gap_resolution_context": data_gap_context,
+        "source_coverage": source_coverage,
         "selected_layers": selected_layers,
         "rejected_layers": rejected_layers,
         "filters": _filters(parsed_request),
