@@ -2,6 +2,7 @@ export const navigationItems = [
   { href: "/dashboard", label: "Dashboard" },
   { href: "/map-request", label: "Map Request" },
   { href: "/parcel-workspace", label: "Parcel Workspace" },
+  { href: "/proximity", label: "Proximity" },
   { href: "/clarify", label: "Clarify Request" },
   { href: "/recipe-review", label: "Recipe Review" },
   { href: "/map-preview", label: "Map Preview" },
@@ -29,11 +30,13 @@ export const samplePrompts = [
   "Map recent permits and planning cases near Kannapolis.",
   "Map commercial growth opportunities near high traffic roads but avoid floodplain.",
   "Make a map of parcel 5528-12-3456 and show zoning, floodplain, and nearby roads.",
+  "How far is parcel 5528-12-3456 from the nearest school?",
 ];
 
 export const workflowSteps = [
   { href: "/map-request", label: "Map Request", description: "Prompt to draft recipe." },
   { href: "/parcel-workspace", label: "Parcel Workspace", description: "Parcel IDs, PINs, addresses, and context maps." },
+  { href: "/proximity", label: "Proximity", description: "Nearest facilities and straight-line route drafts." },
   { href: "/clarify", label: "Clarify Request", description: "Answer GIS review questions." },
   { href: "/recipe-review", label: "Recipe Review", description: "Layers, filters, gaps, and operations." },
   { href: "/map-preview", label: "Map Preview", description: "Local WebMap JSON preview." },

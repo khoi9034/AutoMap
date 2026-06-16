@@ -96,6 +96,14 @@ from app.portal_smoke_test import run_publish_smoke_test
 from app.pattern_library import list_clarification_defaults, list_patterns
 from app.recipe_engine import build_recipe
 from app.report_generator import generate_report, list_reports, validate_report
+from app.proximity_engine import (
+    extract_origin_and_destination,
+    list_proximity_results,
+    run_nearest_facility,
+    run_proximity_request,
+    run_route_draft,
+    validate_proximity_result,
+)
 from app.review_packet_builder import (
     build_review_packet,
     save_review_packet,
@@ -917,6 +925,49 @@ def _generate_parcel_report(parcel_set_id: str) -> int:
     return 0 if (report.get("validation") or {}).get("is_valid") else 1
 
 
+def _proximity(prompt: str) -> int:
+    result = run_proximity_request(prompt)
+    print(json.dumps(result, indent=2, default=str))
+    return 0 if result.get("status") in {"ok", "needs_review"} else 1
+
+
+def _nearest_facility(origin_input: str, target: str | None) -> int:
+    if not target:
+        print("--nearest-facility requires --target")
+        return 1
+    result = run_nearest_facility(origin_input, target_type=target)
+    print(json.dumps(result, indent=2, default=str))
+    return 0 if result.get("status") in {"ok", "needs_review"} else 1
+
+
+def _route_draft(prompt: str) -> int:
+    parts = extract_origin_and_destination(prompt)
+    result = run_route_draft(parts.get("origin_input") or prompt, parts.get("destination_input") or "", raw_prompt=prompt)
+    print(json.dumps(result, indent=2, default=str))
+    return 0 if result.get("status") in {"ok", "needs_review"} else 1
+
+
+def _list_proximity_results() -> int:
+    rows = list_proximity_results()
+    if not rows:
+        print("proximity results: none")
+        return 0
+    for row in rows:
+        result = row.get("result_json") or {}
+        print(
+            f"{row['proximity_result_id']} | status={result.get('status')} | "
+            f"target={result.get('target_type')} | distance={row.get('distance_value')} {row.get('distance_unit')}"
+        )
+    print(f"proximity results listed: {len(rows)}")
+    return 0
+
+
+def _validate_proximity_result(proximity_result_id: str) -> int:
+    result = validate_proximity_result(proximity_result_id)
+    print(json.dumps(result, indent=2, default=str))
+    return 0 if result.get("is_valid") else 1
+
+
 def _preview_packet(path: str, port: int | None = None) -> int:
     try:
         config = build_preview_config(path)
@@ -1359,6 +1410,36 @@ def main() -> int:
         help="Generate a local parcel context report package.",
     )
     parser.add_argument(
+        "--proximity",
+        metavar="PROMPT",
+        help="Run a bounded proximity request from a parcel/address to a nearby target.",
+    )
+    parser.add_argument(
+        "--nearest-facility",
+        metavar="ORIGIN",
+        help="Find a nearest facility from a parcel/PIN/address origin using --target.",
+    )
+    parser.add_argument(
+        "--target",
+        metavar="TARGET_TYPE",
+        help="Target type for --nearest-facility, such as nearest_school or nearest_fire_station.",
+    )
+    parser.add_argument(
+        "--route-draft",
+        metavar="PROMPT",
+        help="Build a route draft. v3.1 produces straight-line reference unless a routing service is approved later.",
+    )
+    parser.add_argument(
+        "--list-proximity-results",
+        action="store_true",
+        help="List local proximity result rows.",
+    )
+    parser.add_argument(
+        "--validate-proximity-result",
+        metavar="PROXIMITY_RESULT_ID",
+        help="Validate a local proximity result output.",
+    )
+    parser.add_argument(
         "--learn-from-approved-packet",
         metavar="APPROVED_PACKET_FOLDER",
         help="Learn deterministic approved defaults from a local approved packet.",
@@ -1538,6 +1619,16 @@ def main() -> int:
             return _get_parcel_set(args.get_parcel_set)
         if args.generate_parcel_report:
             return _generate_parcel_report(args.generate_parcel_report)
+        if args.proximity:
+            return _proximity(args.proximity)
+        if args.nearest_facility:
+            return _nearest_facility(args.nearest_facility, args.target)
+        if args.route_draft:
+            return _route_draft(args.route_draft)
+        if args.list_proximity_results:
+            return _list_proximity_results()
+        if args.validate_proximity_result:
+            return _validate_proximity_result(args.validate_proximity_result)
         if args.learn_from_approved_packet:
             return _learn_from_approved_packet(args.learn_from_approved_packet)
         if args.list_patterns:

@@ -10,6 +10,7 @@ import { ParcelInputPanel } from "@/components/parcel-input-panel";
 import { ParcelMatchTable } from "@/components/parcel-match-table";
 import { ParcelNearbyControls } from "@/components/parcel-nearby-controls";
 import { ParcelReportCard } from "@/components/parcel-report-card";
+import { ProximityResultCard } from "@/components/proximity-result-card";
 import { SelectedParcelLayerCard } from "@/components/selected-parcel-layer-card";
 import { SectionHeader } from "@/components/section-header";
 import { StatusChip } from "@/components/status-chip";
@@ -20,6 +21,8 @@ import {
   generateParcelReport,
   listParcelSets,
   profileParcelFields,
+  runNearestFacility,
+  runRouteDraft,
 } from "@/lib/api";
 import type {
   MapRecipe,
@@ -27,6 +30,7 @@ import type {
   ParcelParseResult,
   ParcelReport,
   ParcelSet,
+  ProximityResult,
   SelectedParcelGeometryResult,
 } from "@/types/automap";
 import type { WorkflowToast } from "@/types/workflow";
@@ -43,6 +47,7 @@ export default function ParcelWorkspacePage() {
   const [report, setReport] = useState<ParcelReport | null>(null);
   const [fieldProfile, setFieldProfile] = useState<ParcelFieldProfileResponse | null>(null);
   const [geometryResult, setGeometryResult] = useState<SelectedParcelGeometryResult | null>(null);
+  const [proximityResult, setProximityResult] = useState<ProximityResult | null>(null);
   const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<WorkflowToast | null>(null);
@@ -147,6 +152,51 @@ export default function ParcelWorkspacePage() {
     }
   }
 
+  async function runParcelProximity(targetType: string) {
+    const origin = parcelSet?.raw_input || parseResult?.raw_input;
+    if (!origin) {
+      setToast({ tone: "warning", message: "Match or parse a parcel/address before running proximity." });
+      return;
+    }
+    setLoading(`proximity-${targetType}`);
+    setError(null);
+    try {
+      const response = await runNearestFacility(origin, targetType);
+      setProximityResult(response.proximity_result);
+      setToast({
+        tone: response.proximity_result.status === "ok" ? "success" : "warning",
+        message: response.proximity_result.status === "ok" ? "Proximity result created." : "Proximity result needs review.",
+      });
+    } catch (exc) {
+      setError(exc instanceof Error ? exc.message : "Parcel proximity request failed.");
+    } finally {
+      setLoading(null);
+    }
+  }
+
+  async function runParcelRouteDraft() {
+    const origin = parcelSet?.raw_input || parseResult?.raw_input;
+    if (!origin) {
+      setToast({ tone: "warning", message: "Match or parse a parcel/address before running a route draft." });
+      return;
+    }
+    const destination = window.prompt("Destination address for route draft");
+    if (!destination) {
+      return;
+    }
+    setLoading("route-draft");
+    setError(null);
+    try {
+      const response = await runRouteDraft(origin, destination);
+      setProximityResult(response.proximity_result);
+      setToast({ tone: "warning", message: "Route draft created as straight-line reference only." });
+    } catch (exc) {
+      setError(exc instanceof Error ? exc.message : "Route draft failed.");
+    } finally {
+      setLoading(null);
+    }
+  }
+
   function handleRecentSetClick(item: ParcelSet) {
     setParcelSet(item);
     setParseResult({
@@ -226,6 +276,30 @@ export default function ParcelWorkspacePage() {
               </button>
             </div>
           </section>
+          <section className="panel">
+            <div className="panel-title-row">
+              <div>
+                <h3>Parcel proximity actions</h3>
+                <p className="muted">Use the current parcel/address input as the origin for bounded nearest-facility drafts.</p>
+              </div>
+              <StatusChip tone="warning">Straight-line</StatusChip>
+            </div>
+            <div className="button-row">
+              <button className="button button-secondary" type="button" onClick={() => runParcelProximity("nearest_school")}>
+                Nearest School
+              </button>
+              <button className="button button-secondary" type="button" onClick={() => runParcelProximity("nearest_fire_station")}>
+                Nearest Fire Station
+              </button>
+              <button className="button button-secondary" type="button" onClick={() => runParcelProximity("containing_fire_district")}>
+                Containing Fire District
+              </button>
+              <button className="button button-secondary" type="button" onClick={runParcelRouteDraft}>
+                Route Draft to Address
+              </button>
+            </div>
+          </section>
+          <ProximityResultCard result={proximityResult} />
           <ParcelContextSummary parcelSet={parcelSet} recipe={recipe} />
         </div>
 

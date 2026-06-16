@@ -604,6 +604,7 @@ button {
 
 .prompt-box textarea,
 .yaml-editor,
+.textarea,
 .text-input,
 .select-input {
   width: 100%;
@@ -615,9 +616,39 @@ button {
 }
 
 .prompt-box textarea,
+.textarea,
 .yaml-editor {
   min-height: 132px;
   resize: vertical;
+}
+
+.form-label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+  margin: 12px 0;
+}
+
+.detail-grid > div,
+.layer-row {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f8fafc;
+  padding: 10px;
+}
+
+.layer-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 .yaml-editor {

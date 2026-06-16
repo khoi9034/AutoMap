@@ -1,6 +1,6 @@
 # Parcel Workspace
 
-AutoMap v3.0 adds a parcel-centered workspace for real parcel lookup and selected-parcel GIS review drafts.
+AutoMap v3.0 adds a parcel-centered workspace for real parcel lookup and selected-parcel GIS review drafts. AutoMap v3.1 adds parcel-origin proximity actions for nearest-facility and route-draft review.
 
 The workspace accepts:
 
@@ -57,6 +57,10 @@ http://localhost:3010/parcel-workspace
 
 The page supports field profiling, parsing, matching, ambiguous candidate review, selected parcel GeoJSON fetch, context overlay selection, nearby distance review, parcel context recipe generation, and local parcel report exports.
 
+The page also includes proximity actions for nearest school, nearest fire station, containing fire district, and route draft to address. These actions use the current parcel/PIN/address input as the origin and route through the same bounded v3.1 proximity workflow.
+
 ## Safety
 
 Parcel workspace outputs are draft review artifacts. They do not publish to ArcGIS, require ArcGIS login, bulk-ingest parcels, or use the protected external planning database. Current permits remain unresolved unless an official verified source is added.
+
+Route drafts are straight-line references only unless an approved routing/network service is added later.

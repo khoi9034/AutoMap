@@ -41,6 +41,10 @@ When `selected_parcels.geojson` exists, AutoMap adds a derived local layer to th
 
 If the frontend preview cannot render the local GeoJSON directly, the workflow still shows the output path, layer panel item, and downloadable local file reference.
 
+## Proximity Integration
+
+AutoMap v3.1 can use a safely matched parcel/address as the origin for nearest-facility and route-draft workflows. Proximity outputs are written separately under `outputs/proximity/` and are labeled as draft local review artifacts.
+
 ## Boundaries
 
 Selected parcel outputs are local draft review artifacts. They are not official GIS layers, are not uploaded to Portal, and are ignored by Git. CFS remains separate and untouched.

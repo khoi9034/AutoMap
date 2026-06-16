@@ -103,6 +103,11 @@ def test_frontend_workflow_api_routes_exist():
         "/api/parcels/{parcel_set_id}/fetch-geometry",
         "/api/parcels/context",
         "/api/parcels/{parcel_set_id}/report",
+        "/api/proximity",
+        "/api/proximity/nearest",
+        "/api/proximity/route-draft",
+        "/api/proximity/results",
+        "/api/proximity/results/{proximity_result_id}",
         "/api/patterns",
         "/api/patterns/{pattern_key}",
         "/api/patterns/learn-from-approved",
@@ -323,6 +328,62 @@ def test_api_parcel_routes_are_json_and_sanitized(monkeypatch):
     assert report.status_code == 200
     assert "parcel_set_test" in serialized
     assert "parcel_context_test" in serialized
+    assert "database_url" not in serialized
+
+
+def test_api_proximity_routes_are_json_and_sanitized(monkeypatch):
+    monkeypatch.setattr(
+        "app.api_routes.run_proximity_request",
+        lambda prompt: {
+            "proximity_result_id": "prox_result_test",
+            "status": "needs_review",
+            "raw_prompt": prompt,
+            "warnings": ["Road-network routing requires an approved routing/network service."],
+            "DATABASE_URL": "postgresql://secret",
+        },
+    )
+    monkeypatch.setattr(
+        "app.api_routes.run_nearest_facility",
+        lambda origin_input, target_type: {
+            "proximity_result_id": "prox_result_nearest",
+            "origin_input": origin_input,
+            "target_type": target_type,
+            "distance_value": 1.2,
+            "published": False,
+        },
+    )
+    monkeypatch.setattr(
+        "app.api_routes.run_route_draft",
+        lambda origin_input, destination_input, raw_prompt=None: {
+            "proximity_result_id": "prox_result_route",
+            "origin_input": origin_input,
+            "destination_input": destination_input,
+            "route_status": "network_route_not_available",
+            "warnings": ["not a road route"],
+            "published": False,
+        },
+    )
+    monkeypatch.setattr("app.api_routes.list_proximity_results", lambda limit=50: [{"proximity_result_id": "prox_result_test"}])
+    monkeypatch.setattr("app.api_routes.get_proximity_result", lambda result_id: {"proximity_result_id": result_id})
+    client = TestClient(create_app())
+
+    prompt = client.post("/api/proximity", json={"prompt": "How far is parcel 1 from nearest school?"})
+    nearest = client.post("/api/proximity/nearest", json={"origin_input": "parcel 1", "target_type": "nearest_school"})
+    route = client.post(
+        "/api/proximity/route-draft",
+        json={"origin_input": "65 Church St S", "destination_input": "123 Main St"},
+    )
+    listed = client.get("/api/proximity/results")
+    detail = client.get("/api/proximity/results/prox_result_test")
+    serialized = json.dumps([prompt.json(), nearest.json(), route.json(), listed.json(), detail.json()]).lower()
+
+    assert prompt.status_code == 200
+    assert nearest.status_code == 200
+    assert route.status_code == 200
+    assert listed.status_code == 200
+    assert detail.status_code == 200
+    assert "network_route_not_available" in serialized
+    assert "confirm-publish" not in serialized
     assert "database_url" not in serialized
     assert "secret" not in serialized
     assert "secret" not in serialized

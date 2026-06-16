@@ -21,6 +21,7 @@ import type {
   ParcelSet,
   PlanningScenario,
   PreviewConfig,
+  ProximityResult,
   GenerateReportResponse,
   ReportDetail,
   ReportSummary,
@@ -127,7 +128,7 @@ export async function getStatusOrFallback(): Promise<SystemStatus> {
     return await getSystemStatus();
   } catch {
     return {
-      version: "3.0.0",
+      version: "3.1.0",
       database_connected: false,
       catalog: {},
       profiles: {},
@@ -424,6 +425,45 @@ export async function generateParcelReport(parcelSetId: string): Promise<ParcelR
     timeoutMs: 120000,
     body: JSON.stringify({}),
   });
+}
+
+export async function runProximity(prompt: string): Promise<{ proximity_result: ProximityResult }> {
+  return apiFetch<{ proximity_result: ProximityResult }>("/api/proximity", {
+    method: "POST",
+    timeoutMs: 180000,
+    body: JSON.stringify({ prompt }),
+  });
+}
+
+export async function runNearestFacility(
+  originInput: string,
+  targetType: string,
+): Promise<{ proximity_result: ProximityResult }> {
+  return apiFetch<{ proximity_result: ProximityResult }>("/api/proximity/nearest", {
+    method: "POST",
+    timeoutMs: 180000,
+    body: JSON.stringify({ origin_input: originInput, target_type: targetType }),
+  });
+}
+
+export async function runRouteDraft(
+  originInput: string,
+  destinationInput: string,
+  prompt?: string,
+): Promise<{ proximity_result: ProximityResult }> {
+  return apiFetch<{ proximity_result: ProximityResult }>("/api/proximity/route-draft", {
+    method: "POST",
+    timeoutMs: 180000,
+    body: JSON.stringify({ origin_input: originInput, destination_input: destinationInput, prompt }),
+  });
+}
+
+export async function listProximityResults(): Promise<{ proximity_results: ProximityResult[] }> {
+  return apiFetch<{ proximity_results: ProximityResult[] }>("/api/proximity/results");
+}
+
+export async function getProximityResult(proximityResultId: string): Promise<ProximityResult> {
+  return apiFetch<ProximityResult>(`/api/proximity/results/${encodeURIComponent(proximityResultId)}`);
 }
 
 export async function recordRecipeFeedback(payload: {

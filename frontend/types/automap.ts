@@ -36,6 +36,8 @@ export type SystemStatus = {
   parcel_set_count?: number;
   parcel_context_session_count?: number;
   parcel_field_map_count?: number;
+  proximity_request_count?: number;
+  proximity_result_count?: number;
   packets?: {
     review_packet_count?: number;
     adjusted_packet_count?: number;
@@ -135,6 +137,17 @@ export type RequestIntelligence = {
     privacy_sensitive?: boolean;
     warnings?: string[];
     recommended_workflow?: string | null;
+  };
+  proximity_context?: {
+    proximity_detected?: boolean;
+    target_type?: string;
+    target_layer?: string | null;
+    distance_mode?: string;
+    route_mode?: string;
+    straight_line_supported?: boolean;
+    road_route_supported?: boolean;
+    clarifying_questions?: ClarifyingQuestion[];
+    warnings?: string[];
   };
 };
 
@@ -496,6 +509,33 @@ export type SelectedParcelGeometryResult = {
   warnings?: string[];
   downloaded_geometry?: boolean;
   status?: string;
+};
+
+export type ProximityResult = {
+  proximity_result_id?: string;
+  proximity_request_id?: string;
+  raw_prompt?: string;
+  origin_input?: string;
+  destination_input?: string | null;
+  origin_type?: string;
+  target_type?: string;
+  target_layer_key?: string;
+  target_layer?: Record<string, JsonValue>;
+  target_name?: string | null;
+  status?: string;
+  route_status?: string;
+  line_type?: string;
+  distance_value?: number | null;
+  distance_unit?: string;
+  line_geojson_path?: string | null;
+  line_geojson_url?: string | null;
+  output_folder?: string | null;
+  report_files?: Record<string, string>;
+  candidate_matches?: JsonValue[];
+  warnings?: string[];
+  bounded_search?: Record<string, JsonValue>;
+  derived_layer?: Record<string, JsonValue>;
+  published?: boolean;
 };
 
 export type ParcelContextSession = {

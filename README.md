@@ -2,11 +2,11 @@
 
 AutoMap converts plain-English county GIS map requests into structured map recipes using only approved GIS layers from a local layer catalog.
 
-Version: `3.0.0`
+Version: `3.1.0`
 
 ## Current Phase
 
-v3.0 Real Parcel Lookup and Selected Parcel Context Maps on top of parcel workspace, scenario workbench, planning scenario and suitability intelligence, development/transportation source intelligence, real source verification, data gap resolution, analysis summary reporting, and user-guided safe spatial analysis refinement.
+v3.1 Proximity, Nearest Facility, and Route Drafts on top of real parcel lookup, parcel workspace, scenario workbench, planning scenario and suitability intelligence, development/transportation source intelligence, real source verification, data gap resolution, analysis summary reporting, and user-guided safe spatial analysis refinement.
 
 This repository is intentionally independent. It does not connect to CFS or import CFS code. AutoMap uses its own local PostGIS database and trusted layer catalog.
 
@@ -43,6 +43,7 @@ AutoMap helps GIS and planning staff turn plain-English county map requests into
 - planning scenario and suitability frameworks with transparent reviewable weights, assumptions, source warnings, and local report exports
 - scenario workbench variants, reviewer weight tuning, scenario comparison, and scenario-to-recipe conversion
 - real parcel lookup for PIN/PIN14/parcel ID/address inputs, selected parcel GeoJSON output, context overlays, and local parcel reports
+- proximity, nearest-facility, containing-district, and straight-line route draft workflows with local GeoJSON/report outputs
 
 ## What AutoMap Does Not Do Yet
 
@@ -82,6 +83,7 @@ ArcGIS publishing and smoke testing remain dry-run by default unless a guarded C
 28. v2.8 scenario workbench and weight tuning
 29. v2.9 parcel workspace and parcel-centered map requests
 30. v3.0 real parcel lookup and selected parcel context maps
+31. v3.1 proximity, nearest facility, and route drafts
 
 ## Project Structure
 
@@ -124,7 +126,7 @@ python -m pytest
 
 ## Next.js Frontend
 
-AutoMap v3.0 adds real parcel lookup and selected-parcel context maps to the Next.js + TypeScript shell under `frontend/`. The FastAPI backend remains the API and workflow engine, and the existing FastAPI/Jinja UI is preserved.
+AutoMap v3.1 adds proximity, nearest-facility, and route-draft workflows to the Next.js + TypeScript shell under `frontend/`. The FastAPI backend remains the API and workflow engine, and the existing FastAPI/Jinja UI is preserved.
 
 Start the backend API on port `8010`:
 
@@ -466,6 +468,25 @@ Parcel matching uses verified Tax Parcels and Addresses fields from the AutoMap 
 Selected parcel GeoJSON outputs are written under `outputs/parcel_context/`, and parcel reports are written under `outputs/parcel_reports/`. Both are ignored by Git and are local review drafts only. Current permits remain unresolved unless an official verified source is added; Accela/plan-review sources remain proxy context, and Concord planning cases remain limited coverage.
 
 See `docs/parcel_workspace.md`, `docs/parcel_context_maps.md`, `docs/real_parcel_lookup.md`, and `docs/selected_parcel_context_maps.md`.
+
+## Proximity, Nearest Facility, And Route Drafts
+
+AutoMap v3.1 adds bounded proximity workflows from parcel/PIN/address origins to verified facility and district layers.
+
+```bash
+python -m app.main --proximity "How far is parcel 5528-12-3456 from the nearest school?"
+python -m app.main --nearest-facility "parcel 5528-12-3456" --target nearest_school
+python -m app.main --nearest-facility "65 Church St S" --target nearest_fire_station
+python -m app.main --route-draft "Draw a route from 65 Church St S to 123 Main St"
+python -m app.main --list-proximity-results
+python -m app.main --validate-proximity-result <proximity_result_id>
+```
+
+The `/proximity` frontend page supports origin input, target selection, straight-line nearest-facility requests, route drafts, result cards, warnings, and local output links. `/parcel-workspace` also includes parcel-origin actions for nearest school, nearest fire station, containing fire district, and route draft to address.
+
+Nearest-facility searches use bounded distance rings and candidate caps. Road-network routing is not supported unless an approved routing/network service is added later; route drafts are labeled as straight-line references, not driving routes. Outputs are written under `outputs/proximity/`, ignored by Git, and are local draft files only.
+
+See `docs/proximity_nearest_facility.md` and `docs/route_drafts.md`.
 
 ## ArcGIS WebMap Draft Generator
 

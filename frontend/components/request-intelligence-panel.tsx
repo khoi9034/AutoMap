@@ -48,6 +48,7 @@ export function RequestIntelligencePanel({ recipe }: RequestIntelligencePanelPro
   const intentList = intelligence?.detected_intents || [];
   const reviewQuestions = analysisPlan?.review_questions || intelligence?.clarifying_questions || [];
   const scenarioContext = intelligence?.scenario_context;
+  const proximityContext = intelligence?.proximity_context;
 
   return (
     <section className="panel">
@@ -97,6 +98,16 @@ export function RequestIntelligencePanel({ recipe }: RequestIntelligencePanelPro
             transparent assumptions and source coverage warnings.
           </p>
           {scenarioContext.recommended_scenario_workflow ? <p>{scenarioContext.recommended_scenario_workflow}</p> : null}
+        </div>
+      ) : null}
+
+      {proximityContext?.proximity_detected ? (
+        <div className="notice notice-warning">
+          <strong>Proximity workflow available</strong>
+          <p>
+            Target: {proximityContext.target_type?.replaceAll("_", " ")}. Straight-line distance is supported; road-network
+            routing is {proximityContext.road_route_supported ? "available" : "not available without an approved routing service"}.
+          </p>
         </div>
       ) : null}
 

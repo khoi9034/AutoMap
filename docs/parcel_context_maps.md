@@ -28,6 +28,7 @@ Transportation:
 - streets / centerlines
 - AADT traffic counts
 - STIP projects
+- straight-line proximity result line when a v3.1 proximity result exists
 
 Development and activity:
 
@@ -91,3 +92,5 @@ They include `selected_parcels.geojson`, `parcel_match_receipt.json`, and `parce
 ## Boundaries
 
 AutoMap does not treat proxy development sources as official approvals, does not invent owner data, does not silently resolve current permit gaps, does not publish selected parcel outputs, and does not execute countywide parcel analysis from the parcel workspace.
+
+Nearest-facility and route-draft outputs are straight-line local review aids. They are not road-network routes unless an approved routing/network service is added later.

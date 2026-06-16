@@ -80,6 +80,13 @@ from app.parcel_input_parser import parse_parcel_input
 from app.parcel_reporter import generate_parcel_report
 from app.portal_smoke_test import run_publish_smoke_test
 from app.pattern_library import get_pattern, list_clarification_defaults, list_patterns
+from app.proximity_engine import (
+    get_proximity_result,
+    list_proximity_results,
+    run_nearest_facility,
+    run_proximity_request,
+    run_route_draft,
+)
 from app.recipe_engine import build_recipe
 from app.report_generator import generate_report, get_report, list_reports
 from app.request_history import list_request_history, record_request_history
@@ -241,6 +248,27 @@ class ParcelContextRequest(BaseModel):
     parcel_set_id: str | None = None
     requested_topics: list[str] = Field(default_factory=list)
     nearby_distance: str | None = None
+
+
+class ProximityPromptRequest(BaseModel):
+    """Prompt payload for proximity workflows."""
+
+    prompt: str
+
+
+class NearestFacilityRequest(BaseModel):
+    """Nearest facility request payload."""
+
+    origin_input: str
+    target_type: str
+
+
+class RouteDraftRequest(BaseModel):
+    """Route draft request payload."""
+
+    origin_input: str
+    destination_input: str
+    prompt: str | None = None
 
 
 class DataGapResolveRequest(BaseModel):
@@ -983,6 +1011,51 @@ def api_generate_parcel_report(parcel_set_id: str) -> Any:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except ValueError as exc:
         raise _handle_value_error(exc) from exc
+
+
+@api_router.post("/proximity")
+def api_proximity(payload: ProximityPromptRequest) -> Any:
+    """Run a prompt-driven bounded proximity workflow."""
+    try:
+        result = run_proximity_request(payload.prompt)
+    except Exception as exc:  # pragma: no cover - defensive API boundary.
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return _json_response({"proximity_result": result})
+
+
+@api_router.post("/proximity/nearest")
+def api_nearest_facility(payload: NearestFacilityRequest) -> Any:
+    """Run a bounded nearest-facility search."""
+    try:
+        result = run_nearest_facility(payload.origin_input, target_type=payload.target_type)
+    except Exception as exc:  # pragma: no cover - defensive API boundary.
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return _json_response({"proximity_result": result})
+
+
+@api_router.post("/proximity/route-draft")
+def api_route_draft(payload: RouteDraftRequest) -> Any:
+    """Build a route draft. v3.1 only supports straight-line reference output."""
+    try:
+        result = run_route_draft(payload.origin_input, payload.destination_input, raw_prompt=payload.prompt)
+    except Exception as exc:  # pragma: no cover - defensive API boundary.
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return _json_response({"proximity_result": result})
+
+
+@api_router.get("/proximity/results")
+def api_proximity_results(limit: int = Query(default=50, ge=1, le=200)) -> Any:
+    """List local proximity results."""
+    return _json_response({"proximity_results": list_proximity_results(limit=limit)})
+
+
+@api_router.get("/proximity/results/{proximity_result_id}")
+def api_proximity_result_detail(proximity_result_id: str) -> Any:
+    """Return one local proximity result."""
+    try:
+        return _json_response(get_proximity_result(proximity_result_id))
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 @api_router.get("/patterns")

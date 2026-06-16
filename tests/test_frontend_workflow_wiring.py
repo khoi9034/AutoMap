@@ -224,7 +224,7 @@ def test_api_client_has_timeout_and_sanitized_fallback_version():
 
     assert "Backend API request timed out" in source
     assert "http://127.0.0.1:8010" in source
-    assert 'version: "3.0.0"' in source
+    assert 'version: "3.1.0"' in source
     assert "redactProtected" in source
 
 
@@ -240,10 +240,16 @@ def test_parcel_workspace_page_components_and_api_are_present():
     candidate_table = read("components/parcel-candidate-table.tsx")
     selected_card = read("components/selected-parcel-layer-card.tsx")
     nearby_controls = read("components/parcel-nearby-controls.tsx")
+    proximity_page = read("app/proximity/page.tsx")
+    proximity_form = read("components/proximity-form.tsx")
+    proximity_result = read("components/proximity-result-card.tsx")
+    proximity_map = read("components/proximity-map-panel.tsx")
+    route_warning = read("components/route-warning-panel.tsx")
     api = read("lib/api.ts")
     types = read("types/automap.ts")
 
     assert 'href: "/parcel-workspace"' in navigation
+    assert 'href: "/proximity"' in navigation
     assert "Parcel Workspace" in page
     assert "ParcelInputPanel" in page
     assert "ParcelMatchTable" in page
@@ -254,6 +260,22 @@ def test_parcel_workspace_page_components_and_api_are_present():
     assert "ParcelCandidateTable" in page
     assert "SelectedParcelLayerCard" in page
     assert "ParcelNearbyControls" in page
+    assert "ProximityResultCard" in page
+    assert "Nearest School" in page
+    assert "Nearest Fire Station" in page
+    assert "Containing Fire District" in page
+    assert "Route Draft to Address" in page
+    assert "Nearest facility and route drafts" in proximity_page
+    assert "ProximityForm" in proximity_page
+    assert "ProximityResultCard" in proximity_page
+    assert "ProximityMapPanel" in proximity_page
+    assert "RouteWarningPanel" in proximity_page
+    assert "Run Proximity Prompt" in proximity_form
+    assert "Find Nearest" in proximity_form
+    assert "Create Route Draft" in proximity_form
+    assert "Line type" in proximity_result
+    assert "Straight-line distance" in proximity_map
+    assert "network_route_not_available" in route_warning
     assert "Parse Identifiers" in input_panel
     assert "Match Parcels" in input_panel
     assert "returnGeometry=false" in match_table
@@ -271,18 +293,29 @@ def test_parcel_workspace_page_components_and_api_are_present():
     assert "fetchSelectedParcelGeometry" in api
     assert "createParcelContext" in api
     assert "generateParcelReport" in api
+    assert "runProximity" in api
+    assert "runNearestFacility" in api
+    assert "runRouteDraft" in api
+    assert "listProximityResults" in api
     assert '"/api/parcels/parse"' in api
     assert '"/api/parcels/profile-fields"' in api
     assert '"/api/parcels/match"' in api
     assert "/fetch-geometry" in api
     assert '"/api/parcels/context"' in api
+    assert '"/api/proximity"' in api
+    assert '"/api/proximity/nearest"' in api
+    assert '"/api/proximity/route-draft"' in api
+    assert '"/api/proximity/results"' in api
     assert "ParcelSet" in types
     assert "ParcelContext" in types
     assert "ParcelFieldProfileResponse" in types
     assert "SelectedParcelGeometryResult" in types
     assert "ParcelReport" in types
+    assert "ProximityResult" in types
     assert "confirm-publish" not in page.lower()
+    assert "confirm-publish" not in proximity_page.lower()
     assert "publish-draft-webmap" not in page.lower()
+    assert "publish-draft-webmap" not in proximity_page.lower()
 
 
 def test_analysis_page_components_and_api_are_present():

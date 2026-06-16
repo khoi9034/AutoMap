@@ -8,6 +8,7 @@ from app.clarifying_questions import generate_clarifying_questions
 from app.intent_classifier import INTENT_LAYER_REQUIREMENTS, classify_intents
 from app.parcel_input_parser import parse_parcel_input
 from app.prompt_parser import parse_prompt
+from app.proximity_engine import build_proximity_context
 from app.request_explainer import build_reasoning_summary
 from app.request_quality_evaluator import evaluate_request_quality
 from app.scenario_classifier import classify_scenario
@@ -109,6 +110,7 @@ def build_request_intelligence(
     questions = generate_clarifying_questions(prompt, parsed_request, spatial_plan, missing_data)
     quality = evaluate_request_quality(prompt, parsed_request, classification, spatial_plan, missing_data)
     parcel_parse = parse_parcel_input(prompt)
+    proximity_context = build_proximity_context(prompt)
 
     analysis_plan = {
         "goal": _goal_from_intent(classification, parsed_request),
@@ -151,6 +153,7 @@ def build_request_intelligence(
                 else None
             ),
         },
+        "proximity_context": proximity_context,
     }
     request_intelligence["reasoning_summary"] = build_reasoning_summary(
         request_intelligence,
