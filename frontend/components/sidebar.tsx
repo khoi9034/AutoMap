@@ -3,7 +3,7 @@ import Link from "next/link";
 import { navigationItems } from "@/components/navigation";
 
 export function Sidebar() {
-  const grouped = ["Main", "Advanced"].map((group) => ({
+  const grouped = ["Main", "Support"].map((group) => ({
     group,
     items: navigationItems.filter((item) => (item.group || "Main") === group),
   }));

@@ -107,13 +107,7 @@ Start the UI:
 python -m app.main --serve-ui --ui-port 8010
 ```
 
-Open:
-
-```text
-http://127.0.0.1:8010/approval
-```
-
-The UI can create an approval template, let the reviewer edit YAML, apply the approval, show the approved packet path, display the approval receipt, and show the dry-run publish button only when the approved packet is publish-ready.
+The normal Next.js UI does not expose the approval page. Approval remains available through CLI/internal tooling, and the visible Map Composer flow keeps approval and publishing concepts out of normal map drafting.
 
 ## Approval History
 

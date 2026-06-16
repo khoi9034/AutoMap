@@ -36,9 +36,11 @@ The composer can generate local draft report/export links:
 
 These are draft review outputs, not official print maps.
 
-## Advanced Pages
+## Internal Workflow Tools
 
-The advanced pages remain available for recipe review, analysis, approval, dry-run publish checks, learning, catalog review, data gaps, external sources, history, and system status. Normal users should start with Map Composer.
+Normal users should start with Map Composer. Legacy internal routes such as `/recipe-review`, `/map-preview`, `/adjustments`, `/approval`, and `/publish-center` redirect to `/map-composer` by default so the normal app does not expose the old 10-step workflow.
+
+Support pages for catalog review, data gaps, external sources, history, and system status remain visible in the sidebar. Deeper internal recipe, approval, and dry-run tooling can be reintroduced later behind an explicit advanced mode.
 
 ## Safety
 

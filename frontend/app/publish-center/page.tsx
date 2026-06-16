@@ -1,17 +1,5 @@
-import { PublishCenterClient } from "@/components/publish-center-client";
-import { SectionHeader } from "@/components/section-header";
-import { WorkflowStepper } from "@/components/workflow-stepper";
+import { redirect } from "next/navigation";
 
 export default function PublishCenterPage() {
-  return (
-    <>
-      <SectionHeader
-        eyebrow="Developer / GIS Analyst Tools"
-        title="Dry-run publish and smoke-test center"
-        description="The frontend only runs dry-run publish checks and smoke-test dry-runs. Real private publishing remains CLI-only."
-      />
-      <WorkflowStepper activeStep="publish" />
-      <PublishCenterClient />
-    </>
-  );
+  redirect("/map-composer");
 }

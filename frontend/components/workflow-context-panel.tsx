@@ -29,12 +29,6 @@ export function WorkflowContextPanel() {
     "/adjustments",
     "/approval",
     "/publish-center",
-    "/learning",
-    "/layer-catalog",
-    "/data-gaps",
-    "/external-sources",
-    "/history",
-    "/system-status",
   ];
   const showInternalContext = internalPaths.some((path) => pathname === path || pathname.startsWith(`${path}/`));
 

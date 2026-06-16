@@ -40,7 +40,7 @@ The command writes:
 outputs/review_packets_approved/<approved-packet-folder>/smoke_test_receipt.json
 ```
 
-The local UI approval page also has a dry-run smoke-test button. The UI never real-publishes.
+The normal Next.js UI does not expose the approval or publish center pages. Portal smoke testing remains a CLI/internal workflow and never real-publishes from the frontend.
 
 ## Real Smoke Test
 

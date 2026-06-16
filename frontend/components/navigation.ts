@@ -5,17 +5,11 @@ export const navigationItems = [
   { href: "/scenarios", label: "Scenarios", group: "Main" },
   { href: "/analysis", label: "Analysis", group: "Main" },
   { href: "/reports", label: "Reports", group: "Main" },
-  { href: "/recipe-review", label: "Recipe Review", group: "Advanced" },
-  { href: "/map-preview", label: "Map Preview", group: "Advanced" },
-  { href: "/adjustments", label: "Adjustments", group: "Advanced" },
-  { href: "/approval", label: "Approval", group: "Advanced" },
-  { href: "/publish-center", label: "Publish Center", group: "Advanced" },
-  { href: "/learning", label: "Learning", group: "Advanced" },
-  { href: "/layer-catalog", label: "Layer Catalog", group: "Advanced" },
-  { href: "/data-gaps", label: "Data Gaps", group: "Advanced" },
-  { href: "/external-sources", label: "External Sources", group: "Advanced" },
-  { href: "/history", label: "History", group: "Advanced" },
-  { href: "/system-status", label: "System Status", group: "Advanced" },
+  { href: "/layer-catalog", label: "Layer Catalog", group: "Support" },
+  { href: "/data-gaps", label: "Data Gaps", group: "Support" },
+  { href: "/external-sources", label: "External Sources", group: "Support" },
+  { href: "/history", label: "History", group: "Support" },
+  { href: "/system-status", label: "System Status", group: "Support" },
 ];
 
 export const samplePrompts = [

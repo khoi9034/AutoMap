@@ -14,7 +14,7 @@ The composer keeps the primary actions in one place:
 - adjust the draft with simple title, layer, opacity, order, filter, and note controls
 - generate local draft reports/exports
 
-The older `/workflow` page remains available as an advanced guided state page, but normal users should start with `/map-composer`.
+The older `/workflow`, `/map-request`, `/clarify`, `/recipe-review`, `/map-preview`, `/adjustments`, `/approval`, and `/publish-center` routes redirect to `/map-composer` by default. Normal users see the four-step composer instead of the old internal 10-step workflow.
 
 ## Parcel Requests
 

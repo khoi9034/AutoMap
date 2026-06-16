@@ -83,7 +83,7 @@ def test_clarification_page_components_and_workflow_state_exist():
     api = read("lib/api.ts")
 
     assert 'href: "/clarify"' not in navigation
-    assert "Clarify Request" in page
+    assert 'redirect("/map-composer")' in page
     assert "Start Clarification" in panel
     assert "Submit Answers" in panel
     assert "Refine Recipe" in panel
@@ -153,8 +153,7 @@ def test_simplified_workflow_page_guides_preview_and_blocks_fake_parcels():
     types = read("types/automap.ts")
 
     assert 'href: "/workflow"' not in navigation
-    assert "WorkflowClient" in page
-    assert "Prompt to parcel-focused preview" in page
+    assert 'redirect("/map-composer")' in page
     assert "Generate Recipe" in client
     assert "Create Preview" in client
     assert "Adjust Draft" in client
@@ -186,13 +185,26 @@ def test_map_composer_is_primary_simple_workflow():
     assert 'href: "/map-composer"' in navigation
     assert 'label: "Map Composer"' in navigation
     assert 'group: "Main"' in navigation
-    assert 'group: "Advanced"' in navigation
+    assert 'group: "Support"' in navigation
+    assert 'group: "Advanced"' not in navigation
     assert 'href: "/map-request"' not in navigation
     assert 'href: "/clarify"' not in navigation
     assert 'href: "/workflow"' not in navigation
+    assert 'href: "/recipe-review"' not in navigation
+    assert 'href: "/map-preview"' not in navigation
+    assert 'href: "/adjustments"' not in navigation
+    assert 'href: "/approval"' not in navigation
+    assert 'href: "/publish-center"' not in navigation
+    assert 'href: "/learning"' not in navigation
     assert 'href: "/scenario-workbench"' not in navigation
     assert 'href: "/analysis-reports"' not in navigation
+    assert 'href: "/layer-catalog"' in navigation
+    assert 'href: "/data-gaps"' in navigation
+    assert 'href: "/external-sources"' in navigation
+    assert 'href: "/history"' in navigation
+    assert 'href: "/system-status"' in navigation
     assert "nav-section-label" in sidebar
+    assert '"Support"' in sidebar
     assert "MapComposerClient" in page
     assert "SimpleMapComposerStepper" in client
     assert "Generate Draft Map" in client
@@ -222,6 +234,27 @@ def test_map_composer_is_primary_simple_workflow():
     assert "ComposerAdjustPayload" in types
     assert "confirm-publish" not in client.lower()
     assert "publish-draft-webmap" not in client.lower()
+
+
+def test_internal_workflow_pages_redirect_to_composer():
+    internal_pages = [
+        "app/recipe-review/page.tsx",
+        "app/map-preview/page.tsx",
+        "app/adjustments/page.tsx",
+        "app/approval/page.tsx",
+        "app/publish-center/page.tsx",
+        "app/map-request/page.tsx",
+        "app/clarify/page.tsx",
+        "app/workflow/page.tsx",
+    ]
+
+    for path in internal_pages:
+        page = read(path)
+        assert 'redirect("/map-composer")' in page
+        assert "WorkflowStepper" not in page
+        assert "Internal recipe review tools" not in page
+        assert "Generate WebMap Draft" not in page
+        assert "Generate Review Packet" not in page
 
 
 def test_layer_panel_renders_review_metadata_without_assuming_layer_zero():
@@ -498,7 +531,7 @@ def test_learning_page_components_and_api_are_present():
     map_request = read("components/map-request-client.tsx")
     clarify_card = read("components/clarification-question-card.tsx")
 
-    assert 'href: "/learning"' in navigation
+    assert 'href: "/learning"' not in navigation
     assert "Feedback Learning and Approved Pattern Library" in page
     assert "Learn From Approved Packet" in center
     assert "PatternCard" in pattern_card

@@ -76,7 +76,7 @@ export default async function DashboardPage() {
           <h1>Draft county GIS map requests from verified catalog layers.</h1>
           <p>
             AutoMap turns plain-English planning questions into one simple local composer flow: prompt, preview,
-            adjust, and print/export. Advanced recipe, analysis, approval, and dry-run tools remain available.
+            adjust, and print/export. Internal review and governance tools stay behind the simplified composer path.
           </p>
           <div className="chip-row">
             <StatusChip tone="success">Dry-run only</StatusChip>
@@ -111,7 +111,7 @@ export default async function DashboardPage() {
       <SectionHeader
         eyebrow="Dashboard"
         title="Operations console"
-        description="Start with Map Composer for normal draft map requests. Use advanced pages only when deeper review, analysis, or governance is needed."
+        description="Start with Map Composer for normal draft map requests. Support pages help review catalog, data gap, history, and system status details."
       />
 
       <section className="stats-grid" aria-label="System stats">
@@ -140,7 +140,7 @@ export default async function DashboardPage() {
               <p className="muted">Request to Preview to Adjust to Print / Export.</p>
             </div>
             <Link className="button" href="/map-composer">
-              Start composing
+              Start a Map Request
             </Link>
           </section>
           <section className="panel">
@@ -254,8 +254,8 @@ export default async function DashboardPage() {
         <section className="panel">
           <div className="panel-title-row">
             <h3>Latest packets</h3>
-            <Link className="text-link" href="/map-preview">
-              Open preview
+            <Link className="text-link" href="/map-composer">
+              Open composer
             </Link>
           </div>
           {latestPackets.length ? (

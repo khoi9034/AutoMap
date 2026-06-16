@@ -1,6 +1,6 @@
 # AutoMap Frontend Workflow Shell
 
-AutoMap v2.2 provides a polished Next.js + TypeScript workflow shell with interactive clarification, deterministic feedback learning, safe bounded analysis, query optimization, and user-guided analysis refinement while keeping the FastAPI backend as the API and workflow engine.
+AutoMap v3.4 provides a polished Next.js + TypeScript workflow shell centered on the simple Map Composer while keeping the FastAPI backend as the API and workflow engine.
 
 ## URLs
 
@@ -42,45 +42,37 @@ Do not commit `.env.local`.
 
 Cabarrus FutureScape keeps `http://localhost:3000` and `http://127.0.0.1:8000`. AutoMap must not bind to those ports.
 
-## Pages
+## Visible Pages
 
 - `/dashboard`
-- `/map-request`
-- `/clarify`
-- `/recipe-review`
-- `/map-preview`
+- `/map-composer`
+- `/parcel-workspace`
+- `/proximity`
+- `/scenarios`
 - `/analysis`
-- `/adjustments`
-- `/approval`
-- `/publish-center`
-- `/learning`
 - `/reports`
 - `/layer-catalog`
 - `/data-gaps`
+- `/external-sources`
 - `/history`
 - `/system-status`
 
-The root `/` redirects to `/dashboard`.
+The root `/` redirects to `/map-composer`.
+
+Internal routes such as `/map-request`, `/clarify`, `/recipe-review`, `/map-preview`, `/adjustments`, `/approval`, and `/publish-center` redirect to `/map-composer` by default. They are not part of the normal user-facing sidebar.
 
 ## Workflow Shell
 
-The frontend presents a local, draft-only workflow:
+The frontend presents one local, draft-only normal workflow:
 
-1. Dashboard quick prompt and system snapshot
-2. Map request recipe generation
-3. Interactive clarification when the request needs distance, time range, flood scope, zoning, or missing-data decisions
-4. Recipe review with selected layers, filters, operations, warnings, and gaps
-5. Local WebMap preview through the backend preview route
-6. Safe bounded analysis with local GeoJSON outputs or guided refinement when blocked
-7. Human YAML adjustments that create separate adjusted packets
-8. Reviewer approval that records local readiness only
-9. Dry-run publish and dry-run portal smoke-test receipts
-10. Approved-pattern learning from local approved packets
-11. Local report/export packages for GIS review
+1. Request
+2. Preview
+3. Adjust
+4. Print / Export
 
-The shell uses compact cards, status chips, scan-friendly tables, grouped warning panels, layer review panels, and explicit draft-only labels. It does not expose real ArcGIS publishing.
+The composer can still create recipes, local WebMap JSON, review packets, and report/export files behind the scenes. The normal UI does not show the old 10-step internal workflow, and it does not expose real ArcGIS publishing.
 
-Workflow state is stored in browser localStorage under an AutoMap-specific key. It tracks the prompt, initial recipe, refined recipe, clarification session, clarification answers, WebMap draft, review packet, analysis plan, analysis run, adjustment template, adjusted packet, approval template, approved packet, dry-run receipt, smoke-test receipt, active step, warnings, missing data, and selected packet ids. Protected markers such as database URLs, passwords, tokens, and ArcGIS credential keys are redacted before storage.
+Workflow state is stored in browser localStorage under an AutoMap-specific key. It tracks the prompt, composer response, recipe, preview, adjustments, warnings, missing data, and selected workflow artifacts as needed. Protected markers such as database URLs, passwords, tokens, and ArcGIS credential keys are redacted before storage.
 
 ## v2.2 Analysis
 
@@ -94,15 +86,15 @@ The Map Preview layer panel can display a derived local analysis result badge wh
 
 ## v1.8 Clarification Loop
 
-v1.8 adds a `/clarify` page for answering AutoMap's deterministic GIS review questions. The page supports single choice, multi choice, text, number, distance, year, and date-range question types. Answers are saved to the local backend, converted into an explicit refinement context, and used to regenerate the request intelligence, analysis plan, selected layers, filter plan, warnings, and map recipe.
+v1.8 added deterministic GIS review questions. In the normal v3.4 UI, those clarification capabilities are surfaced through Map Composer rather than a separate visible `/clarify` page. The underlying components still support single choice, multi choice, text, number, distance, year, and date-range question types.
 
 The original recipe is preserved for comparison. The refined recipe records the local clarification session id, questions, answers, applied refinements, remaining questions, unresolved blockers, and a changes summary.
 
 ## v1.9 Learning
 
-v1.9 adds a `/learning` page for the approved pattern library. The page lists approved patterns, common clarification defaults, learned layer preferences, learned assumptions, recent feedback rows, and a local action to learn from an approved packet.
+v1.9 added approved-pattern learning. It remains a local deterministic capability; it is not exposed as a normal sidebar page in the simplified composer UI.
 
-Learned suggestions are shown on Map Request, Recipe Review, and Clarify Request. They remain reviewable. The frontend does not expose real publishing or ArcGIS login.
+Learned suggestions remain reviewable. The frontend does not expose real publishing or ArcGIS login.
 
 ## v1.6 UX Polish
 

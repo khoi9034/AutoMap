@@ -172,22 +172,14 @@ AutoMap must not use the CFS reserved ports:
 - CFS frontend: `http://localhost:3000`
 - CFS backend: `http://127.0.0.1:8000`
 
-Frontend pages:
+Visible frontend pages:
 
 - `/dashboard`
-- `/map-request`
+- `/map-composer`
 - `/parcel-workspace`
-- `/clarify`
-- `/recipe-review`
-- `/map-preview`
+- `/proximity`
 - `/scenarios`
-- `/scenario-workbench`
 - `/analysis`
-- `/analysis-reports`
-- `/adjustments`
-- `/approval`
-- `/publish-center`
-- `/learning`
 - `/reports`
 - `/layer-catalog`
 - `/data-gaps`
@@ -195,15 +187,21 @@ Frontend pages:
 - `/history`
 - `/system-status`
 
-The frontend can run dry-run publish and portal smoke-test dry-run actions only. Real publish remains CLI-only.
+Internal workflow routes such as `/map-request`, `/clarify`, `/recipe-review`, `/map-preview`, `/adjustments`, `/approval`, and `/publish-center` redirect to `/map-composer` by default. The normal user-facing workflow is:
 
-The workflow shell includes an operations dashboard, quick prompt bar, demo scenarios, parcel workspace, clarification form, recipe review workspace, local map preview, scenario workbench, layer panel, grouped warning panel, human adjustment editor, approval gate, dry-run publish center, approved-pattern learning center, report/export center, catalog search, data gaps, external source review, history, and sanitized system status.
+```text
+Request -> Preview -> Adjust -> Print / Export
+```
+
+The frontend does not expose real publish controls. Real publish remains CLI-only.
+
+The visible workflow shell includes an operations dashboard, Map Composer, parcel workspace, proximity tools, scenario builder, analysis tools, report/export center, catalog search, data gaps, external source review, history, and sanitized system status. Internal recipe, packet, adjustment, approval, dry-run publish, learning, and detailed preview tools remain implementation capabilities but are not part of the normal sidebar.
 
 The Scenario Workbench page lets reviewers tune scenario weights, enable or disable factors, add reviewer assumptions, save variants, compare scenarios/variants, and convert a reviewed scenario into a draft map recipe. Scenario scores are planning-support drafts, not official recommendations. Proxy sources remain context only unless reviewed, missing official permit data remains unresolved, and no geometry scoring runs from the workbench.
 
-The Map Request and Recipe Review pages now show request intelligence details: detected intents, confidence by intent, spatial relationships, ambiguity flags, clarifying questions, unsupported parts, and the analysis plan. This is deterministic rule-based interpretation only; AutoMap does not call external LLM APIs.
+Map Composer surfaces request intelligence details such as detected intents, confidence by intent, spatial relationships, ambiguity flags, clarifying questions, unsupported parts, and the analysis plan in the simplified flow where useful. This is deterministic rule-based interpretation only; AutoMap does not call external LLM APIs.
 
-The Clarify Request page turns those clarifying questions into an interactive local review loop. Staff can answer distance, flood-scope, missing-data, recent-time, and zoning-code questions, then AutoMap regenerates request intelligence, the analysis plan, selected layers, filters, warnings, and the map recipe. The original recipe remains available for comparison, and the refined recipe records what changed.
+The clarification engine turns those clarifying questions into an interactive local review loop behind the composer. Staff can answer distance, flood-scope, missing-data, recent-time, and zoning-code questions, then AutoMap regenerates request intelligence, the analysis plan, selected layers, filters, warnings, and the map recipe. The original recipe remains available for comparison, and the refined recipe records what changed.
 
 The Learning page stores approved local workflows as reviewable defaults. AutoMap can suggest common distances, flood-scope choices, preferred layers, accepted assumptions, and missing-data decisions from approved patterns. These learned suggestions are deterministic, local, and reviewable. They do not train a model, call external AI APIs, invent layers, or override the verified catalog.
 
@@ -223,7 +221,7 @@ v2.3 adds an Analysis Reports page and CLI/API report export commands for analys
 
 These reports use analysis receipts plus safe ArcGIS REST count/statistics queries with `returnGeometry=false` where supported. If grouped statistics are unsupported by a layer, AutoMap records that limitation and still produces the report. No parcel geometry is downloaded for summary-only reports.
 
-AutoMap persists the active local workflow in browser storage so staff can move from prompt to recipe review, preview, adjustments, approval, and dry-run publishing without losing context on refresh. The stored workflow state is sanitized and does not include secrets.
+AutoMap persists the active local composer/workflow state in browser storage so staff can move from prompt to preview, adjustment, and export without losing context on refresh. The stored workflow state is sanitized and does not include secrets.
 
 v1.6 improves the map preview page with a draft-only preview shell, packet selector, layer review panel, warning group panel, clearer empty/loading/error states, and explicit safety labels. The frontend preview uses the backend preview config and existing local preview route. It does not require ArcGIS login and does not publish.
 
@@ -574,13 +572,7 @@ python -m app.main --list-approvals
 python -m app.main --publish-draft-webmap outputs/review_packets_approved/<approved-packet-folder> --dry-run
 ```
 
-The local UI includes an approval page:
-
-```text
-http://127.0.0.1:8010/approval
-```
-
-Only approved packets with `final_publish_ready = true` show the UI dry-run publish and smoke-test actions. Real Portal publishing is CLI-only.
+The normal Next.js UI does not expose approval or publish-center pages. Approval remains a local CLI/internal governance capability, and real Portal publishing is CLI-only.
 
 ## Controlled Private ArcGIS Publish
 
@@ -737,14 +729,12 @@ Start the v1 local UI:
 python -m app.main --serve-ui --ui-port 8010
 ```
 
-Useful pages:
+Backend utility pages:
 
 ```text
 http://127.0.0.1:8010/demo
 http://127.0.0.1:8010/status
 http://127.0.0.1:8010/history
-http://127.0.0.1:8010/approval
-http://127.0.0.1:8010/preview
 ```
 
 ## Architecture

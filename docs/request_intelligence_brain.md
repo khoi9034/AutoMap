@@ -68,10 +68,9 @@ Expected interpretation:
 
 ## Frontend Display
 
-The Next.js frontend shows request intelligence on:
+The Next.js frontend shows request intelligence through the normal Map Composer flow:
 
-- `/map-request`
-- `/recipe-review`
+- `/map-composer`
 
 The panel displays intent badges, confidence scores, constraints, opportunities, ambiguity flags, unsupported parts, spatial relationships, assumptions, and review questions.
 
