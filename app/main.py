@@ -30,6 +30,7 @@ from app.analysis_refinement_engine import (
     select_refinement_option,
 )
 from app.analysis_result_store import validate_analysis_run
+from app.address_field_mapper import build_verified_address_field_map
 from app.approval_engine import (
     apply_approval_to_adjusted_packet,
     create_approval_template,
@@ -82,9 +83,11 @@ from app.parcel_context_engine import (
     build_parcel_context_recipe,
     create_parcel_context_session,
     create_parcel_set,
+    fetch_selected_parcels,
     get_parcel_set,
     list_parcel_sets,
 )
+from app.parcel_field_mapper import build_verified_parcel_field_map
 from app.parcel_input_parser import parse_parcel_input
 from app.parcel_reporter import generate_parcel_report
 from app.ports import AUTOMAP_BACKEND_PORT, CFS_RESERVED_WARNING
@@ -861,6 +864,28 @@ def _create_parcel_set(raw_input: str) -> int:
     return 0
 
 
+def _profile_parcel_fields() -> int:
+    result = {
+        "parcel_field_map": build_verified_parcel_field_map(),
+        "address_field_map": build_verified_address_field_map(),
+        "downloaded_geometry": False,
+    }
+    print(json.dumps(result, indent=2, default=str))
+    return 0 if result["parcel_field_map"].get("layer_key") else 1
+
+
+def _match_parcels(raw_input: str) -> int:
+    parcel_set = create_parcel_set(raw_input)
+    print(json.dumps(parcel_set, indent=2, default=str))
+    return 0
+
+
+def _fetch_selected_parcels(parcel_set_id: str) -> int:
+    result = fetch_selected_parcels(parcel_set_id)
+    print(json.dumps(result, indent=2, default=str))
+    return 0 if result.get("status") == "ok" else 1
+
+
 def _parcel_context(prompt: str) -> int:
     session = create_parcel_context_session(prompt)
     print(json.dumps(session, indent=2, default=str))
@@ -1294,9 +1319,24 @@ def main() -> int:
         help="Parse parcel IDs, PINs, PIN14s, addresses, or pasted parcel lists without matching geometry.",
     )
     parser.add_argument(
+        "--profile-parcel-fields",
+        action="store_true",
+        help="Build verified Tax Parcels and Addresses field maps for parcel lookup.",
+    )
+    parser.add_argument(
+        "--match-parcels",
+        metavar="RAW_INPUT",
+        help="Safely match parcel/PIN/address input using verified fields without geometry download.",
+    )
+    parser.add_argument(
         "--create-parcel-set",
         metavar="RAW_INPUT",
         help="Create a local parcel set with safe count/attribute-first matching.",
+    )
+    parser.add_argument(
+        "--fetch-selected-parcels",
+        metavar="PARCEL_SET_ID",
+        help="Fetch local selected parcel GeoJSON only for safely matched parcel sets.",
     )
     parser.add_argument(
         "--parcel-context",
@@ -1482,8 +1522,14 @@ def main() -> int:
             return _scenario_to_recipe(args.scenario_to_recipe, args.variant_id)
         if args.parse_parcels:
             return _parse_parcels(args.parse_parcels)
+        if args.profile_parcel_fields:
+            return _profile_parcel_fields()
+        if args.match_parcels:
+            return _match_parcels(args.match_parcels)
         if args.create_parcel_set:
             return _create_parcel_set(args.create_parcel_set)
+        if args.fetch_selected_parcels:
+            return _fetch_selected_parcels(args.fetch_selected_parcels)
         if args.parcel_context:
             return _parcel_context(args.parcel_context)
         if args.list_parcel_sets:

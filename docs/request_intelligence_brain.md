@@ -4,7 +4,7 @@ AutoMap's request intelligence brain is a deterministic interpretation layer for
 
 AutoMap v2.7 adds `scenario_context` to request intelligence. Growth, suitability, constraint, transportation-access, and development-pressure prompts can now recommend the Scenarios workflow before any bounded analysis is considered.
 
-AutoMap v2.9 adds parcel-context detection. Prompts with PINs, PIN14s, parcel IDs, address-like inputs, `my parcels`, or `these parcels` include a `parcel_context` section and recommend the Parcel Workspace for safe identifier matching.
+AutoMap v3.0 adds real parcel lookup support on top of parcel-context detection. Prompts with PINs, PIN14s, parcel IDs, address-like inputs, `my parcels`, or `these parcels` include a `parcel_context` section and recommend the Parcel Workspace for safe identifier matching, candidate review, and selected-parcel GeoJSON generation.
 
 ## Purpose
 

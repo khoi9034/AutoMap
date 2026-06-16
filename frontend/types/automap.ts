@@ -35,6 +35,7 @@ export type SystemStatus = {
   scenario_comparison_count?: number;
   parcel_set_count?: number;
   parcel_context_session_count?: number;
+  parcel_field_map_count?: number;
   packets?: {
     review_packet_count?: number;
     adjusted_packet_count?: number;
@@ -415,6 +416,35 @@ export type ParcelMatchSummary = {
   source_layer_key?: string | null;
   attributes?: Record<string, JsonValue>;
   input_identifier?: ParcelIdentifier;
+  needs_review?: boolean;
+  count?: number;
+};
+
+export type ParcelFieldRole = {
+  layer_key?: string | null;
+  field_role?: string;
+  field_name?: string;
+  field_alias?: string | null;
+  confidence_score?: number;
+  notes?: string;
+};
+
+export type ParcelFieldMap = {
+  layer_key?: string | null;
+  layer_name?: string | null;
+  layer_url?: string | null;
+  object_id_field?: string | null;
+  fields_by_role?: Record<string, string[]>;
+  role_rows?: ParcelFieldRole[];
+  geometry_supported?: boolean;
+  warnings?: string[];
+  stored_rows?: number;
+};
+
+export type ParcelFieldProfileResponse = {
+  parcel_field_map?: ParcelFieldMap;
+  address_field_map?: ParcelFieldMap;
+  downloaded_geometry?: boolean;
 };
 
 export type ParcelSet = {
@@ -424,11 +454,15 @@ export type ParcelSet = {
   parsed_identifiers?: ParcelIdentifier[];
   matched_parcels?: ParcelMatchSummary[];
   unmatched_identifiers?: ParcelIdentifier[];
+  candidate_matches?: ParcelMatchSummary[];
   match_status?: "matched" | "partial" | "unmatched" | "needs_review" | string;
   source_layer_key?: string | null;
   matched_count?: number;
   warnings?: string[];
   downloaded_geometry?: boolean;
+  geometry_output_path?: string | null;
+  geometry_receipt?: Record<string, JsonValue>;
+  geometry_fetched_at?: string | null;
   created_at?: string;
   updated_at?: string;
 };
@@ -439,11 +473,29 @@ export type ParcelContext = {
   parsed_identifiers?: ParcelIdentifier[];
   matched_count?: number | null;
   unmatched_identifiers?: ParcelIdentifier[];
+  candidate_matches?: ParcelMatchSummary[];
   matched_parcels_summary?: ParcelMatchSummary[];
   parcel_extent?: Record<string, JsonValue>;
   context_layers?: SelectedLayer[];
   nearby_distance?: string | null;
+  geometry_output_path?: string | null;
+  geometry_receipt?: Record<string, JsonValue>;
   parcel_warnings?: string[];
+};
+
+export type SelectedParcelGeometryResult = {
+  parcel_set_id?: string;
+  match_status?: string;
+  matched_count?: number;
+  unmatched_identifiers?: ParcelIdentifier[];
+  candidate_matches?: ParcelMatchSummary[];
+  geometry_output_path?: string | null;
+  receipt_path?: string | null;
+  summary_path?: string | null;
+  feature_count?: number | null;
+  warnings?: string[];
+  downloaded_geometry?: boolean;
+  status?: string;
 };
 
 export type ParcelContextSession = {

@@ -734,6 +734,17 @@ button {
   font-weight: 700;
 }
 
+.stack-small {
+  display: grid;
+  gap: 6px;
+}
+
+.warning-list {
+  color: #7a4b00;
+  margin: 10px 0;
+  padding-left: 18px;
+}
+
 .mini-list,
 .activity-list,
 .layer-list {

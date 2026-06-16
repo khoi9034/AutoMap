@@ -14,9 +14,10 @@ from app.db import _quote_identifier, get_engine
 from app.layer_catalog_store import load_catalog_records
 from app.layer_semantics import slugify
 from app.parcel_input_parser import parse_parcel_input
-from app.parcel_matcher import match_parcels_by_address, match_parcels_by_identifier
+from app.parcel_matcher import fetch_selected_parcel_geometry, match_parcels_by_address, match_parcels_by_identifier
 from app.prompt_parser import parse_prompt
 from app.source_usage_intelligence import build_source_coverage, enrich_selected_layers_with_source_usage
+from app.ui_models import output_file_url
 
 
 DEFAULT_PARCEL_NEARBY_DISTANCE = "0.25 miles"
@@ -48,8 +49,13 @@ def init_parcel_tables(schema_name: str = "automap") -> None:
                     parsed_identifiers jsonb DEFAULT '[]'::jsonb,
                     matched_parcels jsonb DEFAULT '[]'::jsonb,
                     unmatched_identifiers jsonb DEFAULT '[]'::jsonb,
+                    candidate_matches jsonb DEFAULT '[]'::jsonb,
+                    warnings jsonb DEFAULT '[]'::jsonb,
                     match_status text,
                     source_layer_key text,
+                    geometry_output_path text,
+                    geometry_receipt jsonb DEFAULT '{{}}'::jsonb,
+                    geometry_fetched_at timestamptz,
                     created_at timestamptz DEFAULT now(),
                     updated_at timestamptz DEFAULT now()
                 );
@@ -80,8 +86,13 @@ def init_parcel_tables(schema_name: str = "automap") -> None:
             "parsed_identifiers": "jsonb DEFAULT '[]'::jsonb",
             "matched_parcels": "jsonb DEFAULT '[]'::jsonb",
             "unmatched_identifiers": "jsonb DEFAULT '[]'::jsonb",
+            "candidate_matches": "jsonb DEFAULT '[]'::jsonb",
+            "warnings": "jsonb DEFAULT '[]'::jsonb",
             "match_status": "text",
             "source_layer_key": "text",
+            "geometry_output_path": "text",
+            "geometry_receipt": "jsonb DEFAULT '{}'::jsonb",
+            "geometry_fetched_at": "timestamptz",
             "created_at": "timestamptz DEFAULT now()",
             "updated_at": "timestamptz DEFAULT now()",
         }.items():
@@ -121,12 +132,16 @@ def _record_parcel_set(record: dict[str, Any], schema_name: str = "automap") -> 
                 f"""
                 INSERT INTO {table} (
                     parcel_set_id, raw_input, input_type, parsed_identifiers,
-                    matched_parcels, unmatched_identifiers, match_status, source_layer_key
+                    matched_parcels, unmatched_identifiers, candidate_matches, warnings,
+                    match_status, source_layer_key, geometry_output_path, geometry_receipt,
+                    geometry_fetched_at
                 )
                 VALUES (
                     :parcel_set_id, :raw_input, :input_type,
                     CAST(:parsed_identifiers AS jsonb), CAST(:matched_parcels AS jsonb),
-                    CAST(:unmatched_identifiers AS jsonb), :match_status, :source_layer_key
+                    CAST(:unmatched_identifiers AS jsonb), CAST(:candidate_matches AS jsonb),
+                    CAST(:warnings AS jsonb), :match_status, :source_layer_key,
+                    :geometry_output_path, CAST(:geometry_receipt AS jsonb), :geometry_fetched_at
                 )
                 ON CONFLICT (parcel_set_id) DO UPDATE SET
                     raw_input = EXCLUDED.raw_input,
@@ -134,8 +149,13 @@ def _record_parcel_set(record: dict[str, Any], schema_name: str = "automap") -> 
                     parsed_identifiers = EXCLUDED.parsed_identifiers,
                     matched_parcels = EXCLUDED.matched_parcels,
                     unmatched_identifiers = EXCLUDED.unmatched_identifiers,
+                    candidate_matches = EXCLUDED.candidate_matches,
+                    warnings = EXCLUDED.warnings,
                     match_status = EXCLUDED.match_status,
                     source_layer_key = EXCLUDED.source_layer_key,
+                    geometry_output_path = EXCLUDED.geometry_output_path,
+                    geometry_receipt = EXCLUDED.geometry_receipt,
+                    geometry_fetched_at = EXCLUDED.geometry_fetched_at,
                     updated_at = now();
                 """
             ),
@@ -146,8 +166,13 @@ def _record_parcel_set(record: dict[str, Any], schema_name: str = "automap") -> 
                 "parsed_identifiers": _json_dumps(record.get("parsed_identifiers") or []),
                 "matched_parcels": _json_dumps(record.get("matched_parcels") or []),
                 "unmatched_identifiers": _json_dumps(record.get("unmatched_identifiers") or []),
+                "candidate_matches": _json_dumps(record.get("candidate_matches") or []),
+                "warnings": _json_dumps(record.get("warnings") or []),
                 "match_status": record.get("match_status"),
                 "source_layer_key": record.get("source_layer_key"),
+                "geometry_output_path": record.get("geometry_output_path"),
+                "geometry_receipt": _json_dumps(record.get("geometry_receipt") or {}),
+                "geometry_fetched_at": record.get("geometry_fetched_at"),
             },
         )
     return record
@@ -196,12 +221,16 @@ def create_parcel_set(
         "parsed_identifiers": all_identifiers,
         "matched_parcels": matched_parcels,
         "unmatched_identifiers": match.get("unmatched_identifiers") or [],
+        "candidate_matches": match.get("candidate_matches") or match.get("address_candidates") or [],
         "match_status": match.get("match_status") or ("matched" if matched_parcels else "unmatched"),
         "source_layer_key": _source_layer_key(match),
         "matched_count": len(matched_parcels),
         "warnings": [*(parsed.get("warnings") or []), *(match.get("warnings") or [])],
         "field_map": match.get("field_map") or {},
         "downloaded_geometry": False,
+        "geometry_output_path": None,
+        "geometry_receipt": {},
+        "geometry_fetched_at": None,
         "created_at": _now(),
         "updated_at": _now(),
     }
@@ -210,7 +239,17 @@ def create_parcel_set(
 
 def _row_dict(row: Any) -> dict[str, Any]:
     data = dict(row)
-    for field in ["parsed_identifiers", "matched_parcels", "unmatched_identifiers", "context_layers", "context_recipe", "context_report", "warnings"]:
+    for field in [
+        "parsed_identifiers",
+        "matched_parcels",
+        "unmatched_identifiers",
+        "candidate_matches",
+        "geometry_receipt",
+        "context_layers",
+        "context_recipe",
+        "context_report",
+        "warnings",
+    ]:
         if isinstance(data.get(field), str):
             try:
                 data[field] = json.loads(data[field])
@@ -252,6 +291,56 @@ def list_parcel_sets(schema_name: str = "automap", limit: int = 50) -> list[dict
             {"limit": limit},
         ).mappings()
     return [_row_dict(row) for row in rows]
+
+
+def _update_parcel_set_geometry(
+    parcel_set_id: str,
+    geometry_result: dict[str, Any],
+    schema_name: str = "automap",
+) -> None:
+    init_parcel_tables(schema_name)
+    table = _parcel_sets_table(schema_name)
+    engine = get_engine()
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                f"""
+                UPDATE {table}
+                SET geometry_output_path = :geometry_output_path,
+                    geometry_receipt = CAST(:geometry_receipt AS jsonb),
+                    geometry_fetched_at = CASE WHEN :geometry_output_path IS NULL THEN geometry_fetched_at ELSE now() END,
+                    updated_at = now()
+                WHERE parcel_set_id = :parcel_set_id;
+                """
+            ),
+            {
+                "parcel_set_id": parcel_set_id,
+                "geometry_output_path": geometry_result.get("geometry_output_path"),
+                "geometry_receipt": _json_dumps(geometry_result.get("receipt") or geometry_result),
+            },
+        )
+
+
+def fetch_selected_parcels(parcel_set_id: str, schema_name: str = "automap") -> dict[str, Any]:
+    """Fetch bounded selected-parcel geometry for a stored parcel set."""
+    parcel_set = get_parcel_set(parcel_set_id, schema_name)
+    result = fetch_selected_parcel_geometry(parcel_set, schema_name=schema_name)
+    _update_parcel_set_geometry(parcel_set_id, result, schema_name)
+    refreshed = get_parcel_set(parcel_set_id, schema_name)
+    return {
+        "parcel_set_id": parcel_set_id,
+        "match_status": refreshed.get("match_status"),
+        "matched_count": len(refreshed.get("matched_parcels") or []),
+        "unmatched_identifiers": refreshed.get("unmatched_identifiers") or [],
+        "candidate_matches": refreshed.get("candidate_matches") or [],
+        "geometry_output_path": result.get("geometry_output_path"),
+        "receipt_path": result.get("receipt_path"),
+        "summary_path": result.get("summary_path"),
+        "feature_count": result.get("feature_count"),
+        "warnings": result.get("warnings") or [],
+        "downloaded_geometry": bool(result.get("downloaded_geometry")),
+        "status": result.get("status"),
+    }
 
 
 def _matches_terms(record: dict[str, Any], terms: list[str]) -> bool:
@@ -373,6 +462,12 @@ def _missing_data_for_parcel_prompt(prompt_text: str, selected_layers: list[dict
 
 
 def _parcel_extent(parcel_set: dict[str, Any]) -> dict[str, Any]:
+    if parcel_set.get("geometry_output_path"):
+        return {
+            "type": "selected_parcels_geojson",
+            "value": parcel_set.get("geometry_output_path"),
+            "notes": "Fit to the local selected parcel GeoJSON output.",
+        }
     if parcel_set.get("matched_count"):
         return {
             "type": "matched_parcels",
@@ -383,6 +478,30 @@ def _parcel_extent(parcel_set: dict[str, Any]) -> dict[str, Any]:
         "type": "review_needed",
         "value": None,
         "notes": "Parcel extent is unavailable until identifiers are matched.",
+    }
+
+
+def _selected_parcel_derived_layer(parcel_set: dict[str, Any]) -> dict[str, Any] | None:
+    output_path = parcel_set.get("geometry_output_path")
+    if not output_path:
+        return None
+    return {
+        "layer_key": f"derived_selected_parcels_{parcel_set.get('parcel_set_id')}",
+        "layer_name": "Selected Parcels - Parcel Context",
+        "display_title": "Selected Parcels - Parcel Context",
+        "category": "parcel",
+        "role": "base_layer",
+        "source_role": "derived_local_analysis",
+        "source_status": "local_derived",
+        "approval_status": "review_draft",
+        "layer_url": output_path,
+        "geojson_path": output_path,
+        "geojson_url": output_file_url(output_path),
+        "derived_local_parcel_output": True,
+        "is_verified": True,
+        "confidence_score": 1.0,
+        "match_reasons": ["Local selected parcel GeoJSON created after safe match-count review."],
+        "review_notes": ["Derived local selected parcel output is a review draft and is not published."],
     }
 
 
@@ -404,6 +523,9 @@ def build_parcel_context(
         _select_context_layers(topics, prompt_text, layer_catalog=layer_catalog),
         parsed_prompt,
     )
+    derived_layer = _selected_parcel_derived_layer(parcel_set)
+    if derived_layer:
+        selected_layers = [derived_layer, *selected_layers]
     missing = _missing_data_for_parcel_prompt(prompt_text, selected_layers)
     data_gap_context = safe_gap_context_for_recipe(missing)
     source_coverage = build_source_coverage(selected_layers, missing, data_gap_context, parsed_prompt)
@@ -473,10 +595,13 @@ def build_parcel_context_recipe(
         "parsed_identifiers": parcel_set.get("parsed_identifiers") or [],
         "matched_count": parcel_set.get("matched_count") or len(parcel_set.get("matched_parcels") or []),
         "unmatched_identifiers": parcel_set.get("unmatched_identifiers") or [],
+        "candidate_matches": parcel_set.get("candidate_matches") or [],
         "matched_parcels_summary": _matched_summary(parcel_set),
         "parcel_extent": _parcel_extent(parcel_set),
         "context_layers": context["context_layers"],
         "nearby_distance": nearby_distance,
+        "geometry_output_path": parcel_set.get("geometry_output_path"),
+        "geometry_receipt": parcel_set.get("geometry_receipt") or {},
         "parcel_warnings": context["warnings"],
     }
     review_reasons = [
@@ -486,7 +611,7 @@ def build_parcel_context_recipe(
     if parcel_set.get("match_status") != "matched":
         review_reasons.append("Parcel set matching is partial, unmatched, or needs review.")
     recipe = {
-        "map_title": "Parcel Context Map",
+        "map_title": "Selected Parcels Context Map" if parcel_set.get("geometry_output_path") else "Parcel Context Map",
         "user_intent": raw_prompt,
         "parsed_request": {
             **parsed_prompt,
@@ -573,7 +698,17 @@ def build_parcel_context_recipe(
                 "Retrieve parcel geometry only after count remains under safety limits.",
                 "Run selected overlay checks against requested context layers.",
             ],
-            "derived_outputs": [],
+            "derived_outputs": (
+                [
+                    {
+                        "type": "selected_parcels_geojson",
+                        "path": parcel_set.get("geometry_output_path"),
+                        "layer_key": f"derived_selected_parcels_{parcel_set_id}",
+                    }
+                ]
+                if parcel_set.get("geometry_output_path")
+                else []
+            ),
         },
         "created_at": _now(),
         "notes": [
@@ -597,10 +732,11 @@ def build_parcel_context_webmap(parcel_set_id: str, **kwargs: Any) -> dict[str, 
                 "id": layer.get("layer_key"),
                 "title": layer.get("display_title") or layer.get("layer_name"),
                 "url": layer.get("service_url") or layer.get("layer_url"),
-                "layerType": "ArcGISMapServiceLayer",
+                "layerType": "GeoJSON" if layer.get("derived_local_parcel_output") else "ArcGISMapServiceLayer",
                 "visibility": True,
-                "opacity": 0.75,
+                "opacity": 0.92 if layer.get("derived_local_parcel_output") else 0.75,
                 "autoMapLayerKey": layer.get("layer_key"),
+                "derivedLocalParcelOutput": bool(layer.get("derived_local_parcel_output")),
             }
             for layer in recipe.get("selected_layers") or []
         ],
@@ -635,9 +771,11 @@ def summarize_parcel_context(parcel_set_id: str, schema_name: str = "automap") -
         "match_status": parcel_set.get("match_status"),
         "matched_count": len(parcel_set.get("matched_parcels") or []),
         "unmatched_count": len(parcel_set.get("unmatched_identifiers") or []),
+        "candidate_count": len(parcel_set.get("candidate_matches") or []),
         "source_layer_key": parcel_set.get("source_layer_key"),
         "safe_for_geometry_request": 0 < len(parcel_set.get("matched_parcels") or []) <= 100,
-        "downloaded_geometry": False,
+        "geometry_output_path": parcel_set.get("geometry_output_path"),
+        "downloaded_geometry": bool(parcel_set.get("geometry_output_path")),
     }
 
 
@@ -701,6 +839,37 @@ def create_parcel_context_session(
         "context_layers": recipe.get("selected_layers") or [],
         "context_recipe": recipe,
         "context_report": summarize_parcel_context(parcel_set["parcel_set_id"], schema_name),
+        "warnings": recipe.get("review_reasons") or [],
+        "created_at": _now(),
+    }
+    return _record_context_session(session, schema_name)
+
+
+def create_parcel_context_session_for_set(
+    parcel_set_id: str,
+    *,
+    raw_prompt: str | None = None,
+    requested_topics: list[str] | None = None,
+    nearby_distance: str | None = None,
+    schema_name: str = "automap",
+) -> dict[str, Any]:
+    """Create a parcel context session from an existing parcel set."""
+    parcel_set = get_parcel_set(parcel_set_id, schema_name)
+    prompt = raw_prompt or parcel_set.get("raw_input") or "Parcel context map"
+    recipe = build_parcel_context_recipe(
+        parcel_set_id,
+        requested_topics=requested_topics,
+        raw_prompt=prompt,
+        nearby_distance=nearby_distance,
+        schema_name=schema_name,
+    )
+    session = {
+        "session_id": f"parcel_context_{uuid4().hex[:12]}",
+        "parcel_set_id": parcel_set_id,
+        "raw_prompt": prompt,
+        "context_layers": recipe.get("selected_layers") or [],
+        "context_recipe": recipe,
+        "context_report": summarize_parcel_context(parcel_set_id, schema_name),
         "warnings": recipe.get("review_reasons") or [],
         "created_at": _now(),
     }

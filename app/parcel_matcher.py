@@ -2,17 +2,25 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 import json
+from pathlib import Path
 import re
 from typing import Any
 
+from app.address_field_mapper import build_verified_address_field_map
 from app.field_profiler import infer_field_roles, load_field_profiles
 from app.layer_catalog_store import load_catalog_records
+from app.layer_semantics import slugify
+from app.ui_models import repo_root
 from app.spatial_query_client import SpatialQueryClient, SpatialQueryError
 
 
 PARCEL_MATCH_LIMIT = 100
-FIELD_ROLE_KEYS = ("pin14", "pin", "parcel_id", "address", "owner")
+MAX_PARCEL_MATCHES_FOR_GEOMETRY = 100
+HARD_MAX_PARCEL_MATCHES_FOR_GEOMETRY = 250
+PARCEL_CONTEXT_OUTPUT_ROOT = Path("outputs/parcel_context")
+FIELD_ROLE_KEYS = ("pin14", "pin", "parcel_id", "address")
 
 
 def _as_list(value: Any) -> list[Any]:
@@ -52,6 +60,14 @@ def _dedupe_fields(fields: list[str]) -> list[str]:
 
 def _sql_literal(value: str) -> str:
     return "'" + value.replace("'", "''") + "'"
+
+
+def _normalized_identifier_value(value: str) -> str:
+    return re.sub(r"[\s\-]", "", str(value or "").upper())
+
+
+def _normalized_field_expression(field: str) -> str:
+    return f"REPLACE(REPLACE(UPPER({field}), '-', ''), ' ', '')"
 
 
 def find_tax_parcel_layer(
@@ -126,12 +142,17 @@ def infer_parcel_id_fields(
             field_map["parcel_id"].append(name)
         if profile.get("is_address_candidate") or any(term in compact for term in ["address", "siteaddress", "situs", "street"]):
             field_map["address"].append(name)
-        if "owner" in compact:
-            field_map["owner"].append(name)
+        # Owner fields are intentionally not mapped for default parcel lookup.
 
     object_id = layer_record.get("object_id_field")
     if object_id:
         field_map.setdefault("object_id", []).append(str(object_id))
+    for profile in profiles:
+        name = _field_name(profile)
+        if profile.get("is_object_id") and name:
+            field_map.setdefault("object_id", []).append(name)
+        if profile.get("is_geometry_field") and name:
+            field_map.setdefault("geometry", []).append(name)
     return {key: _dedupe_fields(value) for key, value in field_map.items()}
 
 
@@ -145,7 +166,11 @@ def build_parcel_where_clause(
     for identifier in identifiers:
         identifier_type = str(identifier.get("identifier_type") or "").lower()
         value = str(identifier.get("normalized_value") or identifier.get("value") or "").strip()
+        raw_value = str(identifier.get("value") or value).strip()
         if not value:
+            continue
+        if identifier_type == "owner":
+            warnings.append("Owner lookup was requested but is not queried by default; public owner-field review is required first.")
             continue
         candidate_fields = field_map.get(identifier_type) or []
         if identifier_type == "pin14" and not candidate_fields:
@@ -157,7 +182,14 @@ def build_parcel_where_clause(
         if not candidate_fields:
             warnings.append(f"No verified field was inferred for {identifier_type}: {value}.")
             continue
-        field_clauses = [f"{field} = {_sql_literal(value)}" for field in candidate_fields]
+        field_clauses: list[str] = []
+        for field in candidate_fields:
+            for candidate in _dedupe_fields([raw_value, value, value.upper()]):
+                field_clauses.append(f"UPPER({field}) = {_sql_literal(candidate.upper())}")
+            if identifier_type in {"pin", "pin14", "parcel_id"}:
+                normalized = _normalized_identifier_value(value)
+                if normalized:
+                    field_clauses.append(f"{_normalized_field_expression(field)} = {_sql_literal(normalized)}")
         if identifier_type == "address":
             field_clauses.extend(f"UPPER({field}) LIKE {_sql_literal('%' + value.upper() + '%')}" for field in candidate_fields)
         clauses.append("(" + " OR ".join(field_clauses) + ")")
@@ -214,6 +246,25 @@ def _summarize_feature(feature: dict[str, Any], field_map: dict[str, list[str]])
     return summary
 
 
+def _candidate_match_rows(rows: list[dict[str, Any]], identifier: dict[str, Any], count: int) -> list[dict[str, Any]]:
+    candidates: list[dict[str, Any]] = []
+    for row in rows:
+        candidates.append(
+            {
+                "identifier": identifier,
+                "count": count,
+                "pin14": row.get("pin14"),
+                "pin": row.get("pin"),
+                "parcel_id": row.get("parcel_id"),
+                "address": row.get("address"),
+                "object_id": row.get("object_id"),
+                "source_layer_key": row.get("source_layer_key"),
+                "needs_review": count > 1,
+            }
+        )
+    return candidates
+
+
 def validate_parcel_matches(match_result: dict[str, Any]) -> dict[str, Any]:
     """Assign a review status to parcel matching output."""
     matched_count = int(match_result.get("matched_count") or 0)
@@ -258,6 +309,7 @@ def match_parcels_by_identifier(
     matched: list[dict[str, Any]] = []
     unmatched: list[dict[str, Any]] = []
     multiple: list[dict[str, Any]] = []
+    candidate_matches: list[dict[str, Any]] = []
     warnings: list[str] = []
     layer_url = layer.get("layer_url") or layer.get("rest_url")
 
@@ -302,6 +354,7 @@ def match_parcels_by_identifier(
         matched.extend(rows)
         if count > 1:
             multiple.append({"identifier": identifier, "count": count, "where": where_clause})
+            candidate_matches.extend(_candidate_match_rows(rows, identifier, count))
 
     return validate_parcel_matches(
         {
@@ -312,6 +365,7 @@ def match_parcels_by_identifier(
             "matched_parcels": matched,
             "unmatched_identifiers": unmatched,
             "multiple_match_identifiers": multiple,
+            "candidate_matches": candidate_matches,
             "warnings": warnings,
             "downloaded_geometry": False,
         }
@@ -331,4 +385,285 @@ def match_parcels_by_address(
         }
         for address in addresses
     ]
-    return match_parcels_by_identifier(normalized_addresses, **kwargs)
+    address_layer_result = _match_addresses_on_address_layer(normalized_addresses, **kwargs)
+    parcel_result = match_parcels_by_identifier(normalized_addresses, **kwargs)
+    parcel_result["address_candidates"] = address_layer_result.get("candidate_matches") or []
+    parcel_result["warnings"] = [
+        *(parcel_result.get("warnings") or []),
+        *(address_layer_result.get("warnings") or []),
+    ]
+    if address_layer_result.get("matched_parcel_identifiers"):
+        relation_result = match_parcels_by_identifier(address_layer_result["matched_parcel_identifiers"], **kwargs)
+        parcel_result["matched_parcels"] = [
+            *(parcel_result.get("matched_parcels") or []),
+            *(relation_result.get("matched_parcels") or []),
+        ]
+        parcel_result["candidate_matches"] = [
+            *(parcel_result.get("candidate_matches") or []),
+            *(relation_result.get("candidate_matches") or []),
+        ]
+        parcel_result["unmatched_identifiers"] = relation_result.get("unmatched_identifiers") or parcel_result.get("unmatched_identifiers") or []
+        parcel_result["matched_count"] = len(parcel_result.get("matched_parcels") or [])
+        validate_parcel_matches(parcel_result)
+    return parcel_result
+
+
+def _match_addresses_on_address_layer(
+    addresses: list[dict[str, Any]],
+    *,
+    client: SpatialQueryClient | None = None,
+    max_matches: int = PARCEL_MATCH_LIMIT,
+    schema_name: str = "automap",
+    **_: Any,
+) -> dict[str, Any]:
+    """Return address-layer candidates and parcel relation identifiers when verified fields exist."""
+    field_map = build_verified_address_field_map(schema_name)
+    layer_url = field_map.get("layer_url")
+    fields_by_role = field_map.get("fields_by_role") or {}
+    address_fields = fields_by_role.get("full_address") or []
+    warnings = list(field_map.get("warnings") or [])
+    if not layer_url or not address_fields:
+        return {"candidate_matches": [], "matched_parcel_identifiers": [], "warnings": warnings}
+    query_client = client or SpatialQueryClient(max_features=max_matches)
+    candidate_matches: list[dict[str, Any]] = []
+    related_identifiers: list[dict[str, Any]] = []
+    relation_fields = [
+        *(fields_by_role.get("pin14") or []),
+        *(fields_by_role.get("pin") or []),
+        *(fields_by_role.get("parcel_id") or []),
+    ]
+    out_fields = _dedupe_fields([*(fields_by_role.get("object_id") or []), *address_fields, *relation_fields])
+    for address in addresses:
+        value = str(address.get("normalized_value") or address.get("value") or "").upper()
+        where = " OR ".join(f"UPPER({field}) LIKE {_sql_literal('%' + value + '%')}" for field in address_fields)
+        if not where:
+            continue
+        try:
+            query = query_client.query_features(
+                layer_url,
+                where=where,
+                out_fields=",".join(out_fields) if out_fields else "*",
+                return_geometry=False,
+                result_record_count=max_matches,
+            )
+        except SpatialQueryError as exc:
+            warnings.append(f"Address candidate query failed for {address.get('value')}: {exc}")
+            continue
+        for feature in _features_from_query_result(query):
+            properties = feature.get("properties") or {}
+            candidate = {
+                "identifier": address,
+                "attributes": properties,
+                "source_layer_key": field_map.get("layer_key"),
+                "needs_review": True,
+            }
+            for role in ["pin14", "pin", "parcel_id", "full_address"]:
+                for field in fields_by_role.get(role) or []:
+                    if properties.get(field) not in {None, ""}:
+                        candidate[role if role != "full_address" else "address"] = properties.get(field)
+                        if role in {"pin14", "pin", "parcel_id"}:
+                            related_identifiers.append(
+                                {
+                                    "identifier_type": role,
+                                    "value": str(properties.get(field)),
+                                    "normalized_value": str(properties.get(field)).upper(),
+                                    "source_text": str(address.get("value") or ""),
+                                    "confidence": 0.72,
+                                    "needs_review": True,
+                                    "notes": ["Matched through verified Addresses layer relation field."],
+                                }
+                            )
+                        break
+            candidate_matches.append(candidate)
+    return {
+        "candidate_matches": candidate_matches,
+        "matched_parcel_identifiers": related_identifiers,
+        "warnings": warnings,
+    }
+
+
+def _output_root() -> Path:
+    root = PARCEL_CONTEXT_OUTPUT_ROOT
+    return root if root.is_absolute() else repo_root() / root
+
+
+def _repo_relative_or_absolute(path: Path) -> str:
+    try:
+        return path.relative_to(repo_root()).as_posix()
+    except ValueError:
+        return path.as_posix()
+
+
+def _write_json(path: Path, payload: Any) -> None:
+    path.write_text(json.dumps(payload, indent=2, default=str), encoding="utf-8")
+
+
+def _layer_by_key(layer_key: str | None, layer_catalog: list[dict[str, Any]] | None = None) -> dict[str, Any] | None:
+    records = layer_catalog if layer_catalog is not None else load_catalog_records()
+    for record in records:
+        if record.get("layer_key") == layer_key:
+            return record
+    return None
+
+
+def _matched_object_ids(parcel_set: dict[str, Any], object_id_fields: list[str]) -> list[Any]:
+    ids: list[Any] = []
+    for parcel in parcel_set.get("matched_parcels") or []:
+        for key in ["object_id", *object_id_fields]:
+            attributes = parcel.get("attributes") if isinstance(parcel.get("attributes"), dict) else {}
+            value = parcel.get(key) or attributes.get(key)
+            if value not in {None, ""}:
+                ids.append(value)
+                break
+    seen: set[str] = set()
+    deduped: list[Any] = []
+    for value in ids:
+        key = str(value)
+        if key not in seen:
+            seen.add(key)
+            deduped.append(value)
+    return deduped
+
+
+def fetch_selected_parcel_geometry(
+    parcel_set: dict[str, Any],
+    *,
+    layer_catalog: list[dict[str, Any]] | None = None,
+    client: SpatialQueryClient | None = None,
+    max_parcel_matches_for_geometry: int = MAX_PARCEL_MATCHES_FOR_GEOMETRY,
+    hard_max: int = HARD_MAX_PARCEL_MATCHES_FOR_GEOMETRY,
+    schema_name: str = "automap",
+) -> dict[str, Any]:
+    """Fetch only safely matched parcel geometries and write local GeoJSON output."""
+    matched_count = int(parcel_set.get("matched_count") or len(parcel_set.get("matched_parcels") or []))
+    warnings: list[str] = []
+    if matched_count < 1:
+        return {
+            "status": "blocked",
+            "geometry_output_path": None,
+            "warnings": ["No matched parcels are available for selected-parcel geometry retrieval."],
+            "downloaded_geometry": False,
+        }
+    if matched_count > hard_max:
+        return {
+            "status": "blocked",
+            "geometry_output_path": None,
+            "warnings": [f"Matched parcel count {matched_count} exceeds hard geometry limit {hard_max}; split the parcel set."],
+            "downloaded_geometry": False,
+        }
+    if matched_count > max_parcel_matches_for_geometry:
+        return {
+            "status": "blocked",
+            "geometry_output_path": None,
+            "warnings": [
+                f"Matched parcel count {matched_count} exceeds selected parcel geometry limit {max_parcel_matches_for_geometry}; split the parcel set."
+            ],
+            "downloaded_geometry": False,
+        }
+
+    layer = _layer_by_key(parcel_set.get("source_layer_key"), layer_catalog) or find_tax_parcel_layer(layer_catalog, schema_name=schema_name)
+    if not layer:
+        return {
+            "status": "blocked",
+            "geometry_output_path": None,
+            "warnings": ["Verified Tax Parcels layer is unavailable."],
+            "downloaded_geometry": False,
+        }
+    field_map = infer_parcel_id_fields(layer, schema_name=schema_name)
+    object_id_fields = field_map.get("object_id") or []
+    layer_url = layer.get("layer_url") or layer.get("rest_url")
+    if not layer_url:
+        return {
+            "status": "blocked",
+            "geometry_output_path": None,
+            "warnings": ["Tax Parcels layer does not have a REST layer URL."],
+            "downloaded_geometry": False,
+        }
+    object_ids = _matched_object_ids(parcel_set, object_id_fields)
+    query_client = client or SpatialQueryClient(max_features=max_parcel_matches_for_geometry, hard_max_features=hard_max)
+    out_fields = _out_fields(field_map, (object_id_fields or [layer.get("object_id_field")])[0])
+    query_metadata: dict[str, Any]
+    if object_ids and len(object_ids) == matched_count:
+        query = query_client.query_features_by_object_ids(
+            layer_url,
+            object_ids=object_ids,
+            out_fields=out_fields,
+            return_geometry=True,
+            result_record_count=max_parcel_matches_for_geometry,
+        )
+        query_metadata = query.get("query_metadata") or {}
+    else:
+        where_clause, where_warnings = build_parcel_where_clause(parcel_set.get("parsed_identifiers") or [], field_map)
+        warnings.extend(where_warnings)
+        if not where_clause:
+            return {
+                "status": "blocked",
+                "geometry_output_path": None,
+                "warnings": [*warnings, "No safe parcel where clause could be rebuilt for geometry retrieval."],
+                "downloaded_geometry": False,
+            }
+        query = query_client.query_features(
+            layer_url,
+            where=where_clause,
+            out_fields=out_fields,
+            return_geometry=True,
+            result_record_count=max_parcel_matches_for_geometry,
+        )
+        query_metadata = query.get("query_metadata") or {}
+    if query.get("status") == "blocked":
+        return {
+            "status": "blocked",
+            "geometry_output_path": None,
+            "warnings": [*warnings, query.get("blocked_reason") or "Selected parcel geometry query was blocked by safety limits."],
+            "downloaded_geometry": False,
+            "receipt": {"query_metadata": query_metadata, "matched_count": matched_count},
+        }
+    feature_collection = query.get("feature_collection") or {"type": "FeatureCollection", "features": query.get("features") or []}
+    folder = _output_root() / f"{datetime.now(UTC).strftime('%Y%m%d%H%M%S')}_{slugify(str(parcel_set.get('parcel_set_id') or 'selected_parcels'))}"
+    folder.mkdir(parents=True, exist_ok=True)
+    geojson_path = folder / "selected_parcels.geojson"
+    receipt_path = folder / "parcel_match_receipt.json"
+    summary_path = folder / "parcel_context_summary.md"
+    _write_json(geojson_path, feature_collection)
+    receipt = {
+        "parcel_set_id": parcel_set.get("parcel_set_id"),
+        "source_layer_key": layer.get("layer_key"),
+        "source_layer_url": layer_url,
+        "matched_count": matched_count,
+        "object_id_count": len(object_ids),
+        "features_downloaded": len(feature_collection.get("features") or []),
+        "max_parcel_matches_for_geometry": max_parcel_matches_for_geometry,
+        "hard_max": hard_max,
+        "downloaded_geometry": True,
+        "query_metadata": query_metadata,
+        "warnings": warnings,
+        "cfs_untouched_statement": "CFS repo and database were not accessed or modified by this AutoMap parcel workflow.",
+        "no_publish_statement": "No ArcGIS item was created, uploaded, shared, overwritten, or deleted.",
+    }
+    _write_json(receipt_path, receipt)
+    summary_path.write_text(
+        "\n".join(
+            [
+                "# Selected Parcel Context Summary",
+                "",
+                f"- Parcel set: {parcel_set.get('parcel_set_id')}",
+                f"- Matched parcels: {matched_count}",
+                f"- Features downloaded: {receipt['features_downloaded']}",
+                f"- GeoJSON: {_repo_relative_or_absolute(geojson_path)}",
+                "- Draft-only: selected parcel output is local review data.",
+                "- Publishing: no ArcGIS item was created.",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    return {
+        "status": "ok",
+        "geometry_output_path": _repo_relative_or_absolute(geojson_path),
+        "receipt_path": _repo_relative_or_absolute(receipt_path),
+        "summary_path": _repo_relative_or_absolute(summary_path),
+        "output_folder": _repo_relative_or_absolute(folder),
+        "feature_count": receipt["features_downloaded"],
+        "warnings": warnings,
+        "receipt": receipt,
+        "downloaded_geometry": True,
+    }

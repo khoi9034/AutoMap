@@ -55,6 +55,8 @@ def _report_data(parcel_set_id: str, recipe: dict[str, Any]) -> dict[str, Any]:
         "input_identifiers": context.get("parsed_identifiers") or [],
         "matched_parcels": context.get("matched_parcels_summary") or [],
         "unmatched_identifiers": context.get("unmatched_identifiers") or [],
+        "candidate_matches": context.get("candidate_matches") or [],
+        "selected_parcel_geojson": context.get("geometry_output_path"),
         "selected_context_layers": recipe.get("selected_layers") or [],
         "zoning_context": _layers_by_category(recipe, "zoning"),
         "flood_context": _layers_by_category(recipe, "flood"),
@@ -87,6 +89,7 @@ def build_parcel_report_markdown(report_data: dict[str, Any]) -> str:
         f"- Original prompt: {report_data.get('original_prompt') or ''}",
         f"- Matched parcels: {len(report_data.get('matched_parcels') or [])}",
         f"- Unmatched identifiers: {len(report_data.get('unmatched_identifiers') or [])}",
+        f"- Selected parcel GeoJSON: {report_data.get('selected_parcel_geojson') or 'not generated'}",
         f"- Draft status: {report_data['draft_only_disclaimer']}",
         "- Publishing: no ArcGIS item was created or uploaded.",
         f"- CFS untouched: {report_data['cfs_untouched_statement']}",
@@ -159,6 +162,7 @@ def build_parcel_report_html(report_data: dict[str, Any]) -> str:
   <p><strong>Original prompt:</strong> {escape(str(report_data.get('original_prompt') or ''))}</p>
   <p><strong>Matched parcels:</strong> {len(report_data.get('matched_parcels') or [])}</p>
   <p><strong>Unmatched identifiers:</strong> {len(report_data.get('unmatched_identifiers') or [])}</p>
+  <p><strong>Selected parcel GeoJSON:</strong> {escape(str(report_data.get('selected_parcel_geojson') or 'not generated'))}</p>
   <h2>Context Layers</h2>
   <table>
     <thead><tr><th>Layer</th><th>Category</th><th>Source role</th><th>URL</th></tr></thead>

@@ -78,7 +78,7 @@ Examples:
 
 ## Parcel Context
 
-AutoMap v2.9 reuses the same source coverage object in parcel-centered recipes and reports.
+AutoMap v3.0 reuses the same source coverage object in parcel-centered recipes and reports. When selected parcel GeoJSON is generated, it is labeled as a local derived review output, while Tax Parcels, zoning, flood, schools, roads, AADT, STIP, proxy activity, and limited-coverage planning sources keep their normal source roles and warnings.
 
 Parcel context maps can include official context layers such as Tax Parcels, Addresses, Zoning, Municipal District, ETJ Boundary, Flood Hazard layers, School Districts, roads, AADT, and STIP. Development and planning activity layers retain their proxy or limited-coverage labels:
 

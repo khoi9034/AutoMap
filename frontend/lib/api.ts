@@ -15,6 +15,7 @@ import type {
   MapRecipe,
   PacketsResponse,
   ParcelContextSession,
+  ParcelFieldProfileResponse,
   ParcelParseResult,
   ParcelReport,
   ParcelSet,
@@ -27,6 +28,7 @@ import type {
   ScenarioReport,
   ScenarioToRecipeResult,
   ScenarioVariant,
+  SelectedParcelGeometryResult,
   SourceDiscoveryResult,
   SystemStatus,
 } from "@/types/automap";
@@ -125,7 +127,7 @@ export async function getStatusOrFallback(): Promise<SystemStatus> {
     return await getSystemStatus();
   } catch {
     return {
-      version: "2.9.0",
+      version: "3.0.0",
       database_connected: false,
       catalog: {},
       profiles: {},
@@ -349,6 +351,36 @@ export async function parseParcels(rawInput: string): Promise<ParcelParseResult>
   });
 }
 
+export async function profileParcelFields(): Promise<ParcelFieldProfileResponse> {
+  return apiFetch<ParcelFieldProfileResponse>("/api/parcels/profile-fields", {
+    method: "POST",
+    timeoutMs: 120000,
+    body: JSON.stringify({}),
+  });
+}
+
+export async function matchParcels(rawInput: string): Promise<{
+  parcel_set: ParcelSet;
+  parcel_set_id?: string;
+  match_status?: string;
+  matched_count?: number;
+  geometry_output_path?: string | null;
+  warnings?: string[];
+}> {
+  return apiFetch<{
+    parcel_set: ParcelSet;
+    parcel_set_id?: string;
+    match_status?: string;
+    matched_count?: number;
+    geometry_output_path?: string | null;
+    warnings?: string[];
+  }>("/api/parcels/match", {
+    method: "POST",
+    timeoutMs: 120000,
+    body: JSON.stringify({ raw_input: rawInput }),
+  });
+}
+
 export async function createParcelSet(rawInput: string): Promise<{ parcel_set: ParcelSet }> {
   return apiFetch<{ parcel_set: ParcelSet }>("/api/parcels/sets", {
     method: "POST",
@@ -367,6 +399,7 @@ export async function getParcelSet(parcelSetId: string): Promise<ParcelSet> {
 
 export async function createParcelContext(payload: {
   prompt: string;
+  parcel_set_id?: string | null;
   requested_topics?: string[];
   nearby_distance?: string | null;
 }): Promise<{ parcel_context_session: ParcelContextSession; recipe?: MapRecipe }> {
@@ -374,6 +407,14 @@ export async function createParcelContext(payload: {
     method: "POST",
     timeoutMs: 120000,
     body: JSON.stringify(payload),
+  });
+}
+
+export async function fetchSelectedParcelGeometry(parcelSetId: string): Promise<SelectedParcelGeometryResult> {
+  return apiFetch<SelectedParcelGeometryResult>(`/api/parcels/${encodeURIComponent(parcelSetId)}/fetch-geometry`, {
+    method: "POST",
+    timeoutMs: 120000,
+    body: JSON.stringify({}),
   });
 }
 

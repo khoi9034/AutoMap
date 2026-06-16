@@ -1,8 +1,15 @@
 import json
 
 from app.parcel_context_engine import build_parcel_context_recipe, create_parcel_set, init_parcel_tables
+from app.parcel_field_mapper import build_verified_parcel_field_map, identify_pin14_fields, identify_pin_fields
 from app.parcel_input_parser import parse_parcel_input
-from app.parcel_matcher import build_parcel_where_clause, infer_parcel_id_fields, match_parcels_by_identifier
+from app.parcel_matcher import (
+    build_parcel_where_clause,
+    fetch_selected_parcel_geometry,
+    infer_parcel_id_fields,
+    match_parcels_by_address,
+    match_parcels_by_identifier,
+)
 from app.parcel_reporter import generate_parcel_report
 
 
@@ -124,21 +131,26 @@ class MockSpatialQueryClient:
 
     def query_features(self, layer_url, *, where=None, out_fields="*", return_geometry=True, **kwargs):
         self.feature_queries.append({"where": where, "return_geometry": return_geometry})
+        feature = {
+            "type": "Feature",
+            "properties": {
+                "OBJECTID": 1,
+                "PIN14": "55281234567890",
+                "PARCEL_ID": "5528-12-3456",
+                "SITE_ADDRESS": "65 CHURCH ST S",
+            },
+            "geometry": {"type": "Polygon", "coordinates": [[[-80, 35], [-80, 36], [-79, 36], [-80, 35]]]},
+        }
         return {
             "status": "ok",
-            "features": [
-                {
-                    "properties": {
-                        "OBJECTID": 1,
-                        "PIN14": "55281234567890",
-                        "PARCEL_ID": "5528-12-3456",
-                        "SITE_ADDRESS": "65 CHURCH ST S",
-                    },
-                    "geometry": None,
-                }
-            ],
+            "features": [feature],
+            "feature_collection": {"type": "FeatureCollection", "features": [feature]},
             "count": self.count,
         }
+
+    def query_features_by_object_ids(self, layer_url, *, object_ids, out_fields="*", return_geometry=True, **kwargs):
+        self.feature_queries.append({"object_ids": object_ids, "return_geometry": return_geometry})
+        return self.query_features(layer_url, where=f"OBJECTID IN ({','.join(str(item) for item in object_ids)})", return_geometry=return_geometry)
 
 
 def test_parcel_parser_extracts_pin_pin14_and_address():
@@ -173,6 +185,27 @@ def test_parcel_matcher_uses_real_fields_and_return_geometry_false(monkeypatch):
     assert result["downloaded_geometry"] is False
 
 
+def test_field_mapper_identifies_pin_and_pin14_fields(monkeypatch):
+    profiles = [
+        {"field_name": "PIN", "field_alias": "PIN", "field_type": "esriFieldTypeString"},
+        {"field_name": "PIN14", "field_alias": "PIN14", "field_type": "esriFieldTypeString"},
+        {"field_name": "OBJECTID", "field_alias": "OBJECTID", "field_type": "esriFieldTypeOID", "is_object_id": True},
+    ]
+
+    assert identify_pin_fields(profiles)[0]["field_name"] == "PIN"
+    assert identify_pin14_fields(profiles)[0]["field_name"] == "PIN14"
+
+    monkeypatch.setattr("app.parcel_field_mapper.find_tax_parcel_layer", lambda: mock_parcel_layer())
+    monkeypatch.setattr("app.parcel_field_mapper.load_field_profiles", lambda layer_keys, schema_name="automap": {mock_parcel_layer()["layer_key"]: profiles})
+    monkeypatch.setattr("app.parcel_field_mapper._store_field_map", lambda rows, schema_name="automap": len(rows))
+
+    field_map = build_verified_parcel_field_map()
+
+    assert field_map["fields_by_role"]["pin"] == ["PIN"]
+    assert field_map["fields_by_role"]["pin14"] == ["PIN14"]
+    assert field_map["fields_by_role"]["object_id"] == ["OBJECTID"]
+
+
 def test_build_where_clause_does_not_invent_fields(monkeypatch):
     monkeypatch.setattr("app.parcel_matcher.load_field_profiles", lambda layer_keys, schema_name="automap": {})
     field_map = infer_parcel_id_fields(mock_parcel_layer())
@@ -180,10 +213,23 @@ def test_build_where_clause_does_not_invent_fields(monkeypatch):
     where_clause, warnings = build_parcel_where_clause([identifier], field_map)
 
     assert "PIN14" in where_clause
+    assert "REPLACE(REPLACE(UPPER(PIN14)" in where_clause
     assert warnings == []
     no_field_clause, no_field_warnings = build_parcel_where_clause([{"identifier_type": "owner", "normalized_value": "SMITH"}], field_map)
     assert no_field_clause is None
     assert no_field_warnings
+
+
+def test_normalized_pin_matching_removes_hyphens(monkeypatch):
+    monkeypatch.setattr("app.parcel_matcher.load_field_profiles", lambda layer_keys, schema_name="automap": {})
+    field_map = infer_parcel_id_fields(mock_parcel_layer())
+    identifier = {"identifier_type": "pin", "value": "5528-12-3456", "normalized_value": "5528-12-3456"}
+
+    where_clause, warnings = build_parcel_where_clause([identifier], field_map)
+
+    assert warnings == []
+    assert "5528123456" in where_clause
+    assert "REPLACE(REPLACE(UPPER(" in where_clause
 
 
 def test_multiple_matches_trigger_needs_review(monkeypatch):
@@ -195,6 +241,30 @@ def test_multiple_matches_trigger_needs_review(monkeypatch):
 
     assert result["match_status"] == "needs_review"
     assert result["multiple_match_identifiers"]
+    assert result["candidate_matches"]
+
+
+def test_address_matching_returns_candidates_when_ambiguous(monkeypatch):
+    monkeypatch.setattr("app.parcel_matcher.build_verified_address_field_map", lambda schema_name="automap": {
+        "layer_key": "addresses",
+        "layer_url": "https://example.test/Addresses/0",
+        "fields_by_role": {
+            "object_id": ["OBJECTID"],
+            "full_address": ["FULL_ADDRESS"],
+            "pin": [],
+            "pin14": [],
+            "parcel_id": [],
+        },
+        "warnings": [],
+    })
+    monkeypatch.setattr("app.parcel_matcher.load_field_profiles", lambda layer_keys, schema_name="automap": {})
+    client = MockSpatialQueryClient(count=2)
+    address = {"identifier_type": "address", "value": "65 Church St S", "normalized_value": "65 CHURCH ST S"}
+
+    result = match_parcels_by_address([address], layer_catalog=[mock_parcel_layer()], client=client)
+
+    assert result["address_candidates"]
+    assert result["match_status"] in {"needs_review", "unmatched", "partial"}
 
 
 def test_parcel_set_creation_works_with_mocked_matcher(monkeypatch):
@@ -233,6 +303,22 @@ def test_parcel_context_recipe_selects_tax_parcels_first_and_requested_context(m
     assert {"zoning", "flood", "schools", "transportation"}.issubset(set(categories))
     assert recipe["parcel_context"]["parcel_set_id"] == stored["parcel_set_id"]
     assert "current_permits" not in recipe["missing_data_needed"]
+
+
+def test_parcel_context_adds_selected_parcel_derived_layer(monkeypatch):
+    stored = {**stored_parcel_set(), "geometry_output_path": "outputs/parcel_context/test/selected_parcels.geojson"}
+    monkeypatch.setattr("app.parcel_context_engine.get_parcel_set", lambda parcel_set_id, schema_name="automap": stored)
+
+    recipe = build_parcel_context_recipe(
+        stored["parcel_set_id"],
+        requested_topics=["zoning"],
+        raw_prompt="Make a map of parcel 5528-12-3456 and show zoning.",
+        layer_catalog=parcel_context_catalog(),
+    )
+
+    assert recipe["map_title"] == "Selected Parcels Context Map"
+    assert recipe["selected_layers"][0]["derived_local_parcel_output"] is True
+    assert recipe["parcel_context"]["geometry_output_path"].endswith("selected_parcels.geojson")
 
 
 def test_nearby_prompt_requires_distance_question(monkeypatch):
@@ -292,8 +378,35 @@ def test_parcel_tables_created_in_automap_schema(monkeypatch):
     joined = "\n".join(statements).lower()
     assert "parcel_sets" in joined
     assert "parcel_context_sessions" in joined
+    assert "geometry_output_path" in joined
     assert "automap" in joined
     assert "cfs_dev" not in joined
+
+
+def test_selected_parcel_geojson_output_validates_on_small_match(monkeypatch, tmp_path):
+    stored = {
+        **stored_parcel_set(),
+        "matched_parcels": [{"object_id": 1, "pin": "5528-12-3456", "source_layer_key": "cabarrus_new_tax_parcels_0_tax_parcels"}],
+    }
+    monkeypatch.setattr("app.parcel_matcher.load_field_profiles", lambda layer_keys, schema_name="automap": {})
+    monkeypatch.setattr("app.parcel_matcher._output_root", lambda: tmp_path)
+
+    result = fetch_selected_parcel_geometry(stored, layer_catalog=[mock_parcel_layer()], client=MockSpatialQueryClient())
+
+    assert result["status"] == "ok"
+    assert result["downloaded_geometry"] is True
+    geojson = json.loads((tmp_path / result["output_folder"].split("/")[-1] / "selected_parcels.geojson").read_text(encoding="utf-8"))
+    assert geojson["type"] == "FeatureCollection"
+
+
+def test_geometry_fetch_blocks_over_safe_limit():
+    stored = {**stored_parcel_set(), "matched_count": 101, "matched_parcels": [{"object_id": index} for index in range(101)]}
+
+    result = fetch_selected_parcel_geometry(stored, layer_catalog=[mock_parcel_layer()], client=MockSpatialQueryClient())
+
+    assert result["status"] == "blocked"
+    assert result["downloaded_geometry"] is False
+    assert "exceeds selected parcel geometry limit" in result["warnings"][0]
 
 
 def test_parcel_report_writes_required_files(monkeypatch, tmp_path):

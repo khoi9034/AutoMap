@@ -2,11 +2,11 @@
 
 AutoMap converts plain-English county GIS map requests into structured map recipes using only approved GIS layers from a local layer catalog.
 
-Version: `2.9.0`
+Version: `3.0.0`
 
 ## Current Phase
 
-v2.9 Parcel Workspace and Parcel-Centered Map Requests on top of scenario workbench, planning scenario and suitability intelligence, development/transportation source intelligence, real source verification, data gap resolution, analysis summary reporting, and user-guided safe spatial analysis refinement.
+v3.0 Real Parcel Lookup and Selected Parcel Context Maps on top of parcel workspace, scenario workbench, planning scenario and suitability intelligence, development/transportation source intelligence, real source verification, data gap resolution, analysis summary reporting, and user-guided safe spatial analysis refinement.
 
 This repository is intentionally independent. It does not connect to CFS or import CFS code. AutoMap uses its own local PostGIS database and trusted layer catalog.
 
@@ -42,7 +42,7 @@ AutoMap helps GIS and planning staff turn plain-English county map requests into
 - development and transportation request handling for AADT, STIP, Accela/plan-review proxy activity, and Concord-limited planning cases
 - planning scenario and suitability frameworks with transparent reviewable weights, assumptions, source warnings, and local report exports
 - scenario workbench variants, reviewer weight tuning, scenario comparison, and scenario-to-recipe conversion
-- parcel-centered workflows for PIN/PIN14/parcel ID/address parsing, safe parcel-set matching, context overlays, and local parcel reports
+- real parcel lookup for PIN/PIN14/parcel ID/address inputs, selected parcel GeoJSON output, context overlays, and local parcel reports
 
 ## What AutoMap Does Not Do Yet
 
@@ -81,6 +81,7 @@ ArcGIS publishing and smoke testing remain dry-run by default unless a guarded C
 27. v2.7 planning scenario and suitability intelligence
 28. v2.8 scenario workbench and weight tuning
 29. v2.9 parcel workspace and parcel-centered map requests
+30. v3.0 real parcel lookup and selected parcel context maps
 
 ## Project Structure
 
@@ -123,7 +124,7 @@ python -m pytest
 
 ## Next.js Frontend
 
-AutoMap v2.9 adds parcel workspace and parcel-centered map requests to the Next.js + TypeScript shell under `frontend/`. The FastAPI backend remains the API and workflow engine, and the existing FastAPI/Jinja UI is preserved.
+AutoMap v3.0 adds real parcel lookup and selected-parcel context maps to the Next.js + TypeScript shell under `frontend/`. The FastAPI backend remains the API and workflow engine, and the existing FastAPI/Jinja UI is preserved.
 
 Start the backend API on port `8010`:
 
@@ -444,24 +445,27 @@ See `docs/planning_scenarios.md`, `docs/suitability_scoring.md`, `docs/scenario_
 
 ## Parcel Workspace And Parcel Context Maps
 
-AutoMap v2.9 adds parcel-centered workflows for PINs, PIN14s, parcel IDs, addresses, pasted parcel lists, and prompts such as `my parcels` or `these parcels`.
+AutoMap v3.0 adds real parcel lookup for PINs, PIN14s, parcel IDs, addresses, pasted parcel lists, and prompts such as `my parcels` or `these parcels`.
 
 ```bash
+python -m app.main --profile-parcel-fields
 python -m app.main --parse-parcels "5528-12-3456, 5528-12-7890"
+python -m app.main --match-parcels "5528-12-3456"
 python -m app.main --create-parcel-set "5528-12-3456, 5528-12-7890"
+python -m app.main --fetch-selected-parcels <parcel_set_id>
 python -m app.main --parcel-context "Make a map of parcel 5528-12-3456 and show zoning, floodplain, schools, and roads."
 python -m app.main --list-parcel-sets
 python -m app.main --get-parcel-set <parcel_set_id>
 python -m app.main --generate-parcel-report <parcel_set_id>
 ```
 
-The `/parcel-workspace` frontend page supports parsing identifiers, creating parcel sets, showing matched and unmatched identifiers, selecting context overlays, setting a nearby distance, generating a parcel context recipe, and exporting local parcel reports.
+The `/parcel-workspace` frontend page supports field profiling, parsing identifiers, matching real parcel/address inputs, showing ambiguous candidates, fetching selected parcel GeoJSON when safe, selecting context overlays, setting a nearby distance, generating a selected-parcel context recipe, and exporting local parcel reports.
 
-Parcel matching uses the verified Tax Parcels layer and real field metadata. It runs `returnGeometry=false` count/attribute checks first, preserves unmatched identifiers, marks multiple matches for review, and does not download countywide parcel geometry. Current permits remain unresolved unless an official verified source is added; Accela/plan-review sources remain proxy context, and Concord planning cases remain limited coverage.
+Parcel matching uses verified Tax Parcels and Addresses fields from the AutoMap catalog and field profiles. It runs `returnGeometry=false` count/attribute checks first, preserves unmatched identifiers, marks multiple matches for review, and does not download countywide parcel geometry. Selected parcel geometry is fetched only after the matched count is safely bounded, with a default selected-geometry limit of 100 parcels and a hard max of 250.
 
-Parcel reports are written under `outputs/parcel_reports/` and include HTML, Markdown, JSON, CSV layer summary, warnings JSON, and a manifest. They are local review drafts only.
+Selected parcel GeoJSON outputs are written under `outputs/parcel_context/`, and parcel reports are written under `outputs/parcel_reports/`. Both are ignored by Git and are local review drafts only. Current permits remain unresolved unless an official verified source is added; Accela/plan-review sources remain proxy context, and Concord planning cases remain limited coverage.
 
-See `docs/parcel_workspace.md` and `docs/parcel_context_maps.md`.
+See `docs/parcel_workspace.md`, `docs/parcel_context_maps.md`, `docs/real_parcel_lookup.md`, and `docs/selected_parcel_context_maps.md`.
 
 ## ArcGIS WebMap Draft Generator
 
@@ -710,6 +714,7 @@ Prompt -> Parser -> Layer Matcher -> Recipe Engine
        -> Safe Spatial Analysis Execution
        -> Data Gap Resolver And External Source Review
        -> Source Coverage And Transportation/Development Intelligence
+       -> Real Parcel Lookup And Selected Parcel Context Maps
 ```
 
 The trusted source for layer selection is `automap.layer_catalog`. Generated artifacts live under `outputs/`, which is ignored by Git.
@@ -734,6 +739,8 @@ See:
 - `docs/development_transportation_intelligence.md`
 - `docs/planning_scenarios.md`
 - `docs/suitability_scoring.md`
+- `docs/real_parcel_lookup.md`
+- `docs/selected_parcel_context_maps.md`
 
 ## Notes
 

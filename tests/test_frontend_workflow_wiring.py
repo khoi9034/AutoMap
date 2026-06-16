@@ -224,7 +224,7 @@ def test_api_client_has_timeout_and_sanitized_fallback_version():
 
     assert "Backend API request timed out" in source
     assert "http://127.0.0.1:8010" in source
-    assert 'version: "2.9.0"' in source
+    assert 'version: "3.0.0"' in source
     assert "redactProtected" in source
 
 
@@ -236,6 +236,10 @@ def test_parcel_workspace_page_components_and_api_are_present():
     layer_picker = read("components/parcel-context-layer-picker.tsx")
     summary = read("components/parcel-context-summary.tsx")
     report_card = read("components/parcel-report-card.tsx")
+    field_status = read("components/parcel-field-status.tsx")
+    candidate_table = read("components/parcel-candidate-table.tsx")
+    selected_card = read("components/selected-parcel-layer-card.tsx")
+    nearby_controls = read("components/parcel-nearby-controls.tsx")
     api = read("lib/api.ts")
     types = read("types/automap.ts")
 
@@ -246,20 +250,36 @@ def test_parcel_workspace_page_components_and_api_are_present():
     assert "ParcelContextLayerPicker" in page
     assert "ParcelContextSummary" in page
     assert "ParcelReportCard" in page
+    assert "ParcelFieldStatus" in page
+    assert "ParcelCandidateTable" in page
+    assert "SelectedParcelLayerCard" in page
+    assert "ParcelNearbyControls" in page
     assert "Parse Identifiers" in input_panel
-    assert "Create Parcel Set" in input_panel
+    assert "Match Parcels" in input_panel
     assert "returnGeometry=false" in match_table
     assert "planning/development proxy" in layer_picker
     assert "SourceCoveragePanel" in summary
+    assert "Verified field profile" in field_status
+    assert "Ambiguous candidates" in candidate_table
+    assert "Fetch Selected Parcel Geometry" in selected_card
+    assert "Nearby context" in nearby_controls
     assert "outputs/parcel_reports" in page
     assert "parseParcels" in api
+    assert "profileParcelFields" in api
+    assert "matchParcels" in api
     assert "createParcelSet" in api
+    assert "fetchSelectedParcelGeometry" in api
     assert "createParcelContext" in api
     assert "generateParcelReport" in api
     assert '"/api/parcels/parse"' in api
+    assert '"/api/parcels/profile-fields"' in api
+    assert '"/api/parcels/match"' in api
+    assert "/fetch-geometry" in api
     assert '"/api/parcels/context"' in api
     assert "ParcelSet" in types
     assert "ParcelContext" in types
+    assert "ParcelFieldProfileResponse" in types
+    assert "SelectedParcelGeometryResult" in types
     assert "ParcelReport" in types
     assert "confirm-publish" not in page.lower()
     assert "publish-draft-webmap" not in page.lower()

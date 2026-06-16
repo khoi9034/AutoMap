@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import { createParcelSet, parseParcels } from "@/lib/api";
+import { matchParcels, parseParcels } from "@/lib/api";
 import type { ParcelParseResult, ParcelSet } from "@/types/automap";
 
 type ParcelInputPanelProps = {
@@ -36,7 +36,7 @@ export function ParcelInputPanel({ onParsed, onParcelSet, onError }: ParcelInput
   async function runCreateSet() {
     setLoading("set");
     try {
-      const response = await createParcelSet(rawInput);
+      const response = await matchParcels(rawInput);
       onParcelSet(response.parcel_set);
       onParsed({
         raw_input: rawInput,
@@ -76,7 +76,7 @@ export function ParcelInputPanel({ onParsed, onParcelSet, onError }: ParcelInput
           {loading === "parse" ? "Parsing..." : "Parse Identifiers"}
         </button>
         <button className="button button-secondary" type="button" onClick={runCreateSet} disabled={loading !== null || !rawInput.trim()}>
-          {loading === "set" ? "Creating..." : "Create Parcel Set"}
+          {loading === "set" ? "Matching..." : "Match Parcels"}
         </button>
       </div>
     </section>

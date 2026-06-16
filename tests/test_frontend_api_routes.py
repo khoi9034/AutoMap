@@ -96,8 +96,11 @@ def test_frontend_workflow_api_routes_exist():
         "/api/scenarios/{scenario_id}/to-recipe",
         "/api/scenario-variants/{variant_id}/to-recipe",
         "/api/parcels/parse",
+        "/api/parcels/profile-fields",
+        "/api/parcels/match",
         "/api/parcels/sets",
         "/api/parcels/sets/{parcel_set_id}",
+        "/api/parcels/{parcel_set_id}/fetch-geometry",
         "/api/parcels/context",
         "/api/parcels/{parcel_set_id}/report",
         "/api/patterns",
@@ -241,7 +244,29 @@ def test_api_parcel_routes_are_json_and_sanitized(monkeypatch):
             "parcel_set_id": "parcel_set_test",
             "match_status": "unmatched",
             "matched_count": 0,
+            "unmatched_identifiers": [{"value": raw_input}],
+            "candidate_matches": [],
+            "warnings": ["needs review"],
+            "geometry_output_path": None,
             "downloaded_geometry": False,
+        },
+    )
+    monkeypatch.setattr(
+        "app.api_routes.build_verified_parcel_field_map",
+        lambda: {"layer_key": "tax_parcels", "fields_by_role": {"pin": ["PIN"]}, "stored_rows": 1},
+    )
+    monkeypatch.setattr(
+        "app.api_routes.build_verified_address_field_map",
+        lambda: {"layer_key": "addresses", "fields_by_role": {"full_address": ["FULLADDR"]}, "stored_rows": 1},
+    )
+    monkeypatch.setattr(
+        "app.api_routes.fetch_selected_parcels",
+        lambda parcel_set_id: {
+            "parcel_set_id": parcel_set_id,
+            "status": "blocked",
+            "geometry_output_path": None,
+            "downloaded_geometry": False,
+            "warnings": ["No matched parcels."],
         },
     )
     monkeypatch.setattr("app.api_routes.list_parcel_sets", lambda limit=50: [{"parcel_set_id": "parcel_set_test"}])
@@ -267,17 +292,33 @@ def test_api_parcel_routes_are_json_and_sanitized(monkeypatch):
     client = TestClient(create_app())
 
     parsed = client.post("/api/parcels/parse", json={"raw_input": "5528-12-3456"})
+    profiled = client.post("/api/parcels/profile-fields", json={})
+    matched = client.post("/api/parcels/match", json={"raw_input": "5528-12-3456"})
     created = client.post("/api/parcels/sets", json={"raw_input": "5528-12-3456"})
     listed = client.get("/api/parcels/sets")
     detail = client.get("/api/parcels/sets/parcel_set_test")
+    fetched = client.post("/api/parcels/parcel_set_test/fetch-geometry", json={})
     context = client.post("/api/parcels/context", json={"prompt": "Make a map of parcel 5528-12-3456"})
     report = client.post("/api/parcels/parcel_set_test/report", json={})
-    serialized = json.dumps([parsed.json(), created.json(), listed.json(), detail.json(), context.json(), report.json()]).lower()
+    serialized = json.dumps([
+        parsed.json(),
+        profiled.json(),
+        matched.json(),
+        created.json(),
+        listed.json(),
+        detail.json(),
+        fetched.json(),
+        context.json(),
+        report.json(),
+    ]).lower()
 
     assert parsed.status_code == 200
+    assert profiled.status_code == 200
+    assert matched.status_code == 200
     assert created.status_code == 200
     assert listed.status_code == 200
     assert detail.status_code == 200
+    assert fetched.status_code == 200
     assert context.status_code == 200
     assert report.status_code == 200
     assert "parcel_set_test" in serialized

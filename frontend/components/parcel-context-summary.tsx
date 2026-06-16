@@ -37,7 +37,16 @@ export function ParcelContextSummary({ parcelSet, recipe }: ParcelContextSummary
           <span>Layers</span>
           <strong>{recipe?.selected_layers?.length || 0}</strong>
         </div>
+        <div>
+          <span>Selected GeoJSON</span>
+          <strong>{context?.geometry_output_path ? "ready" : parcelSet?.geometry_output_path ? "ready" : "none"}</strong>
+        </div>
       </div>
+      {context?.geometry_output_path || parcelSet?.geometry_output_path ? (
+        <p className="muted">
+          Derived local selected parcel output: <code>{context?.geometry_output_path || parcelSet?.geometry_output_path}</code>
+        </p>
+      ) : null}
       {recipe?.selected_layers?.length ? (
         <div className="table-wrap">
           <table>

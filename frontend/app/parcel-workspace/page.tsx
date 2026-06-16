@@ -2,16 +2,33 @@
 
 import { useEffect, useState } from "react";
 
+import { ParcelCandidateTable } from "@/components/parcel-candidate-table";
 import { ParcelContextLayerPicker } from "@/components/parcel-context-layer-picker";
 import { ParcelContextSummary } from "@/components/parcel-context-summary";
+import { ParcelFieldStatus } from "@/components/parcel-field-status";
 import { ParcelInputPanel } from "@/components/parcel-input-panel";
 import { ParcelMatchTable } from "@/components/parcel-match-table";
+import { ParcelNearbyControls } from "@/components/parcel-nearby-controls";
 import { ParcelReportCard } from "@/components/parcel-report-card";
+import { SelectedParcelLayerCard } from "@/components/selected-parcel-layer-card";
 import { SectionHeader } from "@/components/section-header";
 import { StatusChip } from "@/components/status-chip";
 import { ToastMessage } from "@/components/toast";
-import { createParcelContext, generateParcelReport, listParcelSets } from "@/lib/api";
-import type { MapRecipe, ParcelParseResult, ParcelReport, ParcelSet } from "@/types/automap";
+import {
+  createParcelContext,
+  fetchSelectedParcelGeometry,
+  generateParcelReport,
+  listParcelSets,
+  profileParcelFields,
+} from "@/lib/api";
+import type {
+  MapRecipe,
+  ParcelFieldProfileResponse,
+  ParcelParseResult,
+  ParcelReport,
+  ParcelSet,
+  SelectedParcelGeometryResult,
+} from "@/types/automap";
 import type { WorkflowToast } from "@/types/workflow";
 
 const DEFAULT_TOPICS = ["zoning", "flood", "schools", "transportation"];
@@ -24,6 +41,8 @@ export default function ParcelWorkspacePage() {
   const [nearbyDistance, setNearbyDistance] = useState("0.25 miles");
   const [recipe, setRecipe] = useState<MapRecipe | null>(null);
   const [report, setReport] = useState<ParcelReport | null>(null);
+  const [fieldProfile, setFieldProfile] = useState<ParcelFieldProfileResponse | null>(null);
+  const [geometryResult, setGeometryResult] = useState<SelectedParcelGeometryResult | null>(null);
   const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<WorkflowToast | null>(null);
@@ -39,6 +58,46 @@ export default function ParcelWorkspacePage() {
     });
   }, []);
 
+  async function runFieldProfile() {
+    setLoading("profile");
+    setError(null);
+    try {
+      const response = await profileParcelFields();
+      setFieldProfile(response);
+      setToast({ tone: "success", message: "Verified parcel and address field maps updated." });
+    } catch (exc) {
+      setError(exc instanceof Error ? exc.message : "Parcel field profiling failed.");
+    } finally {
+      setLoading(null);
+    }
+  }
+
+  async function runFetchSelectedGeometry() {
+    const parcelSetId = parcelSet?.parcel_set_id;
+    if (!parcelSetId) {
+      setToast({ tone: "warning", message: "Match parcels before fetching selected parcel geometry." });
+      return;
+    }
+    setLoading("geometry");
+    setError(null);
+    try {
+      const response = await fetchSelectedParcelGeometry(parcelSetId);
+      setGeometryResult(response);
+      if (response.geometry_output_path) {
+        setParcelSet({ ...parcelSet, geometry_output_path: response.geometry_output_path, downloaded_geometry: true });
+      }
+      await refreshSets();
+      setToast({
+        tone: response.status === "ok" ? "success" : "warning",
+        message: response.status === "ok" ? "Selected parcel GeoJSON created." : "Selected parcel geometry was blocked by safety checks.",
+      });
+    } catch (exc) {
+      setError(exc instanceof Error ? exc.message : "Selected parcel geometry fetch failed.");
+    } finally {
+      setLoading(null);
+    }
+  }
+
   async function createContext() {
     const prompt =
       parcelSet?.raw_input ||
@@ -49,6 +108,7 @@ export default function ParcelWorkspacePage() {
     try {
       const response = await createParcelContext({
         prompt,
+        parcel_set_id: parcelSet?.parcel_set_id || null,
         requested_topics: selectedTopics,
         nearby_distance: nearbyDistance || null,
       });
@@ -125,17 +185,24 @@ export default function ParcelWorkspacePage() {
               setParcelSet(created);
               setRecipe(null);
               setReport(null);
+              setGeometryResult(null);
               void refreshSets();
-              setToast({ tone: created.match_status === "matched" ? "success" : "warning", message: "Parcel set created." });
+              setToast({ tone: created.match_status === "matched" ? "success" : "warning", message: "Parcel matching complete." });
             }}
             onError={setError}
           />
           <ParcelMatchTable parseResult={parseResult} parcelSet={parcelSet} />
+          <ParcelCandidateTable candidates={parcelSet?.candidate_matches || []} />
           <ParcelContextLayerPicker
             selectedTopics={selectedTopics}
             onChange={setSelectedTopics}
-            nearbyDistance={nearbyDistance}
-            onDistanceChange={setNearbyDistance}
+          />
+          <ParcelNearbyControls nearbyDistance={nearbyDistance} onDistanceChange={setNearbyDistance} />
+          <SelectedParcelLayerCard
+            parcelSet={parcelSet}
+            geometryResult={geometryResult}
+            loading={loading === "geometry"}
+            onFetch={runFetchSelectedGeometry}
           />
           <section className="panel">
             <div className="panel-title-row">
@@ -163,6 +230,7 @@ export default function ParcelWorkspacePage() {
         </div>
 
         <aside className="dashboard-side">
+          <ParcelFieldStatus profile={fieldProfile} loading={loading === "profile"} onProfile={runFieldProfile} />
           <section className="panel safety-card">
             <h3>Parcel safety rules</h3>
             <ul className="check-list">

@@ -3,8 +3,6 @@
 type ParcelContextLayerPickerProps = {
   selectedTopics: string[];
   onChange: (topics: string[]) => void;
-  nearbyDistance: string;
-  onDistanceChange: (distance: string) => void;
 };
 
 const OVERLAY_OPTIONS = [
@@ -21,8 +19,6 @@ const OVERLAY_OPTIONS = [
 export function ParcelContextLayerPicker({
   selectedTopics,
   onChange,
-  nearbyDistance,
-  onDistanceChange,
 }: ParcelContextLayerPickerProps) {
   function toggleTopic(topic: string) {
     if (selectedTopics.includes(topic)) {
@@ -48,15 +44,6 @@ export function ParcelContextLayerPicker({
           </label>
         ))}
       </div>
-      <label className="field-label" htmlFor="nearby-distance">
-        Nearby distance
-      </label>
-      <input
-        id="nearby-distance"
-        value={nearbyDistance}
-        onChange={(event) => onDistanceChange(event.target.value)}
-        placeholder="0.25 miles"
-      />
     </section>
   );
 }

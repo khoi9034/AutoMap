@@ -51,6 +51,7 @@ from app.external_source_registry import (
     list_external_sources,
     load_seed_external_sources,
 )
+from app.address_field_mapper import build_verified_address_field_map
 from app.feedback_learning import (
     learn_from_approved_packet,
     learn_from_clarification_session,
@@ -68,10 +69,13 @@ from app.packet_index import (
 from app.parcel_context_engine import (
     build_parcel_context_recipe,
     create_parcel_context_session,
+    create_parcel_context_session_for_set,
     create_parcel_set,
+    fetch_selected_parcels,
     get_parcel_set,
     list_parcel_sets,
 )
+from app.parcel_field_mapper import build_verified_parcel_field_map
 from app.parcel_input_parser import parse_parcel_input
 from app.parcel_reporter import generate_parcel_report
 from app.portal_smoke_test import run_publish_smoke_test
@@ -234,6 +238,7 @@ class ParcelContextRequest(BaseModel):
     """Parcel context map payload."""
 
     prompt: str
+    parcel_set_id: str | None = None
     requested_topics: list[str] = Field(default_factory=list)
     nearby_distance: str | None = None
 
@@ -857,6 +862,42 @@ def api_parse_parcels(payload: ParcelInputRequest) -> Any:
     return _json_response(parse_parcel_input(payload.raw_input))
 
 
+@api_router.post("/parcels/profile-fields")
+def api_profile_parcel_fields() -> Any:
+    """Build verified parcel and address field role maps from AutoMap metadata."""
+    parcel_map = build_verified_parcel_field_map()
+    address_map = build_verified_address_field_map()
+    return _json_response(
+        {
+            "parcel_field_map": parcel_map,
+            "address_field_map": address_map,
+            "downloaded_geometry": False,
+        }
+    )
+
+
+@api_router.post("/parcels/match")
+def api_match_parcels(payload: ParcelInputRequest) -> Any:
+    """Parse and match parcels safely without requesting geometry."""
+    try:
+        parcel_set = create_parcel_set(payload.raw_input)
+    except ValueError as exc:
+        raise _handle_value_error(exc) from exc
+    return _json_response(
+        {
+            "parcel_set": parcel_set,
+            "parcel_set_id": parcel_set.get("parcel_set_id"),
+            "match_status": parcel_set.get("match_status"),
+            "matched_count": parcel_set.get("matched_count"),
+            "unmatched_identifiers": parcel_set.get("unmatched_identifiers") or [],
+            "candidate_matches": parcel_set.get("candidate_matches") or [],
+            "geometry_output_path": parcel_set.get("geometry_output_path"),
+            "warnings": parcel_set.get("warnings") or [],
+            "downloaded_geometry": False,
+        }
+    )
+
+
 @api_router.post("/parcels/sets")
 def api_create_parcel_set(payload: ParcelInputRequest) -> Any:
     """Create a local parcel set with count/attribute-first safe matching."""
@@ -893,15 +934,34 @@ def api_get_parcel_set(parcel_set_id: str) -> Any:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
+@api_router.post("/parcels/{parcel_set_id}/fetch-geometry")
+def api_fetch_selected_parcel_geometry(parcel_set_id: str) -> Any:
+    """Fetch local selected-parcel GeoJSON only when matched count is safely bounded."""
+    try:
+        return _json_response(fetch_selected_parcels(parcel_set_id))
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise _handle_value_error(exc) from exc
+
+
 @api_router.post("/parcels/context")
 def api_parcel_context(payload: ParcelContextRequest) -> Any:
     """Create a parcel-centered context recipe and local session."""
     try:
-        session = create_parcel_context_session(
-            payload.prompt,
-            requested_topics=payload.requested_topics,
-            nearby_distance=payload.nearby_distance,
-        )
+        if payload.parcel_set_id:
+            session = create_parcel_context_session_for_set(
+                payload.parcel_set_id,
+                raw_prompt=payload.prompt,
+                requested_topics=payload.requested_topics,
+                nearby_distance=payload.nearby_distance,
+            )
+        else:
+            session = create_parcel_context_session(
+                payload.prompt,
+                requested_topics=payload.requested_topics,
+                nearby_distance=payload.nearby_distance,
+            )
     except ValueError as exc:
         raise _handle_value_error(exc) from exc
     _record_history_safely(
