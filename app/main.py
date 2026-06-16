@@ -90,6 +90,8 @@ from app.review_packet_builder import (
     validate_review_packet,
 )
 from app.rest_sources import load_rest_sources
+from app.scenario_builder import build_scenario, list_scenarios
+from app.scenario_reporter import generate_scenario_report
 from app.system_status import format_system_status, get_system_status
 from app.source_discovery import discovery_summary_lines, discover_sources, verify_all_external_sources, verify_external_source
 from app.version import AUTOMAP_VERSION
@@ -768,6 +770,29 @@ def _validate_analysis_report(path: str) -> int:
     return 0 if validation["is_valid"] else 1
 
 
+def _make_scenario(prompt: str) -> int:
+    scenario = build_scenario(prompt)
+    print(json.dumps(scenario, indent=2, default=str))
+    return 0
+
+
+def _list_scenarios() -> int:
+    rows = list_scenarios()
+    for row in rows:
+        print(
+            f"{row['scenario_id']} | {row['scenario_type']} | {row['status']} | "
+            f"{row['scenario_title']} | execution={row.get('execution_status')}"
+        )
+    print(f"scenarios listed: {len(rows)}")
+    return 0
+
+
+def _generate_scenario_report(scenario_id: str) -> int:
+    report = generate_scenario_report(scenario_id)
+    print(json.dumps(report, indent=2, default=str))
+    return 0 if (report.get("validation") or {}).get("is_valid") else 1
+
+
 def _preview_packet(path: str, port: int | None = None) -> int:
     try:
         config = build_preview_config(path)
@@ -1115,6 +1140,21 @@ def main() -> int:
         help="Validate a generated analysis summary report folder.",
     )
     parser.add_argument(
+        "--make-scenario",
+        metavar="PROMPT",
+        help="Create a reviewable planning scenario and suitability framework.",
+    )
+    parser.add_argument(
+        "--list-scenarios",
+        action="store_true",
+        help="List stored planning scenarios.",
+    )
+    parser.add_argument(
+        "--generate-scenario-report",
+        metavar="SCENARIO_ID",
+        help="Generate a local report package for a stored planning scenario.",
+    )
+    parser.add_argument(
         "--learn-from-approved-packet",
         metavar="APPROVED_PACKET_FOLDER",
         help="Learn deterministic approved defaults from a local approved packet.",
@@ -1262,6 +1302,12 @@ def main() -> int:
             return _list_analysis_reports()
         if args.validate_analysis_report:
             return _validate_analysis_report(args.validate_analysis_report)
+        if args.make_scenario:
+            return _make_scenario(args.make_scenario)
+        if args.list_scenarios:
+            return _list_scenarios()
+        if args.generate_scenario_report:
+            return _generate_scenario_report(args.generate_scenario_report)
         if args.learn_from_approved_packet:
             return _learn_from_approved_packet(args.learn_from_approved_packet)
         if args.list_patterns:

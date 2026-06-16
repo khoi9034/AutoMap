@@ -86,6 +86,10 @@ def test_frontend_workflow_api_routes_exist():
         "/api/analysis/reports",
         "/api/analysis/reports/from-refinement",
         "/api/analysis/reports/{report_id}",
+        "/api/scenarios",
+        "/api/scenarios/{scenario_id}",
+        "/api/scenarios/{scenario_id}/report",
+        "/api/scenarios/report",
         "/api/patterns",
         "/api/patterns/{pattern_key}",
         "/api/patterns/learn-from-approved",
@@ -111,6 +115,45 @@ def test_frontend_workflow_api_routes_exist():
     }
 
     assert expected_paths.issubset(set(paths))
+
+
+def test_api_scenario_routes_are_json_and_sanitized(monkeypatch):
+    scenario = {
+        "scenario_id": "scenario_test",
+        "raw_prompt": "Map commercial growth opportunities.",
+        "scenario_type": "commercial_growth_suitability",
+        "scenario_title": "Commercial Growth Suitability",
+        "source_coverage": {"warnings": ["proxy/context source only"]},
+        "DATABASE_URL": "postgresql://secret",
+    }
+    monkeypatch.setattr("app.api_routes.build_scenario", lambda prompt: scenario)
+    monkeypatch.setattr("app.api_routes.list_scenarios", lambda limit=50: [scenario])
+    monkeypatch.setattr("app.api_routes.get_scenario", lambda scenario_id: scenario)
+    monkeypatch.setattr(
+        "app.api_routes.generate_scenario_report",
+        lambda scenario_id: {
+            "scenario_id": scenario_id,
+            "report_folder": "outputs/scenario_reports/mock",
+            "validation": {"is_valid": True},
+        },
+    )
+    client = TestClient(create_app())
+
+    created = client.post("/api/scenarios", json={"prompt": "Map commercial growth opportunities."})
+    listed = client.get("/api/scenarios")
+    detail = client.get("/api/scenarios/scenario_test")
+    report = client.post("/api/scenarios/scenario_test/report", json={})
+    serialized = json.dumps([created.json(), listed.json(), detail.json(), report.json()]).lower()
+
+    assert created.status_code == 200
+    assert listed.status_code == 200
+    assert detail.status_code == 200
+    assert report.status_code == 200
+    assert "commercial_growth_suitability" in serialized
+    assert "database_url" not in serialized
+    assert "secret" not in serialized
+    assert "confirm-publish" not in serialized
+    assert "publish-draft-webmap" not in serialized
 
 
 def test_api_analysis_routes_are_json_and_sanitized(monkeypatch):

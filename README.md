@@ -2,11 +2,11 @@
 
 AutoMap converts plain-English county GIS map requests into structured map recipes using only approved GIS layers from a local layer catalog.
 
-Version: `2.6.0`
+Version: `2.7.0`
 
 ## Current Phase
 
-v2.6 Development and Transportation Intelligence on top of real source verification, data gap resolution, analysis summary reporting, and user-guided safe spatial analysis refinement.
+v2.7 Planning Scenario and Suitability Intelligence on top of development/transportation source intelligence, real source verification, data gap resolution, analysis summary reporting, and user-guided safe spatial analysis refinement.
 
 This repository is intentionally independent. It does not connect to CFS or import CFS code. AutoMap uses its own local PostGIS database and trusted layer catalog.
 
@@ -40,6 +40,7 @@ AutoMap helps GIS and planning staff turn plain-English county map requests into
 - metadata-only source discovery and verification for real REST endpoints, with proxy/limited-coverage gap closure rules
 - source coverage intelligence that labels official, proxy, reference, limited-coverage, historical, and missing official sources
 - development and transportation request handling for AADT, STIP, Accela/plan-review proxy activity, and Concord-limited planning cases
+- planning scenario and suitability frameworks with transparent reviewable weights, assumptions, source warnings, and local report exports
 
 ## What AutoMap Does Not Do Yet
 
@@ -75,6 +76,7 @@ ArcGIS publishing and smoke testing remain dry-run by default unless a guarded C
 24. v2.4 data gap resolver and external source connectors
 25. v2.5 real source verification and gap closure
 26. v2.6 development and transportation source intelligence
+27. v2.7 planning scenario and suitability intelligence
 
 ## Project Structure
 
@@ -117,7 +119,7 @@ python -m pytest
 
 ## Next.js Frontend
 
-AutoMap v2.6 adds development and transportation source intelligence to the Next.js + TypeScript shell under `frontend/`. The FastAPI backend remains the API and workflow engine, and the existing FastAPI/Jinja UI is preserved.
+AutoMap v2.7 adds planning scenario and suitability intelligence to the Next.js + TypeScript shell under `frontend/`. The FastAPI backend remains the API and workflow engine, and the existing FastAPI/Jinja UI is preserved.
 
 Start the backend API on port `8010`:
 
@@ -399,6 +401,24 @@ python -m app.main --make-recipe "Show planning cases around Concord."
 
 Recipes include `source_coverage` with official, proxy, limited-coverage, reference, historical, and missing-official source groups. See `docs/source_coverage_model.md` and `docs/development_transportation_intelligence.md`.
 
+## Planning Scenarios And Suitability
+
+AutoMap v2.7 builds transparent planning scenario frameworks for growth, suitability, constraints, transportation access, development pressure, school context, planning cases, and historical change. These are reviewable frameworks, not official recommendations or entitlement decisions.
+
+```bash
+python -m app.main --make-scenario "Map commercial growth opportunities near high traffic roads but avoid floodplain."
+python -m app.main --make-scenario "Show development pressure near schools and flood zones in Concord."
+python -m app.main --make-scenario "Find areas suitable for residential growth but avoid flood risk."
+python -m app.main --list-scenarios
+python -m app.main --generate-scenario-report <scenario_id>
+```
+
+Scenario reports are written under `outputs/scenario_reports/` and include HTML, Markdown, JSON, CSV scoring framework, source coverage JSON, and a manifest. Generated reports are ignored by Git.
+
+Scenario scoring is plan-only by default. AutoMap does not execute countywide parcel scoring, does not raise safety limits to force execution, and does not download full datasets. If execution is requested later, it must go through the existing bounded analysis planner and safety limits.
+
+See `docs/planning_scenarios.md` and `docs/suitability_scoring.md`.
+
 ## ArcGIS WebMap Draft Generator
 
 AutoMap v0.4 creates local ArcGIS WebMap JSON drafts from map recipes. Drafts use verified catalog layer URLs and v0.3 filter-plan definition expressions only. AutoMap does not publish to ArcGIS Online or Portal, does not require an ArcGIS login, and does not ingest full geometries.
@@ -668,6 +688,8 @@ See:
 - `docs/verified_external_sources.md`
 - `docs/source_coverage_model.md`
 - `docs/development_transportation_intelligence.md`
+- `docs/planning_scenarios.md`
+- `docs/suitability_scoring.md`
 
 ## Notes
 

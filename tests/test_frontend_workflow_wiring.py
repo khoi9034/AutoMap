@@ -66,6 +66,7 @@ def test_map_request_and_recipe_review_store_workflow_state():
     assert "detected_intents" in intelligence_panel
     assert "clarifying_questions" in intelligence_panel
     assert "Analysis plan" in intelligence_panel
+    assert "Scenario workflow recommended" in intelligence_panel
     assert "Answer Clarifying Questions" in map_request
     assert "clarificationQuestionCount" in map_request
     assert "Clarifications applied" in recipe_review
@@ -223,7 +224,7 @@ def test_api_client_has_timeout_and_sanitized_fallback_version():
 
     assert "Backend API request timed out" in source
     assert "http://127.0.0.1:8010" in source
-    assert 'version: "2.6.0"' in source
+    assert 'version: "2.7.0"' in source
     assert "redactProtected" in source
 
 
@@ -412,3 +413,36 @@ def test_v26_source_coverage_components_are_wired_and_safe():
     assert "SourceCoverageEntry" in types
     assert "confirm-publish" not in source_panel.lower()
     assert "publish-draft-webmap" not in source_panel.lower()
+
+
+def test_v27_scenarios_page_components_and_api_are_present():
+    navigation = read("components/navigation.ts")
+    page = read("app/scenarios/page.tsx")
+    builder = read("components/scenario-builder.tsx")
+    factors = read("components/scenario-factor-table.tsx")
+    scorecard = read("components/scenario-scorecard.tsx")
+    questions = read("components/scenario-review-questions.tsx")
+    coverage = read("components/scenario-source-coverage.tsx")
+    api = read("lib/api.ts")
+    types = read("types/automap.ts")
+
+    assert 'href: "/scenarios"' in navigation
+    assert "Planning scenario and suitability intelligence" in page
+    assert "Generate Scenario" in builder
+    assert "Generate Scenario Report" in builder
+    assert "Create Map Recipe" in builder
+    assert "Map commercial growth opportunities near high traffic roads but avoid floodplain." in builder
+    assert "ScenarioFactorTable" in factors
+    assert "Scoring framework" in factors
+    assert "Scenario scorecard" in scorecard
+    assert "Review questions" in questions
+    assert "SourceCoveragePanel" in coverage
+    assert "makeScenario" in api
+    assert "listScenarios" in api
+    assert "generateScenarioReport" in api
+    assert '"/api/scenarios"' in api
+    assert "PlanningScenario" in types
+    assert "ScenarioFactor" in types
+    assert "ScenarioReport" in types
+    assert "confirm-publish" not in builder.lower()
+    assert "publish-draft-webmap" not in builder.lower()

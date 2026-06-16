@@ -2,6 +2,8 @@
 
 AutoMap v2.6 teaches the recipe engine how to use verified external sources without overstating what those sources mean.
 
+AutoMap v2.7 uses the same source roles inside planning scenarios and suitability frameworks. AADT/STIP remain transportation context, Accela remains proxy activity, and Concord planning cases remain limited coverage even when a scenario assigns draft review weights.
+
 ## Development Activity
 
 Development-related sources are separated into official, proxy, and limited-coverage roles.
@@ -59,6 +61,16 @@ Recipes, WebMap drafts, review packets, and reports now include source coverage 
 - standardized source warnings
 
 No full datasets are downloaded, no ArcGIS item is published, and no ArcGIS login is required.
+
+## Scenario Use
+
+Scenario prompts such as:
+
+```bash
+python -m app.main --make-scenario "Map commercial growth opportunities near high traffic roads but avoid floodplain."
+```
+
+can include AADT, STIP, roads, zoning, parcels, flood layers, and Accela proxy context. The scenario output records transparent weights and review questions, but it does not treat scores as official recommendations or execute countywide parcel scoring.
 
 ## CFS Separation
 

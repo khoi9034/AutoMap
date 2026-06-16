@@ -4,6 +4,7 @@ export const navigationItems = [
   { href: "/clarify", label: "Clarify Request" },
   { href: "/recipe-review", label: "Recipe Review" },
   { href: "/map-preview", label: "Map Preview" },
+  { href: "/scenarios", label: "Scenarios" },
   { href: "/analysis", label: "Analysis" },
   { href: "/analysis-reports", label: "Analysis Reports" },
   { href: "/adjustments", label: "Adjustments" },
@@ -24,6 +25,7 @@ export const samplePrompts = [
   "Show school districts for parcels in Harrisburg.",
   "Show 2014 parcels and zoning.",
   "Map recent permits and planning cases near Kannapolis.",
+  "Map commercial growth opportunities near high traffic roads but avoid floodplain.",
 ];
 
 export const workflowSteps = [
@@ -31,6 +33,7 @@ export const workflowSteps = [
   { href: "/clarify", label: "Clarify Request", description: "Answer GIS review questions." },
   { href: "/recipe-review", label: "Recipe Review", description: "Layers, filters, gaps, and operations." },
   { href: "/map-preview", label: "Map Preview", description: "Local WebMap JSON preview." },
+  { href: "/scenarios", label: "Scenarios", description: "Reviewable suitability frameworks." },
   { href: "/analysis", label: "Analysis", description: "Safe bounded local GeoJSON execution." },
   { href: "/adjustments", label: "Adjustments", description: "Human YAML adjustment loop." },
   { href: "/approval", label: "Approval", description: "Local readiness gate." },

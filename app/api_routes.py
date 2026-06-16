@@ -76,6 +76,8 @@ from app.review_packet_builder import (
     save_review_packet,
     validate_review_packet,
 )
+from app.scenario_builder import build_scenario, get_scenario, list_scenarios
+from app.scenario_reporter import generate_scenario_report
 from app.system_status import get_system_status
 from app.source_discovery import discover_sources, verify_all_external_sources, verify_external_source
 from app.ui_models import output_file_url, repo_root
@@ -176,6 +178,12 @@ class AnalysisRefinementReportRequest(BaseModel):
     """Generate a report from an analysis refinement session."""
 
     refinement_session_id: str
+
+
+class ScenarioReportRequest(BaseModel):
+    """Generate a local planning scenario report."""
+
+    scenario_id: str
 
 
 class DataGapResolveRequest(BaseModel):
@@ -669,6 +677,64 @@ def api_analysis_report_detail(report_id: str) -> Any:
         return _json_response(get_analysis_report(report_id))
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@api_router.post("/scenarios")
+def api_make_scenario(payload: PromptRequest) -> Any:
+    """Create a deterministic planning scenario."""
+    try:
+        scenario = build_scenario(payload.prompt)
+    except ValueError as exc:
+        raise _handle_value_error(exc) from exc
+    _record_history_safely(
+        raw_prompt=payload.prompt,
+        workflow_step="scenario",
+        map_title=scenario.get("scenario_title"),
+        status=scenario.get("status"),
+        notes={
+            "scenario_id": scenario.get("scenario_id"),
+            "scenario_type": scenario.get("scenario_type"),
+            "execution_status": scenario.get("execution_status"),
+        },
+    )
+    return _json_response({"scenario": scenario})
+
+
+@api_router.get("/scenarios")
+def api_scenarios(limit: int = Query(default=50, ge=1, le=200)) -> Any:
+    """List stored local planning scenarios."""
+    return _json_response({"scenarios": list_scenarios(limit=limit)})
+
+
+@api_router.get("/scenarios/{scenario_id}")
+def api_scenario_detail(scenario_id: str) -> Any:
+    """Return one stored local planning scenario."""
+    try:
+        return _json_response(get_scenario(scenario_id))
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@api_router.post("/scenarios/{scenario_id}/report")
+def api_generate_scenario_report_from_path(scenario_id: str) -> Any:
+    """Generate a local report package for one planning scenario."""
+    try:
+        return _json_response(generate_scenario_report(scenario_id))
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise _handle_value_error(exc) from exc
+
+
+@api_router.post("/scenarios/report")
+def api_generate_scenario_report(payload: ScenarioReportRequest) -> Any:
+    """Generate a local scenario report package."""
+    try:
+        return _json_response(generate_scenario_report(payload.scenario_id))
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise _handle_value_error(exc) from exc
 
 
 @api_router.get("/patterns")

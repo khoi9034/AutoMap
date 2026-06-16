@@ -184,6 +184,12 @@ def _review_flags(
         flags.append(f"Ambiguity needs review: {flag}.")
     for part in (request_intelligence or {}).get("unsupported_parts") or []:
         flags.append(f"Unsupported or missing request part: {part}.")
+    scenario_context = (request_intelligence or {}).get("scenario_context") or {}
+    if scenario_context.get("scenario_detected"):
+        flags.append(
+            f"Scenario workflow recommended: {scenario_context.get('scenario_type')} "
+            "should be reviewed as a planning framework, not an official recommendation."
+        )
     for question in (analysis_plan or {}).get("review_questions") or []:
         if isinstance(question, dict) and question.get("question"):
             flags.append(f"Clarifying question: {question['question']}")

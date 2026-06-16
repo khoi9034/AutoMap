@@ -9,6 +9,7 @@ from app.intent_classifier import INTENT_LAYER_REQUIREMENTS, classify_intents
 from app.prompt_parser import parse_prompt
 from app.request_explainer import build_reasoning_summary
 from app.request_quality_evaluator import evaluate_request_quality
+from app.scenario_classifier import classify_scenario
 from app.spatial_intent_planner import plan_spatial_intent
 
 
@@ -72,6 +73,26 @@ def _blockers(missing_data: list[str], spatial_plan: dict[str, Any]) -> list[str
     return sorted(set(blockers))
 
 
+def _scenario_context(prompt: str, parsed_request: dict[str, Any], spatial_plan: dict[str, Any]) -> dict[str, Any]:
+    scenario = classify_scenario(prompt, parsed_request)
+    scenario_type = scenario.get("scenario_type")
+    detected = scenario_type != "unsupported_scenario"
+    return {
+        "scenario_detected": detected,
+        "scenario_type": scenario_type,
+        "recommended_scenario_workflow": (
+            "Use --make-scenario or the Scenarios page to build a transparent scoring framework."
+            if detected
+            else None
+        ),
+        "suitability_factors": spatial_plan.get("extracted_opportunities") or [],
+        "constraint_factors": spatial_plan.get("extracted_constraints") or [],
+        "proxy_context": "Proxy sources remain context only and do not resolve official approvals.",
+        "confidence_score": scenario.get("confidence_score"),
+        "classification_reasons": scenario.get("classification_reasons") or [],
+    }
+
+
 def build_request_intelligence(
     prompt: str,
     parsed_request: dict[str, Any] | None = None,
@@ -113,6 +134,7 @@ def build_request_intelligence(
         "matched_phrases_by_intent": classification.get("matched_phrases_by_intent") or {},
         "quality_score": quality.get("quality_score"),
         "understood": quality.get("understood"),
+        "scenario_context": _scenario_context(prompt, parsed_request, spatial_plan),
     }
     request_intelligence["reasoning_summary"] = build_reasoning_summary(
         request_intelligence,

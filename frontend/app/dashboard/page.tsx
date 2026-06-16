@@ -127,6 +127,7 @@ export default async function DashboardPage() {
         <StatCard label="Adjusted packets" value={status.packets?.adjusted_packet_count} />
         <StatCard label="Approved packets" value={status.packets?.approved_packet_count} />
         <StatCard label="Analysis reports" value={status.analysis_report_count} />
+        <StatCard label="Planning scenarios" value={status.planning_scenario_count} />
       </section>
 
       <section className="dashboard-grid">

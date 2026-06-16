@@ -30,6 +30,7 @@ export type SystemStatus = {
   analysis_run_count?: number;
   analysis_refinement_count?: number;
   analysis_report_count?: number;
+  planning_scenario_count?: number;
   packets?: {
     review_packet_count?: number;
     adjusted_packet_count?: number;
@@ -110,6 +111,16 @@ export type RequestIntelligence = {
   matched_phrases_by_intent?: Record<string, string[]>;
   quality_score?: number;
   understood?: boolean;
+  scenario_context?: {
+    scenario_detected?: boolean;
+    scenario_type?: string;
+    recommended_scenario_workflow?: string | null;
+    suitability_factors?: string[];
+    constraint_factors?: string[];
+    proxy_context?: string;
+    confidence_score?: number;
+    classification_reasons?: string[];
+  };
 };
 
 export type LearnedContext = {
@@ -387,6 +398,68 @@ export type SourceCoverage = {
   missing_official_sources?: SourceCoverageEntry[];
   selected_source_roles?: Record<string, SourceCoverageEntry>;
   warnings?: string[];
+};
+
+export type ScenarioFactor = {
+  factor_key?: string;
+  factor_label?: string;
+  factor_type?: "opportunity" | "constraint" | "context" | "proxy" | string;
+  layer_keys?: string[];
+  suggested_weight?: number;
+  direction?:
+    | "higher_is_better"
+    | "lower_is_better"
+    | "presence_is_good"
+    | "presence_is_bad"
+    | "reference_only"
+    | string;
+  scoring_method?:
+    | "attribute_score"
+    | "proximity_score"
+    | "intersection_penalty"
+    | "reference_context"
+    | "not_executable_yet"
+    | string;
+  needs_review?: boolean;
+  notes?: string;
+};
+
+export type PlanningScenario = {
+  scenario_id?: string;
+  raw_prompt?: string;
+  scenario_type?: string;
+  scenario_title?: string;
+  planning_goal?: string;
+  positive_factors?: ScenarioFactor[];
+  negative_factors?: ScenarioFactor[];
+  required_layers?: string[];
+  optional_layers?: string[];
+  excluded_layers?: string[];
+  selected_layers?: SelectedLayer[];
+  scoring_framework?: ScenarioFactor[];
+  assumptions?: string[];
+  review_questions?: string[];
+  source_coverage?: SourceCoverage;
+  missing_data?: string[];
+  proxy_warnings?: string[];
+  confidence_score?: number;
+  execution_status?: "scoring_plan_only" | "executable_if_refined" | "blocked_by_count" | "executed_small_sample" | string;
+  official_use_disclaimer?: string;
+  status?: string;
+  created_at?: string;
+  map_recipe?: MapRecipe;
+  scenario_json?: PlanningScenario;
+};
+
+export type ScenarioReport = {
+  scenario_id?: string;
+  report_folder?: string;
+  report_title?: string;
+  files?: AnalysisReportFileLink[];
+  validation?: {
+    is_valid?: boolean;
+    errors?: string[];
+  };
 };
 
 export type ApprovedPattern = {

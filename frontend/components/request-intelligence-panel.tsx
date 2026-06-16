@@ -47,6 +47,7 @@ export function RequestIntelligencePanel({ recipe }: RequestIntelligencePanelPro
   const confidenceByIntent = intelligence?.confidence_by_intent || {};
   const intentList = intelligence?.detected_intents || [];
   const reviewQuestions = analysisPlan?.review_questions || intelligence?.clarifying_questions || [];
+  const scenarioContext = intelligence?.scenario_context;
 
   return (
     <section className="panel">
@@ -87,6 +88,17 @@ export function RequestIntelligencePanel({ recipe }: RequestIntelligencePanelPro
           <p>{valuesOrNone(intelligence?.unsupported_parts)}</p>
         </div>
       </div>
+
+      {scenarioContext?.scenario_detected ? (
+        <div className="notice notice-warning">
+          <strong>Scenario workflow recommended</strong>
+          <p>
+            {scenarioContext.scenario_type?.replaceAll("_", " ")} should be reviewed as a planning framework with
+            transparent assumptions and source coverage warnings.
+          </p>
+          {scenarioContext.recommended_scenario_workflow ? <p>{scenarioContext.recommended_scenario_workflow}</p> : null}
+        </div>
+      ) : null}
 
       <div className="stats-grid">
         <JsonPanel title="Analysis plan" value={analysisPlan || {}} />

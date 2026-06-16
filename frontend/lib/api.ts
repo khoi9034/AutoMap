@@ -14,10 +14,12 @@ import type {
   LayerRecord,
   MapRecipe,
   PacketsResponse,
+  PlanningScenario,
   PreviewConfig,
   GenerateReportResponse,
   ReportDetail,
   ReportSummary,
+  ScenarioReport,
   SourceDiscoveryResult,
   SystemStatus,
 } from "@/types/automap";
@@ -116,7 +118,7 @@ export async function getStatusOrFallback(): Promise<SystemStatus> {
     return await getSystemStatus();
   } catch {
     return {
-      version: "2.6.0",
+      version: "2.7.0",
       database_connected: false,
       catalog: {},
       profiles: {},
@@ -252,6 +254,30 @@ export async function listAnalysisReports(): Promise<{ analysis_reports: Analysi
 
 export async function getAnalysisReport(reportId: string): Promise<AnalysisReportSummary> {
   return apiFetch<AnalysisReportSummary>(`/api/analysis/reports/${encodeURIComponent(reportId)}`);
+}
+
+export async function makeScenario(prompt: string): Promise<{ scenario: PlanningScenario }> {
+  return apiFetch<{ scenario: PlanningScenario }>("/api/scenarios", {
+    method: "POST",
+    timeoutMs: 120000,
+    body: JSON.stringify({ prompt }),
+  });
+}
+
+export async function listScenarios(): Promise<{ scenarios: PlanningScenario[] }> {
+  return apiFetch<{ scenarios: PlanningScenario[] }>("/api/scenarios");
+}
+
+export async function getScenario(scenarioId: string): Promise<PlanningScenario> {
+  return apiFetch<PlanningScenario>(`/api/scenarios/${encodeURIComponent(scenarioId)}`);
+}
+
+export async function generateScenarioReport(scenarioId: string): Promise<ScenarioReport> {
+  return apiFetch<ScenarioReport>(`/api/scenarios/${encodeURIComponent(scenarioId)}/report`, {
+    method: "POST",
+    timeoutMs: 180000,
+    body: JSON.stringify({}),
+  });
 }
 
 export async function recordRecipeFeedback(payload: {

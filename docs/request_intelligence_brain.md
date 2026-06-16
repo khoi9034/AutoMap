@@ -2,6 +2,8 @@
 
 AutoMap's request intelligence brain is a deterministic interpretation layer for messy county GIS map requests. It does not call external LLM APIs, does not invent layers, and does not publish anything.
 
+AutoMap v2.7 adds `scenario_context` to request intelligence. Growth, suitability, constraint, transportation-access, and development-pressure prompts can now recommend the Scenarios workflow before any bounded analysis is considered.
+
 ## Purpose
 
 The request intelligence brain helps AutoMap explain what it understood before a human reviewer approves a draft. It enriches map recipes with:
@@ -15,6 +17,7 @@ The request intelligence brain helps AutoMap explain what it understood before a
 - clarifying questions
 - a plain-language reasoning summary
 - unsupported or missing request parts
+- scenario context and recommended scenario workflow when a prompt is better handled as a planning framework
 - an analysis plan with required layers, optional layers, spatial steps, attribute steps, assumptions, blockers, and review questions
 
 ## Deterministic Modules
@@ -24,6 +27,7 @@ The request intelligence brain helps AutoMap explain what it understood before a
 - `app/clarifying_questions.py` generates reviewer questions for ambiguous terms such as near, recent, commercial, historical, and suitability.
 - `app/request_quality_evaluator.py` scores how complete the interpretation is and identifies unsupported or missing parts.
 - `app/request_explainer.py` adds plain-language reasoning for selected and rejected layers.
+- `app/scenario_classifier.py` identifies suitability and planning scenario prompts.
 - `app/request_intelligence.py` orchestrates the modules and returns the recipe-ready `request_intelligence` and `analysis_plan` objects.
 
 ## Safety Rules
@@ -80,4 +84,4 @@ python -m app.main --make-recipe "Show current permits near Kannapolis."
 
 The JSON output includes `request_intelligence` and `analysis_plan`.
 
-When source candidates exist for missing data, the JSON also includes `data_gap_resolution_context`. This is review context only and does not authorize proxy data as official permit, planning case, or development approval data.
+When source candidates exist for missing data, the JSON also includes `data_gap_resolution_context`. Scenario-style prompts include `request_intelligence.scenario_context`. This is review context only and does not authorize proxy data as official permit, planning case, development approval, or suitability decision data.
