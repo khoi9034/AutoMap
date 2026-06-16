@@ -77,8 +77,8 @@ export default async function DashboardPage() {
           <p className="eyebrow">AutoMap: County GIS Request Engine</p>
           <h1>Draft county GIS map requests from verified catalog layers.</h1>
           <p>
-            AutoMap turns plain-English planning questions into local recipes, WebMap drafts, review packets,
-            adjustment files, approval gates, and dry-run publish receipts.
+            AutoMap turns plain-English planning questions into one simple local composer flow: prompt, preview,
+            adjust, and print/export. Advanced recipe, analysis, approval, and dry-run tools remain available.
           </p>
           <div className="chip-row">
             <StatusChip tone="success">Dry-run only</StatusChip>
@@ -113,7 +113,7 @@ export default async function DashboardPage() {
       <SectionHeader
         eyebrow="Dashboard"
         title="Operations console"
-        description="Use this workspace to move from request to local preview, human review, approval, and dry-run-only publishing checks."
+        description="Start with Map Composer for normal draft map requests. Use advanced pages only when deeper review, analysis, or governance is needed."
       />
 
       <section className="stats-grid" aria-label="System stats">
@@ -135,6 +135,16 @@ export default async function DashboardPage() {
 
       <section className="dashboard-grid">
         <div className="dashboard-main">
+          <section className="panel composer-start-card">
+            <div>
+              <p className="eyebrow">Recommended start</p>
+              <h3>Open Map Composer</h3>
+              <p className="muted">Prompt to Generate Draft Map to Preview to Adjust to Print/Export.</p>
+            </div>
+            <Link className="button" href="/map-composer">
+              Start composing
+            </Link>
+          </section>
           <DashboardQuickStart />
           <WorkflowCards />
         </div>
@@ -186,9 +196,9 @@ export default async function DashboardPage() {
         </div>
         <div className="scenario-grid">
           {samplePrompts.map((prompt) => (
-            <Link className="scenario-card" href={`/map-request?prompt=${encodeURIComponent(prompt)}`} key={prompt}>
+            <Link className="scenario-card" href={`/map-composer?prompt=${encodeURIComponent(prompt)}`} key={prompt}>
               <strong>{prompt}</strong>
-              <span>Open request workspace</span>
+              <span>Open in Map Composer</span>
             </Link>
           ))}
         </div>

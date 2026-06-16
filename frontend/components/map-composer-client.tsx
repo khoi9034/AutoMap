@@ -1,0 +1,461 @@
+"use client";
+
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { useMemo, useState } from "react";
+
+import { ArcGISMapPreview } from "@/components/arcgis-map-preview";
+import { samplePrompts } from "@/components/navigation";
+import { StatusChip } from "@/components/status-chip";
+import { ToastMessage } from "@/components/toast";
+import { API_BASE_URL, adjustComposerDraft, exportComposerDraft, generateComposerDraft } from "@/lib/api";
+import { mergeWorkflowState, packetIdFromPath } from "@/lib/workflow-store";
+import type { ComposerResponse, PreviewLayer } from "@/types/automap";
+import type { WorkflowToast } from "@/types/workflow";
+
+type ComposerLayerEdit = {
+  layer_key: string;
+  title: string;
+  visibility: boolean;
+  opacity: number;
+  role?: string;
+  definition_expression?: string;
+};
+
+const defaultPrompt = "Make a map of parcel 5528-12-3456 and show zoning, floodplain, and nearby roads.";
+
+function localFileUrl(path?: string | null): string {
+  return path ? `${API_BASE_URL}/local-file?path=${encodeURIComponent(path)}` : "#";
+}
+
+function actionLabel(action?: string): string {
+  if (action === "correct_parcel_identifier") return "Correct parcel/PIN/address";
+  if (action === "preview_map") return "Preview Map";
+  if (action === "preview_adjusted_map") return "Preview Adjusted Map";
+  if (action === "print_or_export") return "Print / Export";
+  return "Review Draft";
+}
+
+function identifierText(value: unknown): string {
+  if (!value || typeof value !== "object") return String(value || "");
+  const item = value as { value?: string; normalized_value?: string; identifier_type?: string };
+  return item.value || item.normalized_value || item.identifier_type || JSON.stringify(item);
+}
+
+function layerEditsFromResponse(response: ComposerResponse): ComposerLayerEdit[] {
+  const previewLayers = response.preview_config?.operational_layers || [];
+  if (previewLayers.length) {
+    return previewLayers.map((layer: PreviewLayer, index) => ({
+      layer_key: layer.layer_key || layer.id || `layer_${index}`,
+      title: layer.title || layer.layer_key || `Layer ${index + 1}`,
+      visibility: layer.visibility !== false,
+      opacity: typeof layer.opacity === "number" ? layer.opacity : 1,
+      role: layer.role,
+      definition_expression: layer.definition_expression || "",
+    }));
+  }
+  return (response.selected_layers || []).map((layer, index) => ({
+    layer_key: layer.layer_key || `layer_${index}`,
+    title: layer.layer_name || layer.layer_key || `Layer ${index + 1}`,
+    visibility: true,
+    opacity: layer.category === "flood" ? 0.35 : layer.category === "zoning" ? 0.65 : 0.85,
+    role: layer.role,
+    definition_expression: "",
+  }));
+}
+
+function packetIdForPreview(response: ComposerResponse | null): string {
+  if (!response?.can_preview) return "";
+  return response.adjusted_packet_id || response.packet_id || response.review_packet_id || packetIdFromPath(response.packet_path || "");
+}
+
+function ComposerSteps({ response, exported }: { response: ComposerResponse | null; exported: boolean }) {
+  const previewReady = Boolean(response?.can_preview);
+  const adjusted = Boolean(response?.adjusted_packet_id || response?.applied_adjustments);
+  const steps = [
+    { label: "Prompt", status: response ? "completed" : "active", note: "Describe the map." },
+    {
+      label: "Generate Draft Map",
+      status: response ? "completed" : "pending",
+      note: response?.map_title || "Recipe, WebMap draft, and preview packet are created together.",
+    },
+    {
+      label: "Preview Map",
+      status: response?.preview_blockers?.length ? "blocked" : previewReady ? "completed" : "pending",
+      note: response?.preview_blockers?.[0] || "Preview only appears when the request is truly focusable.",
+    },
+    { label: "Adjust Map", status: adjusted ? "completed" : previewReady ? "active" : "pending", note: "Use simple controls, not YAML." },
+    { label: "Print / Export", status: exported ? "completed" : previewReady ? "active" : "pending", note: "Local draft files only." },
+  ];
+
+  return (
+    <section className="panel composer-status-panel">
+      <p className="eyebrow">Composer flow</p>
+      <h3>{actionLabel(response?.next_action)}</h3>
+      <div className="simple-step-list">
+        {steps.map((step, index) => (
+          <div className={`simple-step simple-step-${step.status}`} key={step.label}>
+            <span>{index + 1}</span>
+            <div>
+              <strong>{step.label}</strong>
+              <small>{step.note}</small>
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function ParcelBlocker({ response }: { response: ComposerResponse }) {
+  const context = response.parcel_context;
+  if (!response.preview_blockers?.length && context?.can_focus_map !== false) return null;
+  return (
+    <section className="panel parcel-preview-blocked" role="alert">
+      <p className="eyebrow">Parcel-focused preview blocked</p>
+      <h3>Parcel not matched</h3>
+      <p>
+        {context?.reason_if_not_focusable ||
+          "Parcel not matched. AutoMap cannot zoom to or map this parcel until a valid parcel/PIN/address is provided."}
+      </p>
+      <div className="detail-grid">
+        <div>
+          <span className="muted">Match status</span>
+          <strong>{context?.match_status || "needs_review"}</strong>
+        </div>
+        <div>
+          <span className="muted">Matched count</span>
+          <strong>{context?.matched_count ?? 0}</strong>
+        </div>
+        <div>
+          <span className="muted">Next action</span>
+          <strong>{actionLabel(response.next_action)}</strong>
+        </div>
+      </div>
+      {context?.unmatched_identifiers?.length ? (
+        <div className="definition-box">
+          <strong>Unmatched identifiers</strong>
+          <p>{context.unmatched_identifiers.map(identifierText).join(", ")}</p>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function LayerAdjustmentControls({
+  layers,
+  setLayers,
+}: {
+  layers: ComposerLayerEdit[];
+  setLayers: (layers: ComposerLayerEdit[]) => void;
+}) {
+  function updateLayer(index: number, patch: Partial<ComposerLayerEdit>) {
+    setLayers(layers.map((layer, layerIndex) => (layerIndex === index ? { ...layer, ...patch } : layer)));
+  }
+
+  function moveLayer(index: number, direction: -1 | 1) {
+    const targetIndex = index + direction;
+    if (targetIndex < 0 || targetIndex >= layers.length) return;
+    const next = [...layers];
+    const [item] = next.splice(index, 1);
+    next.splice(targetIndex, 0, item);
+    setLayers(next);
+  }
+
+  return (
+    <div className="composer-layer-editor">
+      {layers.map((layer, index) => (
+        <article className="composer-layer-row" key={`${layer.layer_key}-${index}`}>
+          <div className="composer-layer-main">
+            <label>
+              <span>Layer title</span>
+              <input value={layer.title} onChange={(event) => updateLayer(index, { title: event.target.value })} />
+            </label>
+            <label>
+              <span>Definition expression</span>
+              <input
+                value={layer.definition_expression || ""}
+                onChange={(event) => updateLayer(index, { definition_expression: event.target.value })}
+                placeholder="Optional SQL where clause"
+              />
+            </label>
+          </div>
+          <div className="composer-layer-actions">
+            <label className="toggle-line">
+              <input
+                checked={layer.visibility}
+                type="checkbox"
+                onChange={(event) => updateLayer(index, { visibility: event.target.checked })}
+              />
+              Visible
+            </label>
+            <label>
+              <span>Opacity {Math.round(layer.opacity * 100)}%</span>
+              <input
+                min="0"
+                max="1"
+                step="0.05"
+                type="range"
+                value={layer.opacity}
+                onChange={(event) => updateLayer(index, { opacity: Number(event.target.value) })}
+              />
+            </label>
+            <div className="button-row compact-buttons">
+              <button className="icon-button" type="button" onClick={() => moveLayer(index, -1)} aria-label={`Move ${layer.title} up`}>
+                Up
+              </button>
+              <button className="icon-button" type="button" onClick={() => moveLayer(index, 1)} aria-label={`Move ${layer.title} down`}>
+                Down
+              </button>
+              <button className="button button-secondary" type="button" onClick={() => updateLayer(index, { visibility: false })}>
+                Remove
+              </button>
+            </div>
+          </div>
+        </article>
+      ))}
+    </div>
+  );
+}
+
+export function MapComposerClient() {
+  const searchParams = useSearchParams();
+  const [prompt, setPrompt] = useState(searchParams.get("prompt") || defaultPrompt);
+  const [response, setResponse] = useState<ComposerResponse | null>(null);
+  const [layers, setLayers] = useState<ComposerLayerEdit[]>([]);
+  const [mapTitle, setMapTitle] = useState("");
+  const [notes, setNotes] = useState("");
+  const [loading, setLoading] = useState<"generate" | "adjust" | "export" | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [toast, setToast] = useState<WorkflowToast | null>(null);
+
+  const previewPacketId = useMemo(() => packetIdForPreview(response), [response]);
+  const canAdjust = Boolean(response?.composer_session_id && response.can_preview && layers.length);
+  const canExport = Boolean(response?.composer_session_id && response.can_report);
+
+  async function generateDraft() {
+    setLoading("generate");
+    setError(null);
+    try {
+      const result = await generateComposerDraft(prompt);
+      setResponse(result);
+      setLayers(layerEditsFromResponse(result));
+      setMapTitle(result.map_title || result.recipe?.map_title || "");
+      mergeWorkflowState({
+        rawPrompt: prompt,
+        recipe: result.recipe,
+        reviewPacket: result.packet_path ? { packet_path: result.packet_path, packet_id: result.packet_id } : undefined,
+        selectedPacketPath: result.packet_path || undefined,
+        selectedPacketId: result.packet_id || undefined,
+        warnings: result.warnings || [],
+        missingData: result.missing_data || [],
+        activeStep: result.can_preview ? "preview" : "recipe",
+      });
+      setToast({
+        tone: result.can_preview ? "success" : "warning",
+        message: result.can_preview ? "Draft map and preview are ready." : "Draft created, but preview is blocked until the parcel matches.",
+      });
+    } catch (exc) {
+      setError(exc instanceof Error ? exc.message : "Composer draft generation failed.");
+    } finally {
+      setLoading(null);
+    }
+  }
+
+  async function applyAdjustments() {
+    if (!response?.composer_session_id) return;
+    setLoading("adjust");
+    setError(null);
+    try {
+      const result = await adjustComposerDraft({
+        composer_session_id: response.composer_session_id,
+        map_title: mapTitle,
+        notes,
+        layer_order: layers.map((layer) => layer.layer_key),
+        layers,
+      });
+      setResponse(result);
+      setLayers(layerEditsFromResponse(result));
+      mergeWorkflowState({
+        rawPrompt: prompt,
+        recipe: result.recipe,
+        adjustedPacket: result.adjusted_packet_path ? { adjusted_packet_path: result.adjusted_packet_path } : undefined,
+        selectedAdjustedPacketPath: result.adjusted_packet_path || undefined,
+        selectedAdjustedPacketId: result.adjusted_packet_id || undefined,
+        activeStep: "adjustments",
+      });
+      setToast({ tone: "success", message: "Adjustments applied and adjusted preview is ready." });
+    } catch (exc) {
+      setError(exc instanceof Error ? exc.message : "Adjustment failed.");
+    } finally {
+      setLoading(null);
+    }
+  }
+
+  async function exportDraft() {
+    if (!response?.composer_session_id) return;
+    setLoading("export");
+    setError(null);
+    try {
+      const result = await exportComposerDraft(response.composer_session_id);
+      setResponse(result);
+      setToast({ tone: "success", message: "Draft report and export files are ready." });
+    } catch (exc) {
+      setError(exc instanceof Error ? exc.message : "Export failed.");
+    } finally {
+      setLoading(null);
+    }
+  }
+
+  return (
+    <div className="map-composer-grid">
+      <section className="panel composer-prompt-panel">
+        <p className="eyebrow">Map Composer</p>
+        <h2>Prompt to preview to print, in one place.</h2>
+        <textarea
+          className="textarea composer-textarea"
+          value={prompt}
+          onChange={(event) => setPrompt(event.target.value)}
+          placeholder="Describe the draft map..."
+        />
+        <div className="sample-grid">
+          {samplePrompts.slice(0, 7).map((sample) => (
+            <button className="sample-button" key={sample} type="button" onClick={() => setPrompt(sample)}>
+              {sample}
+            </button>
+          ))}
+        </div>
+        <button className="button" type="button" onClick={generateDraft} disabled={loading !== null || !prompt.trim()}>
+          {loading === "generate" ? "Generating Draft Map..." : "Generate Draft Map"}
+        </button>
+        {loading ? <p className="muted">AutoMap is checking catalog layers, parcel match status, and preview readiness...</p> : null}
+        {error ? <p className="error-text">{error}</p> : null}
+        <ToastMessage toast={toast} />
+      </section>
+
+      <main className="composer-main">
+        {!response ? (
+          <section className="panel empty-state">
+            <h3>One simple map workflow</h3>
+            <p>Prompt to Generate Draft Map to Preview Map to Adjust Map to Preview Adjusted Map to Print/Export.</p>
+            <p className="muted">Analysis stays optional unless the request asks to calculate, select, count, summarize, or measure.</p>
+          </section>
+        ) : null}
+
+        {response ? (
+          <>
+            <section className="panel">
+              <div className="panel-title-row">
+                <div>
+                  <p className="eyebrow">Draft map</p>
+                  <h3>{response.map_title || "AutoMap Draft Map"}</h3>
+                  <p className="muted">{response.raw_prompt}</p>
+                </div>
+                <div className="chip-row">
+                  <StatusChip tone={response.can_preview ? "success" : "danger"}>
+                    {response.can_preview ? "Preview ready" : "Preview blocked"}
+                  </StatusChip>
+                  <StatusChip tone={response.can_analyze ? "warning" : "success"}>
+                    {response.can_analyze ? "Analysis available" : "Analysis not forced"}
+                  </StatusChip>
+                </div>
+              </div>
+              <div className="result-strip">
+                <div>
+                  <span>Layers</span>
+                  <strong>{response.selected_layers?.length || 0}</strong>
+                </div>
+                <div>
+                  <span>Missing data</span>
+                  <strong>{response.missing_data?.length || 0}</strong>
+                </div>
+                <div>
+                  <span>Next</span>
+                  <strong>{actionLabel(response.next_action)}</strong>
+                </div>
+              </div>
+            </section>
+
+            <ParcelBlocker response={response} />
+
+            {previewPacketId ? (
+              <section className="composer-preview-section">
+                <ArcGISMapPreview packetId={previewPacketId} />
+              </section>
+            ) : null}
+
+            <section className="panel">
+              <div className="panel-title-row">
+                <div>
+                  <p className="eyebrow">Adjust Map</p>
+                  <h3>Simple draft controls</h3>
+                  <p className="muted">YAML adjustments remain available on the advanced page, but normal edits can happen here.</p>
+                </div>
+                <StatusChip tone={canAdjust ? "success" : "default"}>{canAdjust ? "Ready" : "Waiting for preview"}</StatusChip>
+              </div>
+              <label className="field-stack">
+                <span>Map title</span>
+                <input value={mapTitle} onChange={(event) => setMapTitle(event.target.value)} />
+              </label>
+              <LayerAdjustmentControls layers={layers} setLayers={setLayers} />
+              <label className="field-stack">
+                <span>Reviewer notes</span>
+                <textarea value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Optional draft review notes" />
+              </label>
+              <button className="button" type="button" onClick={applyAdjustments} disabled={loading !== null || !canAdjust}>
+                {loading === "adjust" ? "Applying..." : "Apply Adjustments"}
+              </button>
+            </section>
+
+            <section className="panel">
+              <div className="panel-title-row">
+                <div>
+                  <p className="eyebrow">Print / Export</p>
+                  <h3>Local draft outputs</h3>
+                  <p className="muted">Draft report/export, not an official print map. Nothing is published.</p>
+                </div>
+                <StatusChip tone={canExport ? "success" : "default"}>{canExport ? "Export available" : "Preview required"}</StatusChip>
+              </div>
+              <div className="button-row">
+                <button className="button" type="button" onClick={exportDraft} disabled={loading !== null || !canExport}>
+                  {loading === "export" ? "Exporting..." : "Generate Review Report"}
+                </button>
+                <a className="button button-secondary" href={localFileUrl(response.webmap_path)} target="_blank" rel="noreferrer">
+                  Export WebMap JSON
+                </a>
+                {response.composer_session_id ? (
+                  <Link className="button button-secondary" href={`/map-composer/${response.composer_session_id}/print`}>
+                    Print Draft Map
+                  </Link>
+                ) : null}
+              </div>
+              {response.export?.files?.length ? (
+                <div className="export-link-grid">
+                  {response.export.files.map((file) => (
+                    <a className="export-link" key={`${file.name}-${file.path}`} href={file.url ? `${API_BASE_URL}${file.url}` : localFileUrl(file.path)} target="_blank" rel="noreferrer">
+                      <strong>{file.name}</strong>
+                      <span>{file.path}</span>
+                    </a>
+                  ))}
+                </div>
+              ) : null}
+            </section>
+          </>
+        ) : null}
+      </main>
+
+      <aside className="composer-side">
+        <ComposerSteps response={response} exported={Boolean(response?.export)} />
+        <section className="panel">
+          <p className="eyebrow">Preview rules</p>
+          <ul className="compact-list">
+            <li>Parcel maps require a real parcel/PIN/address match.</li>
+            <li>Unmatched parcel prompts do not show broad county maps as success.</li>
+            <li>Context layers are reference layers around the selected focus.</li>
+            <li>Analysis is optional and never starts from this page automatically.</li>
+          </ul>
+        </section>
+      </aside>
+    </div>
+  );
+}

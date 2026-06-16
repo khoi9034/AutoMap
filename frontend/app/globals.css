@@ -84,7 +84,21 @@ button {
 
 .nav-list {
   display: grid;
+  gap: 14px;
+}
+
+.nav-section {
+  display: grid;
   gap: 6px;
+}
+
+.nav-section-label {
+  margin: 8px 0 2px;
+  color: #9fb7d2;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
 }
 
 .nav-link {
@@ -912,17 +926,152 @@ button {
   align-items: start;
 }
 
+.map-composer-grid {
+  display: grid;
+  grid-template-columns: 330px minmax(0, 1fr) 286px;
+  gap: 16px;
+  align-items: start;
+}
+
 .workflow-prompt-panel,
-.workflow-side {
+.workflow-side,
+.composer-prompt-panel,
+.composer-side {
   position: sticky;
   top: 96px;
 }
 
 .workflow-result-column,
 .workflow-status-panel,
+.composer-main,
+.composer-status-panel,
 .simple-step-list {
   display: grid;
   gap: 14px;
+}
+
+.composer-textarea {
+  min-height: 180px;
+}
+
+.composer-start-card {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: center;
+  border-color: #8eb8e0;
+  background: #f3f8fd;
+}
+
+.composer-preview-section .page-stack {
+  gap: 12px;
+}
+
+.composer-layer-editor {
+  display: grid;
+  gap: 10px;
+  margin: 12px 0;
+}
+
+.composer-layer-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 230px;
+  gap: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f8fafc;
+  padding: 12px;
+}
+
+.composer-layer-main,
+.composer-layer-actions,
+.field-stack {
+  display: grid;
+  gap: 8px;
+}
+
+.composer-layer-row label,
+.field-stack {
+  color: #344054;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.composer-layer-row input:not([type="checkbox"]):not([type="range"]),
+.field-stack input,
+.field-stack textarea {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+  color: #1d2939;
+  font: inherit;
+  padding: 9px 10px;
+  text-transform: none;
+}
+
+.field-stack textarea {
+  min-height: 86px;
+}
+
+.toggle-line {
+  display: flex !important;
+  align-items: center;
+  gap: 8px;
+  text-transform: none !important;
+}
+
+.compact-buttons {
+  gap: 6px;
+}
+
+.icon-button {
+  min-height: 34px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+  color: #1d344d;
+  font-weight: 800;
+  padding: 7px 9px;
+  cursor: pointer;
+}
+
+.export-link-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.export-link {
+  display: grid;
+  gap: 4px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f8fafc;
+  padding: 10px;
+}
+
+.export-link span {
+  color: var(--muted);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.composer-print-page {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 28px;
+}
+
+.composer-print-page header,
+.composer-print-page section {
+  margin-bottom: 18px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 18px;
 }
 
 .simple-step {
@@ -1236,7 +1385,9 @@ th {
   .dashboard-hero,
   .dashboard-grid,
   .map-preview-shell,
-  .workflow-page-grid {
+  .workflow-page-grid,
+  .map-composer-grid,
+  .composer-layer-row {
     grid-template-columns: 1fr;
   }
 
@@ -1264,8 +1415,29 @@ th {
   .right-rail,
   .top-header,
   .workflow-prompt-panel,
-  .workflow-side {
+  .workflow-side,
+  .composer-prompt-panel,
+  .composer-side {
     position: relative;
     top: auto;
+  }
+}
+
+@media print {
+  .sidebar,
+  .top-header,
+  .footer,
+  .right-rail,
+  .no-print {
+    display: none !important;
+  }
+
+  .app-shell,
+  .content-grid {
+    display: block;
+  }
+
+  .composer-print-page {
+    padding: 0;
   }
 }

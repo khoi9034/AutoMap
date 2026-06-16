@@ -331,6 +331,8 @@ def _preview_layers(webmap_json: dict[str, Any]) -> list[dict[str, Any]]:
                 "review_warnings": [str(item) for item in layer.get("autoMapReviewWarnings") or []],
                 "derived_local_analysis": bool(layer.get("autoMapDerivedAnalysis") or preview_type == "local_geojson"),
                 "analysis_run_id": layer.get("autoMapAnalysisRunId"),
+                "display_role": layer.get("autoMapDisplayRole"),
+                "draw_order": layer.get("autoMapDrawOrder", index),
             }
         )
     return layers

@@ -2,6 +2,8 @@ import type {
   ClarificationAnswerModel,
   ClarificationDefault,
   ClarificationSession,
+  ComposerAdjustPayload,
+  ComposerResponse,
   DataGap,
   DataGapCandidate,
   ExternalSource,
@@ -156,7 +158,7 @@ export async function getStatusOrFallback(): Promise<SystemStatus> {
     return await getSystemStatus();
   } catch {
     return {
-      version: "3.2.0",
+      version: "3.3.0",
       database_connected: false,
       catalog: {},
       profiles: {},
@@ -628,6 +630,34 @@ export async function runWorkflow(prompt: string): Promise<WorkflowRunResponse> 
     method: "POST",
     timeoutMs: 60000,
     body: JSON.stringify({ prompt }),
+  });
+}
+
+export async function generateComposerDraft(prompt: string): Promise<ComposerResponse> {
+  return apiFetch<ComposerResponse>("/api/composer/generate", {
+    method: "POST",
+    timeoutMs: 60000,
+    body: JSON.stringify({ prompt }),
+  });
+}
+
+export async function getComposerSession(composerSessionId: string): Promise<ComposerResponse> {
+  return apiFetch<ComposerResponse>(`/api/composer/${encodeURIComponent(composerSessionId)}`);
+}
+
+export async function adjustComposerDraft(payload: ComposerAdjustPayload): Promise<ComposerResponse> {
+  return apiFetch<ComposerResponse>("/api/composer/adjust", {
+    method: "POST",
+    timeoutMs: 60000,
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function exportComposerDraft(composerSessionId: string): Promise<ComposerResponse> {
+  return apiFetch<ComposerResponse>("/api/composer/export", {
+    method: "POST",
+    timeoutMs: 60000,
+    body: JSON.stringify({ composer_session_id: composerSessionId }),
   });
 }
 

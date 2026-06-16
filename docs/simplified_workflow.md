@@ -1,19 +1,20 @@
 # Simplified Workflow
 
-AutoMap v3.2 adds a guided `/workflow` page for the normal local review path:
+AutoMap v3.3 makes `/map-composer` the primary normal local review path:
 
 ```text
-Prompt -> Recipe -> Map Preview -> Adjust -> Analysis/Report -> Print/Export
+Prompt -> Generate Draft Map -> Preview Map -> Adjust Map -> Preview Adjusted Map -> Print/Export
 ```
 
-The workflow page keeps the primary actions in one place:
+The composer keeps the primary actions in one place:
 
-- generate a recipe from a prompt
+- generate a recipe, WebMap draft, and preview packet from a prompt
 - review selected layers, warnings, missing data, and parcel match status
-- create a local review packet and preview when the request is ready
-- adjust the draft through the existing human adjustment loop
-- run analysis only when it is explicitly useful and safe
+- preview the map only when the request is truly focusable
+- adjust the draft with simple title, layer, opacity, order, filter, and note controls
 - generate local draft reports/exports
+
+The older `/workflow` page remains available as an advanced guided state page, but normal users should start with `/map-composer`.
 
 ## Parcel Requests
 
@@ -27,15 +28,15 @@ does not automatically become an analysis execution request. AutoMap first parse
 
 If the parcel is matched safely, AutoMap can fetch only the matched parcel geometry, compute a small buffered extent, add a local selected-parcel layer, and focus the preview on the parcel.
 
-If the parcel is not matched, the workflow shows `Parcel not matched`, disables parcel-focused preview, and asks the user to correct the parcel/PIN/address. AutoMap does not zoom to a countywide fallback and does not pretend a selected parcel map is ready.
+If the parcel is not matched, the composer shows `Parcel not matched`, disables parcel-focused preview, and asks the user to correct the parcel/PIN/address. AutoMap does not zoom to a countywide fallback and does not pretend a selected parcel map is ready.
 
 ## Analysis
 
-Analysis remains optional. For basic parcel context maps, the workflow says analysis is not needed unless the reviewer asks for an operation such as intersection, proximity, or summary execution. Any execution still goes through existing safety limits and blocked/refinement behavior.
+Analysis remains optional. For basic parcel context maps, the composer does not send the user to Analysis. Analysis is suggested only when the prompt asks to select, intersect, summarize, count, measure, or calculate, or when the reviewer clicks an analysis action manually.
 
 ## Export
 
-The workflow can create local review packets and local report/export artifacts. These are draft review files only. They are not official print maps, do not publish to ArcGIS, and do not require ArcGIS login.
+The composer can create local review packets and local report/export artifacts. These are draft review files only. They are not official print maps, do not publish to ArcGIS, and do not require ArcGIS login.
 
 ## Boundaries
 

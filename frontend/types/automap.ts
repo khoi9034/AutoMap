@@ -897,6 +897,8 @@ export type PreviewLayer = {
   review_warnings?: string[];
   derived_local_analysis?: boolean;
   analysis_run_id?: string | null;
+  display_role?: string;
+  draw_order?: number;
 };
 
 export type PreviewConfig = {
@@ -937,6 +939,70 @@ export type WorkflowRunResponse = {
   analysis_not_needed?: boolean;
   draft_only?: boolean;
   published?: boolean;
+};
+
+export type ComposerLayerAdjustment = {
+  layer_key?: string;
+  title?: string;
+  visibility?: boolean;
+  opacity?: number;
+  role?: string;
+  showLegend?: boolean;
+  remove_layer?: boolean;
+  definition_expression?: string;
+};
+
+export type ComposerAdjustPayload = {
+  composer_session_id: string;
+  map_title?: string;
+  map_description?: string;
+  notes?: string;
+  layer_order?: string[];
+  layers?: ComposerLayerAdjustment[];
+};
+
+export type ComposerExport = {
+  report_id?: string;
+  report_path?: string;
+  report_title?: string;
+  files?: ReportFileLink[];
+  validation?: {
+    is_valid?: boolean;
+    errors?: string[];
+    warnings?: string[];
+  };
+};
+
+export type ComposerResponse = {
+  composer_session_id?: string;
+  raw_prompt?: string;
+  map_title?: string;
+  recipe?: MapRecipe;
+  webmap_json?: Record<string, JsonValue>;
+  preview_config?: PreviewConfig | null;
+  selected_layers?: SelectedLayer[];
+  warnings?: string[];
+  missing_data?: string[];
+  parcel_context?: ParcelContext;
+  can_preview?: boolean;
+  can_analyze?: boolean;
+  can_report?: boolean;
+  preview_blockers?: string[];
+  next_action?: string;
+  review_packet_id?: string | null;
+  review_packet_path?: string | null;
+  adjusted_packet_id?: string | null;
+  adjusted_packet_path?: string | null;
+  packet_id?: string | null;
+  packet_path?: string | null;
+  preview_url?: string | null;
+  webmap_path?: string | null;
+  composer_session_path?: string | null;
+  applied_adjustments?: Record<string, JsonValue>;
+  export?: ComposerExport | null;
+  draft_only?: boolean;
+  published?: boolean;
+  created_at?: string;
 };
 
 export type DataGap = {

@@ -1,6 +1,6 @@
 # Parcel-Focused Preview
 
-AutoMap v3.2 fixes parcel-centered preview behavior so a parcel prompt cannot silently fall back to a broad county/context map.
+AutoMap v3.3 keeps parcel-centered preview behavior strict inside Map Composer. A parcel prompt cannot silently fall back to a broad county/context map.
 
 ## Preview Readiness
 
@@ -17,7 +17,7 @@ Every parcel-centered recipe includes a `parcel_context` block with:
 - `preview_status`
 - `analysis_status`
 
-If `can_focus_map=false`, preview status is `blocked_until_parcel_matched`. The frontend shows a large warning instead of the broad map iframe.
+If `can_focus_map=false`, preview status is `blocked_until_parcel_matched`. `/map-composer` and `/map-preview` show a large warning instead of the broad map iframe.
 
 ## Matched Parcels
 
@@ -35,7 +35,7 @@ It then computes:
 - `focus_mode = parcel`
 - selected parcel GeoJSON metadata for the layer panel
 
-The selected parcel layer is drawn above context layers when local preview rendering supports it.
+The selected parcel layer is drawn above context layers when local preview rendering supports it. Context layers are still shown as reference layers, but the extent is focused on the selected parcel buffer.
 
 ## Unmatched Parcels
 
@@ -49,6 +49,8 @@ When a parcel/PIN/address is unmatched:
 - no countywide Tax Parcels extent is used as a fake parcel extent
 
 The user is asked to correct the parcel ID, PIN, or address before focused preview or analysis can continue.
+
+Map Composer returns `can_preview=false`, `next_action=correct_parcel_identifier`, and clear `preview_blockers` for this case.
 
 ## Context Layers
 

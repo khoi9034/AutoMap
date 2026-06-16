@@ -3,6 +3,11 @@ import Link from "next/link";
 import { navigationItems } from "@/components/navigation";
 
 export function Sidebar() {
+  const grouped = ["Main", "Advanced"].map((group) => ({
+    group,
+    items: navigationItems.filter((item) => (item.group || "Main") === group),
+  }));
+
   return (
     <aside className="sidebar">
       <div className="brand-block">
@@ -13,10 +18,15 @@ export function Sidebar() {
         </div>
       </div>
       <nav className="nav-list" aria-label="AutoMap workflow navigation">
-        {navigationItems.map((item) => (
-          <Link key={item.href} href={item.href} className="nav-link">
-            {item.label}
-          </Link>
+        {grouped.map((section) => (
+          <div className="nav-section" key={section.group}>
+            <p className="nav-section-label">{section.group}</p>
+            {section.items.map((item) => (
+              <Link key={item.href} href={item.href} className="nav-link">
+                {item.label}
+              </Link>
+            ))}
+          </div>
         ))}
       </nav>
     </aside>

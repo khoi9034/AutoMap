@@ -131,7 +131,7 @@ export function ArcGISMapPreview({ packetId }: ArcGISMapPreviewProps) {
                 </div>
               ) : null}
               <div className="button-row">
-                <Link className="button" href="/workflow">
+                <Link className="button" href="/map-composer">
                   Try another parcel/PIN/address
                 </Link>
                 <Link className="button button-secondary" href="/parcel-workspace">

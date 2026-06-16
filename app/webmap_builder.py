@@ -21,6 +21,16 @@ POINT_GEOMETRIES = {"esrigeometrypoint", "esrigeometrymultipoint"}
 LINE_GEOMETRIES = {"esrigeometrypolyline"}
 POLYGON_GEOMETRIES = {"esrigeometrypolygon"}
 PROTECTED_TEXT_MARKERS = {"cfs", "cfs_dev"}
+GEOGRAPHY_REVIEW_EXTENTS = {
+    "cabarrus county": {"xmin": -80.86, "ymin": 35.15, "xmax": -80.32, "ymax": 35.55, "spatialReference": {"wkid": 4326}},
+    "countywide": {"xmin": -80.86, "ymin": 35.15, "xmax": -80.32, "ymax": 35.55, "spatialReference": {"wkid": 4326}},
+    "concord": {"xmin": -80.72, "ymin": 35.30, "xmax": -80.46, "ymax": 35.49, "spatialReference": {"wkid": 4326}},
+    "harrisburg": {"xmin": -80.70, "ymin": 35.27, "xmax": -80.56, "ymax": 35.38, "spatialReference": {"wkid": 4326}},
+    "kannapolis": {"xmin": -80.73, "ymin": 35.43, "xmax": -80.55, "ymax": 35.56, "spatialReference": {"wkid": 4326}},
+    "midland": {"xmin": -80.58, "ymin": 35.20, "xmax": -80.44, "ymax": 35.32, "spatialReference": {"wkid": 4326}},
+    "mount pleasant": {"xmin": -80.48, "ymin": 35.34, "xmax": -80.36, "ymax": 35.45, "spatialReference": {"wkid": 4326}},
+    "locust": {"xmin": -80.45, "ymin": 35.21, "xmax": -80.35, "ymax": 35.31, "spatialReference": {"wkid": 4326}},
+}
 
 
 def _as_list(value: Any) -> list[Any]:
@@ -257,6 +267,34 @@ def _opacity_for_layer(layer: dict[str, Any]) -> float:
     return 0.75
 
 
+def _display_role_for_layer(layer: dict[str, Any]) -> str:
+    source_role = str(layer.get("source_role") or layer.get("source_status") or "").lower()
+    category = layer.get("category")
+    role = layer.get("role")
+    if category == "parcel" and role in {"base_layer", "target_layer", None}:
+        return "target"
+    if role == "constraint_overlay" or category == "flood":
+        return "constraint"
+    if category in {"jurisdiction", "boundary"} or role in {"jurisdiction_filter", "boundary_filter"}:
+        return "context"
+    if category in {"transportation", "transportation_projects", "schools", "zoning"}:
+        return "context"
+    if "proxy" in source_role:
+        return "proxy"
+    if "reference" in source_role:
+        return "reference"
+    return "context"
+
+
+def _visibility_for_layer(layer: dict[str, Any], recipe_context: dict[str, Any] | None = None) -> bool:
+    recipe = (recipe_context or {}).get("recipe") or {}
+    historical_requested = bool(recipe.get("parsed_request", {}).get("historical_year"))
+    source_status = str(layer.get("source_status") or "").lower()
+    if "historical" in source_status and not historical_requested:
+        return False
+    return True
+
+
 def build_definition_expression(filter_plan_entry: dict[str, Any] | None) -> str | None:
     """Return only the definition expression drafted by the v0.3 filter plan."""
     if not filter_plan_entry:
@@ -332,7 +370,7 @@ def build_operational_layer(
             "serviceUrl": service_url,
             "layerUrl": layer_url,
             "layerType": _webmap_layer_type(selected_layer),
-            "visibility": True,
+            "visibility": _visibility_for_layer(selected_layer, recipe_context),
             "opacity": _opacity_for_layer(selected_layer),
             "itemId": selected_layer.get("service_item_id"),
             "layerId": layer_id,
@@ -351,6 +389,7 @@ def build_operational_layer(
             "autoMapCoverageGeography": selected_layer.get("coverage_geography"),
             "autoMapGapSupport": selected_layer.get("gap_support"),
             "autoMapSourcePriority": selected_layer.get("source_priority"),
+            "autoMapDisplayRole": _display_role_for_layer(selected_layer),
         }
     )
     if definition_expression:
@@ -411,6 +450,7 @@ def build_derived_analysis_layer(output: dict[str, Any], index: int = 0) -> dict
             "This GeoJSON was not published or uploaded to ArcGIS.",
         ],
         "autoMapDerivedAnalysis": True,
+        "autoMapDisplayRole": "selected_result",
         "autoMapAnalysisRunId": output.get("analysis_run_id"),
     }
 
@@ -465,6 +505,15 @@ def _catalog_extent_for_requested_geography(recipe: dict[str, Any]) -> dict[str,
     return None
 
 
+def _approximate_extent_for_requested_geography(recipe: dict[str, Any]) -> dict[str, Any] | None:
+    geographies = recipe.get("parsed_request", {}).get("geography_terms") or []
+    for geography in geographies:
+        name = str(geography.get("name") or "").lower()
+        if name in GEOGRAPHY_REVIEW_EXTENTS:
+            return dict(GEOGRAPHY_REVIEW_EXTENTS[name])
+    return None
+
+
 def build_initial_extent(recipe: dict[str, Any]) -> dict[str, Any]:
     """Choose an initial map extent from metadata only, never feature geometry."""
     selected_layers = recipe.get("selected_layers") or []
@@ -481,6 +530,10 @@ def build_initial_extent(recipe: dict[str, Any]) -> dict[str, Any]:
 
     if suggested_extent:
         return suggested_extent
+
+    extent = _approximate_extent_for_requested_geography(recipe)
+    if extent:
+        return extent
 
     extent = _extent_from_layers(selected_layers, prefer_boundary=prefer_boundary)
     if extent:
@@ -538,6 +591,8 @@ def build_webmap_json(recipe: dict[str, Any]) -> dict[str, Any]:
             derived_layer = build_derived_analysis_layer(output, index=index)
             if derived_layer:
                 operational_layers.append(derived_layer)
+    for draw_order, layer in enumerate(operational_layers):
+        layer["autoMapDrawOrder"] = draw_order
     extent_recipe = {**recipe, "selected_layers": ordered_layers}
     initial_extent = build_initial_extent(extent_recipe)
     spatial_reference = _first_spatial_reference(ordered_layers, initial_extent)

@@ -172,6 +172,44 @@ def test_simplified_workflow_page_guides_preview_and_blocks_fake_parcels():
     assert "publish-draft-webmap" not in client.lower()
 
 
+def test_map_composer_is_primary_simple_workflow():
+    navigation = read("components/navigation.ts")
+    sidebar = read("components/sidebar.tsx")
+    page = read("app/map-composer/page.tsx")
+    client = read("components/map-composer-client.tsx")
+    print_page = read("app/map-composer/[sessionId]/print/page.tsx")
+    print_client = read("components/composer-print-client.tsx")
+    api = read("lib/api.ts")
+    types = read("types/automap.ts")
+
+    assert 'href: "/map-composer"' in navigation
+    assert 'label: "Map Composer"' in navigation
+    assert 'group: "Main"' in navigation
+    assert 'group: "Advanced"' in navigation
+    assert "nav-section-label" in sidebar
+    assert "MapComposerClient" in page
+    assert "Prompt to preview to print" in client
+    assert "Generate Draft Map" in client
+    assert "Preview Map" in client
+    assert "Adjust Map" in client
+    assert "Apply Adjustments" in client
+    assert "Generate Review Report" in client
+    assert "Export WebMap JSON" in client
+    assert "Print Draft Map" in client
+    assert "Parcel not matched" in client
+    assert "Analysis is optional" in client
+    assert "ComposerPrintClient" in print_page
+    assert "Not an official print map" in print_client
+    assert "generateComposerDraft" in api
+    assert '"/api/composer/generate"' in api
+    assert '"/api/composer/adjust"' in api
+    assert '"/api/composer/export"' in api
+    assert "ComposerResponse" in types
+    assert "ComposerAdjustPayload" in types
+    assert "confirm-publish" not in client.lower()
+    assert "publish-draft-webmap" not in client.lower()
+
+
 def test_layer_panel_renders_review_metadata_without_assuming_layer_zero():
     source = read("components/layer-panel.tsx")
 
@@ -257,7 +295,7 @@ def test_api_client_has_timeout_and_sanitized_fallback_version():
     assert "Backend is online, but this request took too long" in source
     assert "http://127.0.0.1:8010" in source
     assert "timeoutMs: 60000" in source
-    assert 'version: "3.2.0"' in source
+    assert 'version: "3.3.0"' in source
     assert "redactProtected" in source
     assert "AutoMap is checking the catalog, parcel fields, and context layers" in map_request
 

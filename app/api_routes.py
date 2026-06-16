@@ -59,6 +59,12 @@ from app.feedback_learning import (
     record_recipe_feedback,
 )
 from app.layer_catalog_store import search_layers
+from app.map_composer import (
+    apply_composer_adjustments,
+    export_composer_session,
+    generate_composer_draft,
+    get_composer_session,
+)
 from app.packet_index import (
     build_preview_config,
     find_latest_packet,
@@ -128,6 +134,36 @@ class PromptRequest(BaseModel):
     """Prompt payload from the frontend."""
 
     prompt: str
+
+
+class ComposerAdjustLayerPayload(BaseModel):
+    """Simple per-layer composer adjustment payload."""
+
+    layer_key: str | None = None
+    title: str | None = None
+    visibility: bool | None = None
+    opacity: float | None = None
+    role: str | None = None
+    showLegend: bool | None = None
+    remove_layer: bool | None = None
+    definition_expression: str | None = None
+
+
+class ComposerAdjustRequest(BaseModel):
+    """Simple composer adjustment payload from the frontend."""
+
+    composer_session_id: str
+    map_title: str | None = None
+    map_description: str | None = None
+    notes: str | None = None
+    layer_order: list[str] = Field(default_factory=list)
+    layers: list[ComposerAdjustLayerPayload] = Field(default_factory=list)
+
+
+class ComposerSessionRequest(BaseModel):
+    """Composer session id payload."""
+
+    composer_session_id: str
 
 
 class ClarificationAnswerPayload(BaseModel):
@@ -1220,6 +1256,79 @@ def api_workflow_run(payload: PromptRequest) -> Any:
             "can_analyze": result.get("can_analyze"),
             "parcel_match_status": (result.get("parcel_context") or {}).get("match_status"),
         },
+    )
+    return _json_response(result)
+
+
+@api_router.post("/composer/generate")
+def api_composer_generate(payload: PromptRequest) -> Any:
+    """Generate a simple prompt-to-preview composer draft."""
+    try:
+        result = generate_composer_draft(payload.prompt)
+    except ValueError as exc:
+        raise _handle_value_error(exc) from exc
+    _record_history_safely(
+        raw_prompt=payload.prompt,
+        workflow_step="map_composer",
+        map_title=result.get("map_title"),
+        status=result.get("next_action"),
+        packet_path=result.get("packet_path"),
+        notes={
+            "composer_session_id": result.get("composer_session_id"),
+            "can_preview": result.get("can_preview"),
+            "preview_blockers": result.get("preview_blockers"),
+        },
+    )
+    return _json_response(result)
+
+
+@api_router.get("/composer/{composer_session_id}")
+def api_composer_session(composer_session_id: str) -> Any:
+    """Return a saved map composer session."""
+    try:
+        return _json_response(get_composer_session(composer_session_id))
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise _handle_value_error(exc) from exc
+
+
+@api_router.post("/composer/adjust")
+def api_composer_adjust(payload: ComposerAdjustRequest) -> Any:
+    """Apply simple UI adjustments to a composer draft."""
+    try:
+        result = apply_composer_adjustments(payload.composer_session_id, payload.model_dump(exclude_none=True))
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise _handle_value_error(exc) from exc
+    _record_history_safely(
+        raw_prompt=result.get("raw_prompt"),
+        workflow_step="map_composer_adjusted",
+        map_title=result.get("map_title"),
+        status=result.get("next_action"),
+        packet_path=result.get("packet_path"),
+        notes={"composer_session_id": result.get("composer_session_id")},
+    )
+    return _json_response(result)
+
+
+@api_router.post("/composer/export")
+def api_composer_export(payload: ComposerSessionRequest) -> Any:
+    """Generate local draft report/export files for a composer session."""
+    try:
+        result = export_composer_session(payload.composer_session_id)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise _handle_value_error(exc) from exc
+    _record_history_safely(
+        raw_prompt=result.get("raw_prompt"),
+        workflow_step="map_composer_export",
+        map_title=result.get("map_title"),
+        status=result.get("next_action"),
+        packet_path=result.get("packet_path"),
+        notes={"composer_session_id": result.get("composer_session_id"), "export": result.get("export")},
     )
     return _json_response(result)
 

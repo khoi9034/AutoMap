@@ -2,11 +2,11 @@
 
 AutoMap converts plain-English county GIS map requests into structured map recipes using only approved GIS layers from a local layer catalog.
 
-Version: `3.2.0`
+Version: `3.3.0`
 
 ## Current Phase
 
-v3.2 Simplified Workflow and Parcel-Focused Preview on top of proximity, real parcel lookup, parcel workspace, scenario workbench, planning scenario and suitability intelligence, development/transportation source intelligence, real source verification, data gap resolution, analysis summary reporting, and user-guided safe spatial analysis refinement.
+v3.3 Simple Map Composer Workflow and True Preview Behavior on top of proximity, real parcel lookup, parcel workspace, scenario workbench, planning scenario and suitability intelligence, development/transportation source intelligence, real source verification, data gap resolution, analysis summary reporting, and user-guided safe spatial analysis refinement.
 
 This repository is intentionally independent. It does not connect to CFS or import CFS code. AutoMap uses its own local PostGIS database and trusted layer catalog.
 
@@ -44,7 +44,8 @@ AutoMap helps GIS and planning staff turn plain-English county map requests into
 - scenario workbench variants, reviewer weight tuning, scenario comparison, and scenario-to-recipe conversion
 - real parcel lookup for PIN/PIN14/parcel ID/address inputs, selected parcel GeoJSON output, context overlays, and local parcel reports
 - proximity, nearest-facility, containing-district, and straight-line route draft workflows with local GeoJSON/report outputs
-- guided prompt-to-preview workflow with parcel-focused preview blocking until a parcel is matched
+- simple Map Composer workflow for prompt, preview, adjustment, and print/export
+- parcel-focused preview blocking until a parcel is matched
 
 ## What AutoMap Does Not Do Yet
 
@@ -86,6 +87,7 @@ ArcGIS publishing and smoke testing remain dry-run by default unless a guarded C
 30. v3.0 real parcel lookup and selected parcel context maps
 31. v3.1 proximity, nearest facility, and route drafts
 32. v3.2 simplified workflow and parcel-focused preview
+33. v3.3 simple map composer workflow and true preview behavior
 
 ## Project Structure
 
@@ -490,13 +492,15 @@ Nearest-facility searches use bounded distance rings and candidate caps. Road-ne
 
 See `docs/proximity_nearest_facility.md` and `docs/route_drafts.md`.
 
-## Simplified Workflow And Parcel-Focused Preview
+## Simple Map Composer And True Preview Behavior
 
-AutoMap v3.2 adds a guided `/workflow` page for the normal local path:
+AutoMap v3.3 makes `/map-composer` the primary local path:
 
 ```text
-Prompt -> Recipe -> Map Preview -> Adjust -> Analysis/Report -> Print/Export
+Prompt -> Generate Draft Map -> Preview Map -> Adjust Map -> Preview Adjusted Map -> Print/Export
 ```
+
+Composer generation runs request intelligence, builds the recipe, builds local WebMap JSON, creates a review packet behind the scenes when preview is valid, and returns one clean response to the frontend. The normal user does not need to jump through Recipe Review, Analysis, Approval, or Publish Center for a basic map request.
 
 For parcel-centered prompts, AutoMap now requires a real parcel/PIN/address match before showing a focused parcel preview. If a parcel is unmatched, the recipe keeps the draft layer plan but marks `can_focus_map=false`, blocks parcel-focused preview/analysis, shows `Parcel not matched`, and asks the user to correct the identifier. It does not zoom to a broad county map as if the parcel were selected.
 
@@ -505,10 +509,10 @@ When a parcel is safely matched, AutoMap fetches only the matched parcel geometr
 Open:
 
 ```text
-http://localhost:3010/workflow
+http://localhost:3010/map-composer
 ```
 
-See `docs/simplified_workflow.md` and `docs/parcel_focused_preview.md`.
+See `docs/simple_map_composer.md`, `docs/map_preview_behavior.md`, `docs/simplified_workflow.md`, and `docs/parcel_focused_preview.md`.
 
 ## ArcGIS WebMap Draft Generator
 
@@ -759,6 +763,7 @@ Prompt -> Parser -> Layer Matcher -> Recipe Engine
        -> Source Coverage And Transportation/Development Intelligence
        -> Real Parcel Lookup And Selected Parcel Context Maps
        -> Simplified Workflow And Parcel-Focused Preview
+       -> Simple Map Composer And True Preview Behavior
 ```
 
 The trusted source for layer selection is `automap.layer_catalog`. Generated artifacts live under `outputs/`, which is ignored by Git.
@@ -772,6 +777,8 @@ See:
 - `docs/frontend_app_shell.md`
 - `docs/frontend_ux_design.md`
 - `docs/map_preview_frontend.md`
+- `docs/simple_map_composer.md`
+- `docs/map_preview_behavior.md`
 - `docs/report_export_center.md`
 - `docs/spatial_analysis_execution.md`
 - `docs/spatial_query_optimizer.md`
