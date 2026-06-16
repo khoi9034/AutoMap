@@ -61,9 +61,13 @@ def test_recipe_for_fake_parcel_prompt_returns_metadata_only():
     parcel_context = recipe["parcel_context"]
     assert parcel_context["input_type"] == "pin"
     assert parcel_context["parsed_identifiers"][0]["value"] == "5528-12-3456"
-    assert parcel_context["matched_count"] is None
-    assert parcel_context["parcel_extent"]["type"] == "parcel_workspace_required"
-    assert "geometry_output_path" not in json.dumps(recipe).lower()
+    assert parcel_context["matched_count"] == 0
+    assert parcel_context["can_focus_map"] is False
+    assert parcel_context["can_fetch_geometry"] is False
+    assert parcel_context["preview_status"] == "blocked_until_parcel_matched"
+    assert parcel_context["analysis_status"] == "blocked_until_parcel_matched"
+    assert parcel_context["parcel_extent"]["type"] == "blocked_until_parcel_matched"
+    assert parcel_context["selected_parcel_geojson_path"] is None
     assert recipe["needs_review"] is True
     assert recipe["recipe_timing"]["total_ms"] >= 0
 

@@ -484,12 +484,22 @@ export type ParcelSet = {
 export type ParcelContext = {
   parcel_set_id?: string | null;
   input_type?: string;
+  raw_input?: string;
   parsed_identifiers?: ParcelIdentifier[];
+  match_status?: "matched" | "partial" | "unmatched" | "needs_review" | string;
   matched_count?: number | null;
   unmatched_identifiers?: ParcelIdentifier[];
   candidate_matches?: ParcelMatchSummary[];
   matched_parcels_summary?: ParcelMatchSummary[];
   parcel_extent?: Record<string, JsonValue>;
+  parcel_buffer_extent?: Record<string, JsonValue> | null;
+  can_focus_map?: boolean;
+  can_fetch_geometry?: boolean;
+  reason_if_not_focusable?: string | null;
+  preview_status?: string;
+  analysis_status?: string;
+  focus_mode?: string;
+  selected_parcel_geojson_path?: string | null;
   context_layers?: SelectedLayer[];
   nearby_distance?: string | null;
   geometry_output_path?: string | null;
@@ -892,6 +902,7 @@ export type PreviewLayer = {
 export type PreviewConfig = {
   map_title?: string;
   original_prompt?: string;
+  initial_extent?: Record<string, JsonValue>;
   operational_layers?: PreviewLayer[];
   warnings?: Record<string, JsonValue>;
   missing_data?: string[];
@@ -900,7 +911,32 @@ export type PreviewConfig = {
   packet_path?: string;
   webmap_path?: string;
   draft_status?: string;
+  parcel_context?: ParcelContext;
+  preview_status?: string;
+  focus_mode?: string;
+  can_focus_map?: boolean | null;
+  parcel_preview_blocked?: boolean;
   preview_only?: boolean;
+};
+
+export type WorkflowRunResponse = {
+  workflow_id?: string;
+  recipe_id?: string;
+  prompt?: string;
+  recipe?: MapRecipe;
+  parcel_context?: ParcelContext;
+  selected_layers?: SelectedLayer[];
+  warnings?: string[];
+  missing_data_needed?: string[];
+  packet_id?: string | null;
+  preview_url?: string | null;
+  can_preview?: boolean;
+  can_analyze?: boolean;
+  can_report?: boolean;
+  next_recommended_action?: string;
+  analysis_not_needed?: boolean;
+  draft_only?: boolean;
+  published?: boolean;
 };
 
 export type DataGap = {

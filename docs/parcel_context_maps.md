@@ -4,6 +4,8 @@ Parcel context maps focus a draft map recipe around a matched parcel set instead
 
 When selected parcel GeoJSON has been safely generated, the context map title becomes `Selected Parcels Context Map` and the recipe includes a local derived layer for the selected parcels.
 
+If a parcel/PIN/address is not matched, AutoMap keeps the draft recipe but blocks parcel-focused preview and analysis. It does not use a broad Tax Parcels extent as a fallback selected parcel map.
+
 ## Supported Context Layers
 
 Core context:
@@ -48,12 +50,19 @@ Parcel-centered recipes include:
     "input_type": "pin",
     "parsed_identifiers": [],
     "matched_count": 1,
+    "match_status": "matched",
+    "can_focus_map": true,
+    "can_fetch_geometry": true,
+    "preview_status": "ready_for_parcel_focus",
+    "analysis_status": "available_if_explicitly_requested",
     "unmatched_identifiers": [],
     "matched_parcels_summary": [],
     "candidate_matches": [],
     "parcel_extent": {},
+    "parcel_buffer_extent": {},
     "context_layers": [],
     "nearby_distance": "0.25 miles",
+    "selected_parcel_geojson_path": "outputs/parcel_context/.../selected_parcels.geojson",
     "geometry_output_path": "outputs/parcel_context/.../selected_parcels.geojson",
     "parcel_warnings": []
   }
@@ -61,6 +70,8 @@ Parcel-centered recipes include:
 ```
 
 The recipe also preserves `source_coverage`, `missing_data_needed`, proxy warnings, limited coverage warnings, and draft-only review reasons.
+
+For unmatched identifiers, `can_focus_map=false`, `can_fetch_geometry=false`, `preview_status=blocked_until_parcel_matched`, and `selected_parcel_geojson_path=null`.
 
 ## Reports
 

@@ -105,6 +105,7 @@ from app.system_status import get_system_status
 from app.source_discovery import discover_sources, verify_all_external_sources, verify_external_source
 from app.ui_models import output_file_url, repo_root
 from app.webmap_exporter import export_recipe_and_webmap
+from app.workflow_runner import run_prompt_workflow
 
 
 api_router = APIRouter(prefix="/api")
@@ -1199,6 +1200,28 @@ def api_preview_config(packet_id: str) -> Any:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except ValueError as exc:
         raise _handle_value_error(exc) from exc
+
+
+@api_router.post("/workflow/run")
+def api_workflow_run(payload: PromptRequest) -> Any:
+    """Run the simplified guided workflow through recipe planning only."""
+    try:
+        result = run_prompt_workflow(payload.prompt)
+    except ValueError as exc:
+        raise _handle_value_error(exc) from exc
+    _record_history_safely(
+        raw_prompt=payload.prompt,
+        workflow_step="workflow_recipe",
+        map_title=(result.get("recipe") or {}).get("map_title"),
+        status=result.get("next_recommended_action"),
+        notes={
+            "workflow_id": result.get("workflow_id"),
+            "can_preview": result.get("can_preview"),
+            "can_analyze": result.get("can_analyze"),
+            "parcel_match_status": (result.get("parcel_context") or {}).get("match_status"),
+        },
+    )
+    return _json_response(result)
 
 
 @api_router.post("/recipe")

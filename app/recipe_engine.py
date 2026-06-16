@@ -4,18 +4,28 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from time import perf_counter
+from pathlib import Path
 from typing import Any
 
 from app.data_gap_registry import upsert_data_gaps_from_recipe
 from app.data_gap_resolver import safe_gap_context_for_recipe
 from app.default_suggester import build_learned_context
 from app.filter_planner import build_filter_plan, validate_filter_plan
+from app.geometry_utils import buffer_extent, geojson_extent
 from app.layer_matcher import match_layers
+from app.parcel_context_engine import create_parcel_set, fetch_selected_parcels
 from app.parcel_input_parser import parse_parcel_input
 from app.prompt_parser import parse_prompt
 from app.recipe_models import rejected_layer_from_match, selected_layer_from_match
 from app.request_intelligence import build_request_intelligence
 from app.source_usage_intelligence import build_source_coverage, enrich_selected_layers_with_source_usage
+from app.ui_models import output_file_url, repo_root
+
+
+PARCEL_NOT_MATCHED_WARNING = (
+    "This parcel ID was not matched. AutoMap cannot zoom to or analyze the parcel until a valid "
+    "parcel/PIN/address is provided."
+)
 
 
 def _elapsed_ms(start: float) -> int:
@@ -157,27 +167,158 @@ def _suggested_extent(parsed_request: dict[str, Any]) -> dict[str, Any]:
     return {"type": "countywide", "value": "Cabarrus County", "notes": "Default countywide extent."}
 
 
-def _parcel_context_from_prompt(prompt: str) -> dict[str, Any] | None:
-    parsed = parse_parcel_input(prompt)
-    if not parsed.get("parcel_intent"):
+def _local_output_path(path: str | None) -> Path | None:
+    if not path:
         return None
+    candidate = Path(path)
+    if candidate.is_absolute():
+        return candidate
+    return repo_root() / candidate
+
+
+def _selected_parcel_derived_output(parcel_context: dict[str, Any]) -> dict[str, Any] | None:
+    path = parcel_context.get("selected_parcel_geojson_path") or parcel_context.get("geometry_output_path")
+    if not path:
+        return None
+    return {
+        "type": "selected_parcels_geojson",
+        "path": path,
+        "url": output_file_url(path),
+        "title": "Selected Parcel",
+        "layer_key": f"derived_selected_parcel_{parcel_context.get('parcel_set_id') or 'parcel_context'}",
+        "analysis_run_id": None,
+        "review_notes": [
+            "Selected parcel GeoJSON is a local draft output and was not published.",
+            "Layer is shown as reference; map extent is focused on selected parcel.",
+        ],
+    }
+
+
+def _base_unmatched_parcel_context(parsed: dict[str, Any], *, reason: str = PARCEL_NOT_MATCHED_WARNING) -> dict[str, Any]:
     identifiers = [*(parsed.get("parsed_identifiers") or []), *(parsed.get("address_candidates") or [])]
     return {
         "parcel_set_id": None,
         "input_type": parsed.get("input_type"),
         "parsed_identifiers": identifiers,
-        "matched_count": None,
-        "unmatched_identifiers": [],
+        "match_status": "needs_review",
+        "matched_count": 0,
+        "unmatched_identifiers": identifiers,
+        "candidate_matches": [],
         "matched_parcels_summary": [],
+        "can_focus_map": False,
+        "can_fetch_geometry": False,
+        "reason_if_not_focusable": reason,
+        "preview_status": "blocked_until_parcel_matched",
+        "analysis_status": "blocked_until_parcel_matched",
+        "focus_mode": "parcel",
         "parcel_extent": {
-            "type": "parcel_workspace_required",
+            "type": "blocked_until_parcel_matched",
             "value": None,
-            "notes": "Use the Parcel Workspace to safely match parcel identifiers before geometry retrieval.",
+            "notes": reason,
         },
+        "parcel_buffer_extent": None,
+        "selected_parcel_geojson_path": None,
         "context_layers": [],
         "nearby_distance": None,
-        "parcel_warnings": parsed.get("warnings") or [],
+        "parcel_warnings": [reason, *(parsed.get("warnings") or [])],
     }
+
+
+def _matched_parcel_context_from_set(
+    parcel_set: dict[str, Any],
+    *,
+    raw_prompt: str,
+    fetch_geometry: bool,
+) -> dict[str, Any]:
+    matched_count = int(parcel_set.get("matched_count") or len(parcel_set.get("matched_parcels") or []))
+    match_status = str(parcel_set.get("match_status") or ("matched" if matched_count else "unmatched"))
+    warnings = [str(item) for item in parcel_set.get("warnings") or [] if item]
+    can_fetch_geometry = match_status == "matched" and 0 < matched_count <= 100
+    geometry_result: dict[str, Any] = {}
+    if can_fetch_geometry and fetch_geometry:
+        try:
+            geometry_result = fetch_selected_parcels(str(parcel_set["parcel_set_id"]))
+            warnings.extend(str(item) for item in geometry_result.get("warnings") or [] if item)
+        except Exception as exc:
+            warnings.append(f"Selected parcel geometry could not be fetched safely: {exc}")
+
+    geometry_path = geometry_result.get("geometry_output_path") or parcel_set.get("geometry_output_path")
+    extent = None
+    buffered = None
+    output_path = _local_output_path(str(geometry_path) if geometry_path else None)
+    if output_path and output_path.exists():
+        extent = geojson_extent(output_path)
+        buffered = buffer_extent(extent)
+
+    can_focus_map = bool(extent and buffered)
+    if matched_count < 1:
+        reason = PARCEL_NOT_MATCHED_WARNING
+    elif match_status != "matched":
+        reason = "Parcel match needs review before AutoMap can focus the map or fetch selected parcel geometry."
+    elif not can_fetch_geometry:
+        reason = "Matched parcel count exceeds selected parcel geometry safety limits; split the parcel set."
+    elif not can_focus_map:
+        reason = "Parcel matched, but selected parcel geometry is not available for focused preview yet."
+    else:
+        reason = None
+
+    if reason:
+        warnings.append(reason)
+
+    return {
+        "parcel_set_id": parcel_set.get("parcel_set_id"),
+        "input_type": parcel_set.get("input_type"),
+        "raw_input": parcel_set.get("raw_input") or raw_prompt,
+        "parsed_identifiers": parcel_set.get("parsed_identifiers") or [],
+        "match_status": match_status,
+        "matched_count": matched_count,
+        "unmatched_identifiers": parcel_set.get("unmatched_identifiers") or [],
+        "candidate_matches": parcel_set.get("candidate_matches") or [],
+        "matched_parcels_summary": parcel_set.get("matched_parcels") or [],
+        "can_focus_map": can_focus_map,
+        "can_fetch_geometry": can_fetch_geometry,
+        "reason_if_not_focusable": reason,
+        "preview_status": "ready_for_parcel_focus" if can_focus_map else "blocked_until_parcel_matched",
+        "analysis_status": "available_if_explicitly_requested" if can_focus_map else "blocked_until_parcel_matched",
+        "focus_mode": "parcel",
+        "parcel_extent": extent
+        or {
+            "type": "blocked_until_parcel_matched",
+            "value": None,
+            "notes": reason or "Parcel extent is unavailable.",
+        },
+        "parcel_buffer_extent": buffered,
+        "selected_parcel_geojson_path": geometry_path,
+        "geometry_output_path": geometry_path,
+        "geometry_receipt": geometry_result.get("receipt") or parcel_set.get("geometry_receipt") or {},
+        "context_layers": [],
+        "nearby_distance": None,
+        "parcel_warnings": sorted({warning for warning in warnings if warning}),
+    }
+
+
+def _parcel_context_from_prompt(
+    prompt: str,
+    *,
+    layer_catalog: list[dict[str, Any]] | None = None,
+    match_parcel_context: bool = False,
+    fetch_geometry: bool = True,
+) -> dict[str, Any] | None:
+    parsed = parse_parcel_input(prompt)
+    if not parsed.get("parcel_intent"):
+        return None
+    if not match_parcel_context:
+        return _base_unmatched_parcel_context(
+            parsed,
+            reason="Parcel-centered request detected; match the parcel before creating a focused preview.",
+        )
+    try:
+        parcel_set = create_parcel_set(prompt, layer_catalog=layer_catalog, persist=True)
+    except Exception as exc:
+        context = _base_unmatched_parcel_context(parsed, reason=f"Parcel matching could not complete safely: {exc}")
+        context["match_status"] = "needs_review"
+        return context
+    return _matched_parcel_context_from_set(parcel_set, raw_prompt=prompt, fetch_geometry=fetch_geometry)
 
 
 def _review_flags(
@@ -230,6 +371,8 @@ def build_recipe(
     layer_catalog: list[dict[str, Any]] | None = None,
     include_filter_intelligence: bool = True,
     persist_data_gaps: bool = True,
+    match_parcel_context: bool | None = None,
+    fetch_parcel_geometry: bool = True,
 ) -> dict[str, Any]:
     """Build a structured map recipe from a plain-English GIS request."""
     total_start = perf_counter()
@@ -247,7 +390,13 @@ def build_recipe(
     timing["parse_ms"] = _elapsed_ms(stage_start)
 
     stage_start = perf_counter()
-    parcel_context = _parcel_context_from_prompt(prompt)
+    should_match_parcel_context = layer_catalog is None if match_parcel_context is None else match_parcel_context
+    parcel_context = _parcel_context_from_prompt(
+        prompt,
+        layer_catalog=layer_catalog,
+        match_parcel_context=should_match_parcel_context,
+        fetch_geometry=fetch_parcel_geometry,
+    )
     timing["parcel_context_ms"] = _elapsed_ms(stage_start)
 
     stage_start = perf_counter()
@@ -318,14 +467,19 @@ def build_recipe(
         recipe["review_reasons"] = sorted(
             set(
                 [
-                    *recipe["review_reasons"],
-                    "Parcel-centered request detected; use Parcel Workspace for safe identifier matching.",
+            *recipe["review_reasons"],
+                    parcel_context.get("reason_if_not_focusable")
+                    or "Parcel-centered request detected; focused preview requires a matched parcel.",
                     *parcel_context.get("parcel_warnings", []),
                 ]
             )
         )
         recipe["needs_review"] = True
-        if recipe["suggested_extent"]["type"] == "countywide":
+        recipe["preview_status"] = parcel_context.get("preview_status")
+        if parcel_context.get("can_focus_map") and parcel_context.get("parcel_buffer_extent"):
+            recipe["suggested_extent"] = parcel_context["parcel_buffer_extent"]
+            recipe["focus_mode"] = "parcel"
+        elif recipe["suggested_extent"]["type"] == "countywide":
             recipe["suggested_extent"] = parcel_context["parcel_extent"]
 
     if include_filter_intelligence:
@@ -354,6 +508,41 @@ def build_recipe(
             "analysis_run_id": None,
             "derived_outputs": [],
         }
+
+    if parcel_context:
+        derived_output = _selected_parcel_derived_output(parcel_context)
+        if derived_output:
+            recipe.setdefault("analysis_execution", {}).setdefault("derived_outputs", [])
+            recipe["analysis_execution"]["derived_outputs"].append(derived_output)
+        if parcel_context.get("can_focus_map"):
+            recipe["analysis_execution"].update(
+                {
+                    "analysis_status": "not_needed_for_basic_context_map",
+                    "operation_type": "parcel_context_preview",
+                    "executable": False,
+                    "supported_operations": [],
+                    "blocked_reasons": [],
+                    "recommended_execution_plan": [
+                        "Preview the selected parcel and context layers first.",
+                        "Run analysis only if the reviewer asks for intersection, proximity, or summary execution.",
+                    ],
+                }
+            )
+        else:
+            recipe["analysis_execution"].update(
+                {
+                    "analysis_status": "blocked_until_parcel_matched",
+                    "operation_type": "parcel_context_preview_blocked",
+                    "executable": False,
+                    "supported_operations": [],
+                    "blocked_reasons": [parcel_context.get("reason_if_not_focusable") or PARCEL_NOT_MATCHED_WARNING],
+                    "recommended_execution_plan": [
+                        "Correct the parcel/PIN/address.",
+                        "Match the parcel in AutoMap.",
+                        "Fetch selected parcel geometry only after a safe match count is confirmed.",
+                    ],
+                }
+            )
 
     if persist_data_gaps and recipe["missing_data_needed"]:
         upsert_data_gaps_from_recipe(recipe)

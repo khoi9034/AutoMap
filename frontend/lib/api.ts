@@ -32,6 +32,7 @@ import type {
   SelectedParcelGeometryResult,
   SourceDiscoveryResult,
   SystemStatus,
+  WorkflowRunResponse,
 } from "@/types/automap";
 
 export const API_BASE_URL =
@@ -155,7 +156,7 @@ export async function getStatusOrFallback(): Promise<SystemStatus> {
     return await getSystemStatus();
   } catch {
     return {
-      version: "3.1.0",
+      version: "3.2.0",
       database_connected: false,
       catalog: {},
       profiles: {},
@@ -620,6 +621,14 @@ export async function getPackets(): Promise<PacketsResponse> {
 
 export async function getPreviewConfig(packetId: string): Promise<PreviewConfig> {
   return apiFetch<PreviewConfig>(`/api/preview-config/${encodeURIComponent(packetId)}`);
+}
+
+export async function runWorkflow(prompt: string): Promise<WorkflowRunResponse> {
+  return apiFetch<WorkflowRunResponse>("/api/workflow/run", {
+    method: "POST",
+    timeoutMs: 60000,
+    body: JSON.stringify({ prompt }),
+  });
 }
 
 export async function getReports(): Promise<{ reports: ReportSummary[] }> {

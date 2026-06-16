@@ -392,6 +392,12 @@ def build_preview_config(packet_source: str | Path | None = None) -> dict[str, A
     recipe = get_packet_recipe_json(path)
     warnings = _packet_warnings(path, webmap_json, recipe)
     packet_type = "webmap_json" if path.is_file() else (_packet_type(path) or "unknown")
+    recipe_summary = webmap_json.get("autoMapRecipeSummary") or {}
+    parcel_context = recipe.get("parcel_context") or recipe_summary.get("parcel_context") or {}
+    preview_status = recipe.get("preview_status") or recipe_summary.get("preview_status")
+    focus_mode = recipe.get("focus_mode") or recipe_summary.get("focus_mode")
+    can_focus_map = parcel_context.get("can_focus_map") if isinstance(parcel_context, dict) else None
+    parcel_preview_blocked = bool(parcel_context and can_focus_map is False)
     config = {
         "map_title": recipe.get("map_title") or webmap_json.get("title") or "AutoMap Draft Preview",
         "original_prompt": recipe.get("user_intent") or recipe.get("parsed_request", {}).get("raw_prompt") or "",
@@ -410,6 +416,11 @@ def build_preview_config(packet_source: str | Path | None = None) -> dict[str, A
             if packet_type == "approved"
             else ("adjusted_review" if packet_type == "adjusted" else ("webmap_draft" if packet_type == "webmap_json" else "review_packet"))
         ),
+        "parcel_context": parcel_context,
+        "preview_status": preview_status,
+        "focus_mode": focus_mode,
+        "can_focus_map": can_focus_map,
+        "parcel_preview_blocked": parcel_preview_blocked,
         "publish_ready": warnings.get("publish_ready") if isinstance(warnings, dict) else None,
         "preview_only": True,
     }

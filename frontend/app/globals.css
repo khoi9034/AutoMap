@@ -905,6 +905,78 @@ button {
   margin: 6px 0 0;
 }
 
+.workflow-page-grid {
+  display: grid;
+  grid-template-columns: 320px minmax(0, 1fr) 280px;
+  gap: 16px;
+  align-items: start;
+}
+
+.workflow-prompt-panel,
+.workflow-side {
+  position: sticky;
+  top: 96px;
+}
+
+.workflow-result-column,
+.workflow-status-panel,
+.simple-step-list {
+  display: grid;
+  gap: 14px;
+}
+
+.simple-step {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f8fafc;
+  padding: 10px;
+}
+
+.simple-step span {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: #e8eef6;
+  color: #1d344d;
+  font-weight: 800;
+}
+
+.simple-step small {
+  display: block;
+  color: var(--muted);
+}
+
+.simple-step-completed {
+  border-color: #b7e0c7;
+  background: #f2fbf6;
+}
+
+.simple-step-completed span {
+  background: #d9f2e4;
+  color: var(--green);
+}
+
+.simple-step-active {
+  border-color: #8eb8e0;
+  background: #f3f8fd;
+}
+
+.simple-step-blocked {
+  border-color: #fecdca;
+  background: #fff1f0;
+}
+
+.simple-step-blocked span {
+  background: #fee4e2;
+  color: var(--red);
+}
+
 .map-preview-shell {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 310px;
@@ -957,6 +1029,28 @@ button {
   color: #1e3a5f;
   font-weight: 800;
   padding: 10px 12px;
+}
+
+.parcel-preview-blocked {
+  display: grid;
+  gap: 14px;
+  min-height: 420px;
+  align-content: center;
+  border: 1px solid #fecdca;
+  border-radius: 8px;
+  background: #fff7f6;
+  color: #5f1712;
+  padding: 28px;
+}
+
+.parcel-preview-blocked h3 {
+  margin: 0;
+  font-size: 28px;
+}
+
+.parcel-preview-blocked p {
+  margin: 0;
+  color: #7f1d1d;
 }
 
 .preview-frame {
@@ -1141,7 +1235,8 @@ th {
 
   .dashboard-hero,
   .dashboard-grid,
-  .map-preview-shell {
+  .map-preview-shell,
+  .workflow-page-grid {
     grid-template-columns: 1fr;
   }
 
@@ -1167,7 +1262,9 @@ th {
 
   .status-panel,
   .right-rail,
-  .top-header {
+  .top-header,
+  .workflow-prompt-panel,
+  .workflow-side {
     position: relative;
     top: auto;
   }

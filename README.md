@@ -2,11 +2,11 @@
 
 AutoMap converts plain-English county GIS map requests into structured map recipes using only approved GIS layers from a local layer catalog.
 
-Version: `3.1.0`
+Version: `3.2.0`
 
 ## Current Phase
 
-v3.1 Proximity, Nearest Facility, and Route Drafts on top of real parcel lookup, parcel workspace, scenario workbench, planning scenario and suitability intelligence, development/transportation source intelligence, real source verification, data gap resolution, analysis summary reporting, and user-guided safe spatial analysis refinement.
+v3.2 Simplified Workflow and Parcel-Focused Preview on top of proximity, real parcel lookup, parcel workspace, scenario workbench, planning scenario and suitability intelligence, development/transportation source intelligence, real source verification, data gap resolution, analysis summary reporting, and user-guided safe spatial analysis refinement.
 
 This repository is intentionally independent. It does not connect to CFS or import CFS code. AutoMap uses its own local PostGIS database and trusted layer catalog.
 
@@ -44,6 +44,7 @@ AutoMap helps GIS and planning staff turn plain-English county map requests into
 - scenario workbench variants, reviewer weight tuning, scenario comparison, and scenario-to-recipe conversion
 - real parcel lookup for PIN/PIN14/parcel ID/address inputs, selected parcel GeoJSON output, context overlays, and local parcel reports
 - proximity, nearest-facility, containing-district, and straight-line route draft workflows with local GeoJSON/report outputs
+- guided prompt-to-preview workflow with parcel-focused preview blocking until a parcel is matched
 
 ## What AutoMap Does Not Do Yet
 
@@ -84,6 +85,7 @@ ArcGIS publishing and smoke testing remain dry-run by default unless a guarded C
 29. v2.9 parcel workspace and parcel-centered map requests
 30. v3.0 real parcel lookup and selected parcel context maps
 31. v3.1 proximity, nearest facility, and route drafts
+32. v3.2 simplified workflow and parcel-focused preview
 
 ## Project Structure
 
@@ -488,6 +490,26 @@ Nearest-facility searches use bounded distance rings and candidate caps. Road-ne
 
 See `docs/proximity_nearest_facility.md` and `docs/route_drafts.md`.
 
+## Simplified Workflow And Parcel-Focused Preview
+
+AutoMap v3.2 adds a guided `/workflow` page for the normal local path:
+
+```text
+Prompt -> Recipe -> Map Preview -> Adjust -> Analysis/Report -> Print/Export
+```
+
+For parcel-centered prompts, AutoMap now requires a real parcel/PIN/address match before showing a focused parcel preview. If a parcel is unmatched, the recipe keeps the draft layer plan but marks `can_focus_map=false`, blocks parcel-focused preview/analysis, shows `Parcel not matched`, and asks the user to correct the identifier. It does not zoom to a broad county map as if the parcel were selected.
+
+When a parcel is safely matched, AutoMap fetches only the matched parcel geometry, writes local selected-parcel GeoJSON, computes a small parcel buffer extent, sets the map focus to that extent, and labels context layers as reference around the selected parcel. Analysis remains optional for context maps and still uses bounded safety checks when requested.
+
+Open:
+
+```text
+http://localhost:3010/workflow
+```
+
+See `docs/simplified_workflow.md` and `docs/parcel_focused_preview.md`.
+
 ## ArcGIS WebMap Draft Generator
 
 AutoMap v0.4 creates local ArcGIS WebMap JSON drafts from map recipes. Drafts use verified catalog layer URLs and v0.3 filter-plan definition expressions only. AutoMap does not publish to ArcGIS Online or Portal, does not require an ArcGIS login, and does not ingest full geometries.
@@ -736,6 +758,7 @@ Prompt -> Parser -> Layer Matcher -> Recipe Engine
        -> Data Gap Resolver And External Source Review
        -> Source Coverage And Transportation/Development Intelligence
        -> Real Parcel Lookup And Selected Parcel Context Maps
+       -> Simplified Workflow And Parcel-Focused Preview
 ```
 
 The trusted source for layer selection is `automap.layer_catalog`. Generated artifacts live under `outputs/`, which is ignored by Git.
@@ -762,6 +785,8 @@ See:
 - `docs/suitability_scoring.md`
 - `docs/real_parcel_lookup.md`
 - `docs/selected_parcel_context_maps.md`
+- `docs/simplified_workflow.md`
+- `docs/parcel_focused_preview.md`
 
 ## Notes
 

@@ -470,6 +470,17 @@ def build_initial_extent(recipe: dict[str, Any]) -> dict[str, Any]:
     selected_layers = recipe.get("selected_layers") or []
     geographies = recipe.get("parsed_request", {}).get("geography_terms") or []
     prefer_boundary = bool(geographies)
+    parcel_context = recipe.get("parcel_context") or {}
+    suggested_extent = _normalize_extent(recipe.get("suggested_extent"))
+
+    if parcel_context:
+        if suggested_extent and parcel_context.get("can_focus_map"):
+            return suggested_extent
+        if parcel_context.get("can_focus_map") is False:
+            return {}
+
+    if suggested_extent:
+        return suggested_extent
 
     extent = _extent_from_layers(selected_layers, prefer_boundary=prefer_boundary)
     if extent:
@@ -557,6 +568,9 @@ def build_webmap_json(recipe: dict[str, Any]) -> dict[str, Any]:
             "missing_data_needed": recipe.get("missing_data_needed") or [],
             "suggested_extent": recipe.get("suggested_extent") or {},
             "source_coverage": recipe.get("source_coverage") or {},
+            "parcel_context": recipe.get("parcel_context") or {},
+            "preview_status": recipe.get("preview_status"),
+            "focus_mode": recipe.get("focus_mode"),
         },
         "autoMapWarnings": list(recipe.get("review_reasons") or []),
     }

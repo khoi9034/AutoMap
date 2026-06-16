@@ -1,6 +1,6 @@
 # Parcel Workspace
 
-AutoMap v3.0 adds a parcel-centered workspace for real parcel lookup and selected-parcel GIS review drafts. AutoMap v3.1 adds parcel-origin proximity actions for nearest-facility and route-draft review.
+AutoMap v3.0 adds a parcel-centered workspace for real parcel lookup and selected-parcel GIS review drafts. AutoMap v3.1 adds parcel-origin proximity actions for nearest-facility and route-draft review. AutoMap v3.2 adds guided workflow behavior so parcel previews are blocked until a parcel is actually matched.
 
 The workspace accepts:
 
@@ -33,6 +33,21 @@ AutoMap:
 
 Only after a parcel set is matched and under safety limits can AutoMap fetch selected parcel geometry. The default selected-geometry limit is 100 parcels, with a hard max of 250.
 
+## Focused Preview Behavior
+
+Parcel-centered recipes now include `can_focus_map`, `can_fetch_geometry`, `preview_status`, and `analysis_status`.
+
+If the identifier is unmatched, AutoMap:
+
+- keeps the draft recipe for review
+- marks `can_focus_map=false`
+- blocks parcel-focused preview and parcel analysis
+- does not create selected parcel GeoJSON
+- does not use the broad Tax Parcels extent as a fake selected parcel map
+- asks the user to correct the parcel ID, PIN, or address
+
+If the identifier is matched safely, AutoMap fetches only the matched parcel geometry, computes a buffered parcel extent, and focuses the preview on that extent.
+
 ## CLI
 
 ```bash
@@ -56,6 +71,14 @@ http://localhost:3010/parcel-workspace
 ```
 
 The page supports field profiling, parsing, matching, ambiguous candidate review, selected parcel GeoJSON fetch, context overlay selection, nearby distance review, parcel context recipe generation, and local parcel report exports.
+
+The guided workflow page is:
+
+```text
+http://localhost:3010/workflow
+```
+
+It keeps prompt, recipe, preview, adjustment, analysis/report, and export actions together for normal local use.
 
 The page also includes proximity actions for nearest school, nearest fire station, containing fire district, and route draft to address. These actions use the current parcel/PIN/address input as the origin and route through the same bounded v3.1 proximity workflow.
 

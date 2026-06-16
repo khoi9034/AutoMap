@@ -138,8 +138,38 @@ def test_map_preview_uses_safe_frontend_preview_components():
     assert "No ArcGIS login" in shell
     assert "No publish" in shell
     assert "iframe" in shell
+    assert "Parcel not matched" in shell
+    assert "parcel_preview_blocked" in shell
+    assert "Try another parcel/PIN/address" in shell
     assert "confirm-publish" not in shell.lower()
     assert "publish-draft-webmap" not in shell.lower()
+
+
+def test_simplified_workflow_page_guides_preview_and_blocks_fake_parcels():
+    navigation = read("components/navigation.ts")
+    page = read("app/workflow/page.tsx")
+    client = read("components/workflow-client.tsx")
+    api = read("lib/api.ts")
+    types = read("types/automap.ts")
+
+    assert 'href: "/workflow"' in navigation
+    assert "WorkflowClient" in page
+    assert "Prompt to parcel-focused preview" in page
+    assert "Generate Recipe" in client
+    assert "Create Preview" in client
+    assert "Adjust Draft" in client
+    assert "Run Analysis" in client
+    assert "Generate Report / Print" in client
+    assert "Parcel not matched" in client
+    assert "Analysis is optional for context maps" in client
+    assert "disabled={loading !== null || !canPreview}" in client
+    assert "runWorkflow" in api
+    assert '"/api/workflow/run"' in api
+    assert "WorkflowRunResponse" in types
+    assert "can_focus_map" in types
+    assert "parcel_preview_blocked" in types
+    assert "confirm-publish" not in client.lower()
+    assert "publish-draft-webmap" not in client.lower()
 
 
 def test_layer_panel_renders_review_metadata_without_assuming_layer_zero():
@@ -227,7 +257,7 @@ def test_api_client_has_timeout_and_sanitized_fallback_version():
     assert "Backend is online, but this request took too long" in source
     assert "http://127.0.0.1:8010" in source
     assert "timeoutMs: 60000" in source
-    assert 'version: "3.1.0"' in source
+    assert 'version: "3.2.0"' in source
     assert "redactProtected" in source
     assert "AutoMap is checking the catalog, parcel fields, and context layers" in map_request
 

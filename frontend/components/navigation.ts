@@ -1,5 +1,6 @@
 export const navigationItems = [
   { href: "/dashboard", label: "Dashboard" },
+  { href: "/workflow", label: "Workflow" },
   { href: "/map-request", label: "Map Request" },
   { href: "/parcel-workspace", label: "Parcel Workspace" },
   { href: "/proximity", label: "Proximity" },
@@ -34,6 +35,7 @@ export const samplePrompts = [
 ];
 
 export const workflowSteps = [
+  { href: "/workflow", label: "Workflow", description: "Prompt to preview, adjust, analyze, and export." },
   { href: "/map-request", label: "Map Request", description: "Prompt to draft recipe." },
   { href: "/parcel-workspace", label: "Parcel Workspace", description: "Parcel IDs, PINs, addresses, and context maps." },
   { href: "/proximity", label: "Proximity", description: "Nearest facilities and straight-line route drafts." },

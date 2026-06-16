@@ -188,6 +188,53 @@ def compute_basic_stats(features: list[dict[str, Any]]) -> dict[str, Any]:
     return {"feature_count": len(features), "geometry_types": geometry_types, "bounds": bounds}
 
 
+def geojson_extent(source: str | Path | dict[str, Any] | list[dict[str, Any]]) -> dict[str, Any] | None:
+    """Return a WGS84 extent for a bounded local GeoJSON source."""
+    features = load_geojson_features(source)
+    bounds = compute_basic_stats(features).get("bounds")
+    if not bounds or len(bounds) != 4:
+        return None
+    return {
+        "xmin": float(bounds[0]),
+        "ymin": float(bounds[1]),
+        "xmax": float(bounds[2]),
+        "ymax": float(bounds[3]),
+        "spatialReference": {"wkid": 4326},
+    }
+
+
+def buffer_extent(
+    extent: dict[str, Any] | None,
+    *,
+    ratio: float = 0.18,
+    minimum: float = 0.001,
+) -> dict[str, Any] | None:
+    """Return a small buffered extent for parcel-focused preview maps."""
+    if not isinstance(extent, dict):
+        return None
+    try:
+        xmin = float(extent["xmin"])
+        ymin = float(extent["ymin"])
+        xmax = float(extent["xmax"])
+        ymax = float(extent["ymax"])
+    except (KeyError, TypeError, ValueError):
+        return None
+    width = max(abs(xmax - xmin), minimum)
+    height = max(abs(ymax - ymin), minimum)
+    buffer_x = max(width * ratio, minimum)
+    buffer_y = max(height * ratio, minimum)
+    buffered = {
+        "xmin": xmin - buffer_x,
+        "ymin": ymin - buffer_y,
+        "xmax": xmax + buffer_x,
+        "ymax": ymax + buffer_y,
+    }
+    spatial_reference = extent.get("spatialReference") or extent.get("spatial_reference") or {"wkid": 4326}
+    if isinstance(spatial_reference, dict):
+        buffered["spatialReference"] = spatial_reference
+    return buffered
+
+
 def make_safe_geojson_output(
     features: list[dict[str, Any]],
     *,

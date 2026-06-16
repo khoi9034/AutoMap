@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 import { LayerPanel } from "@/components/layer-panel";
@@ -16,6 +17,14 @@ type ArcGISMapPreviewProps = {
 function layerCountLabel(preview: PreviewConfig | null): string {
   const count = preview?.operational_layers?.length || 0;
   return `${count} operational layer${count === 1 ? "" : "s"}`;
+}
+
+function identifierLabel(value: unknown): string {
+  if (!value || typeof value !== "object") {
+    return String(value || "");
+  }
+  const item = value as { value?: string; normalized_value?: string; identifier_type?: string };
+  return item.value || item.normalized_value || item.identifier_type || JSON.stringify(item);
 }
 
 export function ArcGISMapPreview({ packetId }: ArcGISMapPreviewProps) {
@@ -55,6 +64,8 @@ export function ArcGISMapPreview({ packetId }: ArcGISMapPreviewProps) {
     ],
     [preview, derivedLayer],
   );
+  const parcelContext = preview?.parcel_context;
+  const parcelPreviewBlocked = Boolean(preview?.parcel_preview_blocked || parcelContext?.can_focus_map === false);
 
   if (!packetId) {
     return (
@@ -91,7 +102,46 @@ export function ArcGISMapPreview({ packetId }: ArcGISMapPreviewProps) {
               <p className="muted">The backend preview route remains linked below if the packet exists locally.</p>
             </div>
           ) : null}
-          <iframe className="preview-frame" title="AutoMap draft preview" src={previewUrl} />
+          {parcelPreviewBlocked ? (
+            <div className="parcel-preview-blocked" role="alert">
+              <p className="eyebrow">Parcel-focused preview blocked</p>
+              <h3>Parcel not matched - preview cannot focus on parcel.</h3>
+              <p>
+                {parcelContext?.reason_if_not_focusable ||
+                  "AutoMap cannot zoom to or analyze this parcel until a valid parcel/PIN/address is provided."}
+              </p>
+              <div className="detail-grid">
+                <div>
+                  <span className="muted">Match status</span>
+                  <strong>{parcelContext?.match_status || "needs_review"}</strong>
+                </div>
+                <div>
+                  <span className="muted">Matched count</span>
+                  <strong>{parcelContext?.matched_count ?? 0}</strong>
+                </div>
+                <div>
+                  <span className="muted">Preview status</span>
+                  <strong>{preview?.preview_status || parcelContext?.preview_status || "blocked_until_parcel_matched"}</strong>
+                </div>
+              </div>
+              {parcelContext?.unmatched_identifiers?.length ? (
+                <div className="definition-box">
+                  <strong>Unmatched identifiers</strong>
+                  <p>{parcelContext.unmatched_identifiers.map(identifierLabel).join(", ")}</p>
+                </div>
+              ) : null}
+              <div className="button-row">
+                <Link className="button" href="/workflow">
+                  Try another parcel/PIN/address
+                </Link>
+                <Link className="button button-secondary" href="/parcel-workspace">
+                  Open Parcel Workspace
+                </Link>
+              </div>
+            </div>
+          ) : (
+            <iframe className="preview-frame" title="AutoMap draft preview" src={previewUrl} />
+          )}
         </div>
 
         <aside className="preview-side-panel">
@@ -102,6 +152,8 @@ export function ArcGISMapPreview({ packetId }: ArcGISMapPreviewProps) {
             <div className="chip-row">
               <StatusChip tone="success">{layerCountLabel(preview)}</StatusChip>
               {derivedLayer ? <StatusChip tone="warning">Derived Local Analysis Result</StatusChip> : null}
+              {parcelContext?.can_focus_map ? <StatusChip tone="success">Parcel focus</StatusChip> : null}
+              {parcelPreviewBlocked ? <StatusChip tone="danger">Parcel not matched</StatusChip> : null}
               <StatusChip tone={preview?.preview_only === false ? "warning" : "success"}>
                 {preview?.preview_only === false ? "Review mode" : "Preview only"}
               </StatusChip>
