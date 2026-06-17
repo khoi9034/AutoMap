@@ -5,7 +5,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ArcGISMapPreview } from "@/components/arcgis-map-preview";
 import { ComposerLayerPanel } from "@/components/composer-layer-panel";
 import { featureCollectionBounds, type GeoJsonFeature, type GeoJsonFeatureCollection } from "@/components/derived-geojson-layer";
-import { MapSymbolLegend } from "@/components/map-symbol-legend";
+import { MapLegend } from "@/components/map-legend";
+import { MapScaleBar } from "@/components/map-scale-bar";
+import { NorthArrow } from "@/components/north-arrow";
 import { StatusChip } from "@/components/status-chip";
 import { API_BASE_URL } from "@/lib/api";
 import { arcgisSymbolForOverlay } from "@/lib/map-symbols";
@@ -28,6 +30,7 @@ type ArcView = {
   when: (callback?: () => unknown) => Promise<unknown>;
   goTo: (target: unknown, options?: Record<string, unknown>) => Promise<unknown>;
   destroy: () => void;
+  ui?: { add?: (item: unknown, position: string) => void };
 };
 
 type ArcConstructor<T = unknown> = new (props?: Record<string, unknown>) => T;
@@ -88,6 +91,10 @@ function distanceText(response: ComposerResponse): string | null {
   return `${result.distance_value.toFixed(2)} ${result.distance_unit || "miles"}`;
 }
 
+function mapLayout(response: ComposerResponse) {
+  return response.map_layout || response.preview_config?.map_layout || null;
+}
+
 function routeLabel(response: ComposerResponse): string {
   const result = response.proximity_result;
   if (result?.route_label) return result.route_label;
@@ -101,7 +108,12 @@ function contextLayerUrl(layer: PreviewLayer): string {
   return layer.service_url || "";
 }
 
-function graphicsForFeature(feature: GeoJsonFeature, overlay: DerivedOverlay, modules: ArcModules): unknown[] {
+function graphicsForFeature(
+  feature: GeoJsonFeature,
+  overlay: DerivedOverlay,
+  modules: ArcModules,
+  options: { casing?: boolean } = {},
+): unknown[] {
   const geometry = feature.geometry;
   const properties = feature.properties || {};
   if (!geometry || !geometry.type) return [];
@@ -116,7 +128,7 @@ function graphicsForFeature(feature: GeoJsonFeature, overlay: DerivedOverlay, mo
           .map(([key, value]) => `<strong>${key}</strong>: ${String(value)}`)
           .join("<br />"),
       },
-      symbol: arcgisSymbolForOverlay(overlay, geometryType),
+      symbol: arcgisSymbolForOverlay(overlay, geometryType, options),
     });
 
   if (geometry.type === "Point" && Array.isArray(geometry.coordinates)) {
@@ -150,13 +162,71 @@ function graphicsForFeature(feature: GeoJsonFeature, overlay: DerivedOverlay, mo
   return [];
 }
 
+function overlayKind(overlay: DerivedOverlay): "route" | "parcel" | "origin" | "target" | "other" {
+  const blob = `${overlay.role || ""} ${overlay.geometry_role || ""} ${overlay.symbol_key || ""} ${overlay.id || ""}`.toLowerCase();
+  if (blob.includes("route") || blob.includes("distance_line") || blob.includes("straight_line")) return "route";
+  if (blob.includes("parcel")) return "parcel";
+  if (blob.includes("origin")) return "origin";
+  if (blob.includes("target") || blob.includes("facility")) return "target";
+  return "other";
+}
+
+function overlayVisible(overlay: DerivedOverlay): boolean {
+  return overlay.default_visible ?? overlay.visible ?? true;
+}
+
+function addOverlayGraphicsLayer(
+  map: ArcMap,
+  item: LoadedOverlay,
+  modules: ArcModules,
+  titleSuffix = "",
+  options: { casing?: boolean } = {},
+): void {
+  const layer = new modules.GraphicsLayer({
+    title: `${item.overlay.title || item.overlay.id || "Derived overlay"}${titleSuffix}`,
+    visible: overlayVisible(item.overlay),
+  });
+  (item.collection.features || []).forEach((feature) => {
+    layer.addMany?.(graphicsForFeature(feature, item.overlay, modules, options));
+  });
+  map.add(layer);
+}
+
+function addDerivedOverlayLayers(map: ArcMap, items: LoadedOverlay[], modules: ArcModules): void {
+  const visibleItems = items.filter((item) => overlayVisible(item.overlay));
+  const byKind = (kind: ReturnType<typeof overlayKind>) => visibleItems.filter((item) => overlayKind(item.overlay) === kind);
+  const routeItems = byKind("route");
+
+  routeItems.forEach((item) => addOverlayGraphicsLayer(map, item, modules, " casing", { casing: true }));
+  routeItems.forEach((item) => addOverlayGraphicsLayer(map, item, modules));
+  byKind("parcel").forEach((item) => addOverlayGraphicsLayer(map, item, modules));
+  byKind("other").forEach((item) => addOverlayGraphicsLayer(map, item, modules));
+  byKind("origin").forEach((item) => addOverlayGraphicsLayer(map, item, modules));
+  byKind("target").forEach((item) => addOverlayGraphicsLayer(map, item, modules));
+}
+
+function contextDrawRank(layer: PreviewLayer): number {
+  const blob = `${layer.role || ""} ${layer.layer_key || ""} ${layer.title || ""} ${layer.category || ""}`.toLowerCase();
+  if (blob.includes("zoning") || blob.includes("flood") || blob.includes("school") || blob.includes("district")) return 10;
+  if (blob.includes("road") || blob.includes("street") || blob.includes("centerline")) return 20;
+  return 15;
+}
+
 function addContextLayers(map: ArcMap, contextLayers: PreviewLayer[], modules: ArcModules): void {
-  contextLayers.forEach((layer) => {
+  [...contextLayers].sort((a, b) => contextDrawRank(a) - contextDrawRank(b)).forEach((layer) => {
     const url = contextLayerUrl(layer);
     if (!url) return;
     const title = layer.title || layer.layer_key || "Context layer";
     const visible = layer.default_visible ?? layer.visibility ?? true;
-    const opacity = typeof layer.opacity === "number" ? layer.opacity : layer.role?.includes("constraint") ? 0.45 : 0.72;
+    const blob = `${layer.role || ""} ${layer.layer_key || ""} ${layer.title || ""}`.toLowerCase();
+    const opacity =
+      typeof layer.opacity === "number"
+        ? layer.opacity
+        : blob.includes("flood") || blob.includes("zoning") || blob.includes("district")
+          ? 0.36
+          : blob.includes("road") || blob.includes("street")
+            ? 0.58
+            : 0.62;
     const definitionExpression = layer.definition_expression || undefined;
     try {
       if (layer.service_url && typeof layer.layer_id === "number" && /MapServer/i.test(layer.service_url)) {
@@ -293,16 +363,7 @@ export function ComposerMapPreview({ response, packetId }: { response: ComposerR
           basemap: response.preview_config?.basemap || "streets-vector",
         });
         addContextLayers(map, contextLayers, modules);
-        loaded.forEach((item) => {
-          const layer = new modules.GraphicsLayer({
-            title: item.overlay.title || item.overlay.id || "Derived overlay",
-            visible: item.overlay.visible !== false,
-          });
-          (item.collection.features || []).forEach((feature) => {
-            layer.addMany?.(graphicsForFeature(feature, item.overlay, modules));
-          });
-          map.add(layer);
-        });
+        addDerivedOverlayLayers(map, loaded, modules);
 
         const configuredExtent = numericExtent(response.preview_config?.focus_extent || response.preview_config?.initial_extent);
         const computedExtent = featureCollectionBounds(loaded.map((item) => item.collection));
@@ -348,6 +409,11 @@ export function ComposerMapPreview({ response, packetId }: { response: ComposerR
   const distance = distanceText(response);
   const lineLabel = routeLabel(response);
   const routeMode = response.proximity_result?.route_mode || "straight_line_reference";
+  const layout = mapLayout(response);
+  const layoutTitle = layout?.title || response.map_title || panelTitle(response);
+  const layoutSubtitle =
+    layout?.subtitle ||
+    (routeMode === "road_following_draft" ? "Road-following draft route, not official navigation." : "Straight-line reference only, not a driving route.");
   const routeWarning = routeMode !== "road_following_draft" ||
     Boolean(response.proximity_result?.route_warning) ||
     (response.proximity_result?.warnings || []).some((warning) => warning.toLowerCase().includes("not a driving route"));
@@ -357,7 +423,15 @@ export function ComposerMapPreview({ response, packetId }: { response: ComposerR
 
   return (
     <div className="composer-derived-preview page-stack">
-      <section className="panel composer-derived-map-shell">
+      <section className="panel composer-derived-map-shell enterprise-map-shell">
+        <div className="enterprise-map-title-block">
+          <div>
+            <p className="eyebrow">AutoMap draft preview</p>
+            <h2>{layoutTitle}</h2>
+            <p>{layoutSubtitle}</p>
+          </div>
+          <span>Draft AutoMap preview - Local only - Not official county map</span>
+        </div>
         <div className="panel-title-row">
           <div>
             <p className="eyebrow">Focused ArcGIS map</p>
@@ -398,8 +472,12 @@ export function ComposerMapPreview({ response, packetId }: { response: ComposerR
         {loadError ? <div className="preview-error">Map preview failed to load. {loadError}</div> : null}
         {mapError ? <div className="preview-error">Map preview failed to load. {mapError}</div> : null}
 
-        <div className="composer-real-map" ref={containerRef} aria-label="Focused ArcGIS composer map preview" />
-        <MapSymbolLegend overlays={derivedOverlays} />
+        <div className="enterprise-map-frame">
+          <div className="composer-real-map" ref={containerRef} aria-label="Focused ArcGIS composer map preview" />
+          <NorthArrow />
+          <MapScaleBar />
+        </div>
+        <MapLegend overlays={derivedOverlays} contextLayers={contextLayers} />
       </section>
 
       <ComposerLayerPanel derivedOverlays={derivedOverlays} contextLayers={contextLayers} />

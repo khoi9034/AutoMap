@@ -375,7 +375,7 @@ export function MapComposerClient() {
       const result = await generateComposerDraft(prompt);
       setResponse(result);
       setLayers(layerEditsFromResponse(result));
-      setMapTitle(result.map_title || result.recipe?.map_title || "");
+      setMapTitle(result.map_layout?.title || result.map_title || result.recipe?.map_title || "");
       mergeWorkflowState({
         rawPrompt: prompt,
         recipe: result.recipe,
@@ -483,7 +483,8 @@ export function MapComposerClient() {
               <div className="panel-title-row">
                 <div>
                   <p className="eyebrow">Draft map</p>
-                  <h3>{response.map_title || "AutoMap Draft Map"}</h3>
+                  <h3>{response.map_layout?.title || response.map_title || "AutoMap Draft Map"}</h3>
+                  {response.map_layout?.subtitle ? <p className="muted">{response.map_layout.subtitle}</p> : null}
                   <p className="muted">{response.raw_prompt}</p>
                 </div>
                 <div className="chip-row">

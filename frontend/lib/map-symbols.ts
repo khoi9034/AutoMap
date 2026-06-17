@@ -4,6 +4,7 @@ export type SymbolDefinition = {
   key: string;
   label: string;
   color: string;
+  halo?: string;
   accent?: string;
   glyph: "home" | "fire" | "school" | "hospital" | "park" | "library" | "vote" | "facility" | "parcel" | "route";
 };
@@ -56,11 +57,15 @@ function markerPath(glyph: SymbolDefinition["glyph"]): string {
 
 export function svgDataUrl(definition: SymbolDefinition): string {
   const fill = definition.glyph === "fire" ? definition.color : "none";
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><circle cx="16" cy="16" r="15" fill="white" fill-opacity=".94" stroke="${definition.color}" stroke-width="2.5"/><g fill="${fill}" stroke="${definition.color}" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">${markerPath(definition.glyph)}</g></svg>`;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 44"><defs><filter id="s" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#0f172a" flood-opacity=".24"/></filter></defs><path d="M20 42c5.2-7.2 14-16.2 14-25A14 14 0 106 17c0 8.8 8.8 17.8 14 25z" fill="white" stroke="${definition.color}" stroke-width="2.7" filter="url(#s)"/><circle cx="20" cy="17" r="11.5" fill="${definition.glyph === "fire" ? "#fff5f5" : "#f8fafc"}" stroke="${definition.color}" stroke-width="1"/><g transform="translate(4 1)" fill="${fill}" stroke="${definition.color}" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round">${markerPath(definition.glyph)}</g></svg>`;
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 }
 
-export function arcgisSymbolForOverlay(overlay: DerivedOverlay, geometryType: string): Record<string, unknown> {
+export function arcgisSymbolForOverlay(
+  overlay: DerivedOverlay,
+  geometryType: string,
+  options: { casing?: boolean } = {},
+): Record<string, unknown> {
   const symbolKey = overlay.symbol_key || overlay.symbol?.symbol_key?.toString();
   const routeMode = overlay.route_mode || overlay.symbol?.route_mode?.toString();
   const role = (overlay.role || "").toLowerCase();
@@ -69,17 +74,29 @@ export function arcgisSymbolForOverlay(overlay: DerivedOverlay, geometryType: st
     return {
       type: "picture-marker",
       url: svgDataUrl(definition),
-      width: "28px",
-      height: "28px",
-      yoffset: "8px",
+      width: "34px",
+      height: "38px",
+      yoffset: "16px",
     };
   }
   if (geometryType === "line") {
+    if (options.casing) {
+      return {
+        type: "simple-line",
+        color: [255, 255, 255, 0.92],
+        width: routeMode === "road_following_draft" ? 6 : 4.5,
+        style: routeMode === "road_following_draft" ? "solid" : "dash",
+        cap: "round",
+        join: "round",
+      };
+    }
     return {
       type: "simple-line",
       color: definition.color,
-      width: routeMode === "road_following_draft" ? 6 : 5,
+      width: routeMode === "road_following_draft" ? 3.2 : 2.4,
       style: routeMode === "road_following_draft" ? "solid" : "dash",
+      cap: "round",
+      join: "round",
     };
   }
   const color = role.includes("parcel") ? "#f59e0b" : definition.color;
@@ -102,4 +119,3 @@ export function legendItems(overlays: DerivedOverlay[]): SymbolDefinition[] {
 }
 
 export { SYMBOLS as MAP_SYMBOLS };
-

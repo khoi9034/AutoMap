@@ -14,7 +14,7 @@ def detect_route_service(
 ) -> dict[str, Any]:
     """Return approved route service metadata if AutoMap has one configured.
 
-    v3.8 intentionally does not call any paid routing or geocoding APIs. This
+    AutoMap intentionally does not call any paid routing or geocoding APIs. This
     detector only checks the local verified catalog for a route/network service
     that has already been approved for AutoMap use.
     """
@@ -48,4 +48,3 @@ def detect_route_service(
         "service": None,
         "warning": "No approved route/network service is configured; AutoMap will try a bounded road-following draft before falling back to a straight-line reference.",
     }
-

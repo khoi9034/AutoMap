@@ -1,6 +1,6 @@
 # Route Draft Modes
 
-AutoMap v3.8 supports explicit route draft modes for proximity maps:
+AutoMap v3.9 supports explicit route draft modes for proximity maps:
 
 - `road_network_route`: reserved for a future approved routing/network service.
 - `road_following_draft`: a bounded local route approximation using verified street centerlines.
@@ -11,7 +11,8 @@ AutoMap does not call paid routing or geocoding APIs. When no approved routing s
 
 Road-following drafts are local review artifacts only. They are not turn-by-turn driving directions, official navigation, or an emergency response route.
 
+In the Map Composer preview, road-following drafts draw as a moderate blue line with a white casing underneath. Straight-line references draw as thinner dashed blue lines with a white casing and an explicit not-a-road-route warning. Route lines draw below origin and destination symbols.
+
 Route outputs remain under `outputs/proximity/` and are ignored by Git. Nothing is published to ArcGIS.
 
 CFS remains separate and `cfs_dev` is not touched.
-

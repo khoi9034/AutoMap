@@ -180,9 +180,13 @@ def test_composer_address_proximity_matched_adds_line_output(monkeypatch, tmp_pa
     assert result["can_preview"] is True
     assert result["request_type"] == "proximity"
     assert result["origin_type"] == "address"
-    assert result["map_title"] == "Nearest Fire Station: Fire Station 1 from 793 Bartram Ave"
+    assert result["map_title"] == "Nearest Fire Station from 793 Bartram Ave"
     assert result["proximity_result"]["target_type"] == "nearest_fire_station"
     assert result["webmap_json"]["operationalLayers"][-1]["title"] == "Straight-line reference"
+    assert result["map_layout"]["title"] == "Nearest Fire Station from 793 Bartram Ave"
+    assert result["map_layout"]["scale_bar_enabled"] is True
+    assert result["map_layout"]["north_arrow_enabled"] is True
+    assert "not official" in result["map_layout"]["disclaimer"].lower()
     assert result["review_packet_id"] == "packet"
 
 
@@ -241,8 +245,11 @@ def test_composer_proximity_preview_config_includes_derived_overlays(monkeypatch
     result = generate_composer_draft(prompt)
 
     assert result["can_preview"] is True
-    assert result["map_title"] == "Nearest Fire Station: Fire Station 1 from 793 Bartram Ave"
+    assert result["map_title"] == "Nearest Fire Station from 793 Bartram Ave"
     assert result["preview_config"]["basemap"] == "streets-vector"
+    assert result["preview_config"]["map_layout"]["title"] == "Nearest Fire Station from 793 Bartram Ave"
+    assert result["preview_config"]["map_layout"]["legend_items"]
+    assert result["preview_config"]["map_layout"]["print_ready"] is True
     assert "context_layers" in result["preview_config"]
     assert result["preview_config"]["derived_overlays"][0]["id"] == "origin_address_point"
     assert result["preview_config"]["derived_overlays"][2]["id"] == "straight_line_reference"

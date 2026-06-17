@@ -35,6 +35,8 @@ Fire district wording matters. If the user asks what district a parcel is in, Au
 
 Road-network routing is not implied by a line request. AutoMap first checks for approved routing support, then tries a bounded road-following draft using verified street centerlines. If that cannot be completed within safety limits, the output remains a straight-line reference, not a driving route.
 
-In the Map Composer, v3.8 renders the local proximity GeoJSON outputs as focused overlays. The map extent is fit to the origin, target, and route/line with a buffer. Full address and parcel REST layers are hidden by default to avoid neighbor-dot clutter; the origin address marker remains visible. If the origin address is matched but a related parcel is not resolved, AutoMap shows the address point and route/line and warns that no selected parcel outline is available.
+In the Map Composer, v3.9 renders the local proximity GeoJSON outputs as focused enterprise map overlays. The map extent is fit to the origin, target, and route/line with a buffer. Full address and parcel REST layers are hidden by default to avoid neighbor-dot clutter; the origin address marker remains visible. If the origin address is matched but a related parcel is not resolved, AutoMap shows the address point and route/line and warns that no selected parcel outline is available.
+
+The preview uses semantic home/facility icons, route casing, marker-on-top draw order, a visible legend, scale bar, north arrow, title block, and draft-only disclaimer. Print/export layout remains local and review-only.
 
 CFS remains separate. AutoMap does not connect to or modify `cfs_dev`.

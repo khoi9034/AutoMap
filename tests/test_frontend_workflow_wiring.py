@@ -180,7 +180,10 @@ def test_map_composer_is_primary_simple_workflow():
     derived_layer = read("components/derived-geojson-layer.tsx")
     composer_layer_panel = read("components/composer-layer-panel.tsx")
     map_symbols = read("lib/map-symbols.ts")
+    map_legend = read("components/map-legend.tsx")
     symbol_legend = read("components/map-symbol-legend.tsx")
+    north_arrow = read("components/north-arrow.tsx")
+    scale_bar = read("components/map-scale-bar.tsx")
     stepper = read("components/simple-map-composer-stepper.tsx")
     print_page = read("app/map-composer/[sessionId]/print/page.tsx")
     print_client = read("components/composer-print-client.tsx")
@@ -222,7 +225,11 @@ def test_map_composer_is_primary_simple_workflow():
     assert "Map preview failed to load." in composer_preview
     assert "composer-map-grid" not in composer_preview
     assert "arcgisSymbolForOverlay" in composer_preview
-    assert "MapSymbolLegend" in composer_preview
+    assert "MapLegend" in composer_preview
+    assert "NorthArrow" in composer_preview
+    assert "MapScaleBar" in composer_preview
+    assert "addDerivedOverlayLayers" in composer_preview
+    assert "casing" in composer_preview
     assert "featureCollectionBounds" in derived_layer
     assert "Home marker" in composer_preview
     assert "nearest facility" in composer_layer_panel
@@ -240,6 +247,12 @@ def test_map_composer_is_primary_simple_workflow():
     assert "route_road_following" in map_symbols
     assert "route_straight_line" in map_symbols
     assert "svgDataUrl" in map_symbols
+    assert "options: { casing?: boolean }" in map_symbols
+    assert "width: routeMode === \"road_following_draft\" ? 3.2 : 2.4" in map_symbols
+    assert "map-legend" in map_legend
+    assert "Hidden context" not in map_legend
+    assert "North arrow" in north_arrow
+    assert "Map scale bar" in scale_bar
     assert "map-symbol-legend" in symbol_legend
     assert "Generate Draft Map" in client
     assert "Apply Adjustments" in client
@@ -270,11 +283,16 @@ def test_map_composer_is_primary_simple_workflow():
     assert "Generate Review Packet" not in client
     assert "ComposerPrintClient" in print_page
     assert "Not an official print map" in print_client
+    assert "ComposerMapPreview" in print_client
+    assert "Route and Distance Summary" in print_client
+    assert "Draft only - not official county map" in print_client
     assert "generateComposerDraft" in api
     assert '"/api/composer/generate"' in api
     assert '"/api/composer/adjust"' in api
     assert '"/api/composer/export"' in api
     assert "ComposerResponse" in types
+    assert "MapLayout" in types
+    assert "map_layout" in types
     assert "ComposerAdjustPayload" in types
     assert "confirm-publish" not in client.lower()
     assert "publish-draft-webmap" not in client.lower()
@@ -386,7 +404,7 @@ def test_api_client_has_timeout_and_sanitized_fallback_version():
     assert "Backend is online, but this request took too long" in source
     assert "http://127.0.0.1:8010" in source
     assert "timeoutMs: 60000" in source
-    assert 'version: "3.8.0"' in source
+    assert 'version: "3.9.0"' in source
     assert "redactProtected" in source
     assert "AutoMap is checking the catalog, parcel fields, and context layers" in map_request
 

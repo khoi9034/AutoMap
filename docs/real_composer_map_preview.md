@@ -1,6 +1,6 @@
 # Real Composer Map Preview
 
-AutoMap v3.8 renders Map Composer proximity/address results with a real ArcGIS Maps SDK `MapView`.
+AutoMap v3.9 renders Map Composer proximity/address results with a real ArcGIS Maps SDK `MapView` and enterprise map layout elements.
 
 The composer preview uses:
 
@@ -9,6 +9,8 @@ The composer preview uses:
 - local derived GeoJSON overlays served by AutoMap
 - a focused extent based on origin, target, and route/line output geometry
 - semantic symbols for origin, facility target, selected parcel, and route mode
+- route casing/halo under the main route line
+- legend, scale bar, north arrow, title block, and draft-only disclaimer
 
 The previous schematic/grid preview is not used as a success state. If the ArcGIS map cannot load, the frontend shows `Map preview failed to load` instead of pretending a fake diagram is a real GIS map.
 
@@ -31,6 +33,8 @@ For proximity and address requests, AutoMap computes the preview extent from the
 If the address is matched but the parcel is not resolved, the map still focuses on the address and nearest facility line. It also shows a warning that the parcel was not resolved.
 
 Full address, parcel, and target-facility REST layers are hidden by default in proximity previews to reduce clutter. The derived origin marker, target marker, route/line, and selected parcel outline remain visible.
+
+Route and line overlays draw under origin and target markers so the route never covers the symbols.
 
 ## Safety
 

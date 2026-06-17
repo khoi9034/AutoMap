@@ -233,10 +233,112 @@ def _target_display_label(result: dict[str, Any]) -> str:
 
 
 def _proximity_map_title(result: dict[str, Any]) -> str:
-    target_name = result.get("target_name")
-    if target_name:
-        return f"{_target_display_label(result)}: {target_name} from {_display_origin_label(result)}"
     return f"{_target_display_label(result)} from {_display_origin_label(result)}"
+
+
+def _route_mode_label(result: dict[str, Any]) -> str:
+    route_mode = result.get("route_mode")
+    if route_mode == "road_following_draft":
+        return "Road-following draft route"
+    if route_mode == "straight_line_reference":
+        return "Straight-line reference"
+    if route_mode == "road_network_route":
+        return "Road-network route"
+    return "Route draft"
+
+
+def _map_layout_subtitle(result: dict[str, Any]) -> str:
+    route_mode = result.get("route_mode")
+    if route_mode == "road_following_draft":
+        return "Road-following draft route, not official navigation."
+    if route_mode == "straight_line_reference":
+        return "Straight-line reference only, not a driving route."
+    return "Draft AutoMap preview, not official navigation."
+
+
+def _legend_label_for_overlay(overlay: dict[str, Any]) -> str:
+    role = str(overlay.get("role") or overlay.get("geometry_role") or "").lower()
+    symbol_key = str(overlay.get("symbol_key") or "")
+    route_label = overlay.get("route_label")
+    if "origin" in role:
+        return "Origin Address"
+    if "target" in role:
+        facility_type = str(overlay.get("facility_type") or "")
+        if "fire" in facility_type:
+            return "Nearest Fire Station"
+        if "school" in facility_type:
+            return "Nearest School"
+        if "library" in facility_type:
+            return "Nearest Library"
+        return "Nearest Facility"
+    if "distance" in role or "route" in symbol_key:
+        return str(route_label or "Route Draft")
+    if "parcel" in role or symbol_key == "selected_parcel":
+        return "Selected Parcel"
+    return str(overlay.get("title") or overlay.get("id") or "Map overlay")
+
+
+def _legend_items_from_preview(config: dict[str, Any] | None) -> list[dict[str, Any]]:
+    if not config:
+        return []
+    items: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for overlay in config.get("derived_overlays") or []:
+        if not isinstance(overlay, dict):
+            continue
+        visible = overlay.get("default_visible", overlay.get("visible", True))
+        if visible is False:
+            continue
+        key = str(overlay.get("symbol_key") or overlay.get("role") or overlay.get("id") or "")
+        label = _legend_label_for_overlay(overlay)
+        dedupe_key = f"{key}:{label}"
+        if dedupe_key in seen:
+            continue
+        seen.add(dedupe_key)
+        items.append(
+            {
+                "label": label,
+                "symbol_key": overlay.get("symbol_key"),
+                "geometry_role": overlay.get("geometry_role") or overlay.get("role"),
+                "route_mode": overlay.get("route_mode"),
+                "source": "derived_overlay",
+            }
+        )
+    for layer in config.get("context_layers") or []:
+        if not isinstance(layer, dict):
+            continue
+        visible = layer.get("default_visible", layer.get("visibility", True))
+        if visible is False:
+            continue
+        label = str(layer.get("title") or layer.get("layer_key") or "Context layer")
+        dedupe_key = f"context:{label}"
+        if dedupe_key in seen:
+            continue
+        seen.add(dedupe_key)
+        items.append(
+            {
+                "label": label,
+                "geometry_role": layer.get("role") or "context",
+                "source": "context_layer",
+            }
+        )
+    return items
+
+
+def _build_map_layout(recipe: dict[str, Any], config: dict[str, Any] | None) -> dict[str, Any]:
+    result = recipe.get("proximity_result") or {}
+    route_label = _route_mode_label(result) if result else "Draft map"
+    subtitle = _map_layout_subtitle(result) if result else "Draft AutoMap preview, not an official county map."
+    return {
+        "title": recipe.get("map_title") or (config or {}).get("map_title") or "AutoMap Draft Map",
+        "subtitle": subtitle,
+        "legend_items": _legend_items_from_preview(config),
+        "scale_bar_enabled": True,
+        "north_arrow_enabled": True,
+        "disclaimer": "Draft AutoMap preview - Local only - Not official county map",
+        "route_mode_label": route_label,
+        "print_ready": bool(config),
+    }
 
 
 def _proximity_context_layers(layers: list[dict[str, Any]], result: dict[str, Any]) -> list[dict[str, Any]]:
@@ -402,6 +504,7 @@ def _augment_preview_config(preview_config: dict[str, Any] | None, recipe: dict[
             if isinstance(target_geometry, dict) and target_geometry:
                 config["initial_extent"] = target_geometry
                 config["focus_extent"] = target_geometry
+    config["map_layout"] = _build_map_layout(recipe, config)
     return config
 
 
@@ -446,6 +549,7 @@ def _base_session_response(
         "recipe": recipe,
         "webmap_json": webmap_json,
         "preview_config": preview_config,
+        "map_layout": (preview_config or {}).get("map_layout") if isinstance(preview_config, dict) else None,
         "selected_layers": _selected_layers(recipe),
         "warnings": _review_warnings(recipe, parcel_context),
         "missing_data": recipe.get("missing_data_needed") or [],

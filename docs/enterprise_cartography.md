@@ -1,0 +1,23 @@
+# Enterprise Cartography
+
+AutoMap v3.9 improves Map Composer previews so proximity and parcel drafts look like county GIS review maps instead of debug diagrams.
+
+The composer uses a clear draw order:
+
+1. Basemap
+2. Context polygons such as zoning, flood, and districts
+3. Context lines such as roads
+4. Route casing/halo
+5. Route main line
+6. Selected parcel outline
+7. Origin marker
+8. Target facility marker
+9. Labels and callouts
+
+Road-following draft routes use a moderate blue line with a white casing. Straight-line references are thinner and dashed. Route symbols are drawn below origin and target markers so the line does not cover the home or facility icon.
+
+Proximity maps hide full address, parcel, and target-facility REST layers by default to reduce clutter. The derived origin marker, selected target marker, route/line, and selected parcel outline remain visible when truly available.
+
+The map frame includes a title block, legend, north arrow, scale bar, and draft-only disclaimer. These are review aids only; AutoMap does not publish, upload, or create ArcGIS items from the composer preview.
+
+CFS remains separate and `cfs_dev` is not touched.

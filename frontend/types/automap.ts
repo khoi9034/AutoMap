@@ -929,6 +929,7 @@ export type PreviewLayer = {
   id?: string;
   title?: string;
   layer_key?: string;
+  category?: string;
   role?: string;
   source_status?: string;
   source_priority?: number;
@@ -1001,7 +1002,19 @@ export type PreviewConfig = {
   target_summary?: Record<string, JsonValue>;
   distance_summary?: Record<string, JsonValue>;
   parcel_resolution_summary?: Record<string, JsonValue>;
+  map_layout?: MapLayout;
   preview_only?: boolean;
+};
+
+export type MapLayout = {
+  title?: string;
+  subtitle?: string;
+  legend_items?: Array<Record<string, JsonValue>>;
+  scale_bar_enabled?: boolean;
+  north_arrow_enabled?: boolean;
+  disclaimer?: string;
+  route_mode_label?: string;
+  print_ready?: boolean;
 };
 
 export type WorkflowRunResponse = {
@@ -1070,6 +1083,7 @@ export type ComposerResponse = {
   recipe?: MapRecipe;
   webmap_json?: Record<string, JsonValue>;
   preview_config?: PreviewConfig | null;
+  map_layout?: MapLayout | null;
   selected_layers?: SelectedLayer[];
   warnings?: string[];
   missing_data?: string[];

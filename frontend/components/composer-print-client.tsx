@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 
+import { ComposerMapPreview } from "@/components/composer-map-preview";
 import { API_BASE_URL, getComposerSession } from "@/lib/api";
-import type { ComposerResponse } from "@/types/automap";
+import type { ComposerResponse, PreviewLayer } from "@/types/automap";
 
 function localFileUrl(path?: string | null): string {
   return path ? `${API_BASE_URL}/local-file?path=${encodeURIComponent(path)}` : "#";
@@ -28,15 +29,22 @@ export function ComposerPrintClient({ sessionId }: { sessionId: string }) {
   }, [sessionId]);
 
   const warnings = warningList(response);
-  const layers = response?.preview_config?.operational_layers || [];
+  const layers: PreviewLayer[] = response?.preview_config?.context_layers || response?.preview_config?.operational_layers || [];
+  const derivedLayers = response?.preview_config?.derived_overlays || [];
+  const layout = response?.map_layout || response?.preview_config?.map_layout;
+  const packetId = response?.adjusted_packet_id || response?.packet_id || response?.review_packet_id || undefined;
+  const routeResult = response?.proximity_result;
+  const generatedAt = response?.created_at ? new Date(response.created_at).toLocaleString() : new Date().toLocaleString();
 
   return (
     <main className="composer-print-page">
       <header>
         <p className="eyebrow">AutoMap draft print/export</p>
-        <h1>{response?.map_title || "AutoMap Draft Map"}</h1>
+        <h1>{layout?.title || response?.map_title || "AutoMap Draft Map"}</h1>
+        <p className="composer-print-subtitle">{layout?.subtitle || "Draft AutoMap preview, not an official county map."}</p>
         <p>{response?.raw_prompt || "Loading composer session..."}</p>
-        <p className="muted">Draft-only local output. Not an official print map and not published to ArcGIS.</p>
+        <p className="muted">{layout?.disclaimer || "Draft only - not official county map. Not published to ArcGIS."} Not an official print map.</p>
+        <p className="muted">Generated: {generatedAt}</p>
         <div className="button-row no-print">
           <button className="button" type="button" onClick={() => window.print()} disabled={!response}>
             Print Draft Map
@@ -50,6 +58,38 @@ export function ComposerPrintClient({ sessionId }: { sessionId: string }) {
       </header>
 
       {error ? <p className="error-text">{error}</p> : null}
+
+      {response?.can_preview ? (
+        <section className="composer-print-map-section">
+          <ComposerMapPreview response={response} packetId={packetId} />
+        </section>
+      ) : null}
+
+      <section>
+        <h2>Route and Distance Summary</h2>
+        <dl className="status-list">
+          <div>
+            <dt>Route mode</dt>
+            <dd>{layout?.route_mode_label || routeResult?.route_label || "Not a route map"}</dd>
+          </div>
+          <div>
+            <dt>Distance</dt>
+            <dd>
+              {typeof routeResult?.distance_value === "number"
+                ? `${routeResult.distance_value.toFixed(2)} ${routeResult.distance_unit || "miles"}`
+                : "Not calculated"}
+            </dd>
+          </div>
+          <div>
+            <dt>Target</dt>
+            <dd>{routeResult?.target_name || routeResult?.target_type || "Not applicable"}</dd>
+          </div>
+          <div>
+            <dt>Disclaimer</dt>
+            <dd>Draft only - not official driving navigation.</dd>
+          </div>
+        </dl>
+      </section>
 
       <section>
         <h2>Preview Status</h2>
@@ -70,11 +110,15 @@ export function ComposerPrintClient({ sessionId }: { sessionId: string }) {
             <dt>Packet</dt>
             <dd>{response?.packet_id || "No packet"}</dd>
           </div>
+          <div>
+            <dt>Print ready</dt>
+            <dd>{layout?.print_ready ? "Yes" : "Needs review"}</dd>
+          </div>
         </dl>
       </section>
 
       <section>
-        <h2>Selected Layers</h2>
+        <h2>Map Layers</h2>
         <table>
           <thead>
             <tr>
@@ -86,6 +130,15 @@ export function ComposerPrintClient({ sessionId }: { sessionId: string }) {
             </tr>
           </thead>
           <tbody>
+            {derivedLayers.map((layer) => (
+              <tr key={layer.id || layer.title}>
+                <td>{layer.title}</td>
+                <td>{layer.route_label || layer.role}</td>
+                <td>{layer.visible === false ? "No" : "Yes"}</td>
+                <td>1</td>
+                <td>Local derived output</td>
+              </tr>
+            ))}
             {layers.length ? (
               layers.map((layer) => (
                 <tr key={layer.id || layer.layer_key || layer.title}>
@@ -96,11 +149,11 @@ export function ComposerPrintClient({ sessionId }: { sessionId: string }) {
                   <td>{layer.definition_expression || ""}</td>
                 </tr>
               ))
-            ) : (
+            ) : !derivedLayers.length ? (
               <tr>
                 <td colSpan={5}>No preview layers available.</td>
               </tr>
-            )}
+            ) : null}
           </tbody>
         </table>
       </section>
