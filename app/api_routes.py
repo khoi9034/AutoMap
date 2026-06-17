@@ -59,6 +59,7 @@ from app.feedback_learning import (
     record_recipe_feedback,
 )
 from app.layer_catalog_store import search_layers
+from app.local_output_server import local_output_router
 from app.map_composer import (
     apply_composer_adjustments,
     export_composer_session,
@@ -115,6 +116,7 @@ from app.workflow_runner import run_prompt_workflow
 
 
 api_router = APIRouter(prefix="/api")
+api_router.include_router(local_output_router)
 
 PROTECTED_API_MARKERS = {
     ".env",

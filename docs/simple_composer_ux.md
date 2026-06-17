@@ -36,4 +36,8 @@ AutoMap explains what it tried, shows candidate or unmatched records when availa
 
 Nearest-facility prompts route through the proximity workflow. Straight-line distance is supported as a draft reference. Road-network routing remains unavailable unless an approved routing/network service is added later.
 
+AutoMap v3.6 renders proximity-derived GeoJSON directly in the composer preview. When an address and nearest facility are matched, the preview shows an origin marker, target marker, and straight-line distance line using the local files written under `outputs/proximity/`.
+
+If an address is matched but no related parcel can be resolved from verified fields, the composer still previews the address and proximity line and warns that the parcel outline is not available. It does not show the full Tax Parcels layer as the selected property.
+
 Nothing is published from the composer, no ArcGIS login is required, and CFS remains untouched.

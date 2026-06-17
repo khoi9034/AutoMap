@@ -176,6 +176,9 @@ def test_map_composer_is_primary_simple_workflow():
     sidebar = read("components/sidebar.tsx")
     page = read("app/map-composer/page.tsx")
     client = read("components/map-composer-client.tsx")
+    composer_preview = read("components/composer-map-preview.tsx")
+    derived_layer = read("components/derived-geojson-layer.tsx")
+    composer_layer_panel = read("components/composer-layer-panel.tsx")
     stepper = read("components/simple-map-composer-stepper.tsx")
     print_page = read("app/map-composer/[sessionId]/print/page.tsx")
     print_client = read("components/composer-print-client.tsx")
@@ -207,6 +210,15 @@ def test_map_composer_is_primary_simple_workflow():
     assert '"Support"' in sidebar
     assert "MapComposerClient" in page
     assert "SimpleMapComposerStepper" in client
+    assert "ComposerMapPreview" in client
+    assert "ArcGISMapPreview" not in client
+    assert "DerivedGeoJsonLayer" in composer_preview
+    assert "featureCollectionBounds" in derived_layer
+    assert "Origin Address" in composer_preview
+    assert "Nearest Fire Station" in composer_layer_panel
+    assert "Straight-Line Distance" in composer_preview
+    assert "Local derived output" in composer_layer_panel
+    assert "Open REST layer" not in composer_layer_panel
     assert "Generate Draft Map" in client
     assert "Apply Adjustments" in client
     assert "Generate Review Report" in client
@@ -220,6 +232,8 @@ def test_map_composer_is_primary_simple_workflow():
     assert "composer-side" not in client
     assert "response.can_preview ? (" in client
     assert "Nearest facility draft" in client
+    assert "Line shown on map" in client
+    assert "Address matched, but related parcel was not resolved" in client
     assert "Analysis is optional" in client
     assert "Request" in stepper
     assert "Preview" in stepper
@@ -349,7 +363,7 @@ def test_api_client_has_timeout_and_sanitized_fallback_version():
     assert "Backend is online, but this request took too long" in source
     assert "http://127.0.0.1:8010" in source
     assert "timeoutMs: 60000" in source
-    assert 'version: "3.5.0"' in source
+    assert 'version: "3.6.0"' in source
     assert "redactProtected" in source
     assert "AutoMap is checking the catalog, parcel fields, and context layers" in map_request
 

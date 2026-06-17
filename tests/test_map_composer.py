@@ -185,6 +185,58 @@ def test_composer_address_proximity_matched_adds_line_output(monkeypatch, tmp_pa
     assert result["review_packet_id"] == "packet"
 
 
+def test_composer_proximity_preview_config_includes_derived_overlays(monkeypatch, tmp_path):
+    prompt = "make a map of my address 793 bartram ave and include nearest line to the nearest fire station"
+    packet_path = tmp_path / "review_packets" / "packet"
+    packet_path.mkdir(parents=True)
+    monkeypatch.setattr("app.map_composer._session_root", lambda: tmp_path / "composer_sessions")
+    monkeypatch.setattr(
+        "app.map_composer.build_recipe",
+        lambda prompt: build_recipe(prompt, sample_catalog(), persist_data_gaps=False),
+    )
+    monkeypatch.setattr("app.map_composer.save_review_packet", lambda prompt, recipe, webmap: packet_path)
+    monkeypatch.setattr("app.map_composer._preview_config_for", lambda path, can_preview: {"operational_layers": []})
+    monkeypatch.setattr(
+        "app.map_composer.run_proximity_request",
+        lambda prompt: {
+            "status": "ok",
+            "raw_prompt": prompt,
+            "origin_input": "793 bartram ave",
+            "origin_type": "address",
+            "property_match_status": "not_resolved",
+            "target_type": "nearest_fire_station",
+            "target_name": "Fire Station 1",
+            "distance_value": 1.11,
+            "distance_unit": "miles",
+            "line_geojson_path": "outputs/proximity/test/proximity_line.geojson",
+            "line_geojson_url": "/api/local-outputs/geojson/proximity/line-id",
+            "proximity_result_id": "prox_result_test",
+            "target_layer": {
+                "layer_key": "fire_stations",
+                "layer_name": "Fire and EMS Stations",
+                "category": "public_facilities",
+                "layer_url": "https://example.test/Fire/0",
+            },
+            "derived_layer": {"layer_key": "derived_proximity_line_test"},
+            "derived_overlays": [
+                {"id": "origin_address_point", "title": "Origin Address", "role": "origin", "url": "/api/local-outputs/geojson/proximity/origin-id"},
+                {"id": "nearest_fire_station", "title": "Nearest Fire Station", "role": "target", "url": "/api/local-outputs/geojson/proximity/target-id"},
+                {"id": "straight_line_distance", "title": "Straight-Line Distance", "role": "distance_line", "url": "/api/local-outputs/geojson/proximity/line-id"},
+            ],
+            "warnings": [],
+            "published": False,
+        },
+    )
+
+    result = generate_composer_draft(prompt)
+
+    assert result["can_preview"] is True
+    assert result["preview_config"]["derived_overlays"][0]["id"] == "origin_address_point"
+    assert result["preview_config"]["derived_overlays"][2]["id"] == "straight_line_distance"
+    assert result["proximity_result"]["property_match_status"] == "not_resolved"
+    assert "Address matched, but related parcel was not resolved" in " ".join(result["warnings"])
+
+
 def test_composer_matched_parcel_adds_selected_layer_on_top(monkeypatch, tmp_path):
     geojson_path = tmp_path / "selected_parcels.geojson"
     selected_parcel_geojson(geojson_path)

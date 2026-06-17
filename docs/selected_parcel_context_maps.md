@@ -46,6 +46,8 @@ If the frontend preview cannot render the local GeoJSON directly, the workflow s
 
 If the parcel is unmatched, AutoMap sets `preview_status=blocked_until_parcel_matched`, does not create selected parcel GeoJSON, and asks the user to correct the parcel/PIN/address before preview or analysis continues.
 
+AutoMap v3.6 adds direct composer rendering for selected parcel GeoJSON when it exists. The selected parcel appears as a local derived overlay with a highlighted outline. If an address is matched but the parcel is not resolved, the composer shows the address point and any proximity line but does not draw or imply a selected parcel outline.
+
 ## Proximity Integration
 
 AutoMap v3.1 can use a safely matched parcel/address as the origin for nearest-facility and route-draft workflows. Proximity outputs are written separately under `outputs/proximity/` and are labeled as draft local review artifacts.

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
 
-import { ArcGISMapPreview } from "@/components/arcgis-map-preview";
+import { ComposerMapPreview } from "@/components/composer-map-preview";
 import { samplePrompts } from "@/components/navigation";
 import { SimpleMapComposerStepper } from "@/components/simple-map-composer-stepper";
 import { StatusChip } from "@/components/status-chip";
@@ -21,6 +21,7 @@ type ComposerLayerEdit = {
   opacity: number;
   role?: string;
   definition_expression?: string;
+  is_derived?: boolean;
 };
 
 const defaultPrompt = "make a map of my address 793 bartram ave and include nearest line to the nearest fire station";
@@ -58,8 +59,20 @@ function identifierText(value: unknown): string {
 
 function layerEditsFromResponse(response: ComposerResponse): ComposerLayerEdit[] {
   const previewLayers = response.preview_config?.operational_layers || [];
+  const derivedOverlays = response.preview_config?.derived_overlays || response.proximity_result?.derived_overlays || [];
+  const derivedEdits: ComposerLayerEdit[] = derivedOverlays.map((overlay, index) => ({
+    layer_key: overlay.id || `derived_overlay_${index}`,
+    title: overlay.title || overlay.id || `Derived overlay ${index + 1}`,
+    visibility: overlay.visible !== false,
+    opacity: 1,
+    role: overlay.role,
+    definition_expression: "",
+    is_derived: true,
+  }));
   if (previewLayers.length) {
-    return previewLayers.map((layer: PreviewLayer, index) => ({
+    const contextEdits = previewLayers
+      .filter((layer: PreviewLayer) => !layer.derived_local_analysis && !layer.local_output)
+      .map((layer: PreviewLayer, index) => ({
       layer_key: layer.layer_key || layer.id || `layer_${index}`,
       title: layer.title || layer.layer_key || `Layer ${index + 1}`,
       visibility: layer.visibility !== false,
@@ -67,15 +80,19 @@ function layerEditsFromResponse(response: ComposerResponse): ComposerLayerEdit[]
       role: layer.role,
       definition_expression: layer.definition_expression || "",
     }));
+    return [...derivedEdits, ...contextEdits];
   }
-  return (response.selected_layers || []).map((layer, index) => ({
+  return [
+    ...derivedEdits,
+    ...(response.selected_layers || []).map((layer, index) => ({
     layer_key: layer.layer_key || `layer_${index}`,
     title: layer.layer_name || layer.layer_key || `Layer ${index + 1}`,
     visibility: true,
     opacity: layer.category === "flood" ? 0.35 : layer.category === "zoning" ? 0.65 : 0.85,
     role: layer.role,
     definition_expression: "",
-  }));
+    })),
+  ];
 }
 
 function packetIdForPreview(response: ComposerResponse | null): string {
@@ -168,12 +185,15 @@ function PreviewBlocker({ response }: { response: ComposerResponse }) {
 
 function ProximityResultSummary({ result }: { result?: ProximityResult | null }) {
   if (!result) return null;
+  const targetLabel = result.target_name || (result.target_type === "nearest_fire_station" ? "Nearest fire station" : result.target_type) || "Proximity result";
+  const distance = typeof result.distance_value === "number" ? `${result.distance_value.toFixed(2)} ${result.distance_unit || "miles"}` : "Needs review";
+  const lineReady = Boolean(result.line_geojson_path || result.line_geojson_url);
   return (
     <section className="panel proximity-summary-panel">
       <div className="panel-title-row">
         <div>
           <p className="eyebrow">Nearest facility draft</p>
-          <h3>{result.target_name || result.target_type || "Proximity result"}</h3>
+          <h3>Nearest fire station found: {targetLabel}</h3>
           <p className="muted">Straight-line reference only unless an approved road-network routing service is configured.</p>
         </div>
         <StatusChip tone={result.status === "ok" ? "success" : "warning"}>{result.status || "needs_review"}</StatusChip>
@@ -189,11 +209,16 @@ function ProximityResultSummary({ result }: { result?: ProximityResult | null })
         </div>
         <div>
           <span>Distance</span>
-          <strong>
-            {typeof result.distance_value === "number" ? `${result.distance_value.toFixed(2)} ${result.distance_unit || "miles"}` : "Needs review"}
-          </strong>
+          <strong>{distance}</strong>
+        </div>
+        <div>
+          <span>Map line</span>
+          <strong>{lineReady ? "Line shown on map" : "Needs review"}</strong>
         </div>
       </div>
+      {result.property_match_status === "not_resolved" ? (
+        <p className="muted">Address matched, but related parcel was not resolved from verified fields.</p>
+      ) : null}
       {result.line_geojson_path ? <p className="muted">Line output: {result.line_geojson_path}</p> : null}
     </section>
   );
@@ -271,12 +296,16 @@ function LayerAdjustmentControls({
               <input value={layer.title} onChange={(event) => updateLayer(index, { title: event.target.value })} />
             </label>
             <label>
-              <span>Definition expression</span>
-              <input
-                value={layer.definition_expression || ""}
-                onChange={(event) => updateLayer(index, { definition_expression: event.target.value })}
-                placeholder="Optional SQL where clause"
-              />
+              <span>{layer.is_derived ? "Derived output" : "Definition expression"}</span>
+              {layer.is_derived ? (
+                <input value="Local derived GeoJSON overlay" disabled />
+              ) : (
+                <input
+                  value={layer.definition_expression || ""}
+                  onChange={(event) => updateLayer(index, { definition_expression: event.target.value })}
+                  placeholder="Optional SQL where clause"
+                />
+              )}
             </label>
           </div>
           <div className="composer-layer-actions">
@@ -480,7 +509,7 @@ export function MapComposerClient() {
 
             {previewPacketId ? (
               <section className="composer-preview-section">
-                <ArcGISMapPreview packetId={previewPacketId} />
+                <ComposerMapPreview response={response} packetId={previewPacketId} />
               </section>
             ) : null}
 

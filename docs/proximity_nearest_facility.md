@@ -9,7 +9,7 @@ Supported local outputs:
 - nearest straight-line distance
 - origin parcel/address to nearest facility
 - containing district context for fire and school districts
-- local GeoJSON straight-line output
+- local GeoJSON origin point, target feature, and straight-line output
 - local Markdown/HTML/JSON report files under `outputs/proximity/`
 
 Safety rules:
@@ -33,5 +33,7 @@ Target examples:
 Fire district wording matters. If the user asks what district a parcel is in, AutoMap treats that as polygon containment. If the user asks for nearest fire station, AutoMap uses station point layers when verified.
 
 Road-network routing is not implied by a line request. Unless an approved routing/network service exists, AutoMap labels the output as a straight-line reference, not a driving route.
+
+In the Map Composer, v3.6 renders the local proximity GeoJSON outputs as focused overlays. The map extent is fit to the origin, target, and line with a buffer. If the origin address is matched but a related parcel is not resolved, AutoMap shows the address point and line and warns that no selected parcel outline is available.
 
 CFS remains separate. AutoMap does not connect to or modify `cfs_dev`.

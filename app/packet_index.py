@@ -396,6 +396,8 @@ def build_preview_config(packet_source: str | Path | None = None) -> dict[str, A
     packet_type = "webmap_json" if path.is_file() else (_packet_type(path) or "unknown")
     recipe_summary = webmap_json.get("autoMapRecipeSummary") or {}
     parcel_context = recipe.get("parcel_context") or recipe_summary.get("parcel_context") or {}
+    derived_overlays = recipe.get("derived_overlays") or recipe_summary.get("derived_overlays") or []
+    proximity_result = recipe.get("proximity_result") or recipe_summary.get("proximity_result") or {}
     preview_status = recipe.get("preview_status") or recipe_summary.get("preview_status")
     focus_mode = recipe.get("focus_mode") or recipe_summary.get("focus_mode")
     can_focus_map = parcel_context.get("can_focus_map") if isinstance(parcel_context, dict) else None
@@ -423,6 +425,8 @@ def build_preview_config(packet_source: str | Path | None = None) -> dict[str, A
         "focus_mode": focus_mode,
         "can_focus_map": can_focus_map,
         "parcel_preview_blocked": parcel_preview_blocked,
+        "derived_overlays": derived_overlays,
+        "proximity_result": proximity_result,
         "publish_ready": warnings.get("publish_ready") if isinstance(warnings, dict) else None,
         "preview_only": True,
     }

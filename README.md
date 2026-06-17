@@ -2,11 +2,11 @@
 
 AutoMap converts plain-English county GIS map requests into structured map recipes using only approved GIS layers from a local layer catalog.
 
-Version: `3.5.0`
+Version: `3.6.0`
 
 ## Current Phase
 
-v3.5 Clean Map Composer UI and Address-to-Parcel Resolver on top of the four-step composer, simple preview behavior, proximity, real parcel lookup, parcel workspace, scenario workbench, planning scenario and suitability intelligence, development/transportation source intelligence, real source verification, data gap resolution, analysis summary reporting, and user-guided safe spatial analysis refinement.
+v3.6 Real Composer Map Rendering for Address, Parcel, and Proximity Outputs on top of the four-step composer, address-to-parcel resolver, simple preview behavior, proximity, real parcel lookup, parcel workspace, scenario workbench, planning scenario and suitability intelligence, development/transportation source intelligence, real source verification, data gap resolution, analysis summary reporting, and user-guided safe spatial analysis refinement.
 
 This repository is intentionally independent. It does not connect to CFS or import CFS code. AutoMap uses its own local PostGIS database and trusted layer catalog.
 
@@ -49,6 +49,7 @@ AutoMap helps GIS and planning staff turn plain-English county map requests into
 - address-focused prompts resolved through verified address/parcel fields without owner-name lookup by default
 - nearest-facility address prompts routed to straight-line proximity drafts when safe
 - clean composer blocked states that hide adjust/export controls until preview is ready
+- composer preview rendering of local derived GeoJSON overlays for origin points, selected parcels, nearest facilities, and straight-line distance lines
 
 ## What AutoMap Does Not Do Yet
 
@@ -93,6 +94,7 @@ ArcGIS publishing and smoke testing remain dry-run by default unless a guarded C
 33. v3.3 simple map composer workflow and true preview behavior
 34. v3.4 four-step map composer UI
 35. v3.5 clean composer UI and address-to-parcel resolver
+36. v3.6 real composer map rendering for address, parcel, and proximity outputs
 
 ## Project Structure
 
@@ -509,13 +511,15 @@ For parcel-centered prompts, AutoMap now requires a real parcel/PIN/address matc
 
 When a parcel is safely matched, AutoMap fetches only the matched parcel geometry, writes local selected-parcel GeoJSON, computes a small parcel buffer extent, sets the map focus to that extent, and labels context layers as reference around the selected parcel. Analysis remains optional for context maps and still uses bounded safety checks when requested.
 
+AutoMap v3.6 adds explicit composer rendering for local derived GeoJSON overlays. Address/proximity requests can now show the origin point, nearest facility target, straight-line distance line, and selected parcel outline when one is truly resolved. If an address matches but the related parcel is not resolved from verified fields, the preview still shows the address point and proximity line with a warning instead of pretending the full Tax Parcels layer is the selected property.
+
 Open:
 
 ```text
 http://localhost:3010/map-composer
 ```
 
-See `docs/simple_map_composer.md`, `docs/map_preview_behavior.md`, `docs/simplified_workflow.md`, and `docs/parcel_focused_preview.md`.
+See `docs/simple_map_composer.md`, `docs/map_preview_behavior.md`, `docs/simplified_workflow.md`, `docs/parcel_focused_preview.md`, `docs/derived_geojson_preview.md`, and `docs/address_proximity_preview.md`.
 
 ## ArcGIS WebMap Draft Generator
 

@@ -2,6 +2,7 @@
 
 AutoMap v3.4 makes preview behavior explicit and conservative.
 AutoMap v3.5 adds address-aware blockers so address prompts do not get mislabeled as parcel failures.
+AutoMap v3.6 adds direct rendering for local derived GeoJSON overlays in the Map Composer.
 
 ## Parcel-Focused Prompts
 
@@ -27,6 +28,19 @@ If unmatched, AutoMap:
 - does not run analysis
 
 Address-focused prompts follow the same focused-preview rule. If the address is unmatched, AutoMap sets `can_preview=false`, shows `Address not matched`, and does not show a broad county map as a successful address preview.
+
+If an address is matched and a proximity result exists, AutoMap can preview the address point, nearest facility target, and straight-line distance line even when a related parcel is not resolved. In that case it warns that the related parcel was not resolved and does not show the full Tax Parcels layer as the selected property.
+
+## Derived Local Overlays
+
+Composer preview configs can include `derived_overlays` for local GeoJSON outputs:
+
+- origin address point
+- selected parcel, only if resolved
+- nearest facility target
+- straight-line distance
+
+These overlays are served through `/api/local-outputs/geojson/...`, rendered locally by the frontend, and never uploaded or published.
 
 ## Geography-Focused Prompts
 

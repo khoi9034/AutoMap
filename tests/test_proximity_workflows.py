@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 from app.geometry_utils import build_straight_line_geojson, compute_straight_line_distance
 from app.proximity_engine import (
@@ -208,6 +209,41 @@ def test_nearest_facility_uses_bounded_rings_and_no_countywide_download(monkeypa
     assert result["bounded_search"]["ring_used_miles"] == 1
     assert result["downloaded_countywide"] is False
     assert all(query["geometry_type"] == "esriGeometryEnvelope" for query in client.count_queries)
+
+
+def test_proximity_result_writes_origin_target_and_line_geojson(monkeypatch, tmp_path):
+    monkeypatch.setattr("app.proximity_engine.repo_root", lambda: tmp_path)
+    monkeypatch.setattr("app.local_output_server.repo_root", lambda: tmp_path)
+    monkeypatch.setattr("app.proximity_engine._safe_output_folder", lambda prompt: Path("outputs/proximity/test_result"))
+    monkeypatch.setattr(
+        "app.proximity_engine.resolve_origin",
+        lambda origin_input, **kwargs: {
+            "status": "matched",
+            "origin_type": "address",
+            "property_match_status": "not_resolved",
+            "origin_feature": point_feature("Origin", -80, 35),
+            "warnings": ["Address matched, but related parcel was not resolved from verified fields."],
+        },
+    )
+    client = MockSpatialClient(counts=[1], features=[point_feature("Fire Station 1", -80.01, 35.01)])
+
+    result = run_nearest_facility(
+        "793 bartram ave",
+        target_type="nearest_fire_station",
+        layer_catalog=proximity_catalog(),
+        client=client,
+        persist=False,
+    )
+
+    output_folder = tmp_path / "outputs" / "proximity" / "test_result"
+    assert (output_folder / "origin_point.geojson").exists()
+    assert (output_folder / "target_feature.geojson").exists()
+    assert (output_folder / "proximity_line.geojson").exists()
+    assert result["origin_point_geojson_url"].startswith("/api/local-outputs/geojson/proximity/")
+    assert result["target_feature_geojson_url"].startswith("/api/local-outputs/geojson/proximity/")
+    assert result["line_geojson_url"].startswith("/api/local-outputs/geojson/proximity/")
+    assert {overlay["role"] for overlay in result["derived_overlays"]} >= {"origin", "target", "distance_line"}
+    assert result["property_match_status"] == "not_resolved"
 
 
 def test_candidate_download_cap_blocks_large_target_search(monkeypatch):

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from copy import deepcopy
 from datetime import UTC, datetime
 import json
 from pathlib import Path
@@ -24,6 +25,7 @@ from app.geometry_utils import (
 )
 from app.layer_catalog_store import load_catalog_records
 from app.layer_semantics import slugify
+from app.local_output_server import local_geojson_url, make_local_output_file_id
 from app.parcel_context_engine import create_parcel_set, fetch_selected_parcels, get_parcel_set
 from app.parcel_input_parser import parse_parcel_input
 from app.proximity_models import (
@@ -371,7 +373,39 @@ def resolve_origin(
         address_value = address_candidates[0]["value"]
         address_result = resolve_address_point(address_value, client=client, schema_name=schema_name)
         if address_result.get("status") == "matched":
-            return address_result
+            try:
+                parcel_set = create_parcel_set(address_value, schema_name=schema_name)
+                matched_count = int(parcel_set.get("matched_count") or len(parcel_set.get("matched_parcels") or []))
+                if matched_count == 1:
+                    geometry_result = fetch_selected_parcels(parcel_set["parcel_set_id"], schema_name=schema_name)
+                    refreshed = get_parcel_set(parcel_set["parcel_set_id"], schema_name)
+                    return {
+                        **address_result,
+                        "property_match_status": "matched" if geometry_result.get("geometry_output_path") else "matched_without_geometry",
+                        "parcel_set": refreshed,
+                        "warnings": [
+                            *(address_result.get("warnings") or []),
+                            *(geometry_result.get("warnings") or []),
+                        ],
+                    }
+                return {
+                    **address_result,
+                    "property_match_status": "not_resolved",
+                    "candidate_matches": parcel_set.get("candidate_matches") or [],
+                    "warnings": [
+                        *(address_result.get("warnings") or []),
+                        "Address matched, but related parcel was not resolved from verified fields.",
+                    ],
+                }
+            except Exception:
+                return {
+                    **address_result,
+                    "property_match_status": "not_resolved",
+                    "warnings": [
+                        *(address_result.get("warnings") or []),
+                        "Address matched, but related parcel was not resolved from verified fields.",
+                    ],
+                }
 
         parcel_set = create_parcel_set(address_value, schema_name=schema_name)
         matched_count = int(parcel_set.get("matched_count") or len(parcel_set.get("matched_parcels") or []))
@@ -683,14 +717,160 @@ def _safe_output_folder(prompt: str) -> Path:
     return Path(PROXIMITY_OUTPUT_ROOT) / f"{timestamp}_{slugify(prompt)[:72]}"
 
 
-def _write_line_output(result: dict[str, Any], output_folder: Path, line_geojson: dict[str, Any]) -> dict[str, Any]:
+def _feature_collection(feature: dict[str, Any] | None, *, role: str, title: str) -> dict[str, Any] | None:
+    if not feature or not feature.get("geometry"):
+        return None
+    copied = deepcopy(feature)
+    properties = copied.setdefault("properties", {})
+    if isinstance(properties, dict):
+        properties["automap_role"] = role
+        properties["automap_title"] = title
+        properties["derived_local_output"] = True
+    return {"type": "FeatureCollection", "features": [copied]}
+
+
+def _origin_point_collection(feature: dict[str, Any] | None) -> dict[str, Any] | None:
+    if not feature:
+        return None
+    try:
+        point = compute_origin_point(feature)
+    except GeometrySafetyError:
+        return None
+    properties = deepcopy(feature.get("properties") or {})
+    if isinstance(properties, dict):
+        properties["automap_role"] = "origin"
+        properties["automap_title"] = "Origin Address"
+        properties["derived_local_output"] = True
+    return {
+        "type": "FeatureCollection",
+        "features": [{"type": "Feature", "properties": properties, "geometry": point}],
+    }
+
+
+def _write_geojson_output(
+    result: dict[str, Any],
+    output_folder: Path,
+    file_name: str,
+    geojson: dict[str, Any] | None,
+    *,
+    key_prefix: str,
+) -> None:
+    if not geojson:
+        return
     output_path = repo_root() / output_folder
     output_path.mkdir(parents=True, exist_ok=True)
-    line_path = output_path / "proximity_line.geojson"
-    line_path.write_text(json.dumps(line_geojson, indent=2, default=str), encoding="utf-8")
-    result["line_geojson_path"] = (output_folder / "proximity_line.geojson").as_posix()
-    result["line_geojson_url"] = output_file_url(result["line_geojson_path"])
+    full_path = output_path / file_name
+    full_path.write_text(json.dumps(geojson, indent=2, default=str), encoding="utf-8")
+    relative_path = (output_folder / file_name).as_posix()
+    result[f"{key_prefix}_geojson_path"] = relative_path
+    try:
+        result[f"{key_prefix}_geojson_url"] = local_geojson_url(relative_path, output_type="proximity")
+        result[f"{key_prefix}_geojson_file_id"] = make_local_output_file_id(relative_path, output_type="proximity")
+    except ValueError:
+        result[f"{key_prefix}_geojson_url"] = output_file_url(relative_path)
+
+
+def _proximity_overlay(
+    result: dict[str, Any],
+    *,
+    key_prefix: str,
+    overlay_id: str,
+    title: str,
+    role: str,
+    geometry_type: str,
+    symbol: dict[str, Any],
+) -> dict[str, Any] | None:
+    url = result.get(f"{key_prefix}_geojson_url")
+    path = result.get(f"{key_prefix}_geojson_path")
+    if not url or not path:
+        return None
+    return {
+        "id": overlay_id,
+        "title": title,
+        "type": "geojson",
+        "url": url,
+        "path": path,
+        "file_id": result.get(f"{key_prefix}_geojson_file_id"),
+        "role": role,
+        "geometry_type": geometry_type,
+        "visible": True,
+        "local_output": True,
+        "source_status": "derived_local",
+        "symbol": symbol,
+    }
+
+
+def _build_derived_overlays(result: dict[str, Any]) -> list[dict[str, Any]]:
+    overlays = [
+        _proximity_overlay(
+            result,
+            key_prefix="origin_point",
+            overlay_id="origin_address_point",
+            title="Origin Address",
+            role="origin",
+            geometry_type="point",
+            symbol={"style": "circle", "color": "#0ea5a3", "outline": "#ffffff", "size": 14},
+        ),
+        _proximity_overlay(
+            result,
+            key_prefix="target_feature",
+            overlay_id="nearest_fire_station" if result.get("target_type") == "nearest_fire_station" else "nearest_facility",
+            title=result.get("target_name") or "Nearest Facility",
+            role="target",
+            geometry_type="point",
+            symbol={"style": "diamond", "color": "#dc2626", "outline": "#ffffff", "size": 15},
+        ),
+        _proximity_overlay(
+            result,
+            key_prefix="line",
+            overlay_id="straight_line_distance",
+            title="Straight-Line Distance",
+            role="distance_line",
+            geometry_type="line",
+            symbol={"style": "solid", "color": "#2563eb", "width": 5},
+        ),
+    ]
+    selected_parcel = _proximity_overlay(
+        result,
+        key_prefix="selected_parcel",
+        overlay_id="selected_parcel",
+        title="Selected Parcel",
+        role="selected_parcel",
+        geometry_type="polygon",
+        symbol={"style": "outline", "color": "#f59e0b", "fill": "rgba(245,158,11,0.14)", "width": 3},
+    )
+    if selected_parcel:
+        overlays.insert(1, selected_parcel)
+    return [overlay for overlay in overlays if overlay]
+
+
+def _write_line_output(result: dict[str, Any], output_folder: Path, line_geojson: dict[str, Any]) -> dict[str, Any]:
+    _write_geojson_output(
+        result,
+        output_folder,
+        "origin_point.geojson",
+        _origin_point_collection(result.get("origin_feature")),
+        key_prefix="origin_point",
+    )
+    _write_geojson_output(
+        result,
+        output_folder,
+        "target_feature.geojson",
+        _feature_collection(result.get("target_feature"), role="target", title=result.get("target_name") or "Nearest Facility"),
+        key_prefix="target_feature",
+    )
+    _write_geojson_output(result, output_folder, "proximity_line.geojson", line_geojson, key_prefix="line")
+    selected_parcel_path = ((result.get("parcel_set") or {}).get("geometry_output_path") if isinstance(result.get("parcel_set"), dict) else None)
+    if selected_parcel_path:
+        result["selected_parcel_geojson_path"] = selected_parcel_path
+        try:
+            result["selected_parcel_geojson_url"] = local_geojson_url(selected_parcel_path, output_type="parcel_context")
+            result["selected_parcel_geojson_file_id"] = make_local_output_file_id(selected_parcel_path, output_type="parcel_context")
+        except ValueError:
+            result["selected_parcel_geojson_url"] = output_file_url(selected_parcel_path)
+    result["derived_overlays"] = _build_derived_overlays(result)
     result["output_folder"] = output_folder.as_posix()
+    output_path = repo_root() / output_folder
     result["report_files"] = write_proximity_report(output_path, result)
     return result
 
@@ -837,6 +1017,8 @@ def run_nearest_facility(
         "raw_prompt": prompt,
         "origin_input": origin_input,
         "origin_type": origin.get("origin_type"),
+        "property_match_status": origin.get("property_match_status"),
+        "parcel_set": origin.get("parcel_set"),
         "target_type": target_type,
         "target_layer": target_layer,
         "target_layer_key": target_layer.get("layer_key"),
@@ -864,8 +1046,8 @@ def run_nearest_facility(
         "warnings": warnings,
         "downloaded_countywide": False,
         "published": False,
-        "cfs_untouched_statement": "CFS database cfs_dev was not touched.",
     }
+    _write_geojson_output(result, output_folder, "proximity_result.geojson", result_geojson, key_prefix="proximity_result")
     result = _write_line_output(result, output_folder, {"type": "FeatureCollection", "features": [line_feature]})
     return _record_result(result, schema_name) if persist else result
 
@@ -977,6 +1159,9 @@ def run_route_draft(
         "origin_input": origin_input,
         "destination_input": destination_input,
         "target_type": "route_to_address",
+        "origin_type": origin.get("origin_type"),
+        "property_match_status": origin.get("property_match_status"),
+        "parcel_set": origin.get("parcel_set"),
         "status": "ok",
         "route_status": "network_route_not_available",
         "origin_feature": origin["origin_feature"],
@@ -987,7 +1172,8 @@ def run_route_draft(
         "warnings": warnings,
         "published": False,
         "downloaded_countywide": False,
-        "cfs_untouched_statement": "CFS database cfs_dev was not touched.",
     }
+    result_geojson = build_proximity_result_geojson(origin["origin_feature"], destination["origin_feature"], line_feature)
+    _write_geojson_output(result, output_folder, "proximity_result.geojson", result_geojson, key_prefix="proximity_result")
     result = _write_line_output(result, output_folder, {"type": "FeatureCollection", "features": [line_feature]})
     return _record_result(result, schema_name) if persist else result

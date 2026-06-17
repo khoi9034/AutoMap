@@ -102,7 +102,9 @@ export function LayerPanel({ layers = [] }: LayerPanelProps) {
                 ) : (
                   <StatusChip tone="success">No layer warnings</StatusChip>
                 )}
-                {url ? (
+                {layer.derived_local_analysis || layer.local_output ? (
+                  <span className="muted">Local derived output</span>
+                ) : url ? (
                   <a className="text-link" href={url} target="_blank" rel="noreferrer">
                     Open REST layer
                   </a>

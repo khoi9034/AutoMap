@@ -195,13 +195,18 @@ def _origin_context_from_proximity(prompt: str, result: dict[str, Any]) -> dict[
     reason = None
     if result.get("status") != "ok":
         reason = ADDRESS_NOT_MATCHED_WARNING if origin_type == "address" else "Origin not matched. AutoMap cannot preview this focused map until the origin is matched."
+    related_parcel = None
+    parcel_set = result.get("parcel_set")
+    if isinstance(parcel_set, dict) and parcel_set.get("matched_parcels"):
+        related_parcel = parcel_set.get("matched_parcels", [None])[0]
     return {
         "origin_type": origin_type,
         "origin_input": result.get("origin_input"),
         "origin_match_status": status,
         "match_status": status,
         "candidate_matches": result.get("candidate_matches") or [],
-        "related_parcel": (result.get("parcel_set") or {}).get("matched_parcels", [None])[0] if isinstance(result.get("parcel_set"), dict) and (result.get("parcel_set") or {}).get("matched_parcels") else None,
+        "related_parcel": related_parcel,
+        "property_match_status": result.get("property_match_status") or ("not_resolved" if origin_type == "address" and status == "matched" and not related_parcel else None),
         "can_preview": result.get("status") == "ok",
         "reason_if_not_focusable": reason,
         "warnings": result.get("warnings") or [],
@@ -221,6 +226,8 @@ def _apply_proximity_result_to_recipe(recipe: dict[str, Any], prompt: str, resul
         "straight_line_supported": True,
         "route_status": result.get("route_status"),
     }
+    if result.get("derived_overlays"):
+        recipe["derived_overlays"] = result["derived_overlays"]
     target_layer = result.get("target_layer")
     if isinstance(target_layer, dict) and target_layer.get("layer_key"):
         selected_keys = {layer.get("layer_key") for layer in recipe.get("selected_layers") or []}
@@ -246,6 +253,8 @@ def _apply_proximity_result_to_recipe(recipe: dict[str, Any], prompt: str, resul
         recipe["preview_status"] = "ready_for_proximity_preview"
         recipe["focus_mode"] = "proximity"
         _append_unique_warning(recipe, "Straight-line reference, not a driving route.")
+        if recipe["origin_context"].get("property_match_status") == "not_resolved":
+            _append_unique_warning(recipe, "Address matched, but related parcel was not resolved from verified fields.")
     else:
         reason = recipe["origin_context"].get("reason_if_not_focusable")
         if reason:
@@ -265,6 +274,29 @@ def _preview_config_for(path: Path, can_preview: bool) -> dict[str, Any] | None:
     if not can_preview:
         return None
     return build_preview_config(path)
+
+
+def _augment_preview_config(preview_config: dict[str, Any] | None, recipe: dict[str, Any], webmap_json: dict[str, Any]) -> dict[str, Any] | None:
+    """Attach composer-only local overlays and focused extent metadata."""
+    if not preview_config:
+        return None
+    config = deepcopy(preview_config)
+    overlays = recipe.get("derived_overlays") or (recipe.get("proximity_result") or {}).get("derived_overlays") or []
+    if overlays:
+        config["derived_overlays"] = overlays
+        config["focus_mode"] = recipe.get("focus_mode") or "proximity"
+        config["preview_status"] = recipe.get("preview_status") or "ready_for_proximity_preview"
+        config["proximity_result"] = recipe.get("proximity_result") or {}
+        suggested_extent = recipe.get("suggested_extent")
+        if isinstance(suggested_extent, dict):
+            config["initial_extent"] = suggested_extent
+            config["focus_extent"] = suggested_extent
+        else:
+            target_geometry = (((webmap_json.get("initialState") or {}).get("viewpoint") or {}).get("targetGeometry") or {})
+            if isinstance(target_geometry, dict) and target_geometry:
+                config["initial_extent"] = target_geometry
+                config["focus_extent"] = target_geometry
+    return config
 
 
 def _save_session_payload(session_folder: Path, payload: dict[str, Any]) -> None:
@@ -400,7 +432,7 @@ def generate_composer_draft(prompt: str) -> dict[str, Any]:
     review_packet_path: Path | None = None
     if can_preview:
         review_packet_path = save_review_packet(prompt, recipe, webmap_json)
-    preview_config = _preview_config_for(review_packet_path or session_folder, can_preview)
+    preview_config = _augment_preview_config(_preview_config_for(review_packet_path or session_folder, can_preview), recipe, webmap_json)
 
     response = _base_session_response(
         session_id=session_id,
@@ -475,7 +507,7 @@ def apply_composer_adjustments(session_id: str, adjustment_payload: dict[str, An
     if review_packet_path:
         adjusted_packet_path = write_adjusted_packet(review_packet_path, adjusted_recipe, adjusted_webmap, adjustments)
     can_preview = _can_preview(adjusted_recipe, adjusted_webmap)
-    preview_config = _preview_config_for(adjusted_packet_path or session_folder, can_preview)
+    preview_config = _augment_preview_config(_preview_config_for(adjusted_packet_path or session_folder, can_preview), adjusted_recipe, adjusted_webmap)
 
     response = _base_session_response(
         session_id=session_id,

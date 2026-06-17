@@ -558,14 +558,29 @@ export type ProximityResult = {
   line_type?: string;
   distance_value?: number | null;
   distance_unit?: string;
+  property_match_status?: string | null;
+  origin_point_geojson_path?: string | null;
+  origin_point_geojson_url?: string | null;
+  origin_point_geojson_file_id?: string | null;
+  target_feature_geojson_path?: string | null;
+  target_feature_geojson_url?: string | null;
+  target_feature_geojson_file_id?: string | null;
   line_geojson_path?: string | null;
   line_geojson_url?: string | null;
+  line_geojson_file_id?: string | null;
+  proximity_result_geojson_path?: string | null;
+  proximity_result_geojson_url?: string | null;
+  proximity_result_geojson_file_id?: string | null;
+  selected_parcel_geojson_path?: string | null;
+  selected_parcel_geojson_url?: string | null;
+  selected_parcel_geojson_file_id?: string | null;
   output_folder?: string | null;
   report_files?: Record<string, string>;
   candidate_matches?: JsonValue[];
   warnings?: string[];
   bounded_search?: Record<string, JsonValue>;
   derived_layer?: Record<string, JsonValue>;
+  derived_overlays?: DerivedOverlay[];
   published?: boolean;
 };
 
@@ -916,9 +931,25 @@ export type PreviewLayer = {
   definition_expression?: string | null;
   review_warnings?: string[];
   derived_local_analysis?: boolean;
+  local_output?: boolean;
   analysis_run_id?: string | null;
   display_role?: string;
   draw_order?: number;
+};
+
+export type DerivedOverlay = {
+  id?: string;
+  title?: string;
+  type?: "geojson" | string;
+  url?: string;
+  path?: string;
+  file_id?: string | null;
+  role?: string;
+  geometry_type?: "point" | "line" | "polygon" | string;
+  visible?: boolean;
+  local_output?: boolean;
+  source_status?: string;
+  symbol?: Record<string, JsonValue>;
 };
 
 export type PreviewConfig = {
@@ -938,6 +969,9 @@ export type PreviewConfig = {
   focus_mode?: string;
   can_focus_map?: boolean | null;
   parcel_preview_blocked?: boolean;
+  derived_overlays?: DerivedOverlay[];
+  proximity_result?: ProximityResult | Record<string, JsonValue>;
+  focus_extent?: Record<string, JsonValue>;
   preview_only?: boolean;
 };
 
