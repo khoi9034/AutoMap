@@ -162,6 +162,7 @@ def test_target_layer_mapping_uses_verified_catalog_only():
 
     assert find_target_layer("nearest_school", layer_catalog=catalog)["layer_key"] == "schools_point"
     assert find_target_layer("nearest_fire_station", layer_catalog=catalog)["layer_key"] == "fire_stations"
+    assert find_target_layer("nearest_fire_ems_station", layer_catalog=catalog)["layer_key"] == "fire_stations"
     assert find_target_layer("containing_fire_district", layer_catalog=catalog)["layer_key"] == "fire_districts"
     assert find_target_layer("nearest_school", layer_catalog=[{**catalog[0], "is_verified": False}]) is None
 
@@ -243,7 +244,88 @@ def test_proximity_result_writes_origin_target_and_line_geojson(monkeypatch, tmp
     assert result["target_feature_geojson_url"].startswith("/api/local-outputs/geojson/proximity/")
     assert result["line_geojson_url"].startswith("/api/local-outputs/geojson/proximity/")
     assert {overlay["role"] for overlay in result["derived_overlays"]} >= {"origin", "target", "distance_line"}
+    assert "selected_parcel" not in {overlay["role"] for overlay in result["derived_overlays"]}
     assert result["property_match_status"] == "not_resolved"
+
+
+def test_address_point_to_parcel_spatial_lookup_is_bounded(monkeypatch):
+    monkeypatch.setattr(
+        "app.proximity_engine.resolve_address_point",
+        lambda address_value, **kwargs: {
+            "status": "matched",
+            "origin_type": "address",
+            "origin_feature": point_feature("793 Bartram Ave", -80.58, 35.36),
+            "warnings": [],
+        },
+    )
+    monkeypatch.setattr(
+        "app.proximity_engine.create_parcel_set",
+        lambda raw_input, **kwargs: {
+            "parcel_set_id": "parcel_set_address",
+            "input_type": "address",
+            "matched_count": 0,
+            "matched_parcels": [],
+            "candidate_matches": [],
+            "warnings": [],
+        },
+    )
+    monkeypatch.setattr(
+        "app.proximity_engine.find_tax_parcel_layer",
+        lambda schema_name="automap": {
+            "layer_key": "tax_parcels",
+            "layer_url": "https://example.test/Parcels/0",
+            "is_verified": True,
+            "is_active": True,
+            "geometry_type": "esriGeometryPolygon",
+        },
+    )
+    monkeypatch.setattr(
+        "app.proximity_engine.infer_parcel_id_fields",
+        lambda layer, schema_name="automap": {"object_id": ["OBJECTID"], "pin14": ["PIN14"], "pin": [], "parcel_id": [], "address": ["SITEADDR"]},
+    )
+    parcel_feature = {
+        "type": "Feature",
+        "properties": {"OBJECTID": 7, "PIN14": "12345678901234", "SITEADDR": "793 BARTRAM AVE"},
+        "geometry": {"type": "Polygon", "coordinates": [[[-80.581, 35.359], [-80.579, 35.359], [-80.579, 35.361], [-80.581, 35.361], [-80.581, 35.359]]]},
+    }
+    client = MockSpatialClient(counts=[1], features=[parcel_feature])
+
+    result = resolve_origin("793 bartram ave", client=client)
+
+    assert result["status"] == "matched"
+    assert result["property_match_status"] == "matched"
+    assert result["selected_parcel_feature"]["geometry"]["type"] == "Polygon"
+    assert client.count_queries[-1]["geometry_type"] == "esriGeometryPoint"
+    assert client.count_queries[-1]["spatial_rel"] == "esriSpatialRelIntersects"
+    assert client.feature_queries[-2]["return_geometry"] is False
+    assert client.feature_queries[-1]["return_geometry"] is True
+
+
+def test_fire_station_prompt_does_not_silently_label_ems_only(monkeypatch):
+    monkeypatch.setattr(
+        "app.proximity_engine.resolve_origin",
+        lambda origin_input, **kwargs: {
+            "status": "matched",
+            "origin_type": "address",
+            "origin_feature": point_feature("Origin", -80, 35),
+            "warnings": [],
+        },
+    )
+    monkeypatch.setattr("app.proximity_engine._write_line_output", lambda result, output_folder, line_geojson: result)
+    client = MockSpatialClient(counts=[1], features=[point_feature("EMS 2", -80.01, 35.01)])
+
+    result = run_nearest_facility(
+        "793 bartram ave",
+        target_type="nearest_fire_station",
+        layer_catalog=proximity_catalog(),
+        client=client,
+        persist=False,
+    )
+
+    assert result["target_type"] == "nearest_fire_ems_station"
+    assert result["requested_target_type"] == "nearest_fire_station"
+    assert result["target_classification"] == "mixed_fire_ems"
+    assert "could not confirm a fire-only filter" in " ".join(result["warnings"])
 
 
 def test_candidate_download_cap_blocks_large_target_search(monkeypatch):

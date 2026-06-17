@@ -12,6 +12,7 @@ PROXIMITY_REQUEST_TYPES = {
     "nearest_middle_school",
     "nearest_high_school",
     "nearest_fire_station",
+    "nearest_fire_ems_station",
     "nearest_ems_station",
     "nearest_library",
     "nearest_county_facility",

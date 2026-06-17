@@ -29,7 +29,7 @@ export function ComposerLayerPanel({
       <div className="composer-layer-groups">
         <div>
           <h4>Derived result overlays</h4>
-          <p className="muted">Origin Address, Selected Parcel, Nearest Fire Station, and Straight-Line Distance appear here when available.</p>
+          <p className="muted">Origin Address, nearest facility, Straight-Line Distance, and Selected Parcel only when the parcel is truly resolved.</p>
           {derivedOverlays.length ? (
             <div className="composer-mini-layer-list">
               {derivedOverlays.map((overlay) => (

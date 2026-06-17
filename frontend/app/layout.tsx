@@ -7,6 +7,7 @@ import { TopHeader } from "@/components/top-header";
 import { WorkflowContextPanel } from "@/components/workflow-context-panel";
 import { getStatusOrFallback } from "@/lib/api";
 
+import "@arcgis/core/assets/esri/themes/light/main.css";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -31,7 +32,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
                 <WorkflowContextPanel />
               </div>
             </div>
-            <footer className="footer">AutoMap v{status.version || "3.6.0"} - local draft workflow only.</footer>
+            <footer className="footer">AutoMap v{status.version || "3.7.0"} - local draft workflow only.</footer>
           </div>
         </div>
       </body>

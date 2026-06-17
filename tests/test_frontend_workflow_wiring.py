@@ -212,10 +212,16 @@ def test_map_composer_is_primary_simple_workflow():
     assert "SimpleMapComposerStepper" in client
     assert "ComposerMapPreview" in client
     assert "ArcGISMapPreview" not in client
-    assert "DerivedGeoJsonLayer" in composer_preview
+    assert "MapView" in composer_preview
+    assert "GraphicsLayer" in composer_preview
+    assert "FeatureLayer" in composer_preview
+    assert "MapImageLayer" in composer_preview
+    assert "streets-vector" in composer_preview
+    assert "Map preview failed to load." in composer_preview
+    assert "composer-map-grid" not in composer_preview
     assert "featureCollectionBounds" in derived_layer
     assert "Origin Address" in composer_preview
-    assert "Nearest Fire Station" in composer_layer_panel
+    assert "nearest facility" in composer_layer_panel
     assert "Straight-Line Distance" in composer_preview
     assert "Local derived output" in composer_layer_panel
     assert "Open REST layer" not in composer_layer_panel
@@ -232,6 +238,7 @@ def test_map_composer_is_primary_simple_workflow():
     assert "composer-side" not in client
     assert "response.can_preview ? (" in client
     assert "Nearest facility draft" in client
+    assert "nearest fire/EMS station" in client
     assert "Line shown on map" in client
     assert "Address matched, but related parcel was not resolved" in client
     assert "Analysis is optional" in client
@@ -363,7 +370,7 @@ def test_api_client_has_timeout_and_sanitized_fallback_version():
     assert "Backend is online, but this request took too long" in source
     assert "http://127.0.0.1:8010" in source
     assert "timeoutMs: 60000" in source
-    assert 'version: "3.6.0"' in source
+    assert 'version: "3.7.0"' in source
     assert "redactProtected" in source
     assert "AutoMap is checking the catalog, parcel fields, and context layers" in map_request
 

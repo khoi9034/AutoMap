@@ -1433,6 +1433,15 @@ button {
   background: #eef3f8;
 }
 
+.composer-real-map {
+  width: 100%;
+  min-height: 560px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #eef3f8;
+}
+
 .layer-panel,
 .warning-panel {
   display: grid;

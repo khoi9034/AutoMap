@@ -28,6 +28,7 @@ from app.layer_semantics import slugify
 from app.local_output_server import local_geojson_url, make_local_output_file_id
 from app.parcel_context_engine import create_parcel_set, fetch_selected_parcels, get_parcel_set
 from app.parcel_input_parser import parse_parcel_input
+from app.parcel_matcher import find_tax_parcel_layer, infer_parcel_id_fields
 from app.proximity_models import (
     DEFAULT_MAX_ORIGIN_FEATURES,
     DISTANCE_RINGS_MILES,
@@ -40,6 +41,14 @@ from app.proximity_models import (
 from app.proximity_reporter import write_proximity_report
 from app.spatial_query_client import SpatialQueryClient, SpatialQueryError
 from app.ui_models import output_file_url, repo_root
+
+
+COMBINED_FIRE_EMS_WARNING = (
+    "The verified layer combines Fire and EMS stations; AutoMap could not confirm a fire-only filter."
+)
+EMS_TARGET_REVIEW_WARNING = (
+    "Nearest target name appears to be EMS-related; review before treating it as a fire station."
+)
 
 
 def _requests_table(schema_name: str) -> str:
@@ -351,6 +360,136 @@ def _load_first_geojson_feature(path: str) -> dict[str, Any] | None:
     return features[0] if features else None
 
 
+def _summarize_parcel_feature(feature: dict[str, Any], field_map: dict[str, list[str]]) -> dict[str, Any]:
+    properties = feature.get("properties") or feature.get("attributes") or {}
+    summary: dict[str, Any] = {"attributes": properties}
+    for role in ["object_id", "pin14", "pin", "parcel_id", "address"]:
+        for field in field_map.get(role) or []:
+            value = properties.get(field)
+            if value not in {None, ""}:
+                summary[role] = value
+                break
+    return summary
+
+
+def _resolve_related_parcel_by_address_point(
+    address_feature: dict[str, Any],
+    *,
+    client: SpatialQueryClient,
+    schema_name: str,
+) -> dict[str, Any]:
+    """Resolve a related parcel using only a bounded address-point spatial query."""
+    layer = find_tax_parcel_layer(schema_name=schema_name)
+    if not layer:
+        return {
+            "property_match_status": "not_resolved",
+            "warnings": ["Address matched, but no verified Tax Parcels layer is available for a bounded parcel crosswalk."],
+        }
+    layer_url = layer.get("layer_url") or layer.get("rest_url")
+    if not layer_url:
+        return {
+            "property_match_status": "not_resolved",
+            "warnings": ["Address matched, but the verified Tax Parcels layer has no REST layer URL."],
+        }
+    try:
+        point = compute_origin_point(address_feature)
+        count_result = client.query_count(
+            layer_url,
+            geometry=point,
+            geometry_type="esriGeometryPoint",
+            spatial_rel="esriSpatialRelIntersects",
+        )
+    except Exception as exc:
+        return {
+            "property_match_status": "not_resolved",
+            "warnings": [f"Address matched, but bounded address-to-parcel spatial lookup could not run safely: {exc}"],
+        }
+
+    count = int(count_result.get("count") or 0)
+    field_map = infer_parcel_id_fields(layer, schema_name=schema_name)
+    out_fields = ",".join(
+        field
+        for role in ["object_id", "pin14", "pin", "parcel_id", "address"]
+        for field in (field_map.get(role) or [])
+    ) or "*"
+    if count == 0:
+        return {
+            "property_match_status": "not_resolved",
+            "warnings": ["Address matched, but related parcel was not resolved from verified fields or bounded point-in-parcel lookup."],
+        }
+    if count > 1:
+        candidates: list[dict[str, Any]] = []
+        try:
+            query = client.query_features(
+                layer_url,
+                geometry=point,
+                geometry_type="esriGeometryPoint",
+                spatial_rel="esriSpatialRelIntersects",
+                out_fields=out_fields,
+                return_geometry=False,
+                result_record_count=min(count, DEFAULT_MAX_ORIGIN_FEATURES),
+            )
+            candidates = [_summarize_parcel_feature(feature, field_map) for feature in query.get("features") or []]
+        except Exception:
+            candidates = []
+        return {
+            "property_match_status": "ambiguous",
+            "candidate_matches": candidates,
+            "warnings": [f"Address matched {count} parcel candidates by bounded point-in-parcel lookup; choose one before showing a selected parcel outline."],
+        }
+
+    try:
+        attributes = client.query_features(
+            layer_url,
+            geometry=point,
+            geometry_type="esriGeometryPoint",
+            spatial_rel="esriSpatialRelIntersects",
+            out_fields=out_fields,
+            return_geometry=False,
+            result_record_count=1,
+        )
+        geometry = client.query_features(
+            layer_url,
+            geometry=point,
+            geometry_type="esriGeometryPoint",
+            spatial_rel="esriSpatialRelIntersects",
+            out_fields=out_fields,
+            return_geometry=True,
+            result_record_count=1,
+        )
+    except Exception as exc:
+        return {
+            "property_match_status": "not_resolved",
+            "warnings": [f"Address matched one parcel candidate, but selected parcel geometry could not be fetched safely: {exc}"],
+        }
+    attribute_features = attributes.get("features") or []
+    geometry_features = geometry.get("features") or []
+    if not geometry_features:
+        return {
+            "property_match_status": "matched_without_geometry",
+            "matched_parcels": [_summarize_parcel_feature(feature, field_map) for feature in attribute_features],
+            "warnings": ["Address matched one related parcel, but parcel geometry was not returned."],
+        }
+    summary = _summarize_parcel_feature(attribute_features[0] if attribute_features else geometry_features[0], field_map)
+    return {
+        "property_match_status": "matched",
+        "selected_parcel_feature": geometry_features[0],
+        "parcel_set": {
+            "parcel_set_id": f"address_spatial_{uuid4().hex[:12]}",
+            "raw_input": "address point spatial lookup",
+            "input_type": "address",
+            "source_layer_key": layer.get("layer_key"),
+            "matched_count": 1,
+            "matched_parcels": [summary],
+            "candidate_matches": [],
+            "match_status": "matched",
+            "downloaded_geometry": True,
+            "warnings": ["Related parcel resolved with a bounded address point-in-parcel query."],
+        },
+        "warnings": ["Related parcel resolved with a bounded address point-in-parcel query."],
+    }
+
+
 def resolve_origin(
     origin_input: str,
     *,
@@ -371,8 +510,10 @@ def resolve_origin(
 
     if prefer_address:
         address_value = address_candidates[0]["value"]
-        address_result = resolve_address_point(address_value, client=client, schema_name=schema_name)
+        query_client = client or SpatialQueryClient(max_features=MAX_TARGET_CANDIDATES)
+        address_result = resolve_address_point(address_value, client=query_client, schema_name=schema_name)
         if address_result.get("status") == "matched":
+            spatial_parcel_result: dict[str, Any] = {}
             try:
                 parcel_set = create_parcel_set(address_value, schema_name=schema_name)
                 matched_count = int(parcel_set.get("matched_count") or len(parcel_set.get("matched_parcels") or []))
@@ -388,21 +529,57 @@ def resolve_origin(
                             *(geometry_result.get("warnings") or []),
                         ],
                     }
+                spatial_parcel_result = _resolve_related_parcel_by_address_point(
+                    address_result["origin_feature"],
+                    client=query_client,
+                    schema_name=schema_name,
+                )
+                if spatial_parcel_result.get("property_match_status") in {"matched", "matched_without_geometry", "ambiguous"}:
+                    return {
+                        **address_result,
+                        "property_match_status": spatial_parcel_result.get("property_match_status"),
+                        "parcel_set": spatial_parcel_result.get("parcel_set"),
+                        "selected_parcel_feature": spatial_parcel_result.get("selected_parcel_feature"),
+                        "candidate_matches": spatial_parcel_result.get("candidate_matches") or parcel_set.get("candidate_matches") or [],
+                        "warnings": [
+                            *(address_result.get("warnings") or []),
+                            *(spatial_parcel_result.get("warnings") or []),
+                        ],
+                    }
                 return {
                     **address_result,
                     "property_match_status": "not_resolved",
                     "candidate_matches": parcel_set.get("candidate_matches") or [],
                     "warnings": [
                         *(address_result.get("warnings") or []),
+                        *(spatial_parcel_result.get("warnings") or []),
                         "Address matched, but related parcel was not resolved from verified fields.",
                     ],
                 }
             except Exception:
+                spatial_parcel_result = _resolve_related_parcel_by_address_point(
+                    address_result["origin_feature"],
+                    client=query_client,
+                    schema_name=schema_name,
+                )
+                if spatial_parcel_result.get("property_match_status") in {"matched", "matched_without_geometry", "ambiguous"}:
+                    return {
+                        **address_result,
+                        "property_match_status": spatial_parcel_result.get("property_match_status"),
+                        "parcel_set": spatial_parcel_result.get("parcel_set"),
+                        "selected_parcel_feature": spatial_parcel_result.get("selected_parcel_feature"),
+                        "candidate_matches": spatial_parcel_result.get("candidate_matches") or [],
+                        "warnings": [
+                            *(address_result.get("warnings") or []),
+                            *(spatial_parcel_result.get("warnings") or []),
+                        ],
+                    }
                 return {
                     **address_result,
                     "property_match_status": "not_resolved",
                     "warnings": [
                         *(address_result.get("warnings") or []),
+                        *(spatial_parcel_result.get("warnings") or []),
                         "Address matched, but related parcel was not resolved from verified fields.",
                     ],
                 }
@@ -605,6 +782,7 @@ def find_target_layer(
         "nearest_high_school": (["schools", "school"], True, False),
         "containing_school_district": (["school district", "school_districts", "schools"], False, True),
         "nearest_fire_station": (["fire and ems stations", "fire station", "ems station"], True, False),
+        "nearest_fire_ems_station": (["fire and ems stations", "fire station", "ems station"], True, False),
         "nearest_ems_station": (["fire and ems stations", "ems station", "fire station"], True, False),
         "containing_fire_district": (["fire districts", "fire district"], False, True),
         "nearest_library": (["library", "libraries", "county facilities", "countyfacilities"], True, False),
@@ -636,11 +814,85 @@ def _target_name(feature: dict[str, Any] | None) -> str | None:
     if not feature:
         return None
     properties = feature.get("properties") or {}
-    for key in ["NAME", "Name", "name", "FacilityName", "FACILITY", "SCHOOL", "DISTRICT", "DISTRICT_"]:
+    for key in ["NAME", "Name", "name", "FacilityName", "FACILITY", "FACILITYNAME", "StationName", "STATION", "SCHOOL", "DISTRICT", "DISTRICT_"]:
         value = properties.get(key)
         if value not in {None, ""}:
             return str(value)
     return None
+
+
+def _feature_text(feature: dict[str, Any] | None) -> str:
+    if not isinstance(feature, dict):
+        return ""
+    properties = feature.get("properties") or feature.get("attributes") or {}
+    if not isinstance(properties, dict):
+        return ""
+    return " ".join(str(value) for value in properties.values() if value not in {None, ""}).lower()
+
+
+def _layer_combines_fire_ems(layer: dict[str, Any]) -> bool:
+    blob = _text_blob(
+        layer.get("layer_key"),
+        layer.get("layer_name"),
+        layer.get("service_name"),
+        layer.get("category"),
+        layer.get("aliases"),
+        layer.get("planning_use_cases"),
+        layer.get("known_limitations"),
+    )
+    return "fire" in blob and "ems" in blob
+
+
+def _looks_like_fire_station(feature: dict[str, Any]) -> bool:
+    text = _feature_text(feature)
+    if not text:
+        return False
+    fire_terms = ["fire", "fd", "fire station", "fire dept", "fire department"]
+    ems_only_terms = ["ems", "medic", "ambulance", "emergency medical"]
+    return any(term in text for term in fire_terms) and not any(term in text for term in ems_only_terms if "fire" not in text)
+
+
+def _looks_like_ems_only(feature: dict[str, Any]) -> bool:
+    text = _feature_text(feature)
+    return any(term in text for term in ["ems", "medic", "ambulance", "emergency medical"]) and "fire" not in text
+
+
+def _classify_fire_station_candidates(
+    target_type: str,
+    target_layer: dict[str, Any],
+    features: list[dict[str, Any]],
+) -> dict[str, Any]:
+    if target_type != "nearest_fire_station":
+        return {"target_type": target_type, "features": features, "warnings": [], "target_classification": None}
+    fire_features = [feature for feature in features if _looks_like_fire_station(feature)]
+    if fire_features:
+        warnings: list[str] = []
+        if len(fire_features) < len(features):
+            warnings.append("AutoMap applied a bounded fire-station candidate filter using verified facility attributes.")
+        return {
+            "target_type": "nearest_fire_station",
+            "features": fire_features,
+            "warnings": warnings,
+            "target_classification": "fire_station",
+        }
+    warnings = []
+    if _layer_combines_fire_ems(target_layer):
+        warnings.append(COMBINED_FIRE_EMS_WARNING)
+    if any(_looks_like_ems_only(feature) for feature in features):
+        warnings.append(EMS_TARGET_REVIEW_WARNING)
+    if warnings:
+        return {
+            "target_type": "nearest_fire_ems_station",
+            "features": features,
+            "warnings": warnings,
+            "target_classification": "mixed_fire_ems",
+        }
+    return {
+        "target_type": "nearest_fire_station",
+        "features": features,
+        "warnings": ["AutoMap could not confirm a fire-only facility classification from returned attributes; review target before official use."],
+        "target_classification": "needs_review",
+    }
 
 
 def _query_target_candidates(
@@ -814,8 +1066,11 @@ def _build_derived_overlays(result: dict[str, Any]) -> list[dict[str, Any]]:
         _proximity_overlay(
             result,
             key_prefix="target_feature",
-            overlay_id="nearest_fire_station" if result.get("target_type") == "nearest_fire_station" else "nearest_facility",
-            title=result.get("target_name") or "Nearest Facility",
+            overlay_id="nearest_fire_station" if result.get("target_type") == "nearest_fire_station" else "nearest_fire_ems_station" if result.get("target_type") == "nearest_fire_ems_station" else "nearest_facility",
+            title=(
+                result.get("target_name")
+                or ("Nearest Fire/EMS Station" if result.get("target_type") == "nearest_fire_ems_station" else "Nearest Facility")
+            ),
             role="target",
             geometry_type="point",
             symbol={"style": "diamond", "color": "#dc2626", "outline": "#ffffff", "size": 15},
@@ -839,7 +1094,7 @@ def _build_derived_overlays(result: dict[str, Any]) -> list[dict[str, Any]]:
         geometry_type="polygon",
         symbol={"style": "outline", "color": "#f59e0b", "fill": "rgba(245,158,11,0.14)", "width": 3},
     )
-    if selected_parcel:
+    if selected_parcel and result.get("property_match_status") == "matched":
         overlays.insert(1, selected_parcel)
     return [overlay for overlay in overlays if overlay]
 
@@ -860,8 +1115,16 @@ def _write_line_output(result: dict[str, Any], output_folder: Path, line_geojson
         key_prefix="target_feature",
     )
     _write_geojson_output(result, output_folder, "proximity_line.geojson", line_geojson, key_prefix="line")
+    if result.get("property_match_status") == "matched" and result.get("selected_parcel_feature"):
+        _write_geojson_output(
+            result,
+            output_folder,
+            "selected_parcel.geojson",
+            _feature_collection(result.get("selected_parcel_feature"), role="selected_parcel", title="Selected Parcel"),
+            key_prefix="selected_parcel",
+        )
     selected_parcel_path = ((result.get("parcel_set") or {}).get("geometry_output_path") if isinstance(result.get("parcel_set"), dict) else None)
-    if selected_parcel_path:
+    if result.get("property_match_status") == "matched" and selected_parcel_path and not result.get("selected_parcel_geojson_url"):
         result["selected_parcel_geojson_path"] = selected_parcel_path
         try:
             result["selected_parcel_geojson_url"] = local_geojson_url(selected_parcel_path, output_type="parcel_context")
@@ -967,6 +1230,11 @@ def run_nearest_facility(
     candidates = _query_target_candidates(origin["origin_feature"], target_layer, target_type, client=query_client)
     features = candidates.get("features") or []
     warnings.extend(candidates.get("warnings") or [])
+    requested_target_type = target_type
+    classification = _classify_fire_station_candidates(target_type, target_layer, features)
+    features = classification.get("features") or features
+    target_type = classification.get("target_type") or target_type
+    warnings.extend(classification.get("warnings") or [])
     if not features:
         result = {
             "proximity_result_id": f"prox_result_{uuid4().hex[:12]}",
@@ -974,6 +1242,7 @@ def run_nearest_facility(
             "raw_prompt": prompt,
             "origin_input": origin_input,
             "target_type": target_type,
+            "requested_target_type": requested_target_type,
             "target_layer": target_layer,
             "target_layer_key": target_layer.get("layer_key"),
             "status": "needs_review",
@@ -1019,7 +1288,10 @@ def run_nearest_facility(
         "origin_type": origin.get("origin_type"),
         "property_match_status": origin.get("property_match_status"),
         "parcel_set": origin.get("parcel_set"),
+        "selected_parcel_feature": origin.get("selected_parcel_feature"),
         "target_type": target_type,
+        "requested_target_type": requested_target_type,
+        "target_classification": classification.get("target_classification"),
         "target_layer": target_layer,
         "target_layer_key": target_layer.get("layer_key"),
         "target_name": _target_name(nearest["feature"]),
@@ -1162,6 +1434,7 @@ def run_route_draft(
         "origin_type": origin.get("origin_type"),
         "property_match_status": origin.get("property_match_status"),
         "parcel_set": origin.get("parcel_set"),
+        "selected_parcel_feature": origin.get("selected_parcel_feature"),
         "status": "ok",
         "route_status": "network_route_not_available",
         "origin_feature": origin["origin_feature"],

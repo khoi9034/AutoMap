@@ -185,7 +185,12 @@ function PreviewBlocker({ response }: { response: ComposerResponse }) {
 
 function ProximityResultSummary({ result }: { result?: ProximityResult | null }) {
   if (!result) return null;
-  const targetLabel = result.target_name || (result.target_type === "nearest_fire_station" ? "Nearest fire station" : result.target_type) || "Proximity result";
+  const targetKind = result.target_type === "nearest_fire_ems_station" || result.target_classification === "mixed_fire_ems"
+    ? "nearest fire/EMS station"
+    : result.target_type === "nearest_fire_station"
+      ? "nearest fire station"
+      : "nearest facility";
+  const targetLabel = result.target_name || targetKind || "Proximity result";
   const distance = typeof result.distance_value === "number" ? `${result.distance_value.toFixed(2)} ${result.distance_unit || "miles"}` : "Needs review";
   const lineReady = Boolean(result.line_geojson_path || result.line_geojson_url);
   return (
@@ -193,7 +198,7 @@ function ProximityResultSummary({ result }: { result?: ProximityResult | null })
       <div className="panel-title-row">
         <div>
           <p className="eyebrow">Nearest facility draft</p>
-          <h3>Nearest fire station found: {targetLabel}</h3>
+          <h3>{targetKind.charAt(0).toUpperCase() + targetKind.slice(1)} found: {targetLabel}</h3>
           <p className="muted">Straight-line reference only unless an approved road-network routing service is configured.</p>
         </div>
         <StatusChip tone={result.status === "ok" ? "success" : "warning"}>{result.status || "needs_review"}</StatusChip>
@@ -205,7 +210,7 @@ function ProximityResultSummary({ result }: { result?: ProximityResult | null })
         </div>
         <div>
           <span>Target</span>
-          <strong>{result.target_type || "nearest facility"}</strong>
+          <strong>{targetKind}</strong>
         </div>
         <div>
           <span>Distance</span>

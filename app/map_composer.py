@@ -206,16 +206,41 @@ def _origin_context_from_proximity(prompt: str, result: dict[str, Any]) -> dict[
         "match_status": status,
         "candidate_matches": result.get("candidate_matches") or [],
         "related_parcel": related_parcel,
-        "property_match_status": result.get("property_match_status") or ("not_resolved" if origin_type == "address" and status == "matched" and not related_parcel else None),
+            "property_match_status": result.get("property_match_status") or ("not_resolved" if origin_type == "address" and status == "matched" and not related_parcel else None),
         "can_preview": result.get("status") == "ok",
         "reason_if_not_focusable": reason,
         "warnings": result.get("warnings") or [],
     }
 
 
+def _display_origin_label(result: dict[str, Any]) -> str:
+    origin = str(result.get("origin_input") or "").strip()
+    return origin.title() if origin else "Origin"
+
+
+def _target_display_label(result: dict[str, Any]) -> str:
+    target_type = result.get("target_type")
+    classification = result.get("target_classification")
+    if target_type == "nearest_fire_ems_station" or classification == "mixed_fire_ems":
+        return "Nearest Fire/EMS Station"
+    if target_type == "nearest_fire_station":
+        return "Nearest Fire Station"
+    if target_type == "nearest_school":
+        return "Nearest School"
+    if target_type == "nearest_library":
+        return "Nearest Library"
+    return "Nearest Facility"
+
+
+def _proximity_map_title(result: dict[str, Any]) -> str:
+    return f"{_target_display_label(result)} from {_display_origin_label(result)}"
+
+
 def _apply_proximity_result_to_recipe(recipe: dict[str, Any], prompt: str, result: dict[str, Any]) -> None:
     """Attach proximity metadata/output to a recipe without publishing anything."""
     recipe["request_type"] = "proximity"
+    if result.get("status") == "ok":
+        recipe["map_title"] = _proximity_map_title(result)
     recipe["proximity_result"] = result
     recipe["origin_context"] = _origin_context_from_proximity(prompt, result)
     recipe["proximity_context"] = {
@@ -281,12 +306,39 @@ def _augment_preview_config(preview_config: dict[str, Any] | None, recipe: dict[
     if not preview_config:
         return None
     config = deepcopy(preview_config)
+    config["basemap"] = config.get("basemap") or "streets-vector"
+    config["map_title"] = recipe.get("map_title") or webmap_json.get("title") or config.get("map_title")
+    config["context_layers"] = config.get("operational_layers") or []
+    config["warnings"] = _review_warnings(recipe, recipe.get("parcel_context") or {})
     overlays = recipe.get("derived_overlays") or (recipe.get("proximity_result") or {}).get("derived_overlays") or []
     if overlays:
         config["derived_overlays"] = overlays
         config["focus_mode"] = recipe.get("focus_mode") or "proximity"
         config["preview_status"] = recipe.get("preview_status") or "ready_for_proximity_preview"
-        config["proximity_result"] = recipe.get("proximity_result") or {}
+        proximity_result = recipe.get("proximity_result") or {}
+        config["proximity_result"] = proximity_result
+        config["origin_summary"] = {
+            "origin_input": proximity_result.get("origin_input"),
+            "origin_type": proximity_result.get("origin_type"),
+            "origin_match_status": "matched" if proximity_result.get("status") == "ok" else "needs_review",
+        }
+        config["target_summary"] = {
+            "target_type": proximity_result.get("target_type"),
+            "requested_target_type": proximity_result.get("requested_target_type"),
+            "target_classification": proximity_result.get("target_classification"),
+            "target_name": proximity_result.get("target_name"),
+            "target_layer_key": proximity_result.get("target_layer_key"),
+        }
+        config["distance_summary"] = {
+            "distance_value": proximity_result.get("distance_value"),
+            "distance_unit": proximity_result.get("distance_unit"),
+            "line_type": proximity_result.get("line_type"),
+            "route_status": proximity_result.get("route_status"),
+        }
+        config["parcel_resolution_summary"] = {
+            "property_match_status": proximity_result.get("property_match_status"),
+            "related_parcel": (recipe.get("origin_context") or {}).get("related_parcel"),
+        }
         suggested_extent = recipe.get("suggested_extent")
         if isinstance(suggested_extent, dict):
             config["initial_extent"] = suggested_extent

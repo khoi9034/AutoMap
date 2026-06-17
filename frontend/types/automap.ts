@@ -553,6 +553,8 @@ export type ProximityResult = {
   target_layer_key?: string;
   target_layer?: Record<string, JsonValue>;
   target_name?: string | null;
+  requested_target_type?: string | null;
+  target_classification?: string | null;
   status?: string;
   route_status?: string;
   line_type?: string;
@@ -955,9 +957,11 @@ export type DerivedOverlay = {
 export type PreviewConfig = {
   map_title?: string;
   original_prompt?: string;
+  basemap?: string;
   initial_extent?: Record<string, JsonValue>;
   operational_layers?: PreviewLayer[];
-  warnings?: Record<string, JsonValue>;
+  context_layers?: PreviewLayer[];
+  warnings?: Record<string, JsonValue> | string[];
   missing_data?: string[];
   data_gaps?: JsonValue[];
   packet_id?: string;
@@ -972,6 +976,10 @@ export type PreviewConfig = {
   derived_overlays?: DerivedOverlay[];
   proximity_result?: ProximityResult | Record<string, JsonValue>;
   focus_extent?: Record<string, JsonValue>;
+  origin_summary?: Record<string, JsonValue>;
+  target_summary?: Record<string, JsonValue>;
+  distance_summary?: Record<string, JsonValue>;
+  parcel_resolution_summary?: Record<string, JsonValue>;
   preview_only?: boolean;
 };
 

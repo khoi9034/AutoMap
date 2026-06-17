@@ -180,6 +180,7 @@ def test_composer_address_proximity_matched_adds_line_output(monkeypatch, tmp_pa
     assert result["can_preview"] is True
     assert result["request_type"] == "proximity"
     assert result["origin_type"] == "address"
+    assert result["map_title"] == "Nearest Fire Station from 793 Bartram Ave"
     assert result["proximity_result"]["target_type"] == "nearest_fire_station"
     assert result["webmap_json"]["operationalLayers"][-1]["title"] == "Straight-line distance"
     assert result["review_packet_id"] == "packet"
@@ -231,8 +232,15 @@ def test_composer_proximity_preview_config_includes_derived_overlays(monkeypatch
     result = generate_composer_draft(prompt)
 
     assert result["can_preview"] is True
+    assert result["map_title"] == "Nearest Fire Station from 793 Bartram Ave"
+    assert result["preview_config"]["basemap"] == "streets-vector"
+    assert "context_layers" in result["preview_config"]
     assert result["preview_config"]["derived_overlays"][0]["id"] == "origin_address_point"
     assert result["preview_config"]["derived_overlays"][2]["id"] == "straight_line_distance"
+    assert result["preview_config"]["origin_summary"]["origin_type"] == "address"
+    assert result["preview_config"]["target_summary"]["target_type"] == "nearest_fire_station"
+    assert result["preview_config"]["distance_summary"]["distance_value"] == 1.11
+    assert result["preview_config"]["parcel_resolution_summary"]["property_match_status"] == "not_resolved"
     assert result["proximity_result"]["property_match_status"] == "not_resolved"
     assert "Address matched, but related parcel was not resolved" in " ".join(result["warnings"])
 
@@ -312,7 +320,10 @@ def test_geography_prompt_uses_focused_review_extent(monkeypatch, tmp_path):
     assert result["packet_id"] == "packet"
     assert result["recipe"]["selected_layers"]
     assert result["webmap_json"]["operationalLayers"]
-    assert result["preview_config"] == {"operational_layers": []}
+    assert result["preview_config"]["operational_layers"] == []
+    assert result["preview_config"]["basemap"] == "streets-vector"
+    assert result["preview_config"]["context_layers"] == []
+    assert result["preview_config"]["map_title"] == result["map_title"]
     assert extent["xmin"] == -80.72
     assert extent["xmax"] == -80.46
 

@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { ArcGISMapPreview } from "@/components/arcgis-map-preview";
 import { ComposerLayerPanel } from "@/components/composer-layer-panel";
-import { DerivedGeoJsonLayer, featureCollectionBounds, type GeoJsonFeatureCollection } from "@/components/derived-geojson-layer";
+import { featureCollectionBounds, type GeoJsonFeature, type GeoJsonFeatureCollection } from "@/components/derived-geojson-layer";
 import { StatusChip } from "@/components/status-chip";
 import { API_BASE_URL } from "@/lib/api";
 import type { ComposerResponse, DerivedOverlay, PreviewLayer } from "@/types/automap";
@@ -14,8 +14,36 @@ type LoadedOverlay = {
   collection: GeoJsonFeatureCollection;
 };
 
-const SVG_WIDTH = 1000;
-const SVG_HEIGHT = 520;
+type ArcLayer = {
+  addMany?: (items: unknown[]) => void;
+};
+
+type ArcMap = {
+  add: (layer: unknown) => void;
+};
+
+type ArcView = {
+  when: (callback?: () => unknown) => Promise<unknown>;
+  goTo: (target: unknown, options?: Record<string, unknown>) => Promise<unknown>;
+  destroy: () => void;
+};
+
+type ArcConstructor<T = unknown> = new (props?: Record<string, unknown>) => T;
+
+type ArcModules = {
+  EsriMap: ArcConstructor<ArcMap>;
+  MapView: ArcConstructor<ArcView>;
+  GraphicsLayer: ArcConstructor<ArcLayer>;
+  Graphic: ArcConstructor;
+  FeatureLayer: ArcConstructor;
+  MapImageLayer: ArcConstructor;
+  Extent: ArcConstructor;
+  Point: ArcConstructor;
+  Polyline: ArcConstructor;
+  Polygon: ArcConstructor;
+};
+
+const WGS84 = { wkid: 4326 };
 
 function absoluteApiUrl(url?: string): string | null {
   if (!url) return null;
@@ -45,6 +73,8 @@ function bufferedBounds(bounds: [number, number, number, number] | null): [numbe
 
 function panelTitle(response: ComposerResponse): string {
   const target = response.proximity_result?.target_name;
+  const classification = response.proximity_result?.target_classification;
+  if (target && classification === "mixed_fire_ems") return `Nearest fire/EMS station found: ${target}`;
   if (target) return `Nearest fire station found: ${target}`;
   if (response.proximity_result?.target_type) return "Nearest facility result";
   return response.map_title || "Composer preview";
@@ -56,18 +86,197 @@ function distanceText(response: ComposerResponse): string | null {
   return `${result.distance_value.toFixed(2)} ${result.distance_unit || "miles"}`;
 }
 
+function contextLayerUrl(layer: PreviewLayer): string {
+  if (layer.layer_url || layer.url) return layer.layer_url || layer.url || "";
+  if (layer.service_url && typeof layer.layer_id === "number") return `${layer.service_url.replace(/\/$/, "")}/${layer.layer_id}`;
+  return layer.service_url || "";
+}
+
+function overlaySymbol(overlay: DerivedOverlay, geometryType: string) {
+  const role = (overlay.role || "").toLowerCase();
+  const color = typeof overlay.symbol?.color === "string"
+    ? overlay.symbol.color
+    : role.includes("target")
+      ? "#dc2626"
+      : role.includes("line")
+        ? "#2563eb"
+        : role.includes("parcel")
+          ? "#f59e0b"
+          : "#0ea5a3";
+  const outline = typeof overlay.symbol?.outline === "string" ? overlay.symbol.outline : "#ffffff";
+  const width = typeof overlay.symbol?.width === "number" ? overlay.symbol.width : role.includes("line") ? 5 : 3;
+  const size = typeof overlay.symbol?.size === "number" ? overlay.symbol.size : role.includes("target") ? 15 : 14;
+  if (geometryType === "point") {
+    return {
+      type: "simple-marker",
+      style: role.includes("target") ? "diamond" : "circle",
+      color,
+      size,
+      outline: { color: outline, width: 2.5 },
+    };
+  }
+  if (geometryType === "line") {
+    return {
+      type: "simple-line",
+      color,
+      width,
+      style: "solid",
+    };
+  }
+  return {
+    type: "simple-fill",
+    color: role.includes("parcel") ? [245, 158, 11, 0.14] : [14, 165, 163, 0.14],
+    outline: { color, width },
+  };
+}
+
+function graphicsForFeature(feature: GeoJsonFeature, overlay: DerivedOverlay, modules: ArcModules): unknown[] {
+  const geometry = feature.geometry;
+  const properties = feature.properties || {};
+  if (!geometry || !geometry.type) return [];
+  const baseGraphic = (arcGeometry: unknown, geometryType: "point" | "line" | "polygon") =>
+    new modules.Graphic({
+      geometry: arcGeometry,
+      attributes: properties,
+      popupTemplate: {
+        title: overlay.title || "{automap_title}",
+        content: Object.entries(properties)
+          .slice(0, 10)
+          .map(([key, value]) => `<strong>${key}</strong>: ${String(value)}`)
+          .join("<br />"),
+      },
+      symbol: overlaySymbol(overlay, geometryType),
+    });
+
+  if (geometry.type === "Point" && Array.isArray(geometry.coordinates)) {
+    return [
+      baseGraphic(
+        new modules.Point({
+          longitude: Number(geometry.coordinates[0]),
+          latitude: Number(geometry.coordinates[1]),
+          spatialReference: WGS84,
+        }),
+        "point",
+      ),
+    ];
+  }
+  if (geometry.type === "LineString" && Array.isArray(geometry.coordinates)) {
+    return [baseGraphic(new modules.Polyline({ paths: [geometry.coordinates], spatialReference: WGS84 }), "line")];
+  }
+  if (geometry.type === "MultiLineString" && Array.isArray(geometry.coordinates)) {
+    return geometry.coordinates
+      .filter(Array.isArray)
+      .map((path) => baseGraphic(new modules.Polyline({ paths: [path], spatialReference: WGS84 }), "line"));
+  }
+  if (geometry.type === "Polygon" && Array.isArray(geometry.coordinates)) {
+    return [baseGraphic(new modules.Polygon({ rings: geometry.coordinates, spatialReference: WGS84 }), "polygon")];
+  }
+  if (geometry.type === "MultiPolygon" && Array.isArray(geometry.coordinates)) {
+    return geometry.coordinates
+      .filter(Array.isArray)
+      .map((polygon) => baseGraphic(new modules.Polygon({ rings: polygon, spatialReference: WGS84 }), "polygon"));
+  }
+  return [];
+}
+
+function addContextLayers(map: ArcMap, contextLayers: PreviewLayer[], modules: ArcModules): void {
+  contextLayers.forEach((layer) => {
+    const url = contextLayerUrl(layer);
+    if (!url) return;
+    const title = layer.title || layer.layer_key || "Context layer";
+    const visible = layer.visibility !== false;
+    const opacity = typeof layer.opacity === "number" ? layer.opacity : layer.role?.includes("constraint") ? 0.45 : 0.72;
+    const definitionExpression = layer.definition_expression || undefined;
+    try {
+      if (layer.service_url && typeof layer.layer_id === "number" && /MapServer/i.test(layer.service_url)) {
+        map.add(
+          new modules.MapImageLayer({
+            url: layer.service_url,
+            title,
+            opacity,
+            visible,
+            sublayers: [
+              {
+                id: layer.layer_id,
+                title,
+                visible,
+                definitionExpression,
+              },
+            ],
+          }),
+        );
+        return;
+      }
+      map.add(
+        new modules.FeatureLayer({
+          url,
+          title,
+          opacity,
+          visible,
+          definitionExpression,
+          outFields: ["*"],
+        }),
+      );
+    } catch {
+      // Layer failures are surfaced by ArcGIS layer view errors; a single context
+      // layer should not prevent local origin/target/line overlays from drawing.
+    }
+  });
+}
+
+async function loadArcModules(): Promise<ArcModules> {
+  const [
+    { default: EsriMap },
+    { default: MapView },
+    { default: GraphicsLayer },
+    { default: Graphic },
+    { default: FeatureLayer },
+    { default: MapImageLayer },
+    { default: Extent },
+    { default: Point },
+    { default: Polyline },
+    { default: Polygon },
+  ] = await Promise.all([
+    import("@arcgis/core/Map"),
+    import("@arcgis/core/views/MapView"),
+    import("@arcgis/core/layers/GraphicsLayer"),
+    import("@arcgis/core/Graphic"),
+    import("@arcgis/core/layers/FeatureLayer"),
+    import("@arcgis/core/layers/MapImageLayer"),
+    import("@arcgis/core/geometry/Extent"),
+    import("@arcgis/core/geometry/Point"),
+    import("@arcgis/core/geometry/Polyline"),
+    import("@arcgis/core/geometry/Polygon"),
+  ]);
+  return {
+    EsriMap: EsriMap as unknown as ArcConstructor<ArcMap>,
+    MapView: MapView as unknown as ArcConstructor<ArcView>,
+    GraphicsLayer: GraphicsLayer as unknown as ArcConstructor<ArcLayer>,
+    Graphic: Graphic as unknown as ArcConstructor,
+    FeatureLayer: FeatureLayer as unknown as ArcConstructor,
+    MapImageLayer: MapImageLayer as unknown as ArcConstructor,
+    Extent: Extent as unknown as ArcConstructor,
+    Point: Point as unknown as ArcConstructor,
+    Polyline: Polyline as unknown as ArcConstructor,
+    Polygon: Polygon as unknown as ArcConstructor,
+  };
+}
+
 export function ComposerMapPreview({ response, packetId }: { response: ComposerResponse; packetId?: string }) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const viewRef = useRef<ArcView | null>(null);
   const derivedOverlays = useMemo(
     () => response.preview_config?.derived_overlays || response.proximity_result?.derived_overlays || [],
     [response.preview_config?.derived_overlays, response.proximity_result?.derived_overlays],
   );
   const contextLayers = useMemo(
-    () => (response.preview_config?.operational_layers || []).filter((layer: PreviewLayer) => !layer.derived_local_analysis && !layer.local_output),
-    [response.preview_config?.operational_layers],
+    () => (response.preview_config?.context_layers || response.preview_config?.operational_layers || []).filter((layer: PreviewLayer) => !layer.derived_local_analysis && !layer.local_output),
+    [response.preview_config?.context_layers, response.preview_config?.operational_layers],
   );
   const [loaded, setLoaded] = useState<LoadedOverlay[]>([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [mapError, setMapError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!derivedOverlays.length) {
@@ -76,7 +285,7 @@ export function ComposerMapPreview({ response, packetId }: { response: ComposerR
     }
     let cancelled = false;
     setLoading(true);
-    setError(null);
+    setLoadError(null);
     Promise.all(
       derivedOverlays.map(async (overlay) => {
         const url = absoluteApiUrl(overlay.url);
@@ -90,7 +299,7 @@ export function ComposerMapPreview({ response, packetId }: { response: ComposerR
         if (!cancelled) setLoaded(items);
       })
       .catch((exc) => {
-        if (!cancelled) setError(exc instanceof Error ? exc.message : "Derived GeoJSON failed to load.");
+        if (!cancelled) setLoadError(exc instanceof Error ? exc.message : "Derived GeoJSON failed to load.");
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -100,39 +309,93 @@ export function ComposerMapPreview({ response, packetId }: { response: ComposerR
     };
   }, [derivedOverlays]);
 
+  useEffect(() => {
+    if (!derivedOverlays.length || loading || loadError || !containerRef.current) return;
+    let cancelled = false;
+    let view: ArcView | undefined;
+    setMapError(null);
+
+    loadArcModules()
+      .then((modules) => {
+        if (cancelled || !containerRef.current) return;
+        const map = new modules.EsriMap({
+          basemap: response.preview_config?.basemap || "streets-vector",
+        });
+        addContextLayers(map, contextLayers, modules);
+        loaded.forEach((item) => {
+          const layer = new modules.GraphicsLayer({
+            title: item.overlay.title || item.overlay.id || "Derived overlay",
+            visible: item.overlay.visible !== false,
+          });
+          (item.collection.features || []).forEach((feature) => {
+            layer.addMany?.(graphicsForFeature(feature, item.overlay, modules));
+          });
+          map.add(layer);
+        });
+
+        const configuredExtent = numericExtent(response.preview_config?.focus_extent || response.preview_config?.initial_extent);
+        const computedExtent = featureCollectionBounds(loaded.map((item) => item.collection));
+        const [xmin, ymin, xmax, ymax] = bufferedBounds(configuredExtent || computedExtent);
+        const extent = new modules.Extent({ xmin, ymin, xmax, ymax, spatialReference: WGS84 });
+
+        const nextView = new modules.MapView({
+          container: containerRef.current,
+          map,
+          extent,
+          constraints: {
+            snapToZoom: false,
+          },
+          ui: {
+            components: ["attribution", "zoom"],
+          },
+        });
+        view = nextView;
+        viewRef.current = view;
+        return nextView.when(() => nextView.goTo(extent, { animate: false }));
+      })
+      .catch((exc) => {
+        if (!cancelled) {
+          setMapError(exc instanceof Error ? exc.message : "Map preview failed to load.");
+        }
+      });
+
+    return () => {
+      cancelled = true;
+      if (viewRef.current) {
+        viewRef.current.destroy();
+        viewRef.current = null;
+      } else if (view) {
+        view.destroy();
+      }
+    };
+  }, [contextLayers, derivedOverlays.length, loadError, loaded, loading, response.preview_config?.basemap, response.preview_config?.focus_extent, response.preview_config?.initial_extent]);
+
   if (!derivedOverlays.length && packetId) {
     return <ArcGISMapPreview packetId={packetId} />;
   }
 
-  const configuredExtent = numericExtent(response.preview_config?.focus_extent || response.preview_config?.initial_extent);
-  const computedExtent = featureCollectionBounds(loaded.map((item) => item.collection));
-  const [xmin, ymin, xmax, ymax] = bufferedBounds(configuredExtent || computedExtent);
-  const width = Math.max(xmax - xmin, 0.0001);
-  const height = Math.max(ymax - ymin, 0.0001);
-  const project = ([x, y]: [number, number]): [number, number] => [
-    ((x - xmin) / width) * SVG_WIDTH,
-    SVG_HEIGHT - ((y - ymin) / height) * SVG_HEIGHT,
-  ];
   const distance = distanceText(response);
   const routeWarning = response.proximity_result?.route_status === "network_route_not_available" ||
     (response.proximity_result?.warnings || []).some((warning) => warning.toLowerCase().includes("not a driving route"));
   const propertyNotResolved = response.proximity_result?.property_match_status === "not_resolved";
+  const fireEmsWarning = (response.proximity_result?.warnings || []).some((warning) => warning.toLowerCase().includes("fire") && warning.toLowerCase().includes("ems"));
 
   return (
     <div className="composer-derived-preview page-stack">
       <section className="panel composer-derived-map-shell">
         <div className="panel-title-row">
           <div>
-            <p className="eyebrow">Focused result map</p>
+            <p className="eyebrow">Focused ArcGIS map</p>
             <h3>{panelTitle(response)}</h3>
             <p className="muted">
-              {distance ? `Straight-line distance: ${distance}. Line shown on map.` : "Local derived overlays are drawn from AutoMap output GeoJSON."}
+              {distance ? `Straight-line distance: ${distance}. Line shown on map.` : "Local derived overlays are drawn on a real ArcGIS basemap."}
             </p>
           </div>
           <div className="chip-row">
-            <StatusChip tone="success">Origin marker</StatusChip>
+            <StatusChip tone="success">Real basemap</StatusChip>
+            <StatusChip tone="success">Origin Address marker</StatusChip>
             <StatusChip tone="success">Target marker</StatusChip>
-            <StatusChip tone="success">Line shown</StatusChip>
+            <StatusChip tone="success">Straight-Line Distance layer</StatusChip>
           </div>
         </div>
 
@@ -141,35 +404,21 @@ export function ComposerMapPreview({ response, packetId }: { response: ComposerR
             Address matched, but related parcel was not resolved from verified fields. The preview shows the address point, nearest facility, and straight-line distance only.
           </div>
         ) : null}
+        {fireEmsWarning ? (
+          <div className="inline-warning" role="status">
+            The verified layer combines Fire and EMS stations; AutoMap could not confirm a fire-only filter.
+          </div>
+        ) : null}
         {routeWarning ? (
           <div className="inline-warning" role="status">
             Straight-line reference only. This is not a driving route.
           </div>
         ) : null}
         {loading ? <div className="preview-loading">Loading local origin, target, and line GeoJSON...</div> : null}
-        {error ? <div className="preview-error">{error}</div> : null}
+        {loadError ? <div className="preview-error">Map preview failed to load. {loadError}</div> : null}
+        {mapError ? <div className="preview-error">Map preview failed to load. {mapError}</div> : null}
 
-        <div className="derived-map-canvas" aria-label="Focused local derived map preview">
-          <svg viewBox={`0 0 ${SVG_WIDTH} ${SVG_HEIGHT}`} role="img">
-            <defs>
-              <pattern id="composer-map-grid" width="42" height="42" patternUnits="userSpaceOnUse">
-                <path d="M 42 0 L 0 0 0 42" fill="none" stroke="#d7e3ee" strokeWidth="1" />
-              </pattern>
-            </defs>
-            <rect width={SVG_WIDTH} height={SVG_HEIGHT} fill="#eef4f9" />
-            <rect width={SVG_WIDTH} height={SVG_HEIGHT} fill="url(#composer-map-grid)" opacity="0.85" />
-            <path d="M 80 390 C 220 340 300 430 440 372 S 710 250 900 310" fill="none" stroke="#c7d2de" strokeWidth="24" strokeLinecap="round" opacity="0.75" />
-            <path d="M 80 390 C 220 340 300 430 440 372 S 710 250 900 310" fill="none" stroke="#ffffff" strokeWidth="10" strokeLinecap="round" opacity="0.88" />
-            {loaded.map((item) => (
-              <DerivedGeoJsonLayer key={item.overlay.id || item.overlay.title} overlay={item.overlay} collection={item.collection} project={project} />
-            ))}
-          </svg>
-          <div className="derived-map-legend">
-            <span><i className="legend-origin" /> Origin Address</span>
-            <span><i className="legend-target" /> Nearest Fire Station</span>
-            <span><i className="legend-line" /> Straight-Line Distance</span>
-          </div>
-        </div>
+        <div className="composer-real-map" ref={containerRef} aria-label="Focused ArcGIS composer map preview" />
       </section>
 
       <ComposerLayerPanel derivedOverlays={derivedOverlays} contextLayers={contextLayers} />
