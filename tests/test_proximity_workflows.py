@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 
 from app.geometry_utils import build_straight_line_geojson, compute_straight_line_distance
+from app.road_network_route_engine import build_road_following_draft
 from app.proximity_engine import (
     build_proximity_context,
     extract_origin_and_destination,
@@ -11,6 +12,7 @@ from app.proximity_engine import (
     run_nearest_facility,
     run_route_draft,
 )
+from app.route_models import RouteDraftResult
 
 
 def point_feature(name, x=-80.0, y=35.0):
@@ -26,6 +28,14 @@ def polygon_feature(name):
         "type": "Feature",
         "properties": {"DISTRICT": name},
         "geometry": {"type": "Polygon", "coordinates": [[[-80, 35], [-80, 36], [-79, 36], [-80, 35]]]},
+    }
+
+
+def line_feature(name, coordinates):
+    return {
+        "type": "Feature",
+        "properties": {"Name": name},
+        "geometry": {"type": "LineString", "coordinates": coordinates},
     }
 
 
@@ -69,6 +79,19 @@ def proximity_catalog():
             "source_status": "legacy",
             "source_priority": 2,
             "layer_url": "https://example.test/FireDistricts/0",
+        },
+        {
+            "layer_key": "streets_centerlines",
+            "layer_name": "Streets Centerlines",
+            "category": "transportation",
+            "aliases": ["streets", "roads", "centerlines"],
+            "geometry_type": "esriGeometryPolyline",
+            "is_verified": True,
+            "is_active": True,
+            "is_group_layer": False,
+            "source_status": "active",
+            "source_priority": 1,
+            "layer_url": "https://example.test/Streets/0",
         },
     ]
 
@@ -240,12 +263,57 @@ def test_proximity_result_writes_origin_target_and_line_geojson(monkeypatch, tmp
     assert (output_folder / "origin_point.geojson").exists()
     assert (output_folder / "target_feature.geojson").exists()
     assert (output_folder / "proximity_line.geojson").exists()
+    assert (output_folder / "straight_line.geojson").exists()
     assert result["origin_point_geojson_url"].startswith("/api/local-outputs/geojson/proximity/")
     assert result["target_feature_geojson_url"].startswith("/api/local-outputs/geojson/proximity/")
     assert result["line_geojson_url"].startswith("/api/local-outputs/geojson/proximity/")
     assert {overlay["role"] for overlay in result["derived_overlays"]} >= {"origin", "target", "distance_line"}
+    assert {overlay["symbol_key"] for overlay in result["derived_overlays"]} >= {"origin_home", "target_fire_station", "route_straight_line"}
     assert "selected_parcel" not in {overlay["role"] for overlay in result["derived_overlays"]}
     assert result["property_match_status"] == "not_resolved"
+
+
+def test_road_following_draft_succeeds_on_mocked_centerline_graph():
+    origin = point_feature("Origin", -80.0, 35.0)
+    target = point_feature("Fire Station 1", -80.03, 35.0)
+    roads = [
+      line_feature("Main", [[-80.0, 35.0], [-80.01, 35.0], [-80.02, 35.0]]),
+      line_feature("Second", [[-80.02, 35.0], [-80.03, 35.0]]),
+    ]
+    client = MockSpatialClient(counts=[len(roads)], features=roads)
+
+    result = build_road_following_draft(
+        origin,
+        target,
+        target_type="nearest_fire_station",
+        target_layer_key="fire_stations",
+        layer_catalog=proximity_catalog(),
+        client=client,
+    )
+
+    assert result.route_mode == "road_following_draft"
+    assert result.route_geojson["features"][0]["properties"]["automap_line_type"] == "road_following_draft"
+    assert result.road_feature_count == 2
+    assert client.count_queries[0]["layer_url"] == "https://example.test/Streets/0"
+
+
+def test_road_following_draft_falls_back_when_no_centerline_layer():
+    origin = point_feature("Origin", -80.0, 35.0)
+    target = point_feature("Fire Station 1", -80.03, 35.0)
+    catalog_without_roads = [record for record in proximity_catalog() if record["layer_key"] != "streets_centerlines"]
+
+    result = build_road_following_draft(
+        origin,
+        target,
+        target_type="nearest_fire_station",
+        target_layer_key="fire_stations",
+        layer_catalog=catalog_without_roads,
+        client=MockSpatialClient(counts=[]),
+    )
+
+    assert result.route_mode == "straight_line_reference"
+    assert result.route_geojson is None
+    assert result.straight_line_geojson["features"][0]["properties"]["route_mode"] == "straight_line_reference"
 
 
 def test_address_point_to_parcel_spatial_lookup_is_bounded(monkeypatch):
@@ -373,11 +441,22 @@ def test_route_draft_without_network_service_warns(monkeypatch):
         },
     )
     monkeypatch.setattr("app.proximity_engine._write_line_output", lambda result, output_folder, line_geojson: result)
+    monkeypatch.setattr(
+        "app.proximity_engine.build_road_following_draft",
+        lambda *args, **kwargs: RouteDraftResult(
+            route_mode="straight_line_reference",
+            route_label="Straight-line reference",
+            route_warning="Straight-line reference only. This is not a driving route.",
+            straight_line_geojson={"type": "FeatureCollection", "features": []},
+            warnings=["Straight-line reference only. This is not a driving route."],
+        ),
+    )
 
     result = run_route_draft("65 Church St S", "123 Main St", persist=False)
 
     assert result["status"] == "ok"
-    assert result["route_status"] == "network_route_not_available"
+    assert result["route_status"] == "straight_line_reference"
+    assert result["route_mode"] == "straight_line_reference"
     assert "Road-network routing requires" in " ".join(result["warnings"])
     assert result["published"] is False
 

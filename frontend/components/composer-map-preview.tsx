@@ -5,8 +5,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ArcGISMapPreview } from "@/components/arcgis-map-preview";
 import { ComposerLayerPanel } from "@/components/composer-layer-panel";
 import { featureCollectionBounds, type GeoJsonFeature, type GeoJsonFeatureCollection } from "@/components/derived-geojson-layer";
+import { MapSymbolLegend } from "@/components/map-symbol-legend";
 import { StatusChip } from "@/components/status-chip";
 import { API_BASE_URL } from "@/lib/api";
+import { arcgisSymbolForOverlay } from "@/lib/map-symbols";
 import type { ComposerResponse, DerivedOverlay, PreviewLayer } from "@/types/automap";
 
 type LoadedOverlay = {
@@ -86,48 +88,17 @@ function distanceText(response: ComposerResponse): string | null {
   return `${result.distance_value.toFixed(2)} ${result.distance_unit || "miles"}`;
 }
 
+function routeLabel(response: ComposerResponse): string {
+  const result = response.proximity_result;
+  if (result?.route_label) return result.route_label;
+  if (result?.route_mode === "road_following_draft") return "Road-following draft route";
+  return "Straight-line reference";
+}
+
 function contextLayerUrl(layer: PreviewLayer): string {
   if (layer.layer_url || layer.url) return layer.layer_url || layer.url || "";
   if (layer.service_url && typeof layer.layer_id === "number") return `${layer.service_url.replace(/\/$/, "")}/${layer.layer_id}`;
   return layer.service_url || "";
-}
-
-function overlaySymbol(overlay: DerivedOverlay, geometryType: string) {
-  const role = (overlay.role || "").toLowerCase();
-  const color = typeof overlay.symbol?.color === "string"
-    ? overlay.symbol.color
-    : role.includes("target")
-      ? "#dc2626"
-      : role.includes("line")
-        ? "#2563eb"
-        : role.includes("parcel")
-          ? "#f59e0b"
-          : "#0ea5a3";
-  const outline = typeof overlay.symbol?.outline === "string" ? overlay.symbol.outline : "#ffffff";
-  const width = typeof overlay.symbol?.width === "number" ? overlay.symbol.width : role.includes("line") ? 5 : 3;
-  const size = typeof overlay.symbol?.size === "number" ? overlay.symbol.size : role.includes("target") ? 15 : 14;
-  if (geometryType === "point") {
-    return {
-      type: "simple-marker",
-      style: role.includes("target") ? "diamond" : "circle",
-      color,
-      size,
-      outline: { color: outline, width: 2.5 },
-    };
-  }
-  if (geometryType === "line") {
-    return {
-      type: "simple-line",
-      color,
-      width,
-      style: "solid",
-    };
-  }
-  return {
-    type: "simple-fill",
-    color: role.includes("parcel") ? [245, 158, 11, 0.14] : [14, 165, 163, 0.14],
-    outline: { color, width },
-  };
 }
 
 function graphicsForFeature(feature: GeoJsonFeature, overlay: DerivedOverlay, modules: ArcModules): unknown[] {
@@ -145,7 +116,7 @@ function graphicsForFeature(feature: GeoJsonFeature, overlay: DerivedOverlay, mo
           .map(([key, value]) => `<strong>${key}</strong>: ${String(value)}`)
           .join("<br />"),
       },
-      symbol: overlaySymbol(overlay, geometryType),
+      symbol: arcgisSymbolForOverlay(overlay, geometryType),
     });
 
   if (geometry.type === "Point" && Array.isArray(geometry.coordinates)) {
@@ -184,7 +155,7 @@ function addContextLayers(map: ArcMap, contextLayers: PreviewLayer[], modules: A
     const url = contextLayerUrl(layer);
     if (!url) return;
     const title = layer.title || layer.layer_key || "Context layer";
-    const visible = layer.visibility !== false;
+    const visible = layer.default_visible ?? layer.visibility ?? true;
     const opacity = typeof layer.opacity === "number" ? layer.opacity : layer.role?.includes("constraint") ? 0.45 : 0.72;
     const definitionExpression = layer.definition_expression || undefined;
     try {
@@ -375,10 +346,14 @@ export function ComposerMapPreview({ response, packetId }: { response: ComposerR
   }
 
   const distance = distanceText(response);
-  const routeWarning = response.proximity_result?.route_status === "network_route_not_available" ||
+  const lineLabel = routeLabel(response);
+  const routeMode = response.proximity_result?.route_mode || "straight_line_reference";
+  const routeWarning = routeMode !== "road_following_draft" ||
+    Boolean(response.proximity_result?.route_warning) ||
     (response.proximity_result?.warnings || []).some((warning) => warning.toLowerCase().includes("not a driving route"));
   const propertyNotResolved = response.proximity_result?.property_match_status === "not_resolved";
   const fireEmsWarning = (response.proximity_result?.warnings || []).some((warning) => warning.toLowerCase().includes("fire") && warning.toLowerCase().includes("ems"));
+  const clutterWarning = (response.warnings || []).some((warning) => warning.toLowerCase().includes("address layer hidden"));
 
   return (
     <div className="composer-derived-preview page-stack">
@@ -388,14 +363,14 @@ export function ComposerMapPreview({ response, packetId }: { response: ComposerR
             <p className="eyebrow">Focused ArcGIS map</p>
             <h3>{panelTitle(response)}</h3>
             <p className="muted">
-              {distance ? `Straight-line distance: ${distance}. Line shown on map.` : "Local derived overlays are drawn on a real ArcGIS basemap."}
+              {distance ? `${lineLabel}: ${distance}. Line shown on map.` : "Local derived overlays are drawn on a real ArcGIS basemap."}
             </p>
           </div>
           <div className="chip-row">
             <StatusChip tone="success">Real basemap</StatusChip>
-            <StatusChip tone="success">Origin Address marker</StatusChip>
-            <StatusChip tone="success">Target marker</StatusChip>
-            <StatusChip tone="success">Straight-Line Distance layer</StatusChip>
+            <StatusChip tone="success">Home marker</StatusChip>
+            <StatusChip tone="success">Facility marker</StatusChip>
+            <StatusChip tone={routeMode === "road_following_draft" ? "success" : "warning"}>{lineLabel}</StatusChip>
           </div>
         </div>
 
@@ -411,7 +386,12 @@ export function ComposerMapPreview({ response, packetId }: { response: ComposerR
         ) : null}
         {routeWarning ? (
           <div className="inline-warning" role="status">
-            Straight-line reference only. This is not a driving route.
+            {response.proximity_result?.route_warning || "Straight-line reference only. This is not a driving route."}
+          </div>
+        ) : null}
+        {clutterWarning ? (
+          <div className="inline-warning" role="status">
+            Full address layer hidden to reduce clutter. The origin address marker remains visible.
           </div>
         ) : null}
         {loading ? <div className="preview-loading">Loading local origin, target, and line GeoJSON...</div> : null}
@@ -419,6 +399,7 @@ export function ComposerMapPreview({ response, packetId }: { response: ComposerR
         {mapError ? <div className="preview-error">Map preview failed to load. {mapError}</div> : null}
 
         <div className="composer-real-map" ref={containerRef} aria-label="Focused ArcGIS composer map preview" />
+        <MapSymbolLegend overlays={derivedOverlays} />
       </section>
 
       <ComposerLayerPanel derivedOverlays={derivedOverlays} contextLayers={contextLayers} />

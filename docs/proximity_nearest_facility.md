@@ -7,6 +7,7 @@ AutoMap v3.5 routes address prompts such as `my address 793 bartram ave ... near
 Supported local outputs:
 
 - nearest straight-line distance
+- road-following draft route when bounded street centerlines can be used safely
 - origin parcel/address to nearest facility
 - containing district context for fire and school districts
 - local GeoJSON origin point, target feature, and straight-line output
@@ -32,8 +33,8 @@ Target examples:
 
 Fire district wording matters. If the user asks what district a parcel is in, AutoMap treats that as polygon containment. If the user asks for nearest fire station, AutoMap uses station point layers when verified.
 
-Road-network routing is not implied by a line request. Unless an approved routing/network service exists, AutoMap labels the output as a straight-line reference, not a driving route.
+Road-network routing is not implied by a line request. AutoMap first checks for approved routing support, then tries a bounded road-following draft using verified street centerlines. If that cannot be completed within safety limits, the output remains a straight-line reference, not a driving route.
 
-In the Map Composer, v3.6 renders the local proximity GeoJSON outputs as focused overlays. The map extent is fit to the origin, target, and line with a buffer. If the origin address is matched but a related parcel is not resolved, AutoMap shows the address point and line and warns that no selected parcel outline is available.
+In the Map Composer, v3.8 renders the local proximity GeoJSON outputs as focused overlays. The map extent is fit to the origin, target, and route/line with a buffer. Full address and parcel REST layers are hidden by default to avoid neighbor-dot clutter; the origin address marker remains visible. If the origin address is matched but a related parcel is not resolved, AutoMap shows the address point and route/line and warns that no selected parcel outline is available.
 
 CFS remains separate. AutoMap does not connect to or modify `cfs_dev`.

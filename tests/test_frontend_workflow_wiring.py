@@ -179,6 +179,8 @@ def test_map_composer_is_primary_simple_workflow():
     composer_preview = read("components/composer-map-preview.tsx")
     derived_layer = read("components/derived-geojson-layer.tsx")
     composer_layer_panel = read("components/composer-layer-panel.tsx")
+    map_symbols = read("lib/map-symbols.ts")
+    symbol_legend = read("components/map-symbol-legend.tsx")
     stepper = read("components/simple-map-composer-stepper.tsx")
     print_page = read("app/map-composer/[sessionId]/print/page.tsx")
     print_client = read("components/composer-print-client.tsx")
@@ -219,12 +221,26 @@ def test_map_composer_is_primary_simple_workflow():
     assert "streets-vector" in composer_preview
     assert "Map preview failed to load." in composer_preview
     assert "composer-map-grid" not in composer_preview
+    assert "arcgisSymbolForOverlay" in composer_preview
+    assert "MapSymbolLegend" in composer_preview
     assert "featureCollectionBounds" in derived_layer
-    assert "Origin Address" in composer_preview
+    assert "Home marker" in composer_preview
     assert "nearest facility" in composer_layer_panel
-    assert "Straight-Line Distance" in composer_preview
+    assert "Straight-line reference" in composer_preview
+    assert "Road-following draft route" in composer_preview
+    assert "Hidden context" in composer_layer_panel
     assert "Local derived output" in composer_layer_panel
     assert "Open REST layer" not in composer_layer_panel
+    assert "origin_home" in map_symbols
+    assert "target_fire_station" in map_symbols
+    assert "target_school" in map_symbols
+    assert "target_hospital" in map_symbols
+    assert "target_park" in map_symbols
+    assert "target_library" in map_symbols
+    assert "route_road_following" in map_symbols
+    assert "route_straight_line" in map_symbols
+    assert "svgDataUrl" in map_symbols
+    assert "map-symbol-legend" in symbol_legend
     assert "Generate Draft Map" in client
     assert "Apply Adjustments" in client
     assert "Generate Review Report" in client
@@ -239,7 +255,7 @@ def test_map_composer_is_primary_simple_workflow():
     assert "response.can_preview ? (" in client
     assert "Nearest facility draft" in client
     assert "nearest fire/EMS station" in client
-    assert "Line shown on map" in client
+    assert "Route mode" in client
     assert "Address matched, but related parcel was not resolved" in client
     assert "Analysis is optional" in client
     assert "Request" in stepper
@@ -370,7 +386,7 @@ def test_api_client_has_timeout_and_sanitized_fallback_version():
     assert "Backend is online, but this request took too long" in source
     assert "http://127.0.0.1:8010" in source
     assert "timeoutMs: 60000" in source
-    assert 'version: "3.7.0"' in source
+    assert 'version: "3.8.0"' in source
     assert "redactProtected" in source
     assert "AutoMap is checking the catalog, parcel fields, and context layers" in map_request
 
@@ -421,8 +437,8 @@ def test_parcel_workspace_page_components_and_api_are_present():
     assert "Find Nearest" in proximity_form
     assert "Create Route Draft" in proximity_form
     assert "Line type" in proximity_result
-    assert "Straight-line distance" in proximity_map
-    assert "network_route_not_available" in route_warning
+    assert "Straight-line reference" in proximity_map
+    assert "straight_line_reference" in route_warning
     assert "Parse Identifiers" in input_panel
     assert "Match Parcels" in input_panel
     assert "returnGeometry=false" in match_table

@@ -233,7 +233,51 @@ def _target_display_label(result: dict[str, Any]) -> str:
 
 
 def _proximity_map_title(result: dict[str, Any]) -> str:
+    target_name = result.get("target_name")
+    if target_name:
+        return f"{_target_display_label(result)}: {target_name} from {_display_origin_label(result)}"
     return f"{_target_display_label(result)} from {_display_origin_label(result)}"
+
+
+def _proximity_context_layers(layers: list[dict[str, Any]], result: dict[str, Any]) -> list[dict[str, Any]]:
+    """Reduce proximity preview clutter while preserving layer metadata."""
+    target_layer_key = result.get("target_layer_key")
+    cleaned: list[dict[str, Any]] = []
+    for layer in layers:
+        item = deepcopy(layer)
+        blob = " ".join(
+            str(value).lower()
+            for value in [
+                item.get("title"),
+                item.get("layer_key"),
+                item.get("layer_name"),
+                item.get("role"),
+                item.get("category"),
+            ]
+            if value
+        )
+        hide_reason = None
+        if "address" in blob:
+            hide_reason = "Full address layer hidden to reduce clutter."
+        elif "tax parcel" in blob or "parcel" in blob:
+            hide_reason = "Full parcel layer hidden because selected parcel/context is represented by derived overlays when available."
+        elif target_layer_key and item.get("layer_key") == target_layer_key:
+            hide_reason = "Full facility layer hidden because the nearest target is shown as a derived marker."
+        elif "nearest_facility_target" in blob or ("fire" in blob and "station" in blob):
+            hide_reason = "Full facility layer hidden because the nearest target is shown as a derived marker."
+        if hide_reason:
+            item["visibility"] = False
+            item["default_visible"] = False
+            item["is_context_layer"] = True
+            warnings = list(item.get("review_warnings") or [])
+            if hide_reason not in warnings:
+                warnings.append(hide_reason)
+            item["review_warnings"] = warnings
+        else:
+            item["default_visible"] = item.get("visibility", True)
+            item["is_context_layer"] = True
+        cleaned.append(item)
+    return cleaned
 
 
 def _apply_proximity_result_to_recipe(recipe: dict[str, Any], prompt: str, result: dict[str, Any]) -> None:
@@ -246,10 +290,12 @@ def _apply_proximity_result_to_recipe(recipe: dict[str, Any], prompt: str, resul
     recipe["proximity_context"] = {
         "proximity_requested": True,
         "target_type": result.get("target_type"),
-        "route_mode": "straight_line_reference",
+        "route_mode": result.get("route_mode") or "straight_line_reference",
         "road_route_supported": False,
         "straight_line_supported": True,
         "route_status": result.get("route_status"),
+        "route_label": result.get("route_label"),
+        "route_warning": result.get("route_warning"),
     }
     if result.get("derived_overlays"):
         recipe["derived_overlays"] = result["derived_overlays"]
@@ -266,7 +312,7 @@ def _apply_proximity_result_to_recipe(recipe: dict[str, Any], prompt: str, resul
                     "type": "proximity_line_geojson",
                     "path": line_path,
                     "url": result.get("line_geojson_url") or output_file_url(line_path),
-                    "title": "Straight-line distance",
+                    "title": result.get("route_label") or "Straight-line reference",
                     "layer_key": (result.get("derived_layer") or {}).get("layer_key") or f"derived_proximity_{result.get('proximity_result_id')}",
                     "derived_layer": result.get("derived_layer") or {},
                     "analysis_run_id": result.get("proximity_result_id"),
@@ -277,7 +323,11 @@ def _apply_proximity_result_to_recipe(recipe: dict[str, Any], prompt: str, resul
             recipe["suggested_extent"] = extent
         recipe["preview_status"] = "ready_for_proximity_preview"
         recipe["focus_mode"] = "proximity"
-        _append_unique_warning(recipe, "Straight-line reference, not a driving route.")
+        if result.get("route_warning"):
+            _append_unique_warning(recipe, str(result["route_warning"]))
+        if result.get("route_mode") == "straight_line_reference":
+            _append_unique_warning(recipe, "Straight-line reference, not a driving route.")
+        _append_unique_warning(recipe, "Full address layer hidden to reduce clutter.")
         if recipe["origin_context"].get("property_match_status") == "not_resolved":
             _append_unique_warning(recipe, "Address matched, but related parcel was not resolved from verified fields.")
     else:
@@ -313,6 +363,7 @@ def _augment_preview_config(preview_config: dict[str, Any] | None, recipe: dict[
     overlays = recipe.get("derived_overlays") or (recipe.get("proximity_result") or {}).get("derived_overlays") or []
     if overlays:
         config["derived_overlays"] = overlays
+        config["context_layers"] = _proximity_context_layers(config.get("context_layers") or [], recipe.get("proximity_result") or {})
         config["focus_mode"] = recipe.get("focus_mode") or "proximity"
         config["preview_status"] = recipe.get("preview_status") or "ready_for_proximity_preview"
         proximity_result = recipe.get("proximity_result") or {}
@@ -334,6 +385,9 @@ def _augment_preview_config(preview_config: dict[str, Any] | None, recipe: dict[
             "distance_unit": proximity_result.get("distance_unit"),
             "line_type": proximity_result.get("line_type"),
             "route_status": proximity_result.get("route_status"),
+            "route_mode": proximity_result.get("route_mode"),
+            "route_label": proximity_result.get("route_label"),
+            "route_warning": proximity_result.get("route_warning"),
         }
         config["parcel_resolution_summary"] = {
             "property_match_status": proximity_result.get("property_match_status"),

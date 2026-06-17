@@ -362,7 +362,8 @@ def test_api_proximity_routes_are_json_and_sanitized(monkeypatch):
             "proximity_result_id": "prox_result_route",
             "origin_input": origin_input,
             "destination_input": destination_input,
-            "route_status": "network_route_not_available",
+            "route_status": "straight_line_reference",
+            "route_mode": "straight_line_reference",
             "warnings": ["not a road route"],
             "published": False,
         },
@@ -386,7 +387,7 @@ def test_api_proximity_routes_are_json_and_sanitized(monkeypatch):
     assert route.status_code == 200
     assert listed.status_code == 200
     assert detail.status_code == 200
-    assert "network_route_not_available" in serialized
+    assert "straight_line_reference" in serialized
     assert "confirm-publish" not in serialized
     assert "database_url" not in serialized
     assert "secret" not in serialized

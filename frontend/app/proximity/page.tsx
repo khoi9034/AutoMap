@@ -53,14 +53,14 @@ export default function ProximityPage() {
       <SectionHeader
         eyebrow="Proximity"
         title="Nearest facility and route drafts"
-        description="Create bounded straight-line proximity outputs from a parcel/address origin to verified facilities or destinations."
+        description="Create bounded proximity outputs from a parcel/address origin to verified facilities or destinations."
       />
 
       <section className="notice notice-warning">
         <strong>Draft proximity workflow</strong>
         <p>
-          AutoMap uses bounded local queries and straight-line distance only. Road-network routing is planned only if an
-          approved routing/network service is added later.
+          AutoMap uses bounded local queries. It tries a road-following draft only when verified street centerlines stay
+          within safety limits, otherwise it shows a straight-line reference.
         </p>
       </section>
 
@@ -73,7 +73,7 @@ export default function ProximityPage() {
             onPrompt={(prompt) => runAction(() => runProximity(prompt))}
           />
           <ProximityResultCard result={result} />
-          {result?.route_status === "network_route_not_available" || result?.target_type === "route_to_address" ? (
+          {result && (result.route_mode !== "road_following_draft" || result.target_type === "route_to_address") ? (
             <RouteWarningPanel routeStatus={result?.route_status} warnings={result?.warnings || []} />
           ) : null}
           <ProximityMapPanel result={result} />

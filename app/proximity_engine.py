@@ -39,6 +39,8 @@ from app.proximity_models import (
     ProximityRequest,
 )
 from app.proximity_reporter import write_proximity_report
+from app.road_network_route_engine import build_road_following_draft
+from app.route_models import ADDRESS_LAYER_HIDDEN_WARNING, ROAD_FOLLOWING_DRAFT_WARNING, STRAIGHT_LINE_FALLBACK_WARNING
 from app.spatial_query_client import SpatialQueryClient, SpatialQueryError
 from app.ui_models import output_file_url, repo_root
 
@@ -260,8 +262,9 @@ def classify_proximity_request(prompt: str, target: str | None = None) -> dict[s
     lowered = prompt.lower()
     target_text = (target or "").lower()
     combined = f"{lowered} {target_text}"
-    route_mode = any(phrase in combined for phrase in ["route", "drive", "driving"])
-    if route_mode and " to " in lowered:
+    route_mode = any(phrase in combined for phrase in ["route", "drive", "driving", "draw a line", "line to", "nearest line"])
+    facility_terms = ["nearest", "closest", "fire", "school", "library", "ems", "facility", "polling"]
+    if route_mode and " to " in lowered and not any(term in combined for term in facility_terms):
         request_type = "route_to_address"
     elif "fire district" in combined:
         request_type = "containing_fire_district" if "station" not in combined else "nearest_fire_station"
@@ -292,7 +295,7 @@ def classify_proximity_request(prompt: str, target: str | None = None) -> dict[s
 
     return {
         "target_type": request_type,
-        "route_mode": "road_route_draft" if route_mode else "straight_line_nearest",
+        "route_mode": "road_following_draft" if route_mode else "straight_line_nearest",
         "straight_line_supported": True,
         "road_route_supported": False,
     }
@@ -1031,6 +1034,14 @@ def _proximity_overlay(
     role: str,
     geometry_type: str,
     symbol: dict[str, Any],
+    symbol_key: str,
+    geometry_role: str | None = None,
+    route_mode: str | None = None,
+    route_label: str | None = None,
+    route_warning: str | None = None,
+    facility_type: str | None = None,
+    facility_display_name: str | None = None,
+    default_visible: bool = True,
 ) -> dict[str, Any] | None:
     url = result.get(f"{key_prefix}_geojson_url")
     path = result.get(f"{key_prefix}_geojson_path")
@@ -1044,15 +1055,45 @@ def _proximity_overlay(
         "path": path,
         "file_id": result.get(f"{key_prefix}_geojson_file_id"),
         "role": role,
+        "geometry_role": geometry_role or role,
         "geometry_type": geometry_type,
-        "visible": True,
+        "visible": default_visible,
+        "default_visible": default_visible,
         "local_output": True,
+        "is_context_layer": False,
         "source_status": "derived_local",
+        "symbol_key": symbol_key,
+        "route_mode": route_mode,
+        "route_label": route_label,
+        "route_warning": route_warning,
+        "facility_type": facility_type,
+        "facility_display_name": facility_display_name,
         "symbol": symbol,
     }
 
 
+def _target_symbol_key(result: dict[str, Any]) -> str:
+    target_type = str(result.get("target_type") or "")
+    if "fire" in target_type or "ems" in target_type:
+        return "target_fire_station"
+    if "school" in target_type:
+        return "target_school"
+    if "library" in target_type:
+        return "target_library"
+    if "park" in target_type:
+        return "target_park"
+    if "hospital" in target_type or "medical" in target_type:
+        return "target_hospital"
+    if "polling" in target_type:
+        return "target_polling_place"
+    return "target_facility"
+
+
 def _build_derived_overlays(result: dict[str, Any]) -> list[dict[str, Any]]:
+    route_prefix = "route_line" if result.get("route_line_geojson_url") else "straight_line" if result.get("straight_line_geojson_url") else "line"
+    route_mode = result.get("route_mode") or ("road_following_draft" if route_prefix == "route_line" else "straight_line_reference")
+    route_label = result.get("route_label") or ("Road-following Route Draft" if route_mode == "road_following_draft" else "Straight-Line Reference")
+    route_warning = result.get("route_warning") or (ROAD_FOLLOWING_DRAFT_WARNING if route_mode == "road_following_draft" else STRAIGHT_LINE_FALLBACK_WARNING)
     overlays = [
         _proximity_overlay(
             result,
@@ -1061,6 +1102,9 @@ def _build_derived_overlays(result: dict[str, Any]) -> list[dict[str, Any]]:
             title="Origin Address",
             role="origin",
             geometry_type="point",
+            symbol_key="origin_home",
+            facility_type="origin_address",
+            facility_display_name=result.get("origin_input"),
             symbol={"style": "circle", "color": "#0ea5a3", "outline": "#ffffff", "size": 14},
         ),
         _proximity_overlay(
@@ -1073,16 +1117,24 @@ def _build_derived_overlays(result: dict[str, Any]) -> list[dict[str, Any]]:
             ),
             role="target",
             geometry_type="point",
+            symbol_key=_target_symbol_key(result),
+            facility_type=result.get("target_type"),
+            facility_display_name=result.get("target_name"),
             symbol={"style": "diamond", "color": "#dc2626", "outline": "#ffffff", "size": 15},
         ),
         _proximity_overlay(
             result,
-            key_prefix="line",
-            overlay_id="straight_line_distance",
-            title="Straight-Line Distance",
-            role="distance_line",
+            key_prefix=route_prefix,
+            overlay_id="road_following_route_draft" if route_mode == "road_following_draft" else "straight_line_reference",
+            title=route_label,
+            role="route_line" if route_mode == "road_following_draft" else "distance_line",
             geometry_type="line",
-            symbol={"style": "solid", "color": "#2563eb", "width": 5},
+            symbol_key="route_road_following" if route_mode == "road_following_draft" else "route_straight_line",
+            geometry_role="route_line",
+            route_mode=route_mode,
+            route_label=route_label,
+            route_warning=route_warning,
+            symbol={"style": "solid" if route_mode == "road_following_draft" else "dash", "color": "#2563eb", "width": 5},
         ),
     ]
     selected_parcel = _proximity_overlay(
@@ -1092,6 +1144,8 @@ def _build_derived_overlays(result: dict[str, Any]) -> list[dict[str, Any]]:
         title="Selected Parcel",
         role="selected_parcel",
         geometry_type="polygon",
+        symbol_key="selected_parcel",
+        geometry_role="selected_parcel",
         symbol={"style": "outline", "color": "#f59e0b", "fill": "rgba(245,158,11,0.14)", "width": 3},
     )
     if selected_parcel and result.get("property_match_status") == "matched":
@@ -1114,7 +1168,19 @@ def _write_line_output(result: dict[str, Any], output_folder: Path, line_geojson
         _feature_collection(result.get("target_feature"), role="target", title=result.get("target_name") or "Nearest Facility"),
         key_prefix="target_feature",
     )
-    _write_geojson_output(result, output_folder, "proximity_line.geojson", line_geojson, key_prefix="line")
+    route_geojson = result.pop("_route_geojson", None)
+    straight_line_geojson = result.pop("_straight_line_geojson", None) or line_geojson
+    if route_geojson:
+        _write_geojson_output(result, output_folder, "route_line.geojson", route_geojson, key_prefix="route_line")
+    if straight_line_geojson:
+        _write_geojson_output(result, output_folder, "straight_line.geojson", straight_line_geojson, key_prefix="straight_line")
+    preferred_geojson = route_geojson or straight_line_geojson or line_geojson
+    _write_geojson_output(result, output_folder, "proximity_line.geojson", preferred_geojson, key_prefix="line")
+    preferred_prefix = "route_line" if result.get("route_line_geojson_path") else "straight_line" if result.get("straight_line_geojson_path") else "line"
+    for suffix in ["path", "url", "file_id"]:
+        value = result.get(f"{preferred_prefix}_geojson_{suffix}") if suffix != "path" else result.get(f"{preferred_prefix}_geojson_path")
+        if value:
+            result[f"line_geojson_{suffix}" if suffix != "path" else "line_geojson_path"] = value
     if result.get("property_match_status") == "matched" and result.get("selected_parcel_feature"):
         _write_geojson_output(
             result,
@@ -1148,7 +1214,7 @@ def build_proximity_context(prompt: str, *, target: str | None = None) -> dict[s
         questions.append({"question": "Which school level: elementary, middle, high, or any school?", "reason": "School level changes the target layer/context."})
     if "fire" in lowered and "station" not in lowered and "district" not in lowered:
         questions.append({"question": "Do you mean nearest fire station or fire district?", "reason": "Station proximity and district containment are different GIS operations."})
-    if classification["route_mode"] == "road_route_draft":
+    if classification["route_mode"] == "road_following_draft":
         questions.append({"question": "For route, do you need a road-network driving route or is a straight-line reference acceptable?", "reason": ROUTE_WARNING})
     return {
         "proximity_detected": classification["target_type"] != "unsupported_proximity_request",
@@ -1158,7 +1224,7 @@ def build_proximity_context(prompt: str, *, target: str | None = None) -> dict[s
         "straight_line_supported": True,
         "road_route_supported": False,
         "clarifying_questions": questions,
-        "warnings": [] if classification["route_mode"] != "road_route_draft" else [ROUTE_WARNING],
+        "warnings": [] if classification["route_mode"] != "road_following_draft" else [ROUTE_WARNING],
     }
 
 
@@ -1273,8 +1339,21 @@ def run_nearest_facility(
             "target_layer_key": target_layer.get("layer_key"),
             "distance_miles": nearest["distance"],
             "label": "Straight-line distance",
+            "route_mode": "straight_line_reference",
         },
     )
+    route_draft = None
+    if not target_type.startswith("containing_"):
+        route_draft = build_road_following_draft(
+            origin["origin_feature"],
+            nearest["feature"],
+            target_type=target_type,
+            target_layer_key=target_layer.get("layer_key"),
+            client=query_client,
+            layer_catalog=layer_catalog,
+            schema_name=schema_name,
+        )
+        warnings.extend(warning for warning in route_draft.warnings if warning not in warnings)
     result_geojson = build_proximity_result_geojson(origin["origin_feature"], nearest["feature"], line_feature)
     output_folder = _safe_output_folder(prompt)
     output_path = repo_root() / output_folder
@@ -1300,7 +1379,12 @@ def run_nearest_facility(
         "distance_value": nearest["distance"],
         "distance_unit": "miles",
         "line_type": line_type,
-        "route_status": "straight_line_supported",
+        "route_mode": route_draft.route_mode if route_draft else "straight_line_reference",
+        "route_status": route_draft.route_mode if route_draft else "straight_line_supported",
+        "route_label": route_draft.route_label if route_draft else "Straight-line reference",
+        "route_warning": route_draft.route_warning if route_draft else STRAIGHT_LINE_FALLBACK_WARNING,
+        "road_feature_count": route_draft.road_feature_count if route_draft else None,
+        "route_metadata": route_draft.metadata if route_draft else {},
         "status": "ok",
         "bounded_search": {
             "rings_miles": DISTANCE_RINGS_MILES,
@@ -1310,7 +1394,7 @@ def run_nearest_facility(
         },
         "derived_layer": {
             "layer_key": f"derived_proximity_line_{request.proximity_request_id}",
-            "layer_name": "Straight-line distance",
+            "layer_name": route_draft.route_label if route_draft else "Straight-line distance",
             "layer_type": "GeoJSON",
             "derived_local_proximity_result": True,
             "not_published": True,
@@ -1319,6 +1403,9 @@ def run_nearest_facility(
         "downloaded_countywide": False,
         "published": False,
     }
+    if route_draft:
+        result["_route_geojson"] = route_draft.route_geojson
+        result["_straight_line_geojson"] = route_draft.straight_line_geojson
     _write_geojson_output(result, output_folder, "proximity_result.geojson", result_geojson, key_prefix="proximity_result")
     result = _write_line_output(result, output_folder, {"type": "FeatureCollection", "features": [line_feature]})
     return _record_result(result, schema_name) if persist else result
@@ -1387,7 +1474,7 @@ def run_route_draft(
     if persist:
         _record_request(request, schema_name)
 
-    warnings = [ROUTE_WARNING, "Straight-line reference is not a driving route."]
+    warnings = [ROUTE_WARNING, STRAIGHT_LINE_FALLBACK_WARNING]
     warnings.extend(origin.get("warnings") or [])
     warnings.extend(destination.get("warnings") or [])
     if origin.get("status") != "matched" or destination.get("status") != "matched":
@@ -1399,7 +1486,9 @@ def run_route_draft(
             "destination_input": destination_input,
             "target_type": "route_to_address",
             "status": "needs_review",
-            "route_status": "network_route_not_available",
+            "route_mode": "route_unavailable",
+            "route_status": "route_unavailable",
+            "route_label": "Route unavailable",
             "origin_feature": origin.get("origin_feature"),
             "target_feature": destination.get("origin_feature"),
             "candidate_matches": [
@@ -1421,8 +1510,18 @@ def run_route_draft(
             "target_type": "route_to_address",
             "distance_miles": distance["distance"] if distance else None,
             "label": "Straight-line reference, not driving route",
+            "route_mode": "straight_line_reference",
         },
     )
+    route_draft = build_road_following_draft(
+        origin["origin_feature"],
+        destination["origin_feature"],
+        target_type="route_to_address",
+        target_layer_key=None,
+        client=query_client,
+        schema_name=schema_name,
+    )
+    warnings.extend(warning for warning in route_draft.warnings if warning not in warnings)
     output_folder = _safe_output_folder(prompt)
     result = {
         "proximity_result_id": f"prox_result_{uuid4().hex[:12]}",
@@ -1436,16 +1535,23 @@ def run_route_draft(
         "parcel_set": origin.get("parcel_set"),
         "selected_parcel_feature": origin.get("selected_parcel_feature"),
         "status": "ok",
-        "route_status": "network_route_not_available",
+        "route_mode": route_draft.route_mode,
+        "route_status": route_draft.route_mode,
+        "route_label": route_draft.route_label,
+        "route_warning": route_draft.route_warning,
+        "road_feature_count": route_draft.road_feature_count,
+        "route_metadata": route_draft.metadata,
         "origin_feature": origin["origin_feature"],
         "target_feature": destination["origin_feature"],
         "distance_value": distance["distance"] if distance else None,
         "distance_unit": "miles",
-        "line_type": "straight-line reference",
+        "line_type": route_draft.route_label,
         "warnings": warnings,
         "published": False,
         "downloaded_countywide": False,
     }
+    result["_route_geojson"] = route_draft.route_geojson
+    result["_straight_line_geojson"] = route_draft.straight_line_geojson
     result_geojson = build_proximity_result_geojson(origin["origin_feature"], destination["origin_feature"], line_feature)
     _write_geojson_output(result, output_folder, "proximity_result.geojson", result_geojson, key_prefix="proximity_result")
     result = _write_line_output(result, output_folder, {"type": "FeatureCollection", "features": [line_feature]})

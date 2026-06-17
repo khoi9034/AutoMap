@@ -10,11 +10,11 @@ export function RouteWarningPanel({ routeStatus, warnings = [] }: RouteWarningPa
     <section className="notice notice-warning">
       <div className="panel-title-row">
         <strong>Route draft safety</strong>
-        <StatusChip tone="warning">{routeStatus || "network_route_not_available"}</StatusChip>
+        <StatusChip tone="warning">{routeStatus || "straight_line_reference"}</StatusChip>
       </div>
       <p>
-        Road-network routing requires an approved routing/network service. AutoMap v3.1 only creates a straight-line
-        reference and does not call paid or external routing APIs.
+        AutoMap prefers a bounded road-following draft when verified street centerlines can be queried safely. Otherwise
+        it falls back to a straight-line reference and does not call paid or external routing APIs.
       </p>
       {warnings.length ? (
         <ul className="warning-list">

@@ -557,6 +557,10 @@ export type ProximityResult = {
   target_classification?: string | null;
   status?: string;
   route_status?: string;
+  route_mode?: string;
+  route_label?: string | null;
+  route_warning?: string | null;
+  road_feature_count?: number | null;
   line_type?: string;
   distance_value?: number | null;
   distance_unit?: string;
@@ -570,6 +574,12 @@ export type ProximityResult = {
   line_geojson_path?: string | null;
   line_geojson_url?: string | null;
   line_geojson_file_id?: string | null;
+  route_line_geojson_path?: string | null;
+  route_line_geojson_url?: string | null;
+  route_line_geojson_file_id?: string | null;
+  straight_line_geojson_path?: string | null;
+  straight_line_geojson_url?: string | null;
+  straight_line_geojson_file_id?: string | null;
   proximity_result_geojson_path?: string | null;
   proximity_result_geojson_url?: string | null;
   proximity_result_geojson_file_id?: string | null;
@@ -929,6 +939,8 @@ export type PreviewLayer = {
   layer_id?: number | null;
   preview_type?: string;
   visibility?: boolean;
+  default_visible?: boolean;
+  is_context_layer?: boolean;
   opacity?: number;
   definition_expression?: string | null;
   review_warnings?: string[];
@@ -952,6 +964,15 @@ export type DerivedOverlay = {
   local_output?: boolean;
   source_status?: string;
   symbol?: Record<string, JsonValue>;
+  symbol_key?: string;
+  geometry_role?: string;
+  route_mode?: string | null;
+  route_label?: string | null;
+  route_warning?: string | null;
+  facility_type?: string | null;
+  facility_display_name?: string | null;
+  default_visible?: boolean;
+  is_context_layer?: boolean;
 };
 
 export type PreviewConfig = {

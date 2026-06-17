@@ -2,11 +2,11 @@
 
 AutoMap converts plain-English county GIS map requests into structured map recipes using only approved GIS layers from a local layer catalog.
 
-Version: `3.7.0`
+Version: `3.8.0`
 
 ## Current Phase
 
-v3.7 Real Map Composer Preview and Facility Target Fix on top of derived GeoJSON preview rendering, the four-step composer, address-to-parcel resolver, simple preview behavior, proximity, real parcel lookup, parcel workspace, scenario workbench, planning scenario and suitability intelligence, development/transportation source intelligence, real source verification, data gap resolution, analysis summary reporting, and user-guided safe spatial analysis refinement.
+v3.8 Road-Following Route Drafts and Semantic Map Symbols on top of real map composer preview rendering, derived GeoJSON overlays, the four-step composer, address-to-parcel resolver, proximity, real parcel lookup, parcel workspace, scenario workbench, planning scenario and suitability intelligence, development/transportation source intelligence, real source verification, data gap resolution, analysis summary reporting, and user-guided safe spatial analysis refinement.
 
 This repository is intentionally independent. It does not connect to CFS or import CFS code. AutoMap uses its own local PostGIS database and trusted layer catalog.
 
@@ -51,6 +51,9 @@ AutoMap helps GIS and planning staff turn plain-English county map requests into
 - clean composer blocked states that hide adjust/export controls until preview is ready
 - composer preview rendering with a real ArcGIS basemap, REST context layers, and local derived GeoJSON overlays for origin points, selected parcels, nearest facilities, and straight-line distance lines
 - conservative fire/EMS targeting that warns when a verified source cannot prove a fire-only facility filter
+- bounded road-following route drafts from verified street centerlines when safe, with dashed straight-line fallback when not
+- semantic Map Composer symbols for origin homes, fire stations, schools, hospitals, parks, libraries, generic facilities, route lines, and selected parcels
+- proximity preview clutter reduction that hides full address/parcel/facility context layers by default while keeping derived result overlays visible
 
 ## What AutoMap Does Not Do Yet
 
@@ -97,6 +100,7 @@ ArcGIS publishing and smoke testing remain dry-run by default unless a guarded C
 35. v3.5 clean composer UI and address-to-parcel resolver
 36. v3.6 real composer map rendering for address, parcel, and proximity outputs
 37. v3.7 real map composer preview and facility target fix
+38. v3.8 road-following route drafts and semantic map symbols
 
 ## Project Structure
 
@@ -513,9 +517,11 @@ For parcel-centered prompts, AutoMap now requires a real parcel/PIN/address matc
 
 When a parcel is safely matched, AutoMap fetches only the matched parcel geometry, writes local selected-parcel GeoJSON, computes a small parcel buffer extent, sets the map focus to that extent, and labels context layers as reference around the selected parcel. Analysis remains optional for context maps and still uses bounded safety checks when requested.
 
-AutoMap v3.7 renders composer proximity/address previews with a real ArcGIS Maps SDK map and `streets-vector` basemap. Address/proximity requests show the origin point, nearest facility target, straight-line distance line, and selected parcel outline when one is truly resolved. If an address matches but the related parcel is not resolved from verified fields or a bounded point-in-parcel lookup, the preview still shows the address point and proximity line with a warning instead of pretending the full Tax Parcels layer is the selected property.
+AutoMap v3.8 renders composer proximity/address previews with a real ArcGIS Maps SDK map and `streets-vector` basemap. Address/proximity requests show the origin point, nearest facility target, route draft or straight-line reference, and selected parcel outline when one is truly resolved. If an address matches but the related parcel is not resolved from verified fields or a bounded point-in-parcel lookup, the preview still shows the address point and proximity line with a warning instead of pretending the full Tax Parcels layer is the selected property.
 
-Nearest fire station requests use verified facility attributes where possible. If the verified target layer combines Fire and EMS stations and AutoMap cannot confirm a fire-only filter, the result is labeled as nearest Fire/EMS station and includes a review warning. Straight-line distance remains a reference line, not a driving route.
+Nearest fire station requests use verified facility attributes where possible. If the verified target layer combines Fire and EMS stations and AutoMap cannot confirm a fire-only filter, the result is labeled as nearest Fire/EMS station and includes a review warning. AutoMap tries a bounded road-following draft using verified street centerlines when safe; otherwise it uses a dashed straight-line reference. Neither mode is official turn-by-turn navigation.
+
+Full address, parcel, and target-facility REST layers are hidden by default in proximity previews to reduce clutter. Semantic symbols mark origin homes, facility targets, route lines, and selected parcels.
 
 Open:
 
@@ -523,7 +529,7 @@ Open:
 http://localhost:3010/map-composer
 ```
 
-See `docs/simple_map_composer.md`, `docs/map_preview_behavior.md`, `docs/simplified_workflow.md`, `docs/parcel_focused_preview.md`, `docs/derived_geojson_preview.md`, `docs/address_proximity_preview.md`, `docs/real_composer_map_preview.md`, and `docs/fire_station_targeting.md`.
+See `docs/simple_map_composer.md`, `docs/map_preview_behavior.md`, `docs/simplified_workflow.md`, `docs/parcel_focused_preview.md`, `docs/derived_geojson_preview.md`, `docs/address_proximity_preview.md`, `docs/real_composer_map_preview.md`, `docs/fire_station_targeting.md`, `docs/route_draft_modes.md`, and `docs/map_symbology_system.md`.
 
 ## ArcGIS WebMap Draft Generator
 

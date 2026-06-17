@@ -193,13 +193,15 @@ function ProximityResultSummary({ result }: { result?: ProximityResult | null })
   const targetLabel = result.target_name || targetKind || "Proximity result";
   const distance = typeof result.distance_value === "number" ? `${result.distance_value.toFixed(2)} ${result.distance_unit || "miles"}` : "Needs review";
   const lineReady = Boolean(result.line_geojson_path || result.line_geojson_url);
+  const routeLabel = result.route_label || (result.route_mode === "road_following_draft" ? "Road-following draft" : "Straight-line reference");
+  const routeWarning = result.route_warning || (result.route_mode === "road_following_draft" ? "Not official driving directions." : "This is not a driving route.");
   return (
     <section className="panel proximity-summary-panel">
       <div className="panel-title-row">
         <div>
           <p className="eyebrow">Nearest facility draft</p>
           <h3>{targetKind.charAt(0).toUpperCase() + targetKind.slice(1)} found: {targetLabel}</h3>
-          <p className="muted">Straight-line reference only unless an approved road-network routing service is configured.</p>
+          <p className="muted">{routeLabel}. {routeWarning}</p>
         </div>
         <StatusChip tone={result.status === "ok" ? "success" : "warning"}>{result.status || "needs_review"}</StatusChip>
       </div>
@@ -217,8 +219,8 @@ function ProximityResultSummary({ result }: { result?: ProximityResult | null })
           <strong>{distance}</strong>
         </div>
         <div>
-          <span>Map line</span>
-          <strong>{lineReady ? "Line shown on map" : "Needs review"}</strong>
+          <span>Route mode</span>
+          <strong>{lineReady ? routeLabel : "Needs review"}</strong>
         </div>
       </div>
       {result.property_match_status === "not_resolved" ? (

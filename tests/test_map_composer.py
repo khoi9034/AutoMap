@@ -180,9 +180,9 @@ def test_composer_address_proximity_matched_adds_line_output(monkeypatch, tmp_pa
     assert result["can_preview"] is True
     assert result["request_type"] == "proximity"
     assert result["origin_type"] == "address"
-    assert result["map_title"] == "Nearest Fire Station from 793 Bartram Ave"
+    assert result["map_title"] == "Nearest Fire Station: Fire Station 1 from 793 Bartram Ave"
     assert result["proximity_result"]["target_type"] == "nearest_fire_station"
-    assert result["webmap_json"]["operationalLayers"][-1]["title"] == "Straight-line distance"
+    assert result["webmap_json"]["operationalLayers"][-1]["title"] == "Straight-line reference"
     assert result["review_packet_id"] == "packet"
 
 
@@ -196,7 +196,16 @@ def test_composer_proximity_preview_config_includes_derived_overlays(monkeypatch
         lambda prompt: build_recipe(prompt, sample_catalog(), persist_data_gaps=False),
     )
     monkeypatch.setattr("app.map_composer.save_review_packet", lambda prompt, recipe, webmap: packet_path)
-    monkeypatch.setattr("app.map_composer._preview_config_for", lambda path, can_preview: {"operational_layers": []})
+    monkeypatch.setattr(
+        "app.map_composer._preview_config_for",
+        lambda path, can_preview: {
+            "operational_layers": [
+                {"layer_key": "addresses", "title": "Addresses", "role": "reference_layer", "url": "https://example.test/Addresses/0"},
+                {"layer_key": "tax_parcels", "title": "Tax Parcels", "role": "base_layer", "url": "https://example.test/Parcels/0"},
+                {"layer_key": "fire_stations", "title": "Fire and EMS Stations", "role": "nearest_facility_target", "url": "https://example.test/Fire/0"},
+            ]
+        },
+    )
     monkeypatch.setattr(
         "app.map_composer.run_proximity_request",
         lambda prompt: {
@@ -220,9 +229,9 @@ def test_composer_proximity_preview_config_includes_derived_overlays(monkeypatch
             },
             "derived_layer": {"layer_key": "derived_proximity_line_test"},
             "derived_overlays": [
-                {"id": "origin_address_point", "title": "Origin Address", "role": "origin", "url": "/api/local-outputs/geojson/proximity/origin-id"},
-                {"id": "nearest_fire_station", "title": "Nearest Fire Station", "role": "target", "url": "/api/local-outputs/geojson/proximity/target-id"},
-                {"id": "straight_line_distance", "title": "Straight-Line Distance", "role": "distance_line", "url": "/api/local-outputs/geojson/proximity/line-id"},
+                {"id": "origin_address_point", "title": "Origin Address", "role": "origin", "symbol_key": "origin_home", "url": "/api/local-outputs/geojson/proximity/origin-id"},
+                {"id": "nearest_fire_station", "title": "Nearest Fire Station", "role": "target", "symbol_key": "target_fire_station", "url": "/api/local-outputs/geojson/proximity/target-id"},
+                {"id": "straight_line_reference", "title": "Straight-Line Reference", "role": "distance_line", "symbol_key": "route_straight_line", "route_mode": "straight_line_reference", "url": "/api/local-outputs/geojson/proximity/line-id"},
             ],
             "warnings": [],
             "published": False,
@@ -232,11 +241,15 @@ def test_composer_proximity_preview_config_includes_derived_overlays(monkeypatch
     result = generate_composer_draft(prompt)
 
     assert result["can_preview"] is True
-    assert result["map_title"] == "Nearest Fire Station from 793 Bartram Ave"
+    assert result["map_title"] == "Nearest Fire Station: Fire Station 1 from 793 Bartram Ave"
     assert result["preview_config"]["basemap"] == "streets-vector"
     assert "context_layers" in result["preview_config"]
     assert result["preview_config"]["derived_overlays"][0]["id"] == "origin_address_point"
-    assert result["preview_config"]["derived_overlays"][2]["id"] == "straight_line_distance"
+    assert result["preview_config"]["derived_overlays"][2]["id"] == "straight_line_reference"
+    assert result["preview_config"]["derived_overlays"][0]["symbol_key"] == "origin_home"
+    assert result["preview_config"]["derived_overlays"][1]["symbol_key"] == "target_fire_station"
+    assert result["preview_config"]["derived_overlays"][2]["symbol_key"] == "route_straight_line"
+    assert all(layer["default_visible"] is False for layer in result["preview_config"]["context_layers"])
     assert result["preview_config"]["origin_summary"]["origin_type"] == "address"
     assert result["preview_config"]["target_summary"]["target_type"] == "nearest_fire_station"
     assert result["preview_config"]["distance_summary"]["distance_value"] == 1.11

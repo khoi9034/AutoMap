@@ -1442,6 +1442,35 @@ button {
   background: #eef3f8;
 }
 
+.map-symbol-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.map-symbol-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 4px 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.map-symbol-legend-icon {
+  display: inline-block;
+  width: 22px;
+  height: 22px;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+}
+
 .layer-panel,
 .warning-panel {
   display: grid;

@@ -26,11 +26,11 @@ export function ProximityMapPanel({ result }: ProximityMapPanelProps) {
             <span>{result.target_name || result.target_type || "needs review"}</span>
           </div>
           <div className="layer-row">
-            <strong>Straight-line distance</strong>
+            <strong>{result.route_label || (result.route_mode === "road_following_draft" ? "Road-following draft" : "Straight-line reference")}</strong>
             <span>{result.line_geojson_path || "No line output yet"}</span>
           </div>
-          {result.route_status === "network_route_not_available" ? (
-            <p className="muted">Not a road route. This is a straight-line reference only.</p>
+          {result.route_mode !== "road_following_draft" ? (
+            <p className="muted">Not a road route. This is a straight-line reference only unless a bounded road-following draft succeeds.</p>
           ) : null}
         </div>
       ) : (

@@ -32,7 +32,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
                 <WorkflowContextPanel />
               </div>
             </div>
-            <footer className="footer">AutoMap v{status.version || "3.7.0"} - local draft workflow only.</footer>
+            <footer className="footer">AutoMap v{status.version || "3.8.0"} - local draft workflow only.</footer>
           </div>
         </div>
       </body>

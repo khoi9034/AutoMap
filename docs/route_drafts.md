@@ -1,21 +1,29 @@
 # Route Drafts
 
-AutoMap v3.1 does not calculate road-network routes.
+AutoMap v3.8 supports route draft modes:
 
-When a user asks for a route, AutoMap creates a draft straight-line reference if the origin and destination can be matched safely. The result is clearly labeled:
+- road-following draft route when a bounded verified street centerline graph can be built safely
+- straight-line reference fallback when route drafting is unavailable
+- route unavailable when origin/target matching is not safe
 
-`Straight-line reference, not driving route.`
+Road-following drafts are labeled:
 
-Road-network routing requires an approved routing/network service. AutoMap does not call paid routing APIs, external geocoding APIs, or unapproved network services.
+`Road-following draft route, not official driving directions or turn-by-turn navigation.`
 
-Route draft output includes:
+Straight-line fallbacks are labeled:
+
+`Straight-line reference only. This is not a driving route.`
+
+AutoMap does not call paid routing APIs, external geocoding APIs, or unapproved network services.
+
+Route draft output can include:
 
 - matched origin summary
 - matched destination summary
-- straight-line distance
-- local GeoJSON line file
+- road-following route draft GeoJSON when safe
+- straight-line reference GeoJSON
 - local Markdown/HTML report
-- warning that road-network routing is unavailable
+- warning that draft routes are not official navigation
 
 Generated route drafts are local review artifacts under `outputs/proximity/` and are ignored by Git. No ArcGIS item is created or published.
 
