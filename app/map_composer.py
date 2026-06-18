@@ -14,6 +14,13 @@ from app.adjustment_engine import apply_adjustments_to_recipe, apply_adjustments
 from app.adjustment_models import normalize_adjustments
 from app.address_parcel_resolver import ADDRESS_NOT_MATCHED_WARNING, resolve_address_or_parcel_origin
 from app.geometry_utils import buffer_extent, geojson_extent
+from app.map_title_generator import (
+    display_origin_label as _display_origin_label,
+    generate_map_title,
+    map_layout_subtitle as _map_layout_subtitle,
+    route_mode_label as _route_mode_label,
+    target_display_label as _target_display_label,
+)
 from app.packet_index import build_preview_config
 from app.recipe_engine import PARCEL_NOT_MATCHED_WARNING, build_recipe
 from app.report_generator import generate_report
@@ -213,47 +220,8 @@ def _origin_context_from_proximity(prompt: str, result: dict[str, Any]) -> dict[
     }
 
 
-def _display_origin_label(result: dict[str, Any]) -> str:
-    origin = str(result.get("origin_input") or "").strip()
-    return origin.title() if origin else "Origin"
-
-
-def _target_display_label(result: dict[str, Any]) -> str:
-    target_type = result.get("target_type")
-    classification = result.get("target_classification")
-    if target_type == "nearest_fire_ems_station" or classification == "mixed_fire_ems":
-        return "Nearest Fire/EMS Station"
-    if target_type == "nearest_fire_station":
-        return "Nearest Fire Station"
-    if target_type == "nearest_school":
-        return "Nearest School"
-    if target_type == "nearest_library":
-        return "Nearest Library"
-    return "Nearest Facility"
-
-
 def _proximity_map_title(result: dict[str, Any]) -> str:
-    return f"{_target_display_label(result)} from {_display_origin_label(result)}"
-
-
-def _route_mode_label(result: dict[str, Any]) -> str:
-    route_mode = result.get("route_mode")
-    if route_mode == "road_following_draft":
-        return "Road-following draft route"
-    if route_mode == "straight_line_reference":
-        return "Straight-line reference"
-    if route_mode == "road_network_route":
-        return "Road-network route"
-    return "Route draft"
-
-
-def _map_layout_subtitle(result: dict[str, Any]) -> str:
-    route_mode = result.get("route_mode")
-    if route_mode == "road_following_draft":
-        return "Road-following draft route, not official navigation."
-    if route_mode == "straight_line_reference":
-        return "Straight-line reference only, not a driving route."
-    return "Draft AutoMap preview, not official navigation."
+    return generate_map_title("", proximity_result=result)
 
 
 def _legend_label_for_overlay(overlay: dict[str, Any]) -> str:
@@ -634,6 +602,7 @@ def generate_composer_draft(prompt: str) -> dict[str, Any]:
                 "published": False,
             }
         _apply_proximity_result_to_recipe(recipe, prompt, proximity_result)
+    recipe["map_title"] = generate_map_title(prompt, recipe=recipe, proximity_result=recipe.get("proximity_result"))
     webmap_json = build_webmap_json(recipe)
     _write_session_files(session_folder, recipe, webmap_json)
     blockers = _preview_blockers(recipe)

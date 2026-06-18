@@ -1,6 +1,6 @@
 # Enterprise Cartography
 
-AutoMap v3.9 improves Map Composer previews so proximity and parcel drafts look like county GIS review maps instead of debug diagrams.
+AutoMap v4.0 improves Map Composer previews so proximity and parcel drafts look like county GIS review maps instead of debug diagrams.
 
 The composer uses a clear draw order:
 
@@ -18,6 +18,6 @@ Road-following draft routes use a moderate blue line with a white casing. Straig
 
 Proximity maps hide full address, parcel, and target-facility REST layers by default to reduce clutter. The derived origin marker, selected target marker, route/line, and selected parcel outline remain visible when truly available.
 
-The map frame includes a title block, legend, north arrow, scale bar, and draft-only disclaimer. These are review aids only; AutoMap does not publish, upload, or create ArcGIS items from the composer preview.
+The map frame includes a concise title above the map, compact in-frame legend, north arrow, adaptive labeled scale bar, and draft-only disclaimer. These are review aids only; AutoMap does not publish, upload, or create ArcGIS items from the composer preview.
 
 CFS remains separate and `cfs_dev` is not touched.

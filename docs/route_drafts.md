@@ -1,6 +1,6 @@
 # Route Drafts
 
-AutoMap v3.9 supports route draft modes:
+AutoMap v4.0 supports route draft modes:
 
 - road-following draft route when a bounded verified street centerline graph can be built safely
 - straight-line reference fallback when route drafting is unavailable

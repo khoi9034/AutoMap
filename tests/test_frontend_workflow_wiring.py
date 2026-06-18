@@ -228,6 +228,11 @@ def test_map_composer_is_primary_simple_workflow():
     assert "MapLegend" in composer_preview
     assert "NorthArrow" in composer_preview
     assert "MapScaleBar" in composer_preview
+    assert "<MapScaleBar scale={viewScale}" in composer_preview
+    assert "<MapLegend overlays={derivedOverlays} contextLayers={contextLayers} />" in composer_preview
+    frame_index = composer_preview.index('className="enterprise-map-frame"')
+    legend_index = composer_preview.index("<MapLegend overlays={derivedOverlays} contextLayers={contextLayers} />")
+    assert frame_index < legend_index
     assert "addDerivedOverlayLayers" in composer_preview
     assert "casing" in composer_preview
     assert "featureCollectionBounds" in derived_layer
@@ -253,6 +258,10 @@ def test_map_composer_is_primary_simple_workflow():
     assert "Hidden context" not in map_legend
     assert "North arrow" in north_arrow
     assert "Map scale bar" in scale_bar
+    assert "0.25" in scale_bar
+    assert "0.5 mi" in scale_bar
+    assert "500" in scale_bar
+    assert "approx." not in scale_bar
     assert "map-symbol-legend" in symbol_legend
     assert "Generate Draft Map" in client
     assert "Apply Adjustments" in client
@@ -404,7 +413,7 @@ def test_api_client_has_timeout_and_sanitized_fallback_version():
     assert "Backend is online, but this request took too long" in source
     assert "http://127.0.0.1:8010" in source
     assert "timeoutMs: 60000" in source
-    assert 'version: "3.9.0"' in source
+    assert 'version: "4.0.0"' in source
     assert "redactProtected" in source
     assert "AutoMap is checking the catalog, parcel fields, and context layers" in map_request
 

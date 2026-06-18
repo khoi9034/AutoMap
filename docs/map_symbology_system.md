@@ -1,6 +1,6 @@
 # Map Symbology System
 
-AutoMap v3.9 adds semantic symbols and enterprise cartographic ordering for Map Composer preview overlays.
+AutoMap v4.0 uses semantic symbols and enterprise cartographic ordering for Map Composer preview overlays.
 
 Derived overlay metadata includes `symbol_key`, `geometry_role`, `route_mode`, `route_label`, `facility_type`, and `default_visible`. The frontend uses these keys to render a consistent ArcGIS preview:
 

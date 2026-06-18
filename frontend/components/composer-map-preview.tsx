@@ -30,6 +30,8 @@ type ArcView = {
   when: (callback?: () => unknown) => Promise<unknown>;
   goTo: (target: unknown, options?: Record<string, unknown>) => Promise<unknown>;
   destroy: () => void;
+  scale?: number;
+  watch?: (property: string, callback: (value: unknown) => void) => { remove?: () => void };
   ui?: { add?: (item: unknown, position: string) => void };
 };
 
@@ -83,6 +85,12 @@ function panelTitle(response: ComposerResponse): string {
   if (target) return `Nearest fire station found: ${target}`;
   if (response.proximity_result?.target_type) return "Nearest facility result";
   return response.map_title || "Composer preview";
+}
+
+function routeSummary(response: ComposerResponse, lineLabel: string, distance: string | null): string {
+  const target = panelTitle(response);
+  if (distance) return `${target} - ${lineLabel}: ${distance}. Line shown on map.`;
+  return "Local derived overlays are drawn on a real ArcGIS basemap.";
 }
 
 function distanceText(response: ComposerResponse): string | null {
@@ -318,6 +326,7 @@ export function ComposerMapPreview({ response, packetId }: { response: ComposerR
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [mapError, setMapError] = useState<string | null>(null);
+  const [viewScale, setViewScale] = useState<number | null>(null);
 
   useEffect(() => {
     if (!derivedOverlays.length) {
@@ -354,6 +363,7 @@ export function ComposerMapPreview({ response, packetId }: { response: ComposerR
     if (!derivedOverlays.length || loading || loadError || !containerRef.current) return;
     let cancelled = false;
     let view: ArcView | undefined;
+    let scaleHandle: { remove?: () => void } | undefined;
     setMapError(null);
 
     loadArcModules()
@@ -383,7 +393,14 @@ export function ComposerMapPreview({ response, packetId }: { response: ComposerR
         });
         view = nextView;
         viewRef.current = view;
-        return nextView.when(() => nextView.goTo(extent, { animate: false }));
+        return nextView.when(() => {
+          if (cancelled) return undefined;
+          setViewScale(typeof nextView.scale === "number" ? nextView.scale : null);
+          scaleHandle = nextView.watch?.("scale", (value) => {
+            if (!cancelled) setViewScale(typeof value === "number" && Number.isFinite(value) ? value : null);
+          });
+          return nextView.goTo(extent, { animate: false });
+        });
       })
       .catch((exc) => {
         if (!cancelled) {
@@ -393,6 +410,7 @@ export function ComposerMapPreview({ response, packetId }: { response: ComposerR
 
     return () => {
       cancelled = true;
+      scaleHandle?.remove?.();
       if (viewRef.current) {
         viewRef.current.destroy();
         viewRef.current = null;
@@ -435,10 +453,8 @@ export function ComposerMapPreview({ response, packetId }: { response: ComposerR
         <div className="panel-title-row">
           <div>
             <p className="eyebrow">Focused ArcGIS map</p>
-            <h3>{panelTitle(response)}</h3>
-            <p className="muted">
-              {distance ? `${lineLabel}: ${distance}. Line shown on map.` : "Local derived overlays are drawn on a real ArcGIS basemap."}
-            </p>
+            <h3>Route and distance</h3>
+            <p className="muted">{routeSummary(response, lineLabel, distance)}</p>
           </div>
           <div className="chip-row">
             <StatusChip tone="success">Real basemap</StatusChip>
@@ -475,9 +491,9 @@ export function ComposerMapPreview({ response, packetId }: { response: ComposerR
         <div className="enterprise-map-frame">
           <div className="composer-real-map" ref={containerRef} aria-label="Focused ArcGIS composer map preview" />
           <NorthArrow />
-          <MapScaleBar />
+          <MapScaleBar scale={viewScale} />
+          <MapLegend overlays={derivedOverlays} contextLayers={contextLayers} />
         </div>
-        <MapLegend overlays={derivedOverlays} contextLayers={contextLayers} />
       </section>
 
       <ComposerLayerPanel derivedOverlays={derivedOverlays} contextLayers={contextLayers} />

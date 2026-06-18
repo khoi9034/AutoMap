@@ -1,6 +1,6 @@
 # Real Composer Map Preview
 
-AutoMap v3.9 renders Map Composer proximity/address results with a real ArcGIS Maps SDK `MapView` and enterprise map layout elements.
+AutoMap v4.0 renders Map Composer proximity/address results with a real ArcGIS Maps SDK `MapView` and enterprise map layout elements.
 
 The composer preview uses:
 

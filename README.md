@@ -2,11 +2,11 @@
 
 AutoMap converts plain-English county GIS map requests into structured map recipes using only approved GIS layers from a local layer catalog.
 
-Version: `3.9.0`
+Version: `4.0.0`
 
 ## Current Phase
 
-v3.9 Enterprise Cartography and Print Layout on top of road-following route drafts, semantic Map Composer symbols, real map composer preview rendering, derived GeoJSON overlays, the four-step composer, address-to-parcel resolver, proximity, real parcel lookup, parcel workspace, scenario workbench, planning scenario and suitability intelligence, development/transportation source intelligence, real source verification, data gap resolution, analysis summary reporting, and user-guided safe spatial analysis refinement.
+v4.0 Enterprise Map Layout Refinement on top of enterprise cartography, road-following route drafts, semantic Map Composer symbols, real map composer preview rendering, derived GeoJSON overlays, the four-step composer, address-to-parcel resolver, proximity, real parcel lookup, parcel workspace, scenario workbench, planning scenario and suitability intelligence, development/transportation source intelligence, real source verification, data gap resolution, analysis summary reporting, and user-guided safe spatial analysis refinement.
 
 This repository is intentionally independent. It does not connect to CFS or import CFS code. AutoMap uses its own local PostGIS database and trusted layer catalog.
 
@@ -55,6 +55,7 @@ AutoMap helps GIS and planning staff turn plain-English county map requests into
 - semantic Map Composer symbols for origin homes, fire stations, schools, hospitals, parks, libraries, generic facilities, route lines, and selected parcels
 - proximity preview clutter reduction that hides full address/parcel/facility context layers by default while keeping derived result overlays visible
 - enterprise Map Composer cartography with title block, legend, scale bar, north arrow, route casing, marker-on-top draw order, and print-ready draft layout
+- refined enterprise map layout with concise request-specific titles, in-frame legend, adaptive labeled imperial scale bar, compact north arrow, and matching print composition
 
 ## What AutoMap Does Not Do Yet
 
@@ -103,6 +104,7 @@ ArcGIS publishing and smoke testing remain dry-run by default unless a guarded C
 37. v3.7 real map composer preview and facility target fix
 38. v3.8 road-following route drafts and semantic map symbols
 39. v3.9 enterprise cartography and print layout
+40. v4.0 enterprise map layout refinement
 
 ## Project Structure
 
@@ -519,11 +521,11 @@ For parcel-centered prompts, AutoMap now requires a real parcel/PIN/address matc
 
 When a parcel is safely matched, AutoMap fetches only the matched parcel geometry, writes local selected-parcel GeoJSON, computes a small parcel buffer extent, sets the map focus to that extent, and labels context layers as reference around the selected parcel. Analysis remains optional for context maps and still uses bounded safety checks when requested.
 
-AutoMap v3.9 renders composer proximity/address previews with a real ArcGIS Maps SDK map and `streets-vector` basemap. Address/proximity requests show the origin point, nearest facility target, route draft or straight-line reference, and selected parcel outline when one is truly resolved. If an address matches but the related parcel is not resolved from verified fields or a bounded point-in-parcel lookup, the preview still shows the address point and proximity line with a warning instead of pretending the full Tax Parcels layer is the selected property.
+AutoMap v4.0 renders composer proximity/address previews with a real ArcGIS Maps SDK map and `streets-vector` basemap. Address/proximity requests show the origin point, nearest facility target, route draft or straight-line reference, and selected parcel outline when one is truly resolved. If an address matches but the related parcel is not resolved from verified fields or a bounded point-in-parcel lookup, the preview still shows the address point and proximity line with a warning instead of pretending the full Tax Parcels layer is the selected property.
 
 Nearest fire station requests use verified facility attributes where possible. If the verified target layer combines Fire and EMS stations and AutoMap cannot confirm a fire-only filter, the result is labeled as nearest Fire/EMS station and includes a review warning. AutoMap tries a bounded road-following draft using verified street centerlines when safe; otherwise it uses a dashed straight-line reference. Neither mode is official turn-by-turn navigation.
 
-Full address, parcel, and target-facility REST layers are hidden by default in proximity previews to reduce clutter. Semantic symbols mark origin homes, facility targets, route lines, and selected parcels. v3.9 adds a professional map frame with a clear title, visible legend, scale bar, north arrow, draft disclaimer, and route casing/halo. Route lines draw below selected parcel and facility/origin markers so symbols stay readable. The print page includes the focused map, prompt, route summary, selected layers, warnings, generated time, and draft-only disclaimer.
+Full address, parcel, and target-facility REST layers are hidden by default in proximity previews to reduce clutter. Semantic symbols mark origin homes, facility targets, route lines, and selected parcels. v4.0 refines the professional map frame with a concise title above the map, compact in-frame legend, adaptive labeled imperial scale bar, smaller north arrow, draft disclaimer, and route casing/halo. Route lines draw below selected parcel and facility/origin markers so symbols stay readable. The print page mirrors the preview composition with the focused map, route summary, selected layers, warnings, generated time, and draft-only disclaimer.
 
 Open:
 
@@ -531,7 +533,7 @@ Open:
 http://localhost:3010/map-composer
 ```
 
-See `docs/simple_map_composer.md`, `docs/map_preview_behavior.md`, `docs/simplified_workflow.md`, `docs/parcel_focused_preview.md`, `docs/derived_geojson_preview.md`, `docs/address_proximity_preview.md`, `docs/real_composer_map_preview.md`, `docs/fire_station_targeting.md`, `docs/route_draft_modes.md`, `docs/map_symbology_system.md`, `docs/enterprise_cartography.md`, and `docs/print_layout.md`.
+See `docs/simple_map_composer.md`, `docs/map_preview_behavior.md`, `docs/simplified_workflow.md`, `docs/parcel_focused_preview.md`, `docs/derived_geojson_preview.md`, `docs/address_proximity_preview.md`, `docs/real_composer_map_preview.md`, `docs/fire_station_targeting.md`, `docs/route_draft_modes.md`, `docs/map_symbology_system.md`, `docs/enterprise_cartography.md`, `docs/map_layout_refinement.md`, `docs/map_title_rules.md`, and `docs/print_layout.md`.
 
 ## ArcGIS WebMap Draft Generator
 

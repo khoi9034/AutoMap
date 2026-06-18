@@ -1,13 +1,13 @@
 # Print Layout
 
-AutoMap v3.9 adds a print-oriented Map Composer layout for local draft review.
+AutoMap v4.0 adds a print-oriented Map Composer layout for local draft review.
 
 The print page includes:
 
 - map title and subtitle
 - the focused composer map preview
-- legend
-- scale bar
+- compact legend in or adjacent to the map composition
+- labeled scale bar using miles or feet
 - north arrow
 - original prompt
 - route and distance summary when applicable

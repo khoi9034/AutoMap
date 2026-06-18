@@ -1,6 +1,6 @@
 # Fire Station Targeting
 
-AutoMap v3.9 handles fire station requests conservatively and renders fire targets with semantic fire-station symbols in the enterprise Map Composer layout.
+AutoMap v4.0 handles fire station requests conservatively and renders fire targets with semantic fire-station symbols in the enterprise Map Composer layout.
 
 When a user asks for the nearest fire station, AutoMap uses only verified catalog facility layers. If returned facility attributes clearly identify fire stations, AutoMap can label the target as `nearest_fire_station`.
 

@@ -1,6 +1,6 @@
 # Route Draft Modes
 
-AutoMap v3.9 supports explicit route draft modes for proximity maps:
+AutoMap v4.0 supports explicit route draft modes for proximity maps:
 
 - `road_network_route`: reserved for a future approved routing/network service.
 - `road_following_draft`: a bounded local route approximation using verified street centerlines.
