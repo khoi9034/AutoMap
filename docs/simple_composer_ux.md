@@ -22,6 +22,8 @@ The System Snapshot remains on System Status, not the normal composer.
 
 The full prompt panel belongs to Request. Preview, Adjust, and Print / Export only show a compact original-request summary so the map and task-specific controls have room to breathe.
 
+AutoMap v4.4 removes the messy nested-scroll feel from desktop composer screens. Preview and Adjust use a viewport workbench with the map filling the left side. The map frame itself does not scroll; the right summary or control panel scrolls only when its content is taller than the available space. On smaller screens, the layout stacks and uses normal page scrolling.
+
 ## Blocked Preview UX
 
 Blocked focused previews show one clear blocker:

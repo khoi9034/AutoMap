@@ -192,7 +192,7 @@ export function AdjustStep({
   return (
     <section className="composer-adjust-layout">
       <div className="composer-adjust-map-column">
-        <ComposerMapPreview response={response} packetId={previewPacketId} />
+        <ComposerMapPreview response={response} packetId={previewPacketId} showLayerPanel={false} />
       </div>
       <aside className="panel composer-adjust-controls-panel">
         <div className="panel-title-row">
@@ -219,7 +219,7 @@ export function AdjustStep({
           <span>Reviewer notes</span>
           <textarea value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Optional draft review notes" />
         </label>
-        <div className="button-row">
+        <div className="button-row composer-adjust-action-bar">
           <button className="button" type="button" onClick={onApply} disabled={loading || !layers.length}>
             {loading ? "Applying..." : "Apply Adjustments"}
           </button>

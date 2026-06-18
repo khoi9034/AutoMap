@@ -312,7 +312,15 @@ async function loadArcModules(): Promise<ArcModules> {
   };
 }
 
-export function ComposerMapPreview({ response, packetId }: { response: ComposerResponse; packetId?: string }) {
+export function ComposerMapPreview({
+  response,
+  packetId,
+  showLayerPanel = true,
+}: {
+  response: ComposerResponse;
+  packetId?: string;
+  showLayerPanel?: boolean;
+}) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const viewRef = useRef<ArcView | null>(null);
   const derivedOverlays = useMemo(
@@ -505,7 +513,7 @@ export function ComposerMapPreview({ response, packetId }: { response: ComposerR
         </div>
       </section>
 
-      <ComposerLayerPanel derivedOverlays={derivedOverlays} contextLayers={contextLayers} />
+      {showLayerPanel ? <ComposerLayerPanel derivedOverlays={derivedOverlays} contextLayers={contextLayers} /> : null}
     </div>
   );
 }

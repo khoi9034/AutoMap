@@ -1,6 +1,6 @@
 # Map Composer Step Layouts
 
-AutoMap v4.3 gives each normal Map Composer step its own layout instead of keeping one large prompt/debug-style panel on screen for the entire workflow.
+AutoMap v4.3 gives each normal Map Composer step its own layout instead of keeping one large prompt/debug-style panel on screen for the entire workflow. AutoMap v4.4 refines those layouts into a fixed enterprise workbench so the map stays visible and scroll behavior is predictable.
 
 ## Request
 
@@ -24,18 +24,18 @@ The Preview step is for reviewing the generated map:
 - route/distance summary when relevant
 - Continue to Adjust, Regenerate Draft, and Print / Export actions
 
-The full prompt panel is not shown in this step.
+The full prompt panel is not shown in this step. On desktop, the map column fills the available height and the summary panel scrolls only if needed.
 
 ## Adjust
 
-The Adjust step is side-by-side:
+The Adjust step is an enterprise side-by-side workbench:
 
 - map preview on the left
 - adjustment controls on the right
 
 Controls include title, subtitle, layer visibility, opacity, order, display name, optional definition expression, route visibility/style, origin/target symbol visibility, reviewer notes, Apply Adjustments, and Reset adjustments.
 
-The prompt appears only as a compact original-request note so reviewers can keep their eyes on the map while tuning it.
+The prompt appears only as a compact original-request note so reviewers can keep their eyes on the map while tuning it. On desktop, the map does not scroll internally; only the controls panel scrolls when the control list is taller than the viewport.
 
 ## Print / Export
 

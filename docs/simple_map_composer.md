@@ -13,6 +13,8 @@ The composer runs request intelligence, builds the technical map artifacts, crea
 
 AutoMap v4.3 makes those steps layout-specific. The prompt and examples live in Request, the generated map dominates Preview, Adjust uses a side-by-side map/control workspace, and Print / Export focuses on local output actions.
 
+AutoMap v4.4 refines the desktop composer into a fixed workbench: the app shell fills the viewport, the map canvas stays visible, and the right-side control panel is the only composer area that scrolls when controls exceed the available height.
+
 ## Simple Adjustments
 
 Reviewers can adjust the map without editing YAML:
@@ -27,7 +29,7 @@ Reviewers can adjust the map without editing YAML:
 - definition expression text
 - reviewer notes
 
-The Adjust step keeps the map on the left and controls on the right so reviewers can see changes while tuning the draft.
+The Adjust step keeps the map on the left and controls on the right so reviewers can see changes while tuning the draft. On desktop, the page itself should not jump while the controls panel scrolls.
 
 The older YAML adjustment workflow remains available under Advanced tools.
 

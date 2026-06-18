@@ -2,11 +2,11 @@
 
 AutoMap converts plain-English county GIS map requests into structured map recipes using only approved GIS layers from a local layer catalog.
 
-Version: `4.3.0`
+Version: `4.4.0`
 
 ## Current Phase
 
-v4.3 Step-Specific Map Composer Layouts on top of enterprise centered scale bar and final map layout polish, county exhibit and staff report map layouts, enterprise cartography, road-following route drafts, semantic Map Composer symbols, real map composer preview rendering, derived GeoJSON overlays, the four-step composer, address-to-parcel resolver, proximity, real parcel lookup, parcel workspace, scenario workbench, planning scenario and suitability intelligence, development/transportation source intelligence, real source verification, data gap resolution, analysis summary reporting, and user-guided safe spatial analysis refinement.
+v4.4 Enterprise UI Layout and Scroll Behavior Cleanup on top of step-specific Map Composer layouts, enterprise centered scale bar and final map layout polish, county exhibit and staff report map layouts, enterprise cartography, road-following route drafts, semantic Map Composer symbols, real map composer preview rendering, derived GeoJSON overlays, the four-step composer, address-to-parcel resolver, proximity, real parcel lookup, parcel workspace, scenario workbench, planning scenario and suitability intelligence, development/transportation source intelligence, real source verification, data gap resolution, analysis summary reporting, and user-guided safe spatial analysis refinement.
 
 This repository is intentionally independent. It does not connect to CFS or import CFS code. AutoMap uses its own local PostGIS database and trusted layer catalog.
 
@@ -59,6 +59,7 @@ AutoMap helps GIS and planning staff turn plain-English county map requests into
 - county exhibit and staff-report-style exports with title blocks, map frames, source tables, warning summaries, draft disclaimers, browser print layout, and local exhibit packages
 - centered enterprise scale bar spanning about 64% of the map frame, with readable feet/mile labels and print/exhibit placement
 - step-specific Map Composer layouts so Request, Preview, Adjust, and Print / Export each use the workspace that fits that task
+- enterprise Map Composer scroll behavior where the desktop workbench fills the viewport, the map remains visible, and only the right-side control panel scrolls when needed
 
 ## What AutoMap Does Not Do Yet
 
@@ -111,6 +112,7 @@ ArcGIS publishing and smoke testing remain dry-run by default unless a guarded C
 41. v4.1 county exhibit and staff report map layout
 42. v4.2 enterprise centered scale bar and final map layout polish
 43. v4.3 step-specific map composer layouts
+44. v4.4 enterprise UI layout and scroll behavior cleanup
 
 ## Project Structure
 
@@ -547,13 +549,15 @@ AutoMap v4.2 moves the scale bar to the bottom-center of the map frame and makes
 
 AutoMap v4.3 gives each Map Composer step its own layout. Request shows the large prompt and examples. Preview focuses on the generated map with compact summary and warnings. Adjust keeps the map on the left while visibility, opacity, layer order, title, route, symbol, and reviewer-note controls stay on the right. Print / Export focuses on local draft outputs and exhibit/report links.
 
+AutoMap v4.4 refines Map Composer into an enterprise workbench. On desktop, the shell fills the viewport, the map canvas does not create its own vertical scrollbar, and the Adjust controls panel is the only composer area that scrolls when the control list exceeds the available height. This keeps the map visible while reviewers tune layers and route styling.
+
 Open:
 
 ```text
 http://localhost:3010/map-composer
 ```
 
-See `docs/simple_map_composer.md`, `docs/map_preview_behavior.md`, `docs/simplified_workflow.md`, `docs/parcel_focused_preview.md`, `docs/derived_geojson_preview.md`, `docs/address_proximity_preview.md`, `docs/real_composer_map_preview.md`, `docs/fire_station_targeting.md`, `docs/route_draft_modes.md`, `docs/map_symbology_system.md`, `docs/enterprise_cartography.md`, `docs/map_layout_refinement.md`, `docs/map_title_rules.md`, `docs/print_layout.md`, `docs/exhibit_exports.md`, `docs/staff_report_map_layout.md`, and `docs/map_scale_bar.md`.
+See `docs/simple_map_composer.md`, `docs/map_preview_behavior.md`, `docs/simplified_workflow.md`, `docs/parcel_focused_preview.md`, `docs/derived_geojson_preview.md`, `docs/address_proximity_preview.md`, `docs/real_composer_map_preview.md`, `docs/fire_station_targeting.md`, `docs/route_draft_modes.md`, `docs/map_symbology_system.md`, `docs/enterprise_cartography.md`, `docs/map_layout_refinement.md`, `docs/map_title_rules.md`, `docs/print_layout.md`, `docs/exhibit_exports.md`, `docs/staff_report_map_layout.md`, `docs/map_scale_bar.md`, `docs/map_composer_step_layouts.md`, and `docs/enterprise_ui_layout.md`.
 
 ## ArcGIS WebMap Draft Generator
 

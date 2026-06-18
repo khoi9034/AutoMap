@@ -181,7 +181,7 @@ export function PreviewStep({ loading, onGoToAdjust, onGoToExport, onGoToRequest
           <p>{response.raw_prompt || response.prompt}</p>
         </div>
         <PreviewBlocker response={response} onGoToRequest={onGoToRequest} />
-        {previewReady ? <ComposerMapPreview response={response} packetId={previewPacketId} /> : null}
+        {previewReady ? <ComposerMapPreview response={response} packetId={previewPacketId} showLayerPanel={false} /> : null}
       </div>
 
       <aside className="composer-preview-sidebar">

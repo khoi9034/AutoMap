@@ -54,7 +54,7 @@ export function ExportStep({
   return (
     <section className="composer-export-layout">
       <div className="composer-export-preview">
-        <ComposerMapPreview response={response} packetId={previewPacketId} />
+        <ComposerMapPreview response={response} packetId={previewPacketId} showLayerPanel={false} />
       </div>
       <aside className="panel composer-export-panel">
         <div className="panel-title-row">

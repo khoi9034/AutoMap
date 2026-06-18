@@ -397,6 +397,35 @@ def test_enterprise_scale_bar_css_is_centered_and_print_ready():
     assert "min-width: 420px" in css[css.index("@media print") :]
 
 
+def test_map_composer_uses_enterprise_workbench_scroll_model():
+    css = read("app/globals.css")
+    preview_step = read("components/map-composer/preview-step.tsx")
+    adjust_step = read("components/map-composer/adjust-step.tsx")
+    export_step = read("components/map-composer/export-step.tsx")
+    composer_preview = read("components/composer-map-preview.tsx")
+
+    assert ".content-grid:has(.map-composer-shell)" in css
+    assert ".content-grid:has(.map-composer-shell) .right-rail" in css
+    assert ".content-grid:has(.map-composer-shell) + .footer" in css
+    assert ".composer-step-body-adjust" in css
+    assert ".composer-preview-layout" in css and "height: 100%" in css[css.index(".composer-preview-layout") : css.index(".composer-preview-main", css.index(".composer-preview-layout"))]
+    assert ".composer-adjust-layout" in css and "height: 100%" in css[css.index(".composer-adjust-layout") : css.index(".composer-adjust-map-column", css.index(".composer-adjust-layout"))]
+    assert ".composer-adjust-map-column" in css and "overflow: hidden" in css[
+        css.index(".composer-adjust-map-column {") : css.index(".composer-adjust-controls-panel {")
+    ]
+    assert ".composer-adjust-controls-panel" in css and "overflow-y: auto" in css[
+        css.index(".composer-adjust-controls-panel {") : css.index(".composer-adjust-controls-panel .composer-layer-row")
+    ]
+    assert ".composer-adjust-action-bar" in css and "position: sticky" in css[css.index(".composer-adjust-action-bar") : css.index(".workflow-prompt-panel")]
+    assert ".composer-step-tab" in css and "min-height: 52px" in css[css.index(".composer-step-tab {") : css.index(".composer-step-tab span")]
+    assert "showLayerPanel?: boolean" in composer_preview
+    assert "showLayerPanel ? <ComposerLayerPanel" in composer_preview
+    assert "showLayerPanel={false}" in preview_step
+    assert "showLayerPanel={false}" in adjust_step
+    assert "showLayerPanel={false}" in export_step
+    assert "samplePrompts" not in adjust_step
+
+
 def test_internal_workflow_pages_redirect_to_composer():
     internal_pages = [
         "app/recipe-review/page.tsx",
@@ -503,7 +532,7 @@ def test_api_client_has_timeout_and_sanitized_fallback_version():
     assert "Backend is online, but this request took too long" in source
     assert "http://127.0.0.1:8010" in source
     assert "timeoutMs: 60000" in source
-    assert 'version: "4.3.0"' in source
+    assert 'version: "4.4.0"' in source
     assert "redactProtected" in source
     assert "AutoMap is checking the catalog, parcel fields, and context layers" in map_request
 
