@@ -9,9 +9,9 @@ import { samplePrompts } from "@/components/navigation";
 import { SimpleMapComposerStepper } from "@/components/simple-map-composer-stepper";
 import { StatusChip } from "@/components/status-chip";
 import { ToastMessage } from "@/components/toast";
-import { API_BASE_URL, adjustComposerDraft, exportComposerDraft, generateComposerDraft } from "@/lib/api";
+import { API_BASE_URL, adjustComposerDraft, generateComposerDraft, generateExhibitPackage } from "@/lib/api";
 import { mergeWorkflowState, packetIdFromPath } from "@/lib/workflow-store";
-import type { ComposerResponse, PreviewLayer, ProximityResult } from "@/types/automap";
+import type { ComposerResponse, ExhibitPackage, PreviewLayer, ProximityResult } from "@/types/automap";
 import type { WorkflowToast } from "@/types/workflow";
 
 type ComposerLayerEdit = {
@@ -360,7 +360,8 @@ export function MapComposerClient() {
   const [layers, setLayers] = useState<ComposerLayerEdit[]>([]);
   const [mapTitle, setMapTitle] = useState("");
   const [notes, setNotes] = useState("");
-  const [loading, setLoading] = useState<"generate" | "adjust" | "export" | null>(null);
+  const [exhibitPackage, setExhibitPackage] = useState<ExhibitPackage | null>(null);
+  const [loading, setLoading] = useState<"generate" | "adjust" | "export" | "exhibit" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<WorkflowToast | null>(null);
 
@@ -374,6 +375,7 @@ export function MapComposerClient() {
     try {
       const result = await generateComposerDraft(prompt);
       setResponse(result);
+      setExhibitPackage(null);
       setLayers(layerEditsFromResponse(result));
       setMapTitle(result.map_layout?.title || result.map_title || result.recipe?.map_title || "");
       mergeWorkflowState({
@@ -410,6 +412,7 @@ export function MapComposerClient() {
         layers,
       });
       setResponse(result);
+      setExhibitPackage(null);
       setLayers(layerEditsFromResponse(result));
       mergeWorkflowState({
         rawPrompt: prompt,
@@ -427,16 +430,17 @@ export function MapComposerClient() {
     }
   }
 
-  async function exportDraft() {
+  async function generateExhibit() {
     if (!response?.composer_session_id) return;
-    setLoading("export");
+    setLoading("exhibit");
     setError(null);
     try {
-      const result = await exportComposerDraft(response.composer_session_id);
-      setResponse(result);
-      setToast({ tone: "success", message: "Draft report and export files are ready." });
+      const exhibit = await generateExhibitPackage(response.composer_session_id);
+      setExhibitPackage(exhibit);
+      setResponse({ ...response, exhibit });
+      setToast({ tone: "success", message: "County exhibit package generated under outputs/exhibits." });
     } catch (exc) {
-      setError(exc instanceof Error ? exc.message : "Export failed.");
+      setError(exc instanceof Error ? exc.message : "Exhibit package generation failed.");
     } finally {
       setLoading(null);
     }
@@ -467,7 +471,7 @@ export function MapComposerClient() {
       </section>
 
       <main className="composer-main">
-        <ComposerSteps response={response} exported={Boolean(response?.export)} />
+        <ComposerSteps response={response} exported={Boolean(response?.export || response?.exhibit || exhibitPackage)} />
 
         {!response ? (
           <section className="panel empty-state">
@@ -553,27 +557,47 @@ export function MapComposerClient() {
                 <div className="panel-title-row">
                   <div>
                     <p className="eyebrow">Print / Export</p>
-                    <h3>Local draft outputs</h3>
-                    <p className="muted">Draft report/export, not an official print map. Nothing is published.</p>
+                    <h3>County exhibit outputs</h3>
+                    <p className="muted">Staff-report-style draft outputs stay local. Nothing is published.</p>
                   </div>
                   <StatusChip tone={canExport ? "success" : "default"}>{canExport ? "Export available" : "Preview required"}</StatusChip>
                 </div>
                 <div className="button-row">
-                  <button className="button" type="button" onClick={exportDraft} disabled={loading !== null || !canExport}>
-                    {loading === "export" ? "Exporting..." : "Generate Review Report"}
+                  {response.composer_session_id ? (
+                    <Link className="button" href={`/map-composer/${response.composer_session_id}/print`}>
+                      Open Print Layout
+                    </Link>
+                  ) : null}
+                  <button className="button button-secondary" type="button" onClick={generateExhibit} disabled={loading !== null || !canExport}>
+                    {loading === "exhibit" ? "Generating..." : "Generate Exhibit Package"}
                   </button>
                   <a className="button button-secondary" href={localFileUrl(response.webmap_path)} target="_blank" rel="noreferrer">
                     Export WebMap JSON
                   </a>
-                  {response.composer_session_id ? (
-                    <Link className="button button-secondary" href={`/map-composer/${response.composer_session_id}/print`}>
-                      Print Draft Map
-                    </Link>
+                  {response.exhibit?.files?.find((file) => file.name === "layer_sources.csv") || exhibitPackage?.files?.find((file) => file.name === "layer_sources.csv") ? (
+                    <a
+                      className="button button-secondary"
+                      href={`${API_BASE_URL}${(response.exhibit || exhibitPackage)?.files?.find((file) => file.name === "layer_sources.csv")?.url}`}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Export Layer Source CSV
+                    </a>
+                  ) : null}
+                  {response.exhibit?.files?.find((file) => file.name === "warnings.json") || exhibitPackage?.files?.find((file) => file.name === "warnings.json") ? (
+                    <a
+                      className="button button-secondary"
+                      href={`${API_BASE_URL}${(response.exhibit || exhibitPackage)?.files?.find((file) => file.name === "warnings.json")?.url}`}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Export Warning Summary
+                    </a>
                   ) : null}
                 </div>
-                {response.export?.files?.length ? (
+                {(response.exhibit || exhibitPackage)?.files?.length ? (
                   <div className="export-link-grid">
-                    {response.export.files.map((file) => (
+                    {(response.exhibit || exhibitPackage)?.files?.map((file) => (
                       <a className="export-link" key={`${file.name}-${file.path}`} href={file.url ? `${API_BASE_URL}${file.url}` : localFileUrl(file.path)} target="_blank" rel="noreferrer">
                         <strong>{file.name}</strong>
                         <span>{file.path}</span>

@@ -26,15 +26,15 @@ The older YAML adjustment workflow remains available under Advanced tools.
 
 ## Print / Export
 
-The composer can generate local draft report/export links:
+The composer can generate local draft exhibit/export links:
 
-- review summary HTML
-- review summary Markdown
+- print-oriented staff report layout
+- local exhibit package
 - WebMap JSON
-- layer list CSV
-- browser print page
+- layer source CSV
+- warning summary JSON
 
-These are draft review outputs, not official print maps.
+These are draft review outputs, not official print maps. Exhibit packages are written under ignored `outputs/exhibits/` folders and include HTML, JSON, CSV, warning, and manifest files.
 
 ## Internal Workflow Tools
 

@@ -186,7 +186,18 @@ def test_map_composer_is_primary_simple_workflow():
     scale_bar = read("components/map-scale-bar.tsx")
     stepper = read("components/simple-map-composer-stepper.tsx")
     print_page = read("app/map-composer/[sessionId]/print/page.tsx")
+    print_alias = read("app/print/[sessionId]/page.tsx")
     print_client = read("components/composer-print-client.tsx")
+    exhibit_layout = read("components/exhibit-layout.tsx")
+    exhibit_title = read("components/exhibit-title-block.tsx")
+    exhibit_map_frame = read("components/exhibit-map-frame.tsx")
+    exhibit_footer = read("components/exhibit-footer.tsx")
+    exhibit_sources = read("components/exhibit-source-notes.tsx")
+    exhibit_disclaimer = read("components/exhibit-disclaimer.tsx")
+    exhibit_layer_table = read("components/exhibit-layer-table.tsx")
+    exhibit_warnings = read("components/exhibit-warning-summary.tsx")
+    exhibit_reports_page = read("app/reports/exhibits/page.tsx")
+    exhibit_reports_client = read("components/exhibit-report-center-client.tsx")
     api = read("lib/api.ts")
     types = read("types/automap.ts")
 
@@ -265,9 +276,12 @@ def test_map_composer_is_primary_simple_workflow():
     assert "map-symbol-legend" in symbol_legend
     assert "Generate Draft Map" in client
     assert "Apply Adjustments" in client
-    assert "Generate Review Report" in client
+    assert "Generate Review Report" not in client
+    assert "Open Print Layout" in client
+    assert "Generate Exhibit Package" in client
+    assert "Export Layer Source CSV" in client
+    assert "Export Warning Summary" in client
     assert "Export WebMap JSON" in client
-    assert "Print Draft Map" in client
     assert "Parcel not matched" in client
     assert "Address not matched" in client
     assert "Try corrected address/PIN" in client
@@ -291,15 +305,35 @@ def test_map_composer_is_primary_simple_workflow():
     assert "Generate WebMap Draft" not in client
     assert "Generate Review Packet" not in client
     assert "ComposerPrintClient" in print_page
-    assert "Not an official print map" in print_client
+    assert "ComposerPrintClient" in print_alias
+    assert "ExhibitLayout" in print_client
     assert "ComposerMapPreview" in print_client
-    assert "Route and Distance Summary" in print_client
-    assert "Draft only - not official county map" in print_client
+    assert "Print Draft Map" in print_client
+    assert "exhibit-layout" in exhibit_layout
+    assert "ExhibitTitleBlock" in exhibit_layout
+    assert "ExhibitMapFrame" in exhibit_layout
+    assert "ExhibitLayerTable" in exhibit_layout
+    assert "ExhibitWarningSummary" in exhibit_layout
+    assert "DRAFT - For GIS review only" in exhibit_title
+    assert "GIS exhibit map frame" in exhibit_map_frame
+    assert "No ArcGIS item was published" in exhibit_footer
+    assert "local derived outputs" in exhibit_sources.lower()
+    assert "official county map" in exhibit_disclaimer
+    assert "Layer source table" in exhibit_layer_table
+    assert "Warnings and limitations" in exhibit_warnings
+    assert "ExhibitReportCenterClient" in exhibit_reports_page
+    assert "getExhibits" in exhibit_reports_client
+    assert "Open HTML" in exhibit_reports_client
     assert "generateComposerDraft" in api
+    assert "generateExhibitPackage" in api
+    assert '"/api/exhibits/generate"' in api
+    assert '"/api/exhibits"' in api
     assert '"/api/composer/generate"' in api
     assert '"/api/composer/adjust"' in api
     assert '"/api/composer/export"' in api
     assert "ComposerResponse" in types
+    assert "ExhibitPackage" in types
+    assert "ExhibitSummary" in types
     assert "MapLayout" in types
     assert "map_layout" in types
     assert "ComposerAdjustPayload" in types
@@ -413,7 +447,7 @@ def test_api_client_has_timeout_and_sanitized_fallback_version():
     assert "Backend is online, but this request took too long" in source
     assert "http://127.0.0.1:8010" in source
     assert "timeoutMs: 60000" in source
-    assert 'version: "4.0.0"' in source
+    assert 'version: "4.1.0"' in source
     assert "redactProtected" in source
     assert "AutoMap is checking the catalog, parcel fields, and context layers" in map_request
 

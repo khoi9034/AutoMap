@@ -1,6 +1,6 @@
 # Print Layout
 
-AutoMap v4.0 adds a print-oriented Map Composer layout for local draft review.
+AutoMap v4.0 adds a print-oriented Map Composer layout for local draft review. AutoMap v4.1 upgrades that print page into a staff-report-style county exhibit layout.
 
 The print page includes:
 
@@ -15,6 +15,9 @@ The print page includes:
 - warnings and missing data notes
 - generated date/time
 - draft-only disclaimer
+- layer source table
+- source notes
+- staff-report key findings
 
 Print output is local and review-only. It is not an official county map, not official navigation, and not a real ArcGIS publish action.
 
@@ -24,5 +27,7 @@ Route labels remain explicit:
 - straight-line reference: fallback line only, not a road route
 
 Generated print/report outputs stay in ignored output folders and should not be committed.
+
+Map Composer now exposes `Open Print Layout` for the browser-print exhibit page and `Generate Exhibit Package` for local files under `outputs/exhibits/`. The local package includes `exhibit.html`, `exhibit_data.json`, `layer_sources.csv`, `warnings.json`, and `export_manifest.json`.
 
 CFS remains separate and `cfs_dev` is not touched.

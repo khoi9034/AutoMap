@@ -1069,6 +1069,29 @@ export type ComposerExport = {
   };
 };
 
+export type ExhibitSummary = {
+  exhibit_id?: string;
+  exhibit_title?: string;
+  exhibit_type?: string;
+  created_at?: string;
+  source_prompt?: string;
+  exhibit_folder?: string;
+  files?: ReportFileLink[];
+  draft_only?: boolean;
+  published?: boolean;
+};
+
+export type ExhibitPackage = ExhibitSummary & {
+  validation?: {
+    is_valid?: boolean;
+    errors?: string[];
+    warnings?: string[];
+  };
+  summary?: Record<string, JsonValue>;
+  exhibit_data?: Record<string, JsonValue>;
+  manifest?: Record<string, JsonValue>;
+};
+
 export type ComposerResponse = {
   composer_session_id?: string;
   prompt?: string;
@@ -1106,6 +1129,7 @@ export type ComposerResponse = {
   composer_session_path?: string | null;
   applied_adjustments?: Record<string, JsonValue>;
   export?: ComposerExport | null;
+  exhibit?: ExhibitPackage | null;
   draft_only?: boolean;
   published?: boolean;
   created_at?: string;

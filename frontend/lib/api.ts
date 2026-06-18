@@ -6,6 +6,8 @@ import type {
   ComposerResponse,
   DataGap,
   DataGapCandidate,
+  ExhibitPackage,
+  ExhibitSummary,
   ExternalSource,
   AnalysisRefinementSession,
   AnalysisReportSummary,
@@ -158,7 +160,7 @@ export async function getStatusOrFallback(): Promise<SystemStatus> {
     return await getSystemStatus();
   } catch {
     return {
-      version: "4.0.0",
+      version: "4.1.0",
       database_connected: false,
       catalog: {},
       profiles: {},
@@ -659,6 +661,22 @@ export async function exportComposerDraft(composerSessionId: string): Promise<Co
     timeoutMs: 60000,
     body: JSON.stringify({ composer_session_id: composerSessionId }),
   });
+}
+
+export async function generateExhibitPackage(composerSessionId: string): Promise<ExhibitPackage> {
+  return apiFetch<ExhibitPackage>("/api/exhibits/generate", {
+    method: "POST",
+    timeoutMs: 60000,
+    body: JSON.stringify({ composer_session_id: composerSessionId }),
+  });
+}
+
+export async function getExhibits(): Promise<{ exhibits: ExhibitSummary[] }> {
+  return apiFetch<{ exhibits: ExhibitSummary[] }>("/api/exhibits");
+}
+
+export async function getExhibit(exhibitId: string): Promise<ExhibitPackage> {
+  return apiFetch<ExhibitPackage>(`/api/exhibits/${encodeURIComponent(exhibitId)}`);
 }
 
 export async function getReports(): Promise<{ reports: ReportSummary[] }> {

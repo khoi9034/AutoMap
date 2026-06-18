@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
 
 from app.adjustment_engine import (
@@ -50,6 +51,12 @@ from app.external_source_registry import (
     inspect_registered_external_sources,
     list_external_sources,
     load_seed_external_sources,
+)
+from app.exhibit_exporter import (
+    generate_exhibit_package_from_session,
+    get_exhibit,
+    get_exhibit_html,
+    list_exhibits,
 )
 from app.address_field_mapper import build_verified_address_field_map
 from app.feedback_learning import (
@@ -166,6 +173,13 @@ class ComposerSessionRequest(BaseModel):
     """Composer session id payload."""
 
     composer_session_id: str
+
+
+class ExhibitGenerateRequest(BaseModel):
+    """Local county exhibit generation payload."""
+
+    composer_session_id: str
+    exhibit_mode: str | None = None
 
 
 class ClarificationAnswerPayload(BaseModel):
@@ -1333,6 +1347,52 @@ def api_composer_export(payload: ComposerSessionRequest) -> Any:
         notes={"composer_session_id": result.get("composer_session_id"), "export": result.get("export")},
     )
     return _json_response(result)
+
+
+@api_router.post("/exhibits/generate")
+def api_generate_exhibit(payload: ExhibitGenerateRequest) -> Any:
+    """Generate a local county exhibit/staff-report package for a composer session."""
+    try:
+        session = get_composer_session(payload.composer_session_id)
+        package = generate_exhibit_package_from_session(session, mode=payload.exhibit_mode)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise _handle_value_error(exc) from exc
+    _record_history_safely(
+        raw_prompt=session.get("raw_prompt"),
+        workflow_step="map_composer_exhibit",
+        map_title=package.exhibit_title,
+        status="created",
+        packet_path=session.get("packet_path"),
+        notes={"composer_session_id": payload.composer_session_id, "exhibit_id": package.exhibit_id},
+    )
+    return _json_response(package.as_dict())
+
+
+@api_router.get("/exhibits")
+def api_list_exhibits() -> Any:
+    """List local exhibit packages written under ignored outputs."""
+    return _json_response({"exhibits": list_exhibits()})
+
+
+@api_router.get("/exhibits/{exhibit_id}/html")
+def api_exhibit_html(exhibit_id: str) -> HTMLResponse:
+    """Return a safe local exhibit HTML file."""
+    try:
+        html = get_exhibit_html(exhibit_id)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return HTMLResponse(content=html)
+
+
+@api_router.get("/exhibits/{exhibit_id}")
+def api_get_exhibit(exhibit_id: str) -> Any:
+    """Return exhibit package metadata and source tables."""
+    try:
+        return _json_response(get_exhibit(exhibit_id))
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 @api_router.post("/recipe")

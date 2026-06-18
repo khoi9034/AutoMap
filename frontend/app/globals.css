@@ -1357,6 +1357,187 @@ button {
   display: none;
 }
 
+.exhibit-layout {
+  display: grid;
+  gap: 16px;
+  color: #172033;
+}
+
+.exhibit-layout > section,
+.exhibit-layout > header,
+.exhibit-layout > footer,
+.exhibit-actions {
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+}
+
+.exhibit-title-block {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: 18px;
+  align-items: start;
+  border-top: 6px solid #203a56 !important;
+  padding: 20px !important;
+}
+
+.exhibit-title-main h1 {
+  margin: 0;
+  color: #10233b;
+  font-size: 32px;
+  letter-spacing: 0;
+}
+
+.exhibit-draft-badge {
+  display: inline-block;
+  margin-bottom: 8px;
+  border: 1px solid #9a3412;
+  border-radius: 999px;
+  background: #fff7ed;
+  color: #9a3412;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: .04em;
+  padding: 4px 8px;
+  text-transform: uppercase;
+}
+
+.exhibit-subtitle {
+  margin: 6px 0 0;
+  color: #344054;
+  font-weight: 800;
+}
+
+.exhibit-prompt {
+  margin: 10px 0 0;
+  color: #475467;
+}
+
+.exhibit-disclaimer {
+  border: 2px solid #9a3412;
+  border-radius: 8px;
+  background: #fff7ed;
+  color: #7c2d12;
+  padding: 12px;
+}
+
+.exhibit-disclaimer strong,
+.exhibit-disclaimer p {
+  display: block;
+  margin: 0;
+}
+
+.exhibit-disclaimer p {
+  margin-top: 6px;
+  color: #7c2d12;
+  font-size: 12px;
+}
+
+.exhibit-title-meta {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+  border-top: 1px solid #d8e0ea;
+  padding-top: 14px;
+}
+
+.exhibit-title-meta div,
+.exhibit-key-findings dl div {
+  border-left: 3px solid #8eb8e0;
+  padding-left: 10px;
+}
+
+.exhibit-title-meta dt,
+.exhibit-key-findings dt {
+  color: #667085;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.exhibit-title-meta dd,
+.exhibit-key-findings dd {
+  margin: 2px 0 0;
+  color: #172033;
+  font-weight: 800;
+}
+
+.exhibit-actions {
+  padding: 14px 16px;
+}
+
+.exhibit-map-frame {
+  padding: 0 !important;
+  overflow: hidden;
+}
+
+.exhibit-map-frame .map-preview-shell {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+}
+
+.exhibit-map-frame .preview-stage {
+  border: 0;
+  box-shadow: none;
+}
+
+.exhibit-map-frame .composer-derived-layer-panel,
+.exhibit-map-frame .panel-title-row .chip-row,
+.exhibit-map-frame .preview-side-panel {
+  display: none;
+}
+
+.exhibit-key-findings,
+.exhibit-source-notes,
+.exhibit-warning-summary,
+.exhibit-layer-table {
+  padding: 18px !important;
+}
+
+.exhibit-key-findings h2,
+.exhibit-source-notes h2,
+.exhibit-warning-summary h2,
+.exhibit-layer-table h2 {
+  margin: 0 0 12px;
+  color: #203a56;
+  font-size: 18px;
+}
+
+.exhibit-key-findings dl {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+
+.exhibit-source-notes ul,
+.exhibit-warning-summary ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.exhibit-layer-table table {
+  font-size: 12px;
+}
+
+.exhibit-layer-table th {
+  background: #f1f5f9;
+  color: #203a56;
+}
+
+.exhibit-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 18px;
+  color: #475467;
+  font-size: 12px;
+}
+
 .simple-step {
   display: grid;
   grid-template-columns: 28px minmax(0, 1fr);
@@ -1965,5 +2146,44 @@ th {
 
   .composer-print-page {
     padding: 0;
+  }
+
+  .exhibit-layout {
+    max-width: none;
+    gap: 10px;
+    padding: 0;
+  }
+
+  .exhibit-layout > section,
+  .exhibit-layout > header,
+  .exhibit-layout > footer {
+    break-inside: avoid;
+    box-shadow: none;
+  }
+
+  .exhibit-title-block {
+    grid-template-columns: minmax(0, 1fr) 240px;
+  }
+
+  .exhibit-title-main h1 {
+    font-size: 26px;
+  }
+
+  .exhibit-title-meta,
+  .exhibit-key-findings dl {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+
+  .exhibit-map-frame .enterprise-map-frame {
+    min-height: 560px;
+  }
+
+  .exhibit-map-frame .composer-real-map {
+    min-height: 560px;
+  }
+
+  @page {
+    size: landscape;
+    margin: 0.35in;
   }
 }
