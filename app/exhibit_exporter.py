@@ -11,6 +11,8 @@ from typing import Any
 
 from app.exhibit_models import ExhibitPackage, REQUIRED_EXHIBIT_FILES, SUPPORTED_EXHIBIT_TYPES
 from app.layer_semantics import slugify
+from app.report_section_models import build_report_sections
+from app.report_statistics_builder import build_report_statistics
 from app.ui_models import output_file_url, repo_root
 
 
@@ -71,6 +73,17 @@ def _as_list(value: Any) -> list[Any]:
     if isinstance(value, dict):
         return [value]
     return [value]
+
+
+def _map_state(session: dict[str, Any]) -> dict[str, Any]:
+    state = session.get("composer_map_state")
+    return state if isinstance(state, dict) else {}
+
+
+def _state_preview(session: dict[str, Any]) -> dict[str, Any]:
+    state = _map_state(session)
+    preview = state.get("preview_config") or session.get("preview_config") or {}
+    return preview if isinstance(preview, dict) else {}
 
 
 def _has_protected_marker(text: str) -> bool:
@@ -173,7 +186,7 @@ def _layer_limitations(layer: dict[str, Any], *, derived: bool = False) -> str:
 
 def build_layer_source_rows(session: dict[str, Any]) -> list[dict[str, str]]:
     """Build a professional source table for exhibit outputs."""
-    preview = session.get("preview_config") or {}
+    preview = _state_preview(session)
     rows: list[dict[str, str]] = []
     seen: set[str] = set()
 
@@ -234,10 +247,11 @@ def build_layer_source_rows(session: dict[str, Any]) -> list[dict[str, str]]:
 
 
 def build_warning_summary(session: dict[str, Any]) -> list[str]:
-    preview = session.get("preview_config") or {}
-    proximity = session.get("proximity_result") or preview.get("proximity_result") or {}
+    state = _map_state(session)
+    preview = _state_preview(session)
+    proximity = state.get("proximity_summary") or session.get("proximity_result") or preview.get("proximity_result") or {}
     warnings: list[str] = []
-    warnings.extend(_collect_strings(session.get("warnings")))
+    warnings.extend(_collect_strings(state.get("warnings") or session.get("warnings")))
     warnings.extend(_collect_strings(session.get("preview_blockers")))
     warnings.extend(f"Missing data: {item}" for item in _as_list(session.get("missing_data")))
     warnings.extend(_collect_strings(preview.get("warnings")))
@@ -283,12 +297,13 @@ def _key_findings(session: dict[str, Any]) -> list[dict[str, str]]:
 
 
 def _title_block(session: dict[str, Any], exhibit_type: str, created_at: str) -> dict[str, Any]:
-    preview = session.get("preview_config") or {}
-    layout = session.get("map_layout") or preview.get("map_layout") or {}
+    state = _map_state(session)
+    preview = _state_preview(session)
+    layout = preview.get("map_layout") or session.get("map_layout") or {}
     return {
-        "title": layout.get("title") or preview.get("map_title") or session.get("map_title") or "AutoMap Draft Exhibit",
-        "subtitle": layout.get("subtitle") or "Draft preview only.",
-        "original_prompt": session.get("raw_prompt") or session.get("prompt") or preview.get("original_prompt") or "",
+        "title": state.get("map_title") or layout.get("title") or preview.get("map_title") or session.get("map_title") or "AutoMap Draft Exhibit",
+        "subtitle": state.get("map_subtitle") or layout.get("subtitle") or "Draft preview only.",
+        "original_prompt": state.get("raw_prompt") or session.get("raw_prompt") or session.get("prompt") or preview.get("original_prompt") or "",
         "prepared_by": "AutoMap Draft",
         "generated_at": created_at,
         "draft_status": "DRAFT - For GIS review only",
@@ -462,6 +477,9 @@ def generate_exhibit_package_from_session(session: dict[str, Any], *, mode: str 
 
     layer_rows = build_layer_source_rows(session)
     warning_summary = build_warning_summary(session)
+    map_state = _map_state(session)
+    statistics = build_report_statistics(map_state or session)
+    report_sections = build_report_sections(map_state or session, statistics, (map_state or {}).get("report_section_config"))
     data = _sanitize(
         {
             "exhibit_id": exhibit_id,
@@ -470,8 +488,11 @@ def generate_exhibit_package_from_session(session: dict[str, Any], *, mode: str 
             "source_prompt": session.get("raw_prompt") or session.get("prompt"),
             "composer_session_id": session.get("composer_session_id"),
             "request_type": session.get("request_type"),
-            "map_layout": session.get("map_layout") or (session.get("preview_config") or {}).get("map_layout") or {},
-            "preview_config": session.get("preview_config") or {},
+            "map_layout": map_state.get("preview_config", {}).get("map_layout") if map_state else session.get("map_layout") or {},
+            "preview_config": map_state.get("preview_config") if map_state else session.get("preview_config") or {},
+            "map_state_json": map_state,
+            "report_sections": report_sections,
+            "statistics_sections": statistics,
             "key_findings": _key_findings(session),
             "layer_sources": layer_rows,
             "warnings": warning_summary,
@@ -481,6 +502,8 @@ def generate_exhibit_package_from_session(session: dict[str, Any], *, mode: str 
     )
 
     (folder / "exhibit_data.json").write_text(json.dumps(data, indent=2, default=str), encoding="utf-8")
+    (folder / "composer_map_state.json").write_text(json.dumps(_sanitize(map_state), indent=2, default=str), encoding="utf-8")
+    (folder / "report_sections.json").write_text(json.dumps(_sanitize(report_sections), indent=2, default=str), encoding="utf-8")
     _write_csv(folder / "layer_sources.csv", _sanitize(layer_rows))
     (folder / "warnings.json").write_text(json.dumps(_sanitize({"warnings": warning_summary}), indent=2), encoding="utf-8")
     (folder / "exhibit.html").write_text(_render_html(data, _sanitize(layer_rows), _sanitize(warning_summary)), encoding="utf-8")

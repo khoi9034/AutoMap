@@ -1,9 +1,11 @@
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 from fastapi.testclient import TestClient
 
-from app.map_composer import apply_composer_adjustments, generate_composer_draft
+from app.map_composer import apply_composer_adjustments, export_composer_session, generate_composer_draft
+from app.report_statistics_builder import build_report_statistics
 from app.recipe_engine import build_recipe
 from app.web_ui import create_app
 
@@ -192,6 +194,12 @@ def test_composer_address_proximity_matched_adds_line_output(monkeypatch, tmp_pa
     assert result["map_layout"]["north_arrow_enabled"] is True
     assert "not official" in result["map_layout"]["disclaimer"].lower()
     assert result["review_packet_id"] == "packet"
+    assert result["composer_map_state"]["map_title"] == "Nearest Fire Station from 793 Bartram Ave"
+    assert result["composer_map_state"]["preview_config"]["map_layout"]["title"] == "Nearest Fire Station from 793 Bartram Ave"
+    assert result["composer_map_state"]["basemap"] == "streets-vector"
+    assert result["composer_map_state"]["scale_bar_config"]["width_percent"] == 64
+    assert result["composer_map_state"]["north_arrow_config"]["enabled"] is True
+    assert result["report_statistics"]["proximity"]["distance"]["value"] == 1.25
 
 
 def test_composer_proximity_preview_config_includes_derived_overlays(monkeypatch, tmp_path):
@@ -387,6 +395,90 @@ def test_composer_adjust_changes_title_visibility_opacity_and_order(monkeypatch,
     assert first_layer["title"] == "100-Year Floodplain"
     assert first_layer["opacity"] == 0.45
     assert adjusted["adjusted_packet_id"] == "packet_adjusted"
+    assert adjusted["composer_map_state"]["map_title"] == "Concord Flood Draft"
+    assert adjusted["composer_map_state"]["adjusted_state_applied"] is True
+    assert adjusted["composer_map_state"]["layer_titles"]["flood_100"] == "100-Year Floodplain"
+    assert adjusted["composer_map_state"]["layer_opacity"]["flood_100"] == 0.45
+    assert "tax_parcels" in {layer["layer_key"] for layer in adjusted["composer_map_state"]["hidden_layers"]}
+
+
+def test_composer_map_state_saves_after_generate(monkeypatch, tmp_path):
+    captured: dict[str, dict] = {}
+    session_root = tmp_path / "composer_sessions"
+    packet_path = tmp_path / "review_packets" / "packet"
+    packet_path.mkdir(parents=True)
+    monkeypatch.setattr("app.map_composer._session_root", lambda: session_root)
+    monkeypatch.setattr("app.map_composer.upsert_composer_map_state", lambda session_id, state: captured.setdefault(session_id, state))
+    monkeypatch.setattr(
+        "app.map_composer.build_recipe",
+        lambda prompt: build_recipe(prompt, sample_catalog(), persist_data_gaps=False),
+    )
+    monkeypatch.setattr("app.map_composer.save_review_packet", lambda prompt, recipe, webmap: packet_path)
+    monkeypatch.setattr("app.map_composer._preview_config_for", lambda path, can_preview: {"operational_layers": []})
+
+    result = generate_composer_draft("Show parcels in Concord that are in the 100-year floodplain.")
+    state_path = session_root / result["composer_session_id"] / "composer_map_state.json"
+
+    assert state_path.exists()
+    assert result["composer_map_state"]["composer_session_id"] == result["composer_session_id"]
+    assert captured[result["composer_session_id"]]["map_title"] == result["map_title"]
+    assert result["composer_map_state_persisted"] is True
+
+
+def test_composer_export_updates_saved_state_and_report_options(monkeypatch, tmp_path):
+    session_root = tmp_path / "composer_sessions"
+    packet_path = tmp_path / "review_packets" / "packet"
+    packet_path.mkdir(parents=True)
+    monkeypatch.setattr("app.map_composer._session_root", lambda: session_root)
+    monkeypatch.setattr("app.map_composer.upsert_composer_map_state", lambda session_id, state: None)
+    monkeypatch.setattr(
+        "app.map_composer.build_recipe",
+        lambda prompt: build_recipe(prompt, sample_catalog(), persist_data_gaps=False),
+    )
+    monkeypatch.setattr("app.map_composer.save_review_packet", lambda prompt, recipe, webmap: packet_path)
+    monkeypatch.setattr("app.map_composer._preview_config_for", lambda path, can_preview: {"operational_layers": []})
+    monkeypatch.setattr(
+        "app.map_composer.generate_report",
+        lambda packet_path: SimpleNamespace(
+            report_id="report_test",
+            report_path=tmp_path / "report",
+            report_title="Report",
+            files={},
+            validation={"is_valid": True, "errors": [], "warnings": []},
+        ),
+    )
+    result = generate_composer_draft("Show parcels in Concord that are in the 100-year floodplain.")
+
+    exported = export_composer_session(
+        result["composer_session_id"],
+        {
+            "map_title": "Adjusted Export Title",
+            "report_config": {"include_statistics": True, "include_permit_summary": True},
+            "layers": [{"layer_key": "flood_100", "title": "Flood Context", "visibility": True, "opacity": 0.4}],
+        },
+    )
+
+    assert exported["composer_map_state"]["map_title"] == "Adjusted Export Title"
+    assert exported["composer_map_state"]["report_section_config"]["include_permit_summary"] is True
+    assert exported["report_statistics"]["permit_summary"]["available"] is False
+    assert "unresolved" in exported["report_statistics"]["permit_summary"]["reason"]
+
+
+def test_report_statistics_marks_missing_data_unavailable_without_fake_counts():
+    stats = build_report_statistics(
+        {
+            "visible_layers": [{"layer_key": "origin", "source_role": "derived local"}],
+            "derived_overlays": [{"id": "route_line", "local_output": True}],
+            "warnings": ["Draft only"],
+            "missing_data": ["current_permits"],
+            "proximity_summary": {"distance_value": 1.11, "distance_unit": "miles", "route_mode": "straight_line_reference"},
+        }
+    )
+
+    assert stats["proximity"]["distance"]["value"] == 1.11
+    assert stats["source_coverage_counts"]["derived_local"] == 2
+    assert stats["permit_summary"]["available"] is False
+    assert stats["planning_cases_summary"]["available"] is False
 
 
 def test_composer_api_has_no_secrets_or_cfs_markers(monkeypatch):

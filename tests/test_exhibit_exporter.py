@@ -62,6 +62,49 @@ def sample_composer_session() -> dict:
                 }
             ],
         },
+        "composer_map_state": {
+            "composer_session_id": "composer_test_123",
+            "map_title": "Nearest Fire Station from 793 Bartram Ave",
+            "map_subtitle": "Road-following draft route.",
+            "raw_prompt": "make a map of my address 793 bartram ave and include nearest line to the nearest fire station",
+            "request_type": "proximity",
+            "preview_config": {
+                "map_layout": {
+                    "title": "Nearest Fire Station from 793 Bartram Ave",
+                    "subtitle": "Road-following draft route.",
+                    "legend_items": [{"label": "Origin Address"}, {"label": "Nearest Fire Station"}],
+                },
+                "derived_overlays": [
+                    {"id": "origin_address", "title": "Origin Address", "role": "origin", "path": "outputs/proximity/test/origin_point.geojson"},
+                    {"id": "nearest_fire_station", "title": "Nearest Fire Station", "role": "target", "path": "outputs/proximity/test/target_feature.geojson"},
+                ],
+                "context_layers": [
+                    {
+                        "layer_key": "roads",
+                        "title": "Roads Context",
+                        "role": "context",
+                        "source_status": "active",
+                        "layer_url": "https://example.test/roads/0",
+                    }
+                ],
+            },
+            "visible_layers": [{"layer_key": "roads", "title": "Roads Context", "source_status": "active"}],
+            "hidden_layers": [],
+            "derived_overlays": [
+                {"id": "origin_address", "title": "Origin Address", "role": "origin", "local_output": True},
+                {"id": "nearest_fire_station", "title": "Nearest Fire Station", "role": "target", "local_output": True},
+            ],
+            "warnings": ["Related parcel was not resolved from verified fields."],
+            "proximity_summary": {
+                "distance_value": 1.22,
+                "distance_unit": "miles",
+                "route_label": "Road-following draft route",
+                "route_warning": "Not official driving navigation.",
+                "target_name": "ALLEN FS",
+                "property_match_status": "not_resolved",
+            },
+            "report_section_config": {"include_statistics": True, "include_layer_table": True},
+        },
         "proximity_result": {
             "status": "ok",
             "origin_input": "793 bartram ave",
@@ -104,6 +147,9 @@ def test_exhibit_data_json_contains_title_prompt_layers_and_warnings(monkeypatch
     assert data["layer_sources"]
     assert data["warnings"]
     assert data["published"] is False
+    assert data["map_state_json"]["map_title"] == "Nearest Fire Station from 793 Bartram Ave"
+    assert data["report_sections"]["sections"]
+    assert data["statistics_sections"]["proximity"]["distance"]["value"] == 1.22
 
 
 def test_layer_sources_csv_contains_source_table(monkeypatch, tmp_path):

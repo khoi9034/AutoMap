@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 
-import { ComposerMapPreview } from "@/components/composer-map-preview";
 import { ExhibitLayout } from "@/components/exhibit-layout";
+import { SharedMapRenderer } from "@/components/map-renderer/shared-map-renderer";
 import { API_BASE_URL, getComposerSession } from "@/lib/api";
 import type { ComposerResponse } from "@/types/automap";
 
@@ -73,7 +73,7 @@ export function ComposerPrintClient({ sessionId }: { sessionId: string }) {
       actions={actions}
       map={
         response.can_preview ? (
-          <ComposerMapPreview response={response} packetId={packetId} />
+          <SharedMapRenderer mode="print" mapState={response.composer_map_state} response={response} packetId={packetId} showLayerPanel />
         ) : (
           <div className="preview-error">
             <strong>Preview is not ready.</strong>

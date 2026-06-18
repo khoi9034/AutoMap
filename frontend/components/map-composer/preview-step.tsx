@@ -1,6 +1,6 @@
 "use client";
 
-import { ComposerMapPreview } from "@/components/composer-map-preview";
+import { SharedMapRenderer } from "@/components/map-renderer/shared-map-renderer";
 import { StatusChip } from "@/components/status-chip";
 import type { ComposerResponse, ProximityResult } from "@/types/automap";
 
@@ -181,7 +181,9 @@ export function PreviewStep({ loading, onGoToAdjust, onGoToExport, onGoToRequest
           <p>{response.raw_prompt || response.prompt}</p>
         </div>
         <PreviewBlocker response={response} onGoToRequest={onGoToRequest} />
-        {previewReady ? <ComposerMapPreview response={response} packetId={previewPacketId} showLayerPanel={false} /> : null}
+        {previewReady ? (
+          <SharedMapRenderer mapState={response.composer_map_state} response={response} packetId={previewPacketId} showLayerPanel={false} />
+        ) : null}
       </div>
 
       <aside className="composer-preview-sidebar">

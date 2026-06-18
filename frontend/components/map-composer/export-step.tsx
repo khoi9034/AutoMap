@@ -1,11 +1,9 @@
 "use client";
 
-import Link from "next/link";
-
-import { ComposerMapPreview } from "@/components/composer-map-preview";
+import { SharedMapRenderer } from "@/components/map-renderer/shared-map-renderer";
 import { StatusChip } from "@/components/status-chip";
 import { API_BASE_URL } from "@/lib/api";
-import type { ComposerResponse, ExhibitPackage } from "@/types/automap";
+import type { ComposerResponse, ExhibitPackage, ReportSectionConfig } from "@/types/automap";
 
 import { composerDisplayTitle, localFileUrl } from "./utils";
 
@@ -16,8 +14,11 @@ type ExportStepProps = {
   onGenerateExhibit: () => void;
   onGenerateReport: () => void;
   onGoToAdjust: () => void;
+  onOpenPrintLayout: () => void;
   previewPacketId: string;
+  reportConfig: ReportSectionConfig;
   response: ComposerResponse | null;
+  setReportConfig: (config: ReportSectionConfig) => void;
 };
 
 function packageFiles(response: ComposerResponse | null, exhibitPackage?: ExhibitPackage | null) {
@@ -36,8 +37,11 @@ export function ExportStep({
   onGenerateExhibit,
   onGenerateReport,
   onGoToAdjust,
+  onOpenPrintLayout,
   previewPacketId,
+  reportConfig,
   response,
+  setReportConfig,
 }: ExportStepProps) {
   if (!response?.can_preview || !previewPacketId) {
     return (
@@ -50,11 +54,14 @@ export function ExportStep({
   const files = packageFiles(response, exhibitPackage);
   const layerSourceFile = files.find((file) => file.name === "layer_sources.csv");
   const warningFile = files.find((file) => file.name === "warnings.json");
+  const toggleReportOption = (key: keyof ReportSectionConfig) => {
+    setReportConfig({ ...reportConfig, [key]: !reportConfig[key] });
+  };
 
   return (
     <section className="composer-export-layout">
       <div className="composer-export-preview">
-        <ComposerMapPreview response={response} packetId={previewPacketId} showLayerPanel={false} />
+        <SharedMapRenderer mode="exhibit" mapState={response.composer_map_state} response={response} packetId={previewPacketId} showLayerPanel={false} />
       </div>
       <aside className="panel composer-export-panel">
         <div className="panel-title-row">
@@ -66,11 +73,9 @@ export function ExportStep({
           <StatusChip tone="success">Draft only</StatusChip>
         </div>
         <div className="button-row composer-export-buttons">
-          {response.composer_session_id ? (
-            <Link className="button" href={`/map-composer/${response.composer_session_id}/print`}>
-              Open Print Layout
-            </Link>
-          ) : null}
+          <button className="button" type="button" onClick={onOpenPrintLayout} disabled={loadingReport}>
+            Open Print Layout
+          </button>
           <button className="button button-secondary" type="button" onClick={onGenerateExhibit} disabled={loadingExhibit}>
             {loadingExhibit ? "Generating..." : "Generate Exhibit Package"}
           </button>
@@ -94,6 +99,32 @@ export function ExportStep({
             Back to Adjust
           </button>
         </div>
+        <section className="definition-box report-section-options">
+          <strong>Report sections</strong>
+          <div className="composer-report-option-grid">
+            {[
+              ["include_map_summary", "Include map summary"],
+              ["include_layer_table", "Include selected layer table"],
+              ["include_warnings", "Include warnings and limitations"],
+              ["include_source_notes", "Include source notes"],
+              ["include_proximity_summary", "Include proximity/distance summary"],
+              ["include_parcel_summary", "Include parcel summary if available"],
+              ["include_statistics", "Include statistics section"],
+              ["include_permit_summary", "Include permit stats when available"],
+              ["include_planning_summary", "Include planning stats when available"],
+              ["include_development_proxy_summary", "Include development proxy stats when available"],
+            ].map(([key, label]) => (
+              <label className="toggle-line" key={key}>
+                <input
+                  checked={Boolean(reportConfig[key as keyof ReportSectionConfig])}
+                  type="checkbox"
+                  onChange={() => toggleReportOption(key as keyof ReportSectionConfig)}
+                />
+                {label}
+              </label>
+            ))}
+          </div>
+        </section>
         <div className="definition-box">
           <strong>Draft-only disclaimer</strong>
           <p>Print and export files are local review artifacts. They are not official county maps and no ArcGIS item is created.</p>

@@ -3,6 +3,7 @@ import type {
   ClarificationDefault,
   ClarificationSession,
   ComposerAdjustPayload,
+  ComposerExportPayload,
   ComposerResponse,
   DataGap,
   DataGapCandidate,
@@ -160,7 +161,7 @@ export async function getStatusOrFallback(): Promise<SystemStatus> {
     return await getSystemStatus();
   } catch {
     return {
-      version: "4.4.0",
+      version: "4.5.0",
       database_connected: false,
       catalog: {},
       profiles: {},
@@ -655,19 +656,21 @@ export async function adjustComposerDraft(payload: ComposerAdjustPayload): Promi
   });
 }
 
-export async function exportComposerDraft(composerSessionId: string): Promise<ComposerResponse> {
+export async function exportComposerDraft(payload: string | ComposerExportPayload): Promise<ComposerResponse> {
+  const body = typeof payload === "string" ? { composer_session_id: payload } : payload;
   return apiFetch<ComposerResponse>("/api/composer/export", {
     method: "POST",
     timeoutMs: 60000,
-    body: JSON.stringify({ composer_session_id: composerSessionId }),
+    body: JSON.stringify(body),
   });
 }
 
-export async function generateExhibitPackage(composerSessionId: string): Promise<ExhibitPackage> {
+export async function generateExhibitPackage(payload: string | ComposerExportPayload): Promise<ExhibitPackage> {
+  const body = typeof payload === "string" ? { composer_session_id: payload } : payload;
   return apiFetch<ExhibitPackage>("/api/exhibits/generate", {
     method: "POST",
     timeoutMs: 60000,
-    body: JSON.stringify({ composer_session_id: composerSessionId }),
+    body: JSON.stringify(body),
   });
 }
 

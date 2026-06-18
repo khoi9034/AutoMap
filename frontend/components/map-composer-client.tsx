@@ -18,10 +18,23 @@ import {
 } from "@/components/map-composer/utils";
 import { adjustComposerDraft, exportComposerDraft, generateComposerDraft, generateExhibitPackage } from "@/lib/api";
 import { mergeWorkflowState } from "@/lib/workflow-store";
-import type { ComposerResponse, ExhibitPackage } from "@/types/automap";
+import type { ComposerAdjustPayload, ComposerResponse, ExhibitPackage, ReportSectionConfig } from "@/types/automap";
 import type { WorkflowToast } from "@/types/workflow";
 
 type ComposerLoadingState = "generate" | "adjust" | "export" | "exhibit" | null;
+
+const defaultReportConfig: ReportSectionConfig = {
+  include_map_summary: true,
+  include_layer_table: true,
+  include_warnings: true,
+  include_source_notes: true,
+  include_proximity_summary: true,
+  include_parcel_summary: true,
+  include_statistics: true,
+  include_permit_summary: false,
+  include_planning_summary: false,
+  include_development_proxy_summary: false,
+};
 
 function composerStepStatuses(
   activeStep: ComposerStepId,
@@ -47,6 +60,7 @@ export function MapComposerClient() {
   const [mapTitle, setMapTitle] = useState("");
   const [mapSubtitle, setMapSubtitle] = useState("");
   const [notes, setNotes] = useState("");
+  const [reportConfig, setReportConfig] = useState<ReportSectionConfig>(defaultReportConfig);
   const [exhibitPackage, setExhibitPackage] = useState<ExhibitPackage | null>(null);
   const [activeStep, setActiveStep] = useState<ComposerStepId>("request");
   const [loading, setLoading] = useState<ComposerLoadingState>(null);
@@ -71,6 +85,20 @@ export function MapComposerClient() {
     setNotes("");
   }
 
+  function currentComposerPayload(): ComposerAdjustPayload | null {
+    if (!response?.composer_session_id) return null;
+    return {
+      composer_session_id: response.composer_session_id,
+      map_title: mapTitle,
+      map_description: mapSubtitle,
+      notes,
+      layer_order: layers.map((layer) => layer.layer_key),
+      layers,
+      report_config: reportConfig,
+      map_state: response.composer_map_state || undefined,
+    };
+  }
+
   function changeStep(step: ComposerStepId) {
     if (disabled[step]) return;
     setActiveStep(step);
@@ -87,6 +115,7 @@ export function MapComposerClient() {
       setMapTitle(composerDisplayTitle(result));
       setMapSubtitle(composerDisplaySubtitle(result));
       setNotes("");
+      setReportConfig(result.composer_map_state?.report_section_config || defaultReportConfig);
       setActiveStep("preview");
       mergeWorkflowState({
         rawPrompt: prompt,
@@ -114,14 +143,9 @@ export function MapComposerClient() {
     setLoading("adjust");
     setError(null);
     try {
-      const result = await adjustComposerDraft({
-        composer_session_id: response.composer_session_id,
-        map_title: mapTitle,
-        map_description: mapSubtitle,
-        notes,
-        layer_order: layers.map((layer) => layer.layer_key),
-        layers,
-      });
+      const payload = currentComposerPayload();
+      if (!payload) return;
+      const result = await adjustComposerDraft(payload);
       setResponse(result);
       setExhibitPackage(null);
       setLayers(layerEditsFromResponse(result));
@@ -148,11 +172,32 @@ export function MapComposerClient() {
     setLoading("export");
     setError(null);
     try {
-      const result = await exportComposerDraft(response.composer_session_id);
+      const payload = currentComposerPayload();
+      if (!payload) return;
+      const result = await exportComposerDraft(payload);
       setResponse(result);
       setToast({ tone: "success", message: "Draft review report/export created locally." });
     } catch (exc) {
       setError(exc instanceof Error ? exc.message : "Report/export generation failed.");
+    } finally {
+      setLoading(null);
+    }
+  }
+
+  async function openPrintLayout() {
+    if (!response?.composer_session_id) return;
+    setLoading("export");
+    setError(null);
+    try {
+      const payload = currentComposerPayload();
+      if (!payload) return;
+      const result = await adjustComposerDraft(payload);
+      setResponse(result);
+      setExhibitPackage(null);
+      window.open(`/map-composer/${response.composer_session_id}/print`, "_blank", "noopener,noreferrer");
+      setToast({ tone: "success", message: "Current map state saved for the print layout." });
+    } catch (exc) {
+      setError(exc instanceof Error ? exc.message : "Print layout preparation failed.");
     } finally {
       setLoading(null);
     }
@@ -163,7 +208,9 @@ export function MapComposerClient() {
     setLoading("exhibit");
     setError(null);
     try {
-      const exhibit = await generateExhibitPackage(response.composer_session_id);
+      const payload = currentComposerPayload();
+      if (!payload) return;
+      const exhibit = await generateExhibitPackage(payload);
       setExhibitPackage(exhibit);
       setResponse({ ...response, exhibit });
       setToast({ tone: "success", message: "County exhibit package generated under outputs/exhibits." });
@@ -216,8 +263,11 @@ export function MapComposerClient() {
           onGenerateExhibit={generateExhibit}
           onGenerateReport={generateReportExport}
           onGoToAdjust={() => setActiveStep("adjust")}
+          onOpenPrintLayout={openPrintLayout}
           previewPacketId={previewPacketId}
+          reportConfig={reportConfig}
           response={response}
+          setReportConfig={setReportConfig}
         />
       ) : null}
     </MapComposerShell>

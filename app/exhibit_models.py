@@ -19,6 +19,8 @@ SUPPORTED_EXHIBIT_TYPES = {
 REQUIRED_EXHIBIT_FILES = [
     "exhibit.html",
     "exhibit_data.json",
+    "composer_map_state.json",
+    "report_sections.json",
     "layer_sources.csv",
     "warnings.json",
     "export_manifest.json",

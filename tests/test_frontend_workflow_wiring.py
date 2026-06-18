@@ -191,6 +191,7 @@ def test_map_composer_is_primary_simple_workflow():
     symbol_legend = read("components/map-symbol-legend.tsx")
     north_arrow = read("components/north-arrow.tsx")
     scale_bar = read("components/map-scale-bar.tsx")
+    shared_renderer = read("components/map-renderer/shared-map-renderer.tsx")
     print_page = read("app/map-composer/[sessionId]/print/page.tsx")
     print_alias = read("app/print/[sessionId]/page.tsx")
     print_client = read("components/composer-print-client.tsx")
@@ -237,6 +238,9 @@ def test_map_composer_is_primary_simple_workflow():
     assert "AdjustStep" in client
     assert "ExportStep" in client
     assert "exportComposerDraft" in client
+    assert "currentComposerPayload" in client
+    assert "report_config: reportConfig" in client
+    assert "map_state: response.composer_map_state" in client
     assert "ComposerStepTabs" in shell
     assert "composer-step-body" in shell
     assert "ComposerStepId" in step_types
@@ -306,7 +310,7 @@ def test_map_composer_is_primary_simple_workflow():
     assert "Continue to Adjust" in preview_step
     assert "Regenerate Draft" in preview_step
     assert "Print / Export" in preview_step
-    assert "ComposerMapPreview" in preview_step
+    assert "SharedMapRenderer" in preview_step
     assert "Parcel not matched" in preview_step
     assert "Address not matched" in preview_step
     assert "Correct address/PIN" in preview_step
@@ -315,7 +319,7 @@ def test_map_composer_is_primary_simple_workflow():
     assert "Route mode" in preview_step
     assert "composer-adjust-layout" in adjust_step
     assert "composer-adjust-controls-panel" in adjust_step
-    assert "ComposerMapPreview" in adjust_step
+    assert "SharedMapRenderer" in adjust_step
     assert "Map controls" in adjust_step
     assert "Apply Adjustments" in adjust_step
     assert "Reset adjustments" in adjust_step
@@ -330,6 +334,9 @@ def test_map_composer_is_primary_simple_workflow():
     assert "Export Layer Source CSV" in export_step
     assert "Export Warning Summary" in export_step
     assert "Export WebMap JSON" in export_step
+    assert "Include statistics section" in export_step
+    assert "Include permit stats when available" in export_step
+    assert "reportConfig" in export_step
     assert "System Snapshot" not in client
     assert "System Snapshot" not in request_step
     assert "Request to preview to print" not in client
@@ -343,7 +350,9 @@ def test_map_composer_is_primary_simple_workflow():
     assert "ComposerPrintClient" in print_page
     assert "ComposerPrintClient" in print_alias
     assert "ExhibitLayout" in print_client
-    assert "ComposerMapPreview" in print_client
+    assert "SharedMapRenderer" in print_client
+    assert "ComposerMapPreview" in shared_renderer
+    assert "mapState" in shared_renderer
     assert "Print Draft Map" in print_client
     assert "exhibit-layout" in exhibit_layout
     assert "ExhibitTitleBlock" in exhibit_layout
@@ -368,6 +377,9 @@ def test_map_composer_is_primary_simple_workflow():
     assert '"/api/composer/adjust"' in api
     assert '"/api/composer/export"' in api
     assert "ComposerResponse" in types
+    assert "ComposerMapState" in types
+    assert "ReportSectionConfig" in types
+    assert "ReportStatistics" in types
     assert "ExhibitPackage" in types
     assert "ExhibitSummary" in types
     assert "MapLayout" in types
@@ -532,7 +544,7 @@ def test_api_client_has_timeout_and_sanitized_fallback_version():
     assert "Backend is online, but this request took too long" in source
     assert "http://127.0.0.1:8010" in source
     assert "timeoutMs: 60000" in source
-    assert 'version: "4.4.0"' in source
+    assert 'version: "4.5.0"' in source
     assert "redactProtected" in source
     assert "AutoMap is checking the catalog, parcel fields, and context layers" in map_request
 

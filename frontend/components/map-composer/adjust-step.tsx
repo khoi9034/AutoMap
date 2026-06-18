@@ -1,6 +1,6 @@
 "use client";
 
-import { ComposerMapPreview } from "@/components/composer-map-preview";
+import { SharedMapRenderer } from "@/components/map-renderer/shared-map-renderer";
 import { StatusChip } from "@/components/status-chip";
 import type { ComposerResponse } from "@/types/automap";
 
@@ -192,7 +192,7 @@ export function AdjustStep({
   return (
     <section className="composer-adjust-layout">
       <div className="composer-adjust-map-column">
-        <ComposerMapPreview response={response} packetId={previewPacketId} showLayerPanel={false} />
+        <SharedMapRenderer mapState={response.composer_map_state} response={response} packetId={previewPacketId} showLayerPanel={false} />
       </div>
       <aside className="panel composer-adjust-controls-panel">
         <div className="panel-title-row">

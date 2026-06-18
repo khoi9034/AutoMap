@@ -1049,6 +1049,69 @@ export type ComposerLayerAdjustment = {
   showLegend?: boolean;
   remove_layer?: boolean;
   definition_expression?: string;
+  is_derived?: boolean;
+  line_thickness?: number;
+  line_style?: "solid" | "dashed" | string;
+};
+
+export type ReportSectionConfig = {
+  include_map_summary?: boolean;
+  include_layer_table?: boolean;
+  include_warnings?: boolean;
+  include_source_notes?: boolean;
+  include_proximity_summary?: boolean;
+  include_parcel_summary?: boolean;
+  include_statistics?: boolean;
+  include_permit_summary?: boolean;
+  include_planning_summary?: boolean;
+  include_development_proxy_summary?: boolean;
+};
+
+export type ReportStatistics = {
+  selected_visible_layer_count?: number;
+  hidden_layer_count?: number;
+  derived_overlay_count?: number;
+  warning_count?: number;
+  missing_data_count?: number;
+  source_coverage_counts?: Record<string, number>;
+  proximity?: Record<string, JsonValue>;
+  parcel?: Record<string, JsonValue>;
+  permit_summary?: Record<string, JsonValue>;
+  planning_cases_summary?: Record<string, JsonValue>;
+  development_proxy_summary?: Record<string, JsonValue>;
+};
+
+export type ComposerMapState = {
+  composer_session_id?: string;
+  map_title?: string;
+  map_subtitle?: string;
+  raw_prompt?: string;
+  request_type?: string;
+  preview_config?: PreviewConfig;
+  map_extent?: Record<string, JsonValue> | null;
+  basemap?: string;
+  visible_layers?: Array<Record<string, JsonValue>>;
+  hidden_layers?: Array<Record<string, JsonValue>>;
+  layer_order?: string[];
+  layer_opacity?: Record<string, number>;
+  layer_titles?: Record<string, string>;
+  layer_roles?: Record<string, string>;
+  layer_symbology?: Record<string, Record<string, JsonValue>>;
+  derived_overlays?: DerivedOverlay[];
+  legend_items?: Array<Record<string, JsonValue>>;
+  scale_bar_config?: Record<string, JsonValue>;
+  north_arrow_config?: Record<string, JsonValue>;
+  route_summary?: Record<string, JsonValue>;
+  proximity_summary?: ProximityResult | Record<string, JsonValue>;
+  parcel_context?: ParcelContext | Record<string, JsonValue>;
+  warnings?: string[];
+  missing_data?: string[];
+  reviewer_notes?: string;
+  adjusted_state_applied?: boolean;
+  report_section_config?: ReportSectionConfig;
+  report_statistics?: ReportStatistics;
+  report_sections?: Record<string, JsonValue>;
+  updated_at?: string;
 };
 
 export type ComposerAdjustPayload = {
@@ -1058,7 +1121,12 @@ export type ComposerAdjustPayload = {
   notes?: string;
   layer_order?: string[];
   layers?: ComposerLayerAdjustment[];
+  active_map_extent?: Record<string, JsonValue>;
+  report_config?: ReportSectionConfig;
+  map_state?: ComposerMapState;
 };
+
+export type ComposerExportPayload = ComposerAdjustPayload;
 
 export type ComposerExport = {
   report_id?: string;
@@ -1110,6 +1178,8 @@ export type ComposerResponse = {
   webmap_json?: Record<string, JsonValue>;
   preview_config?: PreviewConfig | null;
   map_layout?: MapLayout | null;
+  composer_map_state?: ComposerMapState | null;
+  composer_map_state_persisted?: boolean;
   selected_layers?: SelectedLayer[];
   warnings?: string[];
   missing_data?: string[];
@@ -1133,6 +1203,8 @@ export type ComposerResponse = {
   applied_adjustments?: Record<string, JsonValue>;
   export?: ComposerExport | null;
   exhibit?: ExhibitPackage | null;
+  report_sections?: Record<string, JsonValue> | null;
+  report_statistics?: ReportStatistics | null;
   draft_only?: boolean;
   published?: boolean;
   created_at?: string;

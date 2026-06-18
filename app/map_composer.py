@@ -13,6 +13,13 @@ from uuid import uuid4
 from app.adjustment_engine import apply_adjustments_to_recipe, apply_adjustments_to_webmap, write_adjusted_packet
 from app.adjustment_models import normalize_adjustments
 from app.address_parcel_resolver import ADDRESS_NOT_MATCHED_WARNING, resolve_address_or_parcel_origin
+from app.composer_state_models import (
+    default_north_arrow_config,
+    default_scale_bar_config,
+    normalize_report_section_config,
+    utc_timestamp,
+)
+from app.composer_state_store import get_composer_map_state, upsert_composer_map_state
 from app.geometry_utils import buffer_extent, geojson_extent
 from app.map_title_generator import (
     display_origin_label as _display_origin_label,
@@ -24,6 +31,8 @@ from app.map_title_generator import (
 from app.packet_index import build_preview_config
 from app.recipe_engine import PARCEL_NOT_MATCHED_WARNING, build_recipe
 from app.report_generator import generate_report
+from app.report_section_models import build_report_sections
+from app.report_statistics_builder import build_report_statistics
 from app.review_packet_builder import (
     build_layer_review_table,
     build_review_summary,
@@ -483,6 +492,257 @@ def _save_session_payload(session_folder: Path, payload: dict[str, Any]) -> None
     _write_json(session_folder / "composer_session.json", payload)
 
 
+def _layer_identifier(layer: dict[str, Any], index: int) -> str:
+    return str(layer.get("layer_key") or layer.get("id") or layer.get("title") or f"layer_{index}")
+
+
+def _layer_visible(layer: dict[str, Any], *, derived: bool = False) -> bool:
+    if "visibility" in layer:
+        return bool(layer.get("visibility"))
+    if "visible" in layer:
+        return bool(layer.get("visible"))
+    if "default_visible" in layer:
+        return bool(layer.get("default_visible"))
+    if derived:
+        return True
+    return True
+
+
+def _preview_layer_entry(layer: dict[str, Any], index: int, *, derived: bool = False) -> dict[str, Any]:
+    entry = deepcopy(layer)
+    key = _layer_identifier(entry, index)
+    entry["layer_key"] = key
+    entry["id"] = entry.get("id") or key
+    entry["title"] = entry.get("title") or entry.get("layer_name") or key
+    entry["visibility"] = _layer_visible(entry, derived=derived)
+    entry["opacity"] = float(entry.get("opacity") if isinstance(entry.get("opacity"), (int, float)) else 1)
+    entry["role"] = entry.get("role") or entry.get("geometry_role") or entry.get("display_role") or ("derived_output" if derived else "context")
+    entry["is_derived"] = derived
+    if derived:
+        entry["source_role"] = "derived local"
+        entry["source_status"] = entry.get("source_status") or "derived local"
+        entry["local_output"] = True
+    return entry
+
+
+def _all_preview_layers(preview_config: dict[str, Any], selected_layers: list[dict[str, Any]] | None = None) -> list[dict[str, Any]]:
+    layers: list[dict[str, Any]] = []
+    for index, overlay in enumerate(preview_config.get("derived_overlays") or []):
+        if isinstance(overlay, dict):
+            layers.append(_preview_layer_entry(overlay, index, derived=True))
+    offset = len(layers)
+    for collection_key in ("operational_layers", "context_layers"):
+        for index, layer in enumerate(preview_config.get(collection_key) or []):
+            if isinstance(layer, dict):
+                layers.append(_preview_layer_entry(layer, offset + index))
+        offset = len(layers)
+    if not layers:
+        for index, layer in enumerate(selected_layers or []):
+            if isinstance(layer, dict):
+                layers.append(_preview_layer_entry(layer, index))
+    return layers
+
+
+def _payload_layer_index(payload: dict[str, Any] | None) -> tuple[dict[str, dict[str, Any]], list[str]]:
+    indexed: dict[str, dict[str, Any]] = {}
+    order: list[str] = []
+    for layer in (payload or {}).get("layers") or []:
+        if not isinstance(layer, dict):
+            continue
+        key = str(layer.get("layer_key") or layer.get("id") or layer.get("title") or "").strip()
+        if not key:
+            continue
+        indexed[key] = layer
+        order.append(key)
+    for key in (payload or {}).get("layer_order") or []:
+        if isinstance(key, str) and key and key not in order:
+            order.append(key)
+    return indexed, order
+
+
+def _apply_payload_to_preview_config(preview_config: dict[str, Any], payload: dict[str, Any] | None) -> dict[str, Any]:
+    if not payload:
+        return deepcopy(preview_config)
+    config = deepcopy(preview_config)
+    indexed, order = _payload_layer_index(payload)
+
+    def patch_layer(layer: dict[str, Any], index: int, *, derived: bool = False) -> dict[str, Any]:
+        key = _layer_identifier(layer, index)
+        patch = indexed.get(key) or indexed.get(str(layer.get("id") or "")) or indexed.get(str(layer.get("title") or ""))
+        if not patch:
+            return layer
+        next_layer = deepcopy(layer)
+        if patch.get("title"):
+            next_layer["title"] = patch["title"]
+        if "visibility" in patch:
+            next_layer["visibility"] = bool(patch["visibility"])
+            next_layer["visible"] = bool(patch["visibility"])
+            next_layer["default_visible"] = bool(patch["visibility"])
+        if isinstance(patch.get("opacity"), (int, float)):
+            next_layer["opacity"] = float(patch["opacity"])
+        if patch.get("role"):
+            next_layer["role"] = patch["role"]
+        if patch.get("definition_expression"):
+            next_layer["definition_expression"] = patch["definition_expression"]
+        if patch.get("line_style"):
+            next_layer["line_style"] = patch["line_style"]
+        if isinstance(patch.get("line_thickness"), (int, float)):
+            next_layer["line_thickness"] = float(patch["line_thickness"])
+        if derived:
+            next_layer["local_output"] = True
+        return next_layer
+
+    for collection_key in ("derived_overlays", "operational_layers", "context_layers"):
+        collection = config.get(collection_key)
+        if not isinstance(collection, list):
+            continue
+        derived = collection_key == "derived_overlays"
+        patched = [patch_layer(layer, index, derived=derived) if isinstance(layer, dict) else layer for index, layer in enumerate(collection)]
+        if order:
+            rank = {key: index for index, key in enumerate(order)}
+            patched.sort(
+                key=lambda layer: rank.get(
+                    _layer_identifier(layer, 9999) if isinstance(layer, dict) else str(layer),
+                    9999,
+                )
+            )
+        config[collection_key] = patched
+    return config
+
+
+def _map_extent_from_response(response: dict[str, Any], preview_config: dict[str, Any], payload: dict[str, Any] | None = None) -> dict[str, Any] | None:
+    if isinstance((payload or {}).get("active_map_extent"), dict):
+        return (payload or {})["active_map_extent"]
+    for key in ("focus_extent", "initial_extent"):
+        if isinstance(preview_config.get(key), dict) and preview_config[key]:
+            return preview_config[key]
+    webmap = response.get("webmap_json") or {}
+    target_geometry = (((webmap.get("initialState") or {}).get("viewpoint") or {}).get("targetGeometry") or {})
+    return target_geometry if isinstance(target_geometry, dict) and target_geometry else None
+
+
+def _build_composer_map_state(response: dict[str, Any], payload: dict[str, Any] | None = None) -> dict[str, Any]:
+    preview_config = _apply_payload_to_preview_config(response.get("preview_config") or {}, payload)
+    layout = deepcopy(response.get("map_layout") or preview_config.get("map_layout") or {})
+    map_title = str((payload or {}).get("map_title") or layout.get("title") or response.get("map_title") or "AutoMap Draft Map")
+    map_subtitle = str((payload or {}).get("map_description") or layout.get("subtitle") or "Draft preview only. Not an official map.")
+    layout["title"] = map_title
+    layout["subtitle"] = map_subtitle
+    layout.setdefault("scale_bar_enabled", True)
+    layout.setdefault("scale_bar_position", "bottom_center")
+    layout.setdefault("scale_bar_width_percent", 64)
+    layout.setdefault("scale_bar_style", "centered_enterprise")
+    layout.setdefault("north_arrow_enabled", True)
+    preview_config["map_title"] = map_title
+    preview_config["map_layout"] = layout
+    extent = _map_extent_from_response(response, preview_config, payload)
+
+    layers = _all_preview_layers(preview_config, response.get("selected_layers") or [])
+    payload_layers, _ = _payload_layer_index(payload)
+    for index, layer in enumerate(layers):
+        patch = payload_layers.get(_layer_identifier(layer, index)) or payload_layers.get(str(layer.get("title") or ""))
+        if not patch:
+            continue
+        if patch.get("title"):
+            layer["title"] = patch["title"]
+        if "visibility" in patch:
+            layer["visibility"] = bool(patch["visibility"])
+        if isinstance(patch.get("opacity"), (int, float)):
+            layer["opacity"] = float(patch["opacity"])
+        if patch.get("role"):
+            layer["role"] = patch["role"]
+        if patch.get("line_style"):
+            layer["line_style"] = patch["line_style"]
+        if isinstance(patch.get("line_thickness"), (int, float)):
+            layer["line_thickness"] = float(patch["line_thickness"])
+    visible_layers = [layer for layer in layers if layer.get("visibility") and not layer.get("remove_layer")]
+    hidden_layers = [layer for layer in layers if not layer.get("visibility") or layer.get("remove_layer")]
+    layer_order = [_layer_identifier(layer, index) for index, layer in enumerate(layers)]
+    layer_opacity = {_layer_identifier(layer, index): layer.get("opacity", 1) for index, layer in enumerate(layers)}
+    layer_titles = {_layer_identifier(layer, index): layer.get("title") for index, layer in enumerate(layers)}
+    layer_roles = {_layer_identifier(layer, index): layer.get("role") for index, layer in enumerate(layers)}
+    layer_symbology = {
+        _layer_identifier(layer, index): {
+            "symbol_key": layer.get("symbol_key"),
+            "line_style": layer.get("line_style"),
+            "line_thickness": layer.get("line_thickness"),
+            "geometry_role": layer.get("geometry_role"),
+        }
+        for index, layer in enumerate(layers)
+    }
+    proximity = response.get("proximity_result") or preview_config.get("proximity_result") or {}
+    route_summary = {
+        "route_mode": proximity.get("route_mode") if isinstance(proximity, dict) else None,
+        "route_label": proximity.get("route_label") if isinstance(proximity, dict) else None,
+        "route_warning": proximity.get("route_warning") if isinstance(proximity, dict) else None,
+        "distance_value": proximity.get("distance_value") if isinstance(proximity, dict) else None,
+        "distance_unit": proximity.get("distance_unit") if isinstance(proximity, dict) else None,
+    }
+    report_config = normalize_report_section_config((payload or {}).get("report_config") or (response.get("composer_map_state") or {}).get("report_section_config"))
+    state = {
+        "composer_session_id": response.get("composer_session_id"),
+        "map_title": map_title,
+        "map_subtitle": map_subtitle,
+        "raw_prompt": response.get("raw_prompt") or response.get("prompt"),
+        "request_type": response.get("request_type"),
+        "preview_config": preview_config,
+        "map_extent": extent,
+        "basemap": preview_config.get("basemap") or "streets-vector",
+        "visible_layers": visible_layers,
+        "hidden_layers": hidden_layers,
+        "layer_order": layer_order,
+        "layer_opacity": layer_opacity,
+        "layer_titles": layer_titles,
+        "layer_roles": layer_roles,
+        "layer_symbology": layer_symbology,
+        "derived_overlays": preview_config.get("derived_overlays") or [],
+        "legend_items": layout.get("legend_items") or [],
+        "scale_bar_config": default_scale_bar_config(layout),
+        "north_arrow_config": default_north_arrow_config(layout),
+        "route_summary": route_summary,
+        "proximity_summary": proximity if isinstance(proximity, dict) else {},
+        "parcel_context": response.get("parcel_context") or {},
+        "warnings": response.get("warnings") or [],
+        "missing_data": response.get("missing_data") or [],
+        "reviewer_notes": (payload or {}).get("notes") or (response.get("composer_map_state") or {}).get("reviewer_notes") or "",
+        "adjusted_state_applied": bool((payload or {}).get("layers") or response.get("applied_adjustments")),
+        "report_section_config": report_config,
+        "updated_at": utc_timestamp(),
+    }
+    statistics = build_report_statistics(state)
+    sections = build_report_sections(state, statistics, report_config)
+    state["report_statistics"] = statistics
+    state["report_sections"] = sections
+    return state
+
+
+def _attach_composer_map_state(
+    response: dict[str, Any],
+    session_folder: Path,
+    payload: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    had_preview_config = response.get("preview_config") is not None
+    map_state = _build_composer_map_state(response, payload)
+    response["composer_map_state"] = map_state
+    if had_preview_config:
+        response["preview_config"] = map_state["preview_config"]
+        response["map_layout"] = map_state["preview_config"].get("map_layout")
+    else:
+        response["preview_config"] = None
+        response["map_layout"] = response.get("map_layout")
+    response["map_title"] = map_state["map_title"]
+    response["report_statistics"] = map_state["report_statistics"]
+    response["report_sections"] = map_state["report_sections"]
+    _write_json(session_folder / "composer_map_state.json", map_state)
+    try:
+        upsert_composer_map_state(str(response["composer_session_id"]), map_state)
+        response["composer_map_state_persisted"] = True
+    except Exception:
+        response["composer_map_state_persisted"] = False
+        response["composer_map_state_persist_error"] = "database persistence unavailable"
+    return response
+
+
 def _base_session_response(
     *,
     session_id: str,
@@ -625,16 +885,39 @@ def generate_composer_draft(prompt: str) -> dict[str, Any]:
         preview_config=preview_config,
         review_packet_path=review_packet_path,
     )
+    response = _attach_composer_map_state(response, session_folder)
     _save_session_payload(session_folder, response)
     return response
 
 
 def get_composer_session(session_id: str) -> dict[str, Any]:
     """Return a previously created composer session."""
-    path = _session_path(session_id) / "composer_session.json"
+    session_folder = _session_path(session_id)
+    path = session_folder / "composer_session.json"
     if not path.exists():
         raise FileNotFoundError(f"Composer session not found: {session_id}")
-    return _read_json(path)
+    session = _read_json(path)
+    if not session.get("composer_map_state"):
+        state_path = session_folder / "composer_map_state.json"
+        if state_path.exists():
+            session["composer_map_state"] = _read_json(state_path)
+        else:
+            try:
+                saved_state = get_composer_map_state(session_id)
+            except Exception:
+                saved_state = None
+            if saved_state:
+                session["composer_map_state"] = saved_state
+    return session
+
+
+def update_composer_map_state_for_session(session_id: str, state_payload: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Persist current frontend map state options for a composer session."""
+    session = get_composer_session(session_id)
+    session_folder = _session_path(session_id)
+    response = _attach_composer_map_state(session, session_folder, state_payload or {})
+    _save_session_payload(session_folder, response)
+    return response
 
 
 def _simple_adjustments_from_payload(payload: dict[str, Any]) -> dict[str, Any]:
@@ -703,13 +986,14 @@ def apply_composer_adjustments(session_id: str, adjustment_payload: dict[str, An
     )
     response["applied_adjustments"] = adjustments
     response["next_action"] = "preview_adjusted_map" if can_preview else response["next_action"]
+    response = _attach_composer_map_state(response, session_folder, adjustment_payload)
     _save_session_payload(session_folder, response)
     return response
 
 
-def export_composer_session(session_id: str) -> dict[str, Any]:
+def export_composer_session(session_id: str, export_payload: dict[str, Any] | None = None) -> dict[str, Any]:
     """Create local draft report/export links for a composer session."""
-    session = get_composer_session(session_id)
+    session = update_composer_map_state_for_session(session_id, export_payload or {})
     packet_path = session.get("adjusted_packet_path") or session.get("review_packet_path")
     if not packet_path:
         raise ValueError("Composer export requires a preview-ready review packet.")
@@ -737,5 +1021,6 @@ def export_composer_session(session_id: str) -> dict[str, Any]:
         "can_report": True,
         "next_action": "print_or_export",
     }
+    response = _attach_composer_map_state(response, session_folder, export_payload or {})
     _save_session_payload(session_folder, response)
     return response

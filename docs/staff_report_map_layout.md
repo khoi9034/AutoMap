@@ -2,6 +2,8 @@
 
 AutoMap v4.1 adds a print-oriented staff report exhibit layout for Map Composer sessions.
 
+AutoMap v4.5 renders print/report output from the saved composer map state. The print page should show the same map title, extent, basemap, visible layers, hidden layers, opacity, order, route/line styling, symbols, legend, scale bar, north arrow, warnings, and notes that the reviewer had in the Composer.
+
 ## Layout Structure
 
 The print layout includes:
@@ -19,6 +21,7 @@ The print layout includes:
 - key findings or map notes
 - layer source table
 - warning and limitation summary
+- optional report/statistics sections
 - draft-only disclaimer
 
 The normal app sidebar and buttons are hidden when printing.
@@ -51,6 +54,8 @@ Or use:
 ```
 
 Browser print-to-PDF is the supported PDF path for v4.1. The print layout uses landscape page behavior, keeps the map frame together, and keeps the source table and warnings readable.
+
+The print route loads the saved composer session and `composer_map_state`. It does not re-run recipe generation or silently replace the adjusted map with a default map.
 
 ## Draft Status
 

@@ -50,7 +50,7 @@ function derivedRouteStyle(overlay: DerivedOverlay): Pick<ComposerLayerEdit, "li
 }
 
 export function layerEditsFromResponse(response: ComposerResponse): ComposerLayerEdit[] {
-  const previewLayers = response.preview_config?.operational_layers || [];
+  const previewLayers = [...(response.preview_config?.operational_layers || []), ...(response.preview_config?.context_layers || [])];
   const derivedOverlays = response.preview_config?.derived_overlays || response.proximity_result?.derived_overlays || [];
   const derivedEdits: ComposerLayerEdit[] = derivedOverlays.map((overlay, index) => ({
     layer_key: overlay.id || `derived_overlay_${index}`,

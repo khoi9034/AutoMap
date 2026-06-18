@@ -72,6 +72,7 @@ from app.map_composer import (
     export_composer_session,
     generate_composer_draft,
     get_composer_session,
+    update_composer_map_state_for_session,
 )
 from app.packet_index import (
     build_preview_config,
@@ -156,6 +157,9 @@ class ComposerAdjustLayerPayload(BaseModel):
     showLegend: bool | None = None
     remove_layer: bool | None = None
     definition_expression: str | None = None
+    is_derived: bool | None = None
+    line_thickness: float | None = None
+    line_style: str | None = None
 
 
 class ComposerAdjustRequest(BaseModel):
@@ -167,12 +171,23 @@ class ComposerAdjustRequest(BaseModel):
     notes: str | None = None
     layer_order: list[str] = Field(default_factory=list)
     layers: list[ComposerAdjustLayerPayload] = Field(default_factory=list)
+    active_map_extent: dict[str, Any] | None = None
+    report_config: dict[str, Any] | None = None
+    map_state: dict[str, Any] | None = None
 
 
 class ComposerSessionRequest(BaseModel):
     """Composer session id payload."""
 
     composer_session_id: str
+    map_title: str | None = None
+    map_description: str | None = None
+    notes: str | None = None
+    layer_order: list[str] = Field(default_factory=list)
+    layers: list[ComposerAdjustLayerPayload] = Field(default_factory=list)
+    active_map_extent: dict[str, Any] | None = None
+    report_config: dict[str, Any] | None = None
+    map_state: dict[str, Any] | None = None
 
 
 class ExhibitGenerateRequest(BaseModel):
@@ -180,6 +195,14 @@ class ExhibitGenerateRequest(BaseModel):
 
     composer_session_id: str
     exhibit_mode: str | None = None
+    map_title: str | None = None
+    map_description: str | None = None
+    notes: str | None = None
+    layer_order: list[str] = Field(default_factory=list)
+    layers: list[ComposerAdjustLayerPayload] = Field(default_factory=list)
+    active_map_extent: dict[str, Any] | None = None
+    report_config: dict[str, Any] | None = None
+    map_state: dict[str, Any] | None = None
 
 
 class ClarificationAnswerPayload(BaseModel):
@@ -1333,7 +1356,7 @@ def api_composer_adjust(payload: ComposerAdjustRequest) -> Any:
 def api_composer_export(payload: ComposerSessionRequest) -> Any:
     """Generate local draft report/export files for a composer session."""
     try:
-        result = export_composer_session(payload.composer_session_id)
+        result = export_composer_session(payload.composer_session_id, payload.model_dump(exclude_none=True))
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except ValueError as exc:
@@ -1353,7 +1376,7 @@ def api_composer_export(payload: ComposerSessionRequest) -> Any:
 def api_generate_exhibit(payload: ExhibitGenerateRequest) -> Any:
     """Generate a local county exhibit/staff-report package for a composer session."""
     try:
-        session = get_composer_session(payload.composer_session_id)
+        session = update_composer_map_state_for_session(payload.composer_session_id, payload.model_dump(exclude_none=True))
         package = generate_exhibit_package_from_session(session, mode=payload.exhibit_mode)
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
