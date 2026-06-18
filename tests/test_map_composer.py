@@ -186,6 +186,9 @@ def test_composer_address_proximity_matched_adds_line_output(monkeypatch, tmp_pa
     assert result["map_layout"]["title"] == "Nearest Fire Station from 793 Bartram Ave"
     assert result["map_layout"]["subtitle"] == "Straight-line reference only."
     assert result["map_layout"]["scale_bar_enabled"] is True
+    assert result["map_layout"]["scale_bar_position"] == "bottom_center"
+    assert result["map_layout"]["scale_bar_width_percent"] == 64
+    assert result["map_layout"]["scale_bar_style"] == "centered_enterprise"
     assert result["map_layout"]["north_arrow_enabled"] is True
     assert "not official" in result["map_layout"]["disclaimer"].lower()
     assert result["review_packet_id"] == "packet"

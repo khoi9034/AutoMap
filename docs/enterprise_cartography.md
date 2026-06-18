@@ -18,7 +18,9 @@ Road-following draft routes use a moderate blue line with a white casing. Straig
 
 Proximity maps hide full address, parcel, and target-facility REST layers by default to reduce clutter. The derived origin marker, selected target marker, route/line, and selected parcel outline remain visible when truly available.
 
-The map frame includes a concise title above the map, compact in-frame legend, north arrow, adaptive labeled scale bar, and draft-only disclaimer. These are review aids only; AutoMap does not publish, upload, or create ArcGIS items from the composer preview.
+The map frame includes a concise title above the map, compact in-frame legend, north arrow, centered enterprise scale bar, and draft-only disclaimer. These are review aids only; AutoMap does not publish, upload, or create ArcGIS items from the composer preview.
+
+The v4.2 scale bar sits bottom-center inside the map frame and spans roughly 64% of the frame width. It uses clear tick labels such as `0 0.25 0.5 mi` or `0 500 1000 ft` depending on the current view scale. The compact legend stays inside the frame but moves away from the scale bar so the distance guide reads like a county GIS exhibit element.
 
 ## Exhibit Layouts
 

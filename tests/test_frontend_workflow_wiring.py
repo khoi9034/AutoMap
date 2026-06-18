@@ -239,7 +239,7 @@ def test_map_composer_is_primary_simple_workflow():
     assert "MapLegend" in composer_preview
     assert "NorthArrow" in composer_preview
     assert "MapScaleBar" in composer_preview
-    assert "<MapScaleBar scale={viewScale}" in composer_preview
+    assert "<MapScaleBar scale={viewScale} mapWidth={viewWidth}" in composer_preview
     assert "<MapLegend overlays={derivedOverlays} contextLayers={contextLayers} />" in composer_preview
     frame_index = composer_preview.index('className="enterprise-map-frame"')
     legend_index = composer_preview.index("<MapLegend overlays={derivedOverlays} contextLayers={contextLayers} />")
@@ -269,6 +269,10 @@ def test_map_composer_is_primary_simple_workflow():
     assert "Hidden context" not in map_legend
     assert "North arrow" in north_arrow
     assert "Map scale bar" in scale_bar
+    assert "mapWidth?: number | null" in scale_bar
+    assert "ENTERPRISE_WIDTH_PERCENT = 64" in scale_bar
+    assert "map-scale-bar-centered" in scale_bar
+    assert "centered enterprise" in scale_bar
     assert "0.25" in scale_bar
     assert "0.5 mi" in scale_bar
     assert "500" in scale_bar
@@ -339,6 +343,26 @@ def test_map_composer_is_primary_simple_workflow():
     assert "ComposerAdjustPayload" in types
     assert "confirm-publish" not in client.lower()
     assert "publish-draft-webmap" not in client.lower()
+
+
+def test_enterprise_scale_bar_css_is_centered_and_print_ready():
+    css = read("app/globals.css")
+    scale_index = css.index(".map-scale-bar {")
+    scale_block = css[scale_index : css.index(".map-scale-bar-rule", scale_index)]
+
+    assert "left: 50%" in scale_block
+    assert "bottom: 18px" in scale_block
+    assert "transform: translateX(-50%)" in scale_block
+    assert "width: var(--scale-bar-width, 64%)" in scale_block
+    assert "min-width: 360px" in scale_block
+    assert "max-width: min(70%, 760px)" in scale_block
+    assert "font-size: 13px" in css
+    assert ".map-legend" in css
+    assert "top: 72px" in css
+    assert "bottom: auto" in css
+    assert "@media print" in css
+    assert "width: 64%" in css[css.index("@media print") :]
+    assert "min-width: 420px" in css[css.index("@media print") :]
 
 
 def test_internal_workflow_pages_redirect_to_composer():
@@ -447,7 +471,7 @@ def test_api_client_has_timeout_and_sanitized_fallback_version():
     assert "Backend is online, but this request took too long" in source
     assert "http://127.0.0.1:8010" in source
     assert "timeoutMs: 60000" in source
-    assert 'version: "4.1.0"' in source
+    assert 'version: "4.2.0"' in source
     assert "redactProtected" in source
     assert "AutoMap is checking the catalog, parcel fields, and context layers" in map_request
 

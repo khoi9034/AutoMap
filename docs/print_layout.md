@@ -7,7 +7,7 @@ The print page includes:
 - map title and subtitle
 - the focused composer map preview
 - compact legend in or adjacent to the map composition
-- labeled scale bar using miles or feet
+- centered enterprise scale bar using miles or feet
 - north arrow
 - original prompt
 - route and distance summary when applicable
@@ -29,5 +29,7 @@ Route labels remain explicit:
 Generated print/report outputs stay in ignored output folders and should not be committed.
 
 Map Composer now exposes `Open Print Layout` for the browser-print exhibit page and `Generate Exhibit Package` for local files under `outputs/exhibits/`. The local package includes `exhibit.html`, `exhibit_data.json`, `layer_sources.csv`, `warnings.json`, and `export_manifest.json`.
+
+v4.2 keeps the scale bar bottom-center inside the map frame, spanning about 64% of the frame width. The scale bar stays readable in print and uses real tick labels such as `0 0.25 0.5 mi` or `0 500 1000 ft`. The legend remains in-frame but avoids the scale bar.
 
 CFS remains separate and `cfs_dev` is not touched.

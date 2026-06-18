@@ -1744,24 +1744,25 @@ button {
 
 .map-scale-bar {
   position: absolute;
-  left: 18px;
+  left: 50%;
   bottom: 18px;
   z-index: 4;
-  width: var(--scale-bar-width, 132px);
-  min-width: 104px;
-  max-width: 168px;
-  border: 1px solid rgba(71, 84, 103, 0.32);
-  border-radius: 7px;
-  background: rgba(255, 255, 255, 0.96);
-  box-shadow: 0 8px 20px rgba(16, 35, 59, 0.16);
-  padding: 8px 9px 7px;
+  width: var(--scale-bar-width, 64%);
+  min-width: 360px;
+  max-width: min(70%, 760px);
+  transform: translateX(-50%);
+  border: 1px solid rgba(16, 35, 59, 0.42);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 8px 22px rgba(16, 35, 59, 0.18);
+  padding: 8px 14px 9px;
   pointer-events: none;
 }
 
 .map-scale-bar-rule {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  height: 9px;
+  height: 12px;
   border: 1px solid #10233b;
 }
 
@@ -1776,10 +1777,10 @@ button {
 .map-scale-bar-labels {
   display: flex;
   justify-content: space-between;
-  margin-top: 5px;
+  margin-top: 7px;
   color: #1d2939;
-  font-size: 11px;
-  font-weight: 800;
+  font-size: 13px;
+  font-weight: 900;
   line-height: 1;
 }
 
@@ -1787,13 +1788,30 @@ button {
   display: grid;
   grid-template-columns: 1px 1px 1px;
   justify-content: space-between;
-  height: 5px;
+  height: 8px;
   margin-top: -1px;
 }
 
 .map-scale-bar-ticks span {
   width: 1px;
   background: #10233b;
+}
+
+@media (max-width: 760px) {
+  .map-scale-bar {
+    width: 70%;
+    min-width: 240px;
+    padding-inline: 10px;
+  }
+
+  .map-scale-bar-labels {
+    font-size: 11px;
+  }
+
+  .map-legend {
+    top: 66px;
+    max-width: min(210px, 42%);
+  }
 }
 
 .map-symbol-legend {
@@ -1828,7 +1846,8 @@ button {
 .map-legend {
   position: absolute;
   right: 18px;
-  bottom: 18px;
+  top: 72px;
+  bottom: auto;
   z-index: 4;
   display: grid;
   gap: 7px;
@@ -2180,6 +2199,25 @@ th {
 
   .exhibit-map-frame .composer-real-map {
     min-height: 560px;
+  }
+
+  .map-scale-bar {
+    bottom: 16px;
+    width: 64%;
+    min-width: 420px;
+    max-width: 70%;
+    box-shadow: none;
+  }
+
+  .map-scale-bar-labels {
+    font-size: 12px;
+  }
+
+  .map-legend {
+    top: 70px;
+    right: 16px;
+    bottom: auto;
+    box-shadow: none;
   }
 
   @page {

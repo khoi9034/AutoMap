@@ -31,6 +31,7 @@ type ArcView = {
   goTo: (target: unknown, options?: Record<string, unknown>) => Promise<unknown>;
   destroy: () => void;
   scale?: number;
+  width?: number;
   watch?: (property: string, callback: (value: unknown) => void) => { remove?: () => void };
   ui?: { add?: (item: unknown, position: string) => void };
 };
@@ -327,6 +328,7 @@ export function ComposerMapPreview({ response, packetId }: { response: ComposerR
   const [loadError, setLoadError] = useState<string | null>(null);
   const [mapError, setMapError] = useState<string | null>(null);
   const [viewScale, setViewScale] = useState<number | null>(null);
+  const [viewWidth, setViewWidth] = useState<number | null>(null);
 
   useEffect(() => {
     if (!derivedOverlays.length) {
@@ -364,7 +366,9 @@ export function ComposerMapPreview({ response, packetId }: { response: ComposerR
     let cancelled = false;
     let view: ArcView | undefined;
     let scaleHandle: { remove?: () => void } | undefined;
+    let widthHandle: { remove?: () => void } | undefined;
     setMapError(null);
+    setViewWidth(containerRef.current?.clientWidth || null);
 
     loadArcModules()
       .then((modules) => {
@@ -396,8 +400,12 @@ export function ComposerMapPreview({ response, packetId }: { response: ComposerR
         return nextView.when(() => {
           if (cancelled) return undefined;
           setViewScale(typeof nextView.scale === "number" ? nextView.scale : null);
+          setViewWidth(typeof nextView.width === "number" ? nextView.width : containerRef.current?.clientWidth || null);
           scaleHandle = nextView.watch?.("scale", (value) => {
             if (!cancelled) setViewScale(typeof value === "number" && Number.isFinite(value) ? value : null);
+          });
+          widthHandle = nextView.watch?.("width", (value) => {
+            if (!cancelled) setViewWidth(typeof value === "number" && Number.isFinite(value) ? value : null);
           });
           return nextView.goTo(extent, { animate: false });
         });
@@ -411,6 +419,7 @@ export function ComposerMapPreview({ response, packetId }: { response: ComposerR
     return () => {
       cancelled = true;
       scaleHandle?.remove?.();
+      widthHandle?.remove?.();
       if (viewRef.current) {
         viewRef.current.destroy();
         viewRef.current = null;
@@ -491,7 +500,7 @@ export function ComposerMapPreview({ response, packetId }: { response: ComposerR
         <div className="enterprise-map-frame">
           <div className="composer-real-map" ref={containerRef} aria-label="Focused ArcGIS composer map preview" />
           <NorthArrow />
-          <MapScaleBar scale={viewScale} />
+          <MapScaleBar scale={viewScale} mapWidth={viewWidth} />
           <MapLegend overlays={derivedOverlays} contextLayers={contextLayers} />
         </div>
       </section>

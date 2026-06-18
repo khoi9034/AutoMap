@@ -1011,6 +1011,9 @@ export type MapLayout = {
   subtitle?: string;
   legend_items?: Array<Record<string, JsonValue>>;
   scale_bar_enabled?: boolean;
+  scale_bar_position?: string;
+  scale_bar_width_percent?: number;
+  scale_bar_style?: string;
   north_arrow_enabled?: boolean;
   disclaimer?: string;
   route_mode_label?: string;
