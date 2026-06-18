@@ -1134,6 +1134,17 @@ export type ReportSectionConfig = {
   include_table_export_summary?: boolean;
 };
 
+export type ExportMode = "map_exhibit_only" | "map_summary" | "full_report" | string;
+
+export type PrintExportOptions = {
+  export_mode?: ExportMode;
+  include_key_findings?: boolean;
+  include_appendix?: boolean;
+  preserve_extent?: boolean;
+  preserve_layer_state?: boolean;
+  wysiwyg?: boolean;
+};
+
 export type ReportStatistics = {
   selected_visible_layer_count?: number;
   hidden_layer_count?: number;
@@ -1184,6 +1195,13 @@ export type ComposerMapState = {
   missing_data?: string[];
   reviewer_notes?: string;
   adjusted_state_applied?: boolean;
+  current_center?: Record<string, JsonValue> | null;
+  current_zoom?: number | null;
+  current_scale?: number | null;
+  current_rotation?: number | null;
+  export_mode?: ExportMode;
+  export_options?: PrintExportOptions;
+  print_export_options?: PrintExportOptions;
   report_section_config?: ReportSectionConfig;
   report_statistics?: ReportStatistics;
   report_sections?: Record<string, JsonValue>;
@@ -1199,6 +1217,8 @@ export type ComposerAdjustPayload = {
   layers?: ComposerLayerAdjustment[];
   active_map_extent?: Record<string, JsonValue>;
   report_config?: ReportSectionConfig;
+  export_mode?: ExportMode;
+  export_options?: PrintExportOptions;
   map_state?: ComposerMapState;
 };
 

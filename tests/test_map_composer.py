@@ -533,6 +533,9 @@ def test_composer_map_state_saves_after_generate(monkeypatch, tmp_path):
     assert result["composer_map_state"]["composer_session_id"] == result["composer_session_id"]
     assert captured[result["composer_session_id"]]["map_title"] == result["map_title"]
     assert result["composer_map_state_persisted"] is True
+    assert result["composer_map_state"]["export_mode"] == "map_exhibit_only"
+    assert result["composer_map_state"]["report_section_config"]["include_layer_table"] is False
+    assert result["composer_map_state"]["report_section_config"]["include_statistics"] is False
 
 
 def test_composer_export_updates_saved_state_and_report_options(monkeypatch, tmp_path):
@@ -572,6 +575,80 @@ def test_composer_export_updates_saved_state_and_report_options(monkeypatch, tmp
     assert exported["composer_map_state"]["report_section_config"]["include_permit_summary"] is True
     assert exported["report_statistics"]["permit_summary"]["available"] is False
     assert "unresolved" in exported["report_statistics"]["permit_summary"]["reason"]
+
+
+def test_full_report_export_mode_enables_appendix_sections(monkeypatch, tmp_path):
+    session_root = tmp_path / "composer_sessions"
+    packet_path = tmp_path / "review_packets" / "packet"
+    packet_path.mkdir(parents=True)
+    monkeypatch.setattr("app.map_composer._session_root", lambda: session_root)
+    monkeypatch.setattr("app.map_composer.upsert_composer_map_state", lambda session_id, state: None)
+    monkeypatch.setattr(
+        "app.map_composer.build_recipe",
+        lambda prompt: build_recipe(prompt, sample_catalog(), persist_data_gaps=False),
+    )
+    monkeypatch.setattr("app.map_composer.save_review_packet", lambda prompt, recipe, webmap: packet_path)
+    monkeypatch.setattr("app.map_composer._preview_config_for", lambda path, can_preview: {"operational_layers": []})
+    monkeypatch.setattr(
+        "app.map_composer.generate_report",
+        lambda packet_path: SimpleNamespace(
+            report_id="report_test",
+            report_path=tmp_path / "report",
+            report_title="Report",
+            files={},
+            validation={"is_valid": True, "errors": [], "warnings": []},
+        ),
+    )
+    result = generate_composer_draft("Show parcels in Concord that are in the 100-year floodplain.")
+
+    exported = export_composer_session(
+        result["composer_session_id"],
+        {
+            "export_mode": "full_report",
+            "report_config": {"include_layer_table": False, "include_statistics": False},
+            "map_state": {"map_extent": {"xmin": -80.7, "ymin": 35.2, "xmax": -80.4, "ymax": 35.5}},
+        },
+    )
+
+    state = exported["composer_map_state"]
+    assert state["export_mode"] == "full_report"
+    assert state["export_options"]["include_appendix"] is True
+    assert state["report_section_config"]["include_layer_table"] is True
+    assert state["report_section_config"]["include_statistics"] is True
+    assert state["map_extent"]["xmin"] == -80.7
+
+
+def test_save_map_state_api_returns_exact_state(monkeypatch):
+    monkeypatch.setattr(
+        "app.api_routes.update_composer_map_state_for_session",
+        lambda session_id, payload: {
+            "composer_session_id": session_id,
+            "composer_map_state": {
+                "composer_session_id": session_id,
+                "map_title": payload["map_title"],
+                "map_extent": payload["map_state"]["map_extent"],
+                "export_mode": payload["export_mode"],
+            },
+            "composer_map_state_persisted": True,
+        },
+    )
+    client = TestClient(create_app())
+
+    response = client.post(
+        "/api/composer/composer_test/save-map-state",
+        json={
+            "composer_session_id": "composer_test",
+            "map_title": "Adjusted Print Title",
+            "export_mode": "map_exhibit_only",
+            "map_state": {"map_extent": {"xmin": 1, "ymin": 2, "xmax": 3, "ymax": 4}},
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["composer_map_state"]["map_title"] == "Adjusted Print Title"
+    assert body["composer_map_state"]["map_extent"]["xmax"] == 3
+    assert body["export_mode"] == "map_exhibit_only"
 
 
 def test_report_statistics_marks_missing_data_unavailable_without_fake_counts():

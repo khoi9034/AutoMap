@@ -1,6 +1,6 @@
 # Exhibit Exports
 
-AutoMap can generate local county exhibit packages from preview-ready Map Composer sessions. v4.5 makes exhibit generation use the saved composer map state so exports preserve the exact adjusted preview state.
+AutoMap can generate local county exhibit packages from preview-ready Map Composer sessions. v4.7 makes exhibit generation use the saved composer map state so exports preserve the exact adjusted preview state and honor the selected print/export mode.
 
 Exhibit packages are intended for draft GIS review artifacts such as planning staff memo figures, zoning review exhibits, parcel context maps, fire station proximity exhibits, and internal GIS request responses.
 
@@ -30,7 +30,7 @@ outputs/exhibits/<timestamp>_<slug>/
   export_manifest.json
 ```
 
-The package includes a professional title block, key findings, source notes, layer source table, warning summary, draft disclaimer, saved composer map state, configurable report sections, and links to local files where appropriate.
+The package includes a professional title block, key findings, warning summary, draft disclaimer, saved composer map state, configurable report sections, and links to local files where appropriate. The default `Map Exhibit Only` mode keeps `exhibit.html` map-first and does not force the long layer source table into the main exhibit page. `Full Report with Appendix` adds the longer layer/source/statistics sections.
 
 ## Safety
 
@@ -53,8 +53,8 @@ The generator requires a preview-ready composer session. Blocked parcel/address 
 
 The Map Composer Print / Export step exposes:
 
-- Open Print Layout
-- Generate Exhibit Package
+- Open Print Preview
+- Save/Generate Exhibit Package
 - Export WebMap JSON
 - Export Layer Source CSV
 - Export Warning Summary

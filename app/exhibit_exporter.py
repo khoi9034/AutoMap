@@ -342,6 +342,23 @@ def _render_key_findings(findings: list[dict[str, str]]) -> str:
 def _render_html(data: dict[str, Any], layer_rows: list[dict[str, str]], warnings: list[str]) -> str:
     title = data["title_block"]
     findings = data.get("key_findings") or []
+    export_options = data.get("export_options") if isinstance(data.get("export_options"), dict) else {}
+    export_mode = str(data.get("export_mode") or export_options.get("export_mode") or "map_exhibit_only")
+    include_appendix = bool(export_options.get("include_appendix") or export_mode == "full_report")
+    include_layer_table = include_appendix or export_mode == "full_report"
+    warning_items = warnings if include_appendix else warnings[:4]
+    layer_section = (
+        f"""
+    <section class="appendix">
+      <h2>Layer Source Table</h2>
+      <table>
+        <thead><tr><th>Display name</th><th>Source layer</th><th>Status</th><th>Role</th><th>REST URL or local output note</th><th>Limitations</th></tr></thead>
+        <tbody>{_render_layer_rows(layer_rows)}</tbody>
+      </table>
+    </section>"""
+        if include_layer_table
+        else ""
+    )
     return f"""<!doctype html>
 <html lang="en">
 <head>
@@ -362,12 +379,13 @@ def _render_html(data: dict[str, Any], layer_rows: list[dict[str, str]], warning
     dt {{ color: #667085; font-size: 11px; font-weight: 800; text-transform: uppercase; }}
     dd {{ margin: 2px 0 0; font-weight: 800; }}
     section {{ padding: 22px 26px; border-bottom: 1px solid #d8e0ea; }}
-    .map-frame {{ min-height: 360px; display: grid; place-items: center; border: 2px solid #203a56; background: linear-gradient(135deg, #eef5fb, #f9fbfd); color: #344054; text-align: center; }}
+    .map-frame {{ min-height: 520px; display: grid; place-items: center; border: 2px solid #203a56; background: linear-gradient(135deg, #eef5fb, #f9fbfd); color: #344054; text-align: center; }}
     .map-frame strong {{ display: block; margin-bottom: 8px; color: #10233b; font-size: 18px; }}
     .finding {{ display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }}
     table {{ width: 100%; border-collapse: collapse; font-size: 12px; }}
     th, td {{ border: 1px solid #d8e0ea; padding: 8px; text-align: left; vertical-align: top; }}
     th {{ background: #f1f5f9; color: #203a56; }}
+    .appendix {{ break-before: page; }}
     footer {{ padding: 18px 26px; color: #475467; font-size: 12px; }}
     @media print {{ body {{ background: white; }} main {{ margin: 0; border: 0; box-shadow: none; }} .map-frame {{ min-height: 430px; }} }}
   </style>
@@ -400,16 +418,10 @@ def _render_html(data: dict[str, Any], layer_rows: list[dict[str, str]], warning
       <h2>Key Findings / Map Notes</h2>
       <dl class="finding">{_render_key_findings(findings)}</dl>
     </section>
-    <section>
-      <h2>Layer Source Table</h2>
-      <table>
-        <thead><tr><th>Display name</th><th>Source layer</th><th>Status</th><th>Role</th><th>REST URL or local output note</th><th>Limitations</th></tr></thead>
-        <tbody>{_render_layer_rows(layer_rows)}</tbody>
-      </table>
-    </section>
+    {layer_section}
     <section>
       <h2>Warnings and Limitations</h2>
-      <ul>{_html_list(warnings)}</ul>
+      <ul>{_html_list(warning_items)}</ul>
     </section>
     <footer>
       {escape(DRAFT_EXHIBIT_DISCLAIMER)} Local derived outputs stay on this machine and are not uploaded.
@@ -478,6 +490,8 @@ def generate_exhibit_package_from_session(session: dict[str, Any], *, mode: str 
     layer_rows = build_layer_source_rows(session)
     warning_summary = build_warning_summary(session)
     map_state = _map_state(session)
+    export_options = map_state.get("export_options") if isinstance(map_state.get("export_options"), dict) else {}
+    export_mode = str(map_state.get("export_mode") or export_options.get("export_mode") or "map_exhibit_only")
     statistics = build_report_statistics(map_state or session)
     report_sections = build_report_sections(map_state or session, statistics, (map_state or {}).get("report_section_config"))
     data = _sanitize(
@@ -491,6 +505,8 @@ def generate_exhibit_package_from_session(session: dict[str, Any], *, mode: str 
             "map_layout": map_state.get("preview_config", {}).get("map_layout") if map_state else session.get("map_layout") or {},
             "preview_config": map_state.get("preview_config") if map_state else session.get("preview_config") or {},
             "map_state_json": map_state,
+            "export_mode": export_mode,
+            "export_options": export_options,
             "report_sections": report_sections,
             "statistics_sections": statistics,
             "key_findings": _key_findings(session),

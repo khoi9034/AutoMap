@@ -16,24 +16,27 @@ import {
   layerEditsFromResponse,
   packetIdForPreview,
 } from "@/components/map-composer/utils";
-import { adjustComposerDraft, exportComposerDraft, generateComposerDraft, generateExhibitPackage, refineComposerRoute } from "@/lib/api";
+import { adjustComposerDraft, exportComposerDraft, exportComposerExhibit, generateComposerDraft, refineComposerRoute, saveComposerMapState } from "@/lib/api";
+import { buildComposerExportPayload, reportConfigForExportMode } from "@/lib/composer-map-state";
 import { mergeWorkflowState } from "@/lib/workflow-store";
-import type { ComposerAdjustPayload, ComposerResponse, ExhibitPackage, ReportSectionConfig } from "@/types/automap";
+import type { ComposerAdjustPayload, ComposerResponse, ExhibitPackage, ExportMode, ReportSectionConfig } from "@/types/automap";
 import type { WorkflowToast } from "@/types/workflow";
 
 type ComposerLoadingState = "generate" | "adjust" | "export" | "exhibit" | "route-refine" | null;
 
 const defaultReportConfig: ReportSectionConfig = {
   include_map_summary: true,
-  include_layer_table: true,
+  include_layer_table: false,
   include_warnings: true,
   include_source_notes: true,
   include_proximity_summary: true,
   include_parcel_summary: true,
-  include_statistics: true,
+  include_statistics: false,
   include_permit_summary: false,
   include_planning_summary: false,
   include_development_proxy_summary: false,
+  include_table_preview: false,
+  include_table_export_summary: false,
 };
 
 function composerStepStatuses(
@@ -61,6 +64,7 @@ export function MapComposerClient() {
   const [mapSubtitle, setMapSubtitle] = useState("");
   const [notes, setNotes] = useState("");
   const [reportConfig, setReportConfig] = useState<ReportSectionConfig>(defaultReportConfig);
+  const [exportMode, setExportMode] = useState<ExportMode>("map_exhibit_only");
   const [exhibitPackage, setExhibitPackage] = useState<ExhibitPackage | null>(null);
   const [activeStep, setActiveStep] = useState<ComposerStepId>("request");
   const [loading, setLoading] = useState<ComposerLoadingState>(null);
@@ -87,16 +91,15 @@ export function MapComposerClient() {
 
   function currentComposerPayload(): ComposerAdjustPayload | null {
     if (!response?.composer_session_id) return null;
-    return {
-      composer_session_id: response.composer_session_id,
-      map_title: mapTitle,
-      map_description: mapSubtitle,
-      notes,
-      layer_order: layers.map((layer) => layer.layer_key),
+    return buildComposerExportPayload({
+      response,
       layers,
-      report_config: reportConfig,
-      map_state: response.composer_map_state || undefined,
-    };
+      mapTitle,
+      mapSubtitle,
+      notes,
+      reportConfig,
+      exportMode,
+    });
   }
 
   function changeStep(step: ComposerStepId) {
@@ -115,7 +118,9 @@ export function MapComposerClient() {
       setMapTitle(composerDisplayTitle(result));
       setMapSubtitle(composerDisplaySubtitle(result));
       setNotes("");
-      setReportConfig(result.composer_map_state?.report_section_config || defaultReportConfig);
+      const nextExportMode = result.composer_map_state?.export_mode || "map_exhibit_only";
+      setExportMode(nextExportMode);
+      setReportConfig(reportConfigForExportMode(nextExportMode, result.composer_map_state?.report_section_config || defaultReportConfig));
       setActiveStep("preview");
       mergeWorkflowState({
         rawPrompt: prompt,
@@ -211,8 +216,8 @@ export function MapComposerClient() {
     try {
       const payload = currentComposerPayload();
       if (!payload) return;
-      const result = await adjustComposerDraft(payload);
-      setResponse(result);
+      const saved = await saveComposerMapState(payload);
+      setResponse({ ...response, composer_map_state: saved.composer_map_state || response.composer_map_state });
       setExhibitPackage(null);
       window.open(`/map-composer/${response.composer_session_id}/print`, "_blank", "noopener,noreferrer");
       setToast({ tone: "success", message: "Current map state saved for the print layout." });
@@ -230,7 +235,7 @@ export function MapComposerClient() {
     try {
       const payload = currentComposerPayload();
       if (!payload) return;
-      const exhibit = await generateExhibitPackage(payload);
+      const exhibit = await exportComposerExhibit(payload);
       setExhibitPackage(exhibit);
       setResponse({ ...response, exhibit });
       setToast({ tone: "success", message: "County exhibit package generated under outputs/exhibits." });
@@ -289,6 +294,11 @@ export function MapComposerClient() {
           previewPacketId={previewPacketId}
           reportConfig={reportConfig}
           response={response}
+          exportMode={exportMode}
+          setExportMode={(mode) => {
+            setExportMode(mode);
+            setReportConfig(reportConfigForExportMode(mode, reportConfig));
+          }}
           setReportConfig={setReportConfig}
         />
       ) : null}

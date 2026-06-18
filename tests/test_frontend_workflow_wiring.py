@@ -182,7 +182,9 @@ def test_map_composer_is_primary_simple_workflow():
     preview_step = read("components/map-composer/preview-step.tsx")
     adjust_step = read("components/map-composer/adjust-step.tsx")
     export_step = read("components/map-composer/export-step.tsx")
+    map_state_capture = read("components/map-composer/map-state-capture.tsx")
     step_types = read("components/map-composer/types.ts")
+    composer_map_state_lib = read("lib/composer-map-state.ts")
     composer_preview = read("components/composer-map-preview.tsx")
     derived_layer = read("components/derived-geojson-layer.tsx")
     composer_layer_panel = read("components/composer-layer-panel.tsx")
@@ -238,12 +240,15 @@ def test_map_composer_is_primary_simple_workflow():
     assert "AdjustStep" in client
     assert "ExportStep" in client
     assert "exportComposerDraft" in client
+    assert "saveComposerMapState" in client
+    assert "exportComposerExhibit" in client
     assert "refineComposerRoute" in client
+    assert "buildComposerExportPayload" in client
     assert "Try Road-Following Route" in preview_step
     assert "Matching address and nearest facility" in request_step
     assert "currentComposerPayload" in client
-    assert "report_config: reportConfig" in client
-    assert "map_state: response.composer_map_state" in client
+    assert "report_config: mapState.report_section_config" in composer_map_state_lib
+    assert "priorState = response.composer_map_state" in composer_map_state_lib
     assert "ComposerStepTabs" in shell
     assert "composer-step-body" in shell
     assert "ComposerStepId" in step_types
@@ -331,8 +336,12 @@ def test_map_composer_is_primary_simple_workflow():
     assert "Line thickness" in adjust_step
     assert "Line style" in adjust_step
     assert "samplePrompts" not in adjust_step
-    assert "Open Print Layout" in export_step
-    assert "Generate Exhibit Package" in export_step
+    assert "Open Print Preview" in export_step
+    assert "Save/Generate Exhibit Package" in export_step
+    assert "Map Exhibit Only" in export_step
+    assert "Map + Summary" in export_step
+    assert "Full Report with Appendix" in export_step
+    assert "MapStateCapture" in export_step
     assert "Generate Review Report" in export_step
     assert "Export Layer Source CSV" in export_step
     assert "Export Warning Summary" in export_step
@@ -340,6 +349,12 @@ def test_map_composer_is_primary_simple_workflow():
     assert "Include statistics section" in export_step
     assert "Include permit stats when available" in export_step
     assert "reportConfig" in export_step
+    assert "Exact composer state" in map_state_capture
+    assert "Map exhibit first" in map_state_capture
+    assert "buildComposerMapStateSnapshot" in composer_map_state_lib
+    assert "map_exhibit_only" in composer_map_state_lib
+    assert "full_report" in composer_map_state_lib
+    assert "include_layer_table: false" in composer_map_state_lib
     assert "System Snapshot" not in client
     assert "System Snapshot" not in request_step
     assert "Request to preview to print" not in client
@@ -356,12 +371,15 @@ def test_map_composer_is_primary_simple_workflow():
     assert "SharedMapRenderer" in print_client
     assert "ComposerMapPreview" in shared_renderer
     assert "mapState" in shared_renderer
-    assert "Print Draft Map" in print_client
+    assert "Print Draft Map Exhibit" in print_client
     assert "exhibit-layout" in exhibit_layout
     assert "ExhibitTitleBlock" in exhibit_layout
     assert "ExhibitMapFrame" in exhibit_layout
     assert "ExhibitLayerTable" in exhibit_layout
     assert "ExhibitWarningSummary" in exhibit_layout
+    assert "exhibit-layout-${exportMode}" in exhibit_layout
+    assert "showLayerTable" in exhibit_layout
+    assert "exportMode === \"map_exhibit_only\"" in exhibit_layout
     assert "DRAFT - For GIS review only" in exhibit_title
     assert "GIS exhibit map frame" in exhibit_map_frame
     assert "No ArcGIS item was published" in exhibit_footer
@@ -373,16 +391,21 @@ def test_map_composer_is_primary_simple_workflow():
     assert "getExhibits" in exhibit_reports_client
     assert "Open HTML" in exhibit_reports_client
     assert "generateComposerDraft" in api
-    assert "generateExhibitPackage" in api
+    assert "exportComposerExhibit" in api
+    assert "saveComposerMapState" in api
     assert '"/api/exhibits/generate"' in api
     assert '"/api/exhibits"' in api
     assert '"/api/composer/generate"' in api
+    assert "`/api/composer/${encodeURIComponent(payload.composer_session_id)}/save-map-state`" in api
+    assert "`/api/composer/${encodeURIComponent(payload.composer_session_id)}/export-exhibit`" in api
     assert "`/api/composer/${encodeURIComponent(composerSessionId)}/route-refine`" in api
     assert "timeoutMs: 90000" in api
     assert '"/api/composer/adjust"' in api
     assert '"/api/composer/export"' in api
     assert "ComposerResponse" in types
     assert "ComposerMapState" in types
+    assert "ExportMode" in types
+    assert "PrintExportOptions" in types
     assert "ReportSectionConfig" in types
     assert "ReportStatistics" in types
     assert "ExhibitPackage" in types
@@ -549,7 +572,7 @@ def test_api_client_has_timeout_and_sanitized_fallback_version():
     assert "Backend is online, but this request took too long" in source
     assert "http://127.0.0.1:8010" in source
     assert "timeoutMs: 60000" in source
-    assert 'version: "4.6.0"' in source
+    assert 'version: "4.7.0"' in source
     assert "redactProtected" in source
     assert "AutoMap is checking the catalog, parcel fields, and context layers" in map_request
 

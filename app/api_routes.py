@@ -195,6 +195,8 @@ class ComposerAdjustRequest(BaseModel):
     layers: list[ComposerAdjustLayerPayload] = Field(default_factory=list)
     active_map_extent: dict[str, Any] | None = None
     report_config: dict[str, Any] | None = None
+    export_mode: str | None = None
+    export_options: dict[str, Any] | None = None
     map_state: dict[str, Any] | None = None
 
 
@@ -209,6 +211,8 @@ class ComposerSessionRequest(BaseModel):
     layers: list[ComposerAdjustLayerPayload] = Field(default_factory=list)
     active_map_extent: dict[str, Any] | None = None
     report_config: dict[str, Any] | None = None
+    export_mode: str | None = None
+    export_options: dict[str, Any] | None = None
     map_state: dict[str, Any] | None = None
 
 
@@ -224,6 +228,8 @@ class ExhibitGenerateRequest(BaseModel):
     layers: list[ComposerAdjustLayerPayload] = Field(default_factory=list)
     active_map_extent: dict[str, Any] | None = None
     report_config: dict[str, Any] | None = None
+    export_mode: str | None = None
+    export_options: dict[str, Any] | None = None
     map_state: dict[str, Any] | None = None
 
 
@@ -1404,6 +1410,45 @@ def api_composer_session(composer_session_id: str) -> Any:
         raise _handle_value_error(exc) from exc
 
 
+@api_router.post("/composer/{composer_session_id}/save-map-state")
+def api_composer_save_map_state(composer_session_id: str, payload: ComposerSessionRequest) -> Any:
+    """Persist the exact current Map Composer state for print/export."""
+    if payload.composer_session_id and payload.composer_session_id != composer_session_id:
+        raise HTTPException(status_code=400, detail="Composer session id mismatch.")
+    try:
+        result = update_composer_map_state_for_session(composer_session_id, payload.model_dump(exclude_none=True))
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise _handle_value_error(exc) from exc
+    return _json_response(
+        {
+            "composer_session_id": composer_session_id,
+            "composer_map_state": result.get("composer_map_state"),
+            "map_state_persisted": result.get("composer_map_state_persisted", True),
+            "export_mode": (result.get("composer_map_state") or {}).get("export_mode"),
+        }
+    )
+
+
+@api_router.get("/composer/{composer_session_id}/map-state")
+def api_composer_map_state(composer_session_id: str) -> Any:
+    """Return the saved exact Map Composer state used by print/export."""
+    try:
+        session = get_composer_session(composer_session_id)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise _handle_value_error(exc) from exc
+    return _json_response(
+        {
+            "composer_session_id": composer_session_id,
+            "composer_map_state": session.get("composer_map_state"),
+            "map_title": (session.get("composer_map_state") or {}).get("map_title") or session.get("map_title"),
+        }
+    )
+
+
 @api_router.post("/composer/adjust")
 def api_composer_adjust(payload: ComposerAdjustRequest) -> Any:
     """Apply simple UI adjustments to a composer draft."""
@@ -1462,6 +1507,21 @@ def api_composer_export(payload: ComposerSessionRequest) -> Any:
         notes={"composer_session_id": result.get("composer_session_id"), "export": result.get("export")},
     )
     return _json_response(result)
+
+
+@api_router.post("/composer/{composer_session_id}/export-exhibit")
+def api_composer_export_exhibit(composer_session_id: str, payload: ExhibitGenerateRequest) -> Any:
+    """Generate an exhibit package from the saved exact composer map state."""
+    if payload.composer_session_id and payload.composer_session_id != composer_session_id:
+        raise HTTPException(status_code=400, detail="Composer session id mismatch.")
+    try:
+        session = update_composer_map_state_for_session(composer_session_id, payload.model_dump(exclude_none=True))
+        package = generate_exhibit_package_from_session(session, mode=payload.exhibit_mode or payload.export_mode)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise _handle_value_error(exc) from exc
+    return _json_response(package.as_dict())
 
 
 @api_router.post("/exhibits/generate")

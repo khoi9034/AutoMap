@@ -3,8 +3,9 @@
 import { SharedMapRenderer } from "@/components/map-renderer/shared-map-renderer";
 import { StatusChip } from "@/components/status-chip";
 import { API_BASE_URL } from "@/lib/api";
-import type { ComposerResponse, ExhibitPackage, ReportSectionConfig } from "@/types/automap";
+import type { ComposerResponse, ExhibitPackage, ExportMode, ReportSectionConfig } from "@/types/automap";
 
+import { MapStateCapture } from "./map-state-capture";
 import { composerDisplayTitle, localFileUrl } from "./utils";
 
 type ExportStepProps = {
@@ -18,6 +19,8 @@ type ExportStepProps = {
   previewPacketId: string;
   reportConfig: ReportSectionConfig;
   response: ComposerResponse | null;
+  exportMode: ExportMode;
+  setExportMode: (mode: ExportMode) => void;
   setReportConfig: (config: ReportSectionConfig) => void;
 };
 
@@ -41,6 +44,8 @@ export function ExportStep({
   previewPacketId,
   reportConfig,
   response,
+  exportMode,
+  setExportMode,
   setReportConfig,
 }: ExportStepProps) {
   if (!response?.can_preview || !previewPacketId) {
@@ -68,16 +73,33 @@ export function ExportStep({
           <div>
             <p className="eyebrow">Print / Export</p>
             <h3>{composerDisplayTitle(response)}</h3>
-            <p className="muted">Local staff-report-style outputs. Nothing is published.</p>
+            <p className="muted">WYSIWYG local output from the current composer map state. Nothing is published.</p>
           </div>
           <StatusChip tone="success">Draft only</StatusChip>
         </div>
+        <section className="definition-box export-mode-selector">
+          <strong>Export mode</strong>
+          <MapStateCapture response={response} exportMode={exportMode} />
+          <div className="segmented-control export-mode-control" role="radiogroup" aria-label="Print export mode">
+            {[
+              ["map_exhibit_only", "Map Exhibit Only", "One-page map-first print layout."],
+              ["map_summary", "Map + Summary", "Map page with brief key findings."],
+              ["full_report", "Full Report with Appendix", "Adds layer tables, warnings, sources, and statistics."],
+            ].map(([mode, label, description]) => (
+              <label className={exportMode === mode ? "active" : ""} key={mode}>
+                <input checked={exportMode === mode} name="export-mode" type="radio" value={mode} onChange={() => setExportMode(mode)} />
+                <span>{label}</span>
+                <small>{description}</small>
+              </label>
+            ))}
+          </div>
+        </section>
         <div className="button-row composer-export-buttons">
           <button className="button" type="button" onClick={onOpenPrintLayout} disabled={loadingReport}>
-            Open Print Layout
+            Open Print Preview
           </button>
           <button className="button button-secondary" type="button" onClick={onGenerateExhibit} disabled={loadingExhibit}>
-            {loadingExhibit ? "Generating..." : "Generate Exhibit Package"}
+            {loadingExhibit ? "Generating..." : "Save/Generate Exhibit Package"}
           </button>
           <button className="button button-secondary" type="button" onClick={onGenerateReport} disabled={loadingReport}>
             {loadingReport ? "Generating..." : "Generate Review Report"}
@@ -100,7 +122,8 @@ export function ExportStep({
           </button>
         </div>
         <section className="definition-box report-section-options">
-          <strong>Report sections</strong>
+          <strong>Optional report sections</strong>
+          <p className="muted">Map Exhibit Only keeps appendices off by default. Full Report turns the long sections back on.</p>
           <div className="composer-report-option-grid">
             {[
               ["include_map_summary", "Include map summary"],

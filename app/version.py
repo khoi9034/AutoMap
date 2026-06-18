@@ -1,3 +1,3 @@
 """AutoMap version metadata."""
 
-AUTOMAP_VERSION = "4.6.0"
+AUTOMAP_VERSION = "4.7.0"

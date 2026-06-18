@@ -150,6 +150,30 @@ def test_exhibit_data_json_contains_title_prompt_layers_and_warnings(monkeypatch
     assert data["map_state_json"]["map_title"] == "Nearest Fire Station from 793 Bartram Ave"
     assert data["report_sections"]["sections"]
     assert data["statistics_sections"]["proximity"]["distance"]["value"] == 1.22
+    assert data["export_mode"] == "map_exhibit_only"
+
+
+def test_default_exhibit_html_is_map_first_without_forced_layer_table(monkeypatch, tmp_path):
+    monkeypatch.setattr(exhibit_exporter, "OUTPUTS_ROOT", tmp_path)
+
+    package = generate_exhibit_package_from_session(sample_composer_session())
+    html = (package.exhibit_folder / "exhibit.html").read_text(encoding="utf-8")
+
+    assert "Exhibit map frame" in html
+    assert "Layer Source Table" not in html
+
+
+def test_full_report_exhibit_html_includes_appendix_table(monkeypatch, tmp_path):
+    monkeypatch.setattr(exhibit_exporter, "OUTPUTS_ROOT", tmp_path)
+    session = sample_composer_session()
+    session["composer_map_state"]["export_mode"] = "full_report"
+    session["composer_map_state"]["export_options"] = {"export_mode": "full_report", "include_appendix": True}
+
+    package = generate_exhibit_package_from_session(session)
+    html = (package.exhibit_folder / "exhibit.html").read_text(encoding="utf-8")
+
+    assert "Layer Source Table" in html
+    assert 'class="appendix"' in html
 
 
 def test_layer_sources_csv_contains_source_table(monkeypatch, tmp_path):

@@ -18,4 +18,6 @@ export type ComposerLayerEdit = {
   is_derived?: boolean;
   line_thickness?: number;
   line_style?: "solid" | "dashed";
+  remove_layer?: boolean;
+  symbol_key?: string;
 };

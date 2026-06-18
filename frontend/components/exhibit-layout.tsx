@@ -72,9 +72,20 @@ export function ExhibitLayout({ response, sessionId, map, actions }: ExhibitLayo
   const contextLayers: PreviewLayer[] = preview?.context_layers || preview?.operational_layers || [];
   const derivedLayers = preview?.derived_overlays || [];
   const findings = keyFindings(response);
+  const mapState = response.composer_map_state || {};
+  const exportMode = mapState.export_mode || mapState.export_options?.export_mode || "map_exhibit_only";
+  const reportConfig = mapState.report_section_config || {};
+  const isFullReport = exportMode === "full_report";
+  const isMapSummary = exportMode === "map_summary";
+  const showKeyFindings = mapState.export_options?.include_key_findings !== false || isMapSummary || isFullReport;
+  const showLayerTable = Boolean(reportConfig.include_layer_table || isFullReport);
+  const showWarnings = Boolean(reportConfig.include_warnings || isFullReport);
+  const showSourceNotes = Boolean(reportConfig.include_source_notes && exportMode !== "map_exhibit_only") || isFullReport;
+  const warningItems = warningList(response);
+  const visibleWarnings = exportMode === "map_exhibit_only" ? warningItems.slice(0, 4) : warningItems;
 
   return (
-    <main className="composer-print-page exhibit-layout">
+    <main className={`composer-print-page exhibit-layout exhibit-layout-${exportMode}`} data-export-mode={exportMode}>
       <ExhibitTitleBlock
         title={layout.title || response.map_title || "AutoMap Draft Exhibit"}
         subtitle={layout.subtitle || "Draft preview only."}
@@ -90,6 +101,7 @@ export function ExhibitLayout({ response, sessionId, map, actions }: ExhibitLayo
 
       <ExhibitMapFrame>{map}</ExhibitMapFrame>
 
+      {showKeyFindings ? (
       <section className="exhibit-key-findings">
         <h2>Key findings / map notes</h2>
         <dl>
@@ -101,10 +113,11 @@ export function ExhibitLayout({ response, sessionId, map, actions }: ExhibitLayo
           ))}
         </dl>
       </section>
+      ) : null}
 
-      <ExhibitLayerTable contextLayers={contextLayers} derivedLayers={derivedLayers} />
-      <ExhibitWarningSummary warnings={warningList(response)} />
-      <ExhibitSourceNotes />
+      {showLayerTable ? <ExhibitLayerTable contextLayers={contextLayers} derivedLayers={derivedLayers} /> : null}
+      {showWarnings ? <ExhibitWarningSummary warnings={visibleWarnings} /> : null}
+      {showSourceNotes ? <ExhibitSourceNotes /> : null}
       <ExhibitFooter />
     </main>
   );

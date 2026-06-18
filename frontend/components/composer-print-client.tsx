@@ -56,7 +56,7 @@ export function ComposerPrintClient({ sessionId }: { sessionId: string }) {
   const actions = (
     <div className="button-row">
       <button className="button" type="button" onClick={() => window.print()}>
-        Print Draft Map
+        Print Draft Map Exhibit
       </button>
       {response.webmap_path ? (
         <a className="button button-secondary" href={localFileUrl(response.webmap_path)} target="_blank" rel="noreferrer">

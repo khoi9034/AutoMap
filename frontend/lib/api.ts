@@ -165,7 +165,7 @@ export async function getStatusOrFallback(): Promise<SystemStatus> {
     return await getSystemStatus();
   } catch {
     return {
-      version: "4.6.0",
+      version: "4.7.0",
       database_connected: false,
       catalog: {},
       profiles: {},
@@ -660,6 +660,23 @@ export async function adjustComposerDraft(payload: ComposerAdjustPayload): Promi
   });
 }
 
+export async function saveComposerMapState(payload: ComposerAdjustPayload): Promise<{ composer_session_id?: string; composer_map_state?: ComposerResponse["composer_map_state"]; map_state_persisted?: boolean; export_mode?: string }> {
+  return apiFetch<{ composer_session_id?: string; composer_map_state?: ComposerResponse["composer_map_state"]; map_state_persisted?: boolean; export_mode?: string }>(
+    `/api/composer/${encodeURIComponent(payload.composer_session_id)}/save-map-state`,
+    {
+      method: "POST",
+      timeoutMs: 60000,
+      body: JSON.stringify(payload),
+    },
+  );
+}
+
+export async function getComposerMapState(composerSessionId: string): Promise<{ composer_session_id?: string; composer_map_state?: ComposerResponse["composer_map_state"]; map_title?: string }> {
+  return apiFetch<{ composer_session_id?: string; composer_map_state?: ComposerResponse["composer_map_state"]; map_title?: string }>(
+    `/api/composer/${encodeURIComponent(composerSessionId)}/map-state`,
+  );
+}
+
 export async function refineComposerRoute(composerSessionId: string): Promise<ComposerResponse> {
   return apiFetch<ComposerResponse>(`/api/composer/${encodeURIComponent(composerSessionId)}/route-refine`, {
     method: "POST",
@@ -683,6 +700,14 @@ export async function generateExhibitPackage(payload: string | ComposerExportPay
     method: "POST",
     timeoutMs: 60000,
     body: JSON.stringify(body),
+  });
+}
+
+export async function exportComposerExhibit(payload: ComposerExportPayload): Promise<ExhibitPackage> {
+  return apiFetch<ExhibitPackage>(`/api/composer/${encodeURIComponent(payload.composer_session_id)}/export-exhibit`, {
+    method: "POST",
+    timeoutMs: 60000,
+    body: JSON.stringify(payload),
   });
 }
 

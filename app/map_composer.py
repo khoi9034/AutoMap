@@ -18,7 +18,8 @@ from app.address_parcel_resolver import ADDRESS_NOT_MATCHED_WARNING, resolve_add
 from app.composer_state_models import (
     default_north_arrow_config,
     default_scale_bar_config,
-    normalize_report_section_config,
+    normalize_export_options,
+    report_config_for_export_mode,
     utc_timestamp,
 )
 from app.composer_state_store import get_composer_map_state, upsert_composer_map_state
@@ -676,9 +677,17 @@ def _apply_payload_to_preview_config(preview_config: dict[str, Any], payload: di
     return config
 
 
-def _map_extent_from_response(response: dict[str, Any], preview_config: dict[str, Any], payload: dict[str, Any] | None = None) -> dict[str, Any] | None:
+def _map_extent_from_response(
+    response: dict[str, Any],
+    preview_config: dict[str, Any],
+    payload: dict[str, Any] | None = None,
+    incoming_state: dict[str, Any] | None = None,
+) -> dict[str, Any] | None:
     if isinstance((payload or {}).get("active_map_extent"), dict):
         return (payload or {})["active_map_extent"]
+    for key in ("map_extent", "current_extent", "extent"):
+        if isinstance((incoming_state or {}).get(key), dict) and (incoming_state or {})[key]:
+            return (incoming_state or {})[key]
     for key in ("focus_extent", "initial_extent"):
         if isinstance(preview_config.get(key), dict) and preview_config[key]:
             return preview_config[key]
@@ -688,10 +697,12 @@ def _map_extent_from_response(response: dict[str, Any], preview_config: dict[str
 
 
 def _build_composer_map_state(response: dict[str, Any], payload: dict[str, Any] | None = None) -> dict[str, Any]:
-    preview_config = _apply_payload_to_preview_config(response.get("preview_config") or {}, payload)
+    incoming_state = (payload or {}).get("map_state") if isinstance((payload or {}).get("map_state"), dict) else {}
+    preview_source = incoming_state.get("preview_config") if isinstance(incoming_state.get("preview_config"), dict) else response.get("preview_config") or {}
+    preview_config = _apply_payload_to_preview_config(preview_source, payload)
     layout = deepcopy(response.get("map_layout") or preview_config.get("map_layout") or {})
-    map_title = str((payload or {}).get("map_title") or layout.get("title") or response.get("map_title") or "AutoMap Draft Map")
-    map_subtitle = str((payload or {}).get("map_description") or layout.get("subtitle") or "Draft preview only. Not an official map.")
+    map_title = str((payload or {}).get("map_title") or incoming_state.get("map_title") or layout.get("title") or response.get("map_title") or "AutoMap Draft Map")
+    map_subtitle = str((payload or {}).get("map_description") or incoming_state.get("map_subtitle") or layout.get("subtitle") or "Draft preview only. Not an official map.")
     layout["title"] = map_title
     layout["subtitle"] = map_subtitle
     layout.setdefault("scale_bar_enabled", True)
@@ -701,7 +712,7 @@ def _build_composer_map_state(response: dict[str, Any], payload: dict[str, Any] 
     layout.setdefault("north_arrow_enabled", True)
     preview_config["map_title"] = map_title
     preview_config["map_layout"] = layout
-    extent = _map_extent_from_response(response, preview_config, payload)
+    extent = _map_extent_from_response(response, preview_config, payload, incoming_state)
 
     layers = _all_preview_layers(preview_config, response.get("selected_layers") or [])
     payload_layers, _ = _payload_layer_index(payload)
@@ -744,7 +755,17 @@ def _build_composer_map_state(response: dict[str, Any], payload: dict[str, Any] 
         "distance_value": proximity.get("distance_value") if isinstance(proximity, dict) else None,
         "distance_unit": proximity.get("distance_unit") if isinstance(proximity, dict) else None,
     }
-    report_config = normalize_report_section_config((payload or {}).get("report_config") or (response.get("composer_map_state") or {}).get("report_section_config"))
+    export_options_payload = {
+        **(incoming_state.get("export_options") if isinstance(incoming_state.get("export_options"), dict) else {}),
+        **((payload or {}).get("export_options") if isinstance((payload or {}).get("export_options"), dict) else {}),
+    }
+    if (payload or {}).get("export_mode"):
+        export_options_payload["export_mode"] = (payload or {}).get("export_mode")
+    export_options = normalize_export_options(export_options_payload)
+    report_config = report_config_for_export_mode(
+        (payload or {}).get("report_config") or incoming_state.get("report_section_config") or (response.get("composer_map_state") or {}).get("report_section_config"),
+        export_options,
+    )
     state = {
         "composer_session_id": response.get("composer_session_id"),
         "map_title": map_title,
@@ -753,6 +774,10 @@ def _build_composer_map_state(response: dict[str, Any], payload: dict[str, Any] 
         "request_type": response.get("request_type"),
         "preview_config": preview_config,
         "map_extent": extent,
+        "current_center": incoming_state.get("current_center"),
+        "current_zoom": incoming_state.get("current_zoom"),
+        "current_scale": incoming_state.get("current_scale"),
+        "current_rotation": incoming_state.get("current_rotation", 0),
         "basemap": preview_config.get("basemap") or "streets-vector",
         "visible_layers": visible_layers,
         "hidden_layers": hidden_layers,
@@ -773,6 +798,9 @@ def _build_composer_map_state(response: dict[str, Any], payload: dict[str, Any] 
         "missing_data": response.get("missing_data") or [],
         "reviewer_notes": (payload or {}).get("notes") or (response.get("composer_map_state") or {}).get("reviewer_notes") or "",
         "adjusted_state_applied": bool((payload or {}).get("layers") or response.get("applied_adjustments")),
+        "export_mode": export_options.get("export_mode"),
+        "export_options": export_options,
+        "print_export_options": export_options,
         "report_section_config": report_config,
         "updated_at": utc_timestamp(),
     }
