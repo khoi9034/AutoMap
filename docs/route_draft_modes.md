@@ -9,6 +9,8 @@ AutoMap v4.0 supports explicit route draft modes for proximity maps:
 
 AutoMap does not call paid routing or geocoding APIs. When no approved routing service is configured, it tries a bounded road-following draft by querying only street centerline features inside the origin-target corridor. If the road feature count or search extent exceeds safety limits, or the local graph cannot connect the origin and target, AutoMap falls back to a straight-line reference with a visible warning.
 
+When `route_line.geojson` is created, Composer treats it as the active route and keeps `straight_line.geojson` as a hidden reference/fallback. A stale straight-line cache should not mask a later successful road-following route for the same prompt.
+
 Road-following drafts are local review artifacts only. They are not turn-by-turn driving directions, official navigation, or an emergency response route.
 
 In the Map Composer preview, road-following drafts draw as a moderate blue line with a white casing underneath. Straight-line references draw as thinner dashed blue lines with a white casing and an explicit not-a-road-route warning. Route lines draw below origin and destination symbols.

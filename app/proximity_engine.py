@@ -87,6 +87,34 @@ def _finish_proximity_timing(timing: dict[str, Any], start: float) -> dict[str, 
     return timing
 
 
+def _normalize_route_result_metadata(result: dict[str, Any]) -> dict[str, Any]:
+    """Fill active-route metadata for new and cached proximity results."""
+    route_line_path = result.get("route_line_geojson_path")
+    straight_line_path = result.get("straight_line_geojson_path")
+    preferred_prefix = "route_line" if route_line_path else "straight_line" if straight_line_path else "line"
+    if preferred_prefix == "route_line":
+        result["route_mode"] = result.get("route_mode") or "road_following_draft"
+        result["route_status"] = result.get("route_status") or "road_following_draft"
+        result["route_label"] = result.get("route_label") or "Road-following draft route"
+        result["route_refinement_available"] = False
+        result["route_refinement_status"] = "succeeded"
+        result["straight_line_visible_default"] = False
+    elif preferred_prefix == "straight_line":
+        result["route_mode"] = result.get("route_mode") or "straight_line_reference"
+        result["route_status"] = result.get("route_status") or "straight_line_reference"
+        result["route_label"] = result.get("route_label") or "Straight-line reference"
+        result.setdefault("straight_line_visible_default", True)
+    else:
+        result.setdefault("straight_line_visible_default", True)
+    for suffix in ["path", "url", "file_id"]:
+        source_key = f"{preferred_prefix}_geojson_{suffix}" if suffix != "path" else f"{preferred_prefix}_geojson_path"
+        value = result.get(source_key)
+        if value:
+            result[f"line_geojson_{suffix}" if suffix != "path" else "line_geojson_path"] = value
+            result[f"route_geojson_{suffix}" if suffix != "path" else "route_geojson_path"] = value
+    return result
+
+
 def _with_proximity_timing(result: dict[str, Any], timing: dict[str, Any], start: float) -> dict[str, Any]:
     result["proximity_timing"] = _finish_proximity_timing(timing, start)
     LOGGER.info(
@@ -283,43 +311,67 @@ def get_proximity_result(proximity_result_id: str, schema_name: str = "automap")
 
 
 def _cached_successful_result_for_prompt(prompt: str, schema_name: str = "automap") -> dict[str, Any] | None:
-    """Return the latest successful exact-prompt proximity result when its local line output still exists."""
+    """Return the best successful exact-prompt proximity result when its local line output still exists."""
     init_proximity_tables(schema_name)
     table = _results_table(schema_name)
     engine = get_engine()
     try:
         with engine.connect() as connection:
-            row = connection.execute(
+            rows = connection.execute(
                 text(
                     f"""
                     SELECT result_json
                     FROM {table}
                     WHERE result_json->>'raw_prompt' = :prompt
                       AND result_json->>'status' = 'ok'
-                    ORDER BY created_at DESC
-                    LIMIT 1;
+                    ORDER BY
+                        CASE WHEN result_json->>'route_mode' = 'road_following_draft' THEN 0 ELSE 1 END,
+                        created_at DESC
+                    LIMIT 10;
                     """
                 ),
                 {"prompt": prompt},
-            ).mappings().first()
+            ).mappings().all()
     except Exception:
         return None
-    if not row:
+    if not rows:
         return None
-    result = row.get("result_json") or {}
-    if isinstance(result, str):
-        try:
-            result = json.loads(result)
-        except json.JSONDecodeError:
-            return None
-    if not isinstance(result, dict):
-        return None
-    line_path = result.get("line_geojson_path") or result.get("straight_line_geojson_path") or result.get("route_line_geojson_path")
-    if line_path and not (repo_root() / str(line_path)).exists():
-        return None
-    cached = deepcopy(result)
+    for row in rows:
+        result = row.get("result_json") or {}
+        if isinstance(result, str):
+            try:
+                result = json.loads(result)
+            except json.JSONDecodeError:
+                continue
+        if not isinstance(result, dict):
+            continue
+        line_path = result.get("route_line_geojson_path") or result.get("line_geojson_path") or result.get("straight_line_geojson_path")
+        if line_path and not (repo_root() / str(line_path)).exists():
+            continue
+        cached = _normalize_route_result_metadata(deepcopy(result))
+        cached["cache_hit"] = True
+        cached["cache_source"] = "database"
+        cached["proximity_timing"] = {
+            "address_match_ms": 0,
+            "parcel_resolve_ms": 0,
+            "nearest_facility_ms": 0,
+            "route_generation_ms": 0,
+            "geojson_write_ms": 0,
+            "total_ms": 0,
+            "slow_steps": [],
+            "cache_hit": True,
+        }
+        cached.setdefault("warnings", [])
+        if "Cached proximity result reused for this prompt." not in cached["warnings"]:
+            cached["warnings"].append("Cached proximity result reused for this prompt.")
+        return cached
+    return None
+
+
+def _cacheable_copy(result: dict[str, Any]) -> dict[str, Any]:
+    cached = _normalize_route_result_metadata(deepcopy(result))
     cached["cache_hit"] = True
-    cached["cache_source"] = "database"
+    cached["cache_source"] = cached.get("cache_source") or "memory"
     cached["proximity_timing"] = {
         "address_match_ms": 0,
         "parcel_resolve_ms": 0,
@@ -334,6 +386,18 @@ def _cached_successful_result_for_prompt(prompt: str, schema_name: str = "automa
     if "Cached proximity result reused for this prompt." not in cached["warnings"]:
         cached["warnings"].append("Cached proximity result reused for this prompt.")
     return cached
+
+
+def _cache_proximity_result(prompt: str, result: dict[str, Any], *, allow_route_draft: bool, resolve_property: bool) -> None:
+    prompt_key = prompt.strip().lower()
+    normalized = _normalize_route_result_metadata(deepcopy(result))
+    _PROXIMITY_CACHE[(prompt_key, bool(allow_route_draft), bool(resolve_property))] = deepcopy(normalized)
+    if normalized.get("route_mode") == "road_following_draft":
+        # The fast composer path intentionally skips road graph work. Once a
+        # bounded road-following draft exists, prefer it for the same prompt.
+        _PROXIMITY_CACHE[(prompt_key, False, bool(resolve_property))] = deepcopy(normalized)
+        if not resolve_property:
+            _PROXIMITY_CACHE[(prompt_key, False, False)] = deepcopy(normalized)
 
 
 def validate_proximity_result(proximity_result_id: str, schema_name: str = "automap") -> dict[str, Any]:
@@ -1287,10 +1351,13 @@ def _write_line_output(result: dict[str, Any], output_folder: Path, line_geojson
     preferred_geojson = route_geojson or straight_line_geojson or line_geojson
     _write_geojson_output(result, output_folder, "proximity_line.geojson", preferred_geojson, key_prefix="line")
     preferred_prefix = "route_line" if result.get("route_line_geojson_path") else "straight_line" if result.get("straight_line_geojson_path") else "line"
+    result["straight_line_visible_default"] = preferred_prefix != "route_line"
     for suffix in ["path", "url", "file_id"]:
         value = result.get(f"{preferred_prefix}_geojson_{suffix}") if suffix != "path" else result.get(f"{preferred_prefix}_geojson_path")
         if value:
             result[f"line_geojson_{suffix}" if suffix != "path" else "line_geojson_path"] = value
+            result[f"route_geojson_{suffix}" if suffix != "path" else "route_geojson_path"] = value
+    result = _normalize_route_result_metadata(result)
     if result.get("property_match_status") == "matched" and result.get("selected_parcel_feature"):
         _write_geojson_output(
             result,
@@ -1483,6 +1550,10 @@ def run_nearest_facility(
         if ROUTE_REFINEMENT_AVAILABLE_WARNING not in warnings:
             warnings.append(ROUTE_REFINEMENT_AVAILABLE_WARNING)
     timing["route_generation_ms"] = _elapsed_ms(route_generation_started)
+    road_route_succeeded = bool(route_draft and route_draft.route_mode == "road_following_draft")
+    road_route_failed = bool(route_draft and route_draft.route_mode == "straight_line_reference" and allow_route_draft)
+    if road_route_failed:
+        route_refinement_available = True
     result_geojson = build_proximity_result_geojson(origin["origin_feature"], nearest["feature"], line_feature)
     output_folder = _safe_output_folder(prompt)
     output_path = repo_root() / output_folder
@@ -1513,7 +1584,15 @@ def run_nearest_facility(
         "route_label": route_draft.route_label if route_draft else "Straight-line reference",
         "route_warning": route_draft.route_warning if route_draft else STRAIGHT_LINE_FALLBACK_WARNING,
         "route_refinement_available": route_refinement_available,
-        "route_refinement_status": "available" if route_refinement_available else ("attempted" if route_draft else "not_applicable"),
+        "route_refinement_status": (
+            "succeeded"
+            if road_route_succeeded
+            else "failed"
+            if road_route_failed
+            else "available"
+            if route_refinement_available
+            else "not_applicable"
+        ),
         "road_feature_count": route_draft.road_feature_count if route_draft else None,
         "route_metadata": route_draft.metadata if route_draft else {},
         "status": "ok",
@@ -1558,21 +1637,13 @@ def run_proximity_request(
     """Run a prompt-driven proximity request."""
     cache_key = (prompt.strip().lower(), bool(allow_route_draft), bool(resolve_property))
     if client is None and layer_catalog is None and cache_key in _PROXIMITY_CACHE:
-        cached = deepcopy(_PROXIMITY_CACHE[cache_key])
-        cached["cache_hit"] = True
-        cached["proximity_timing"] = {
-            "address_match_ms": 0,
-            "parcel_resolve_ms": 0,
-            "nearest_facility_ms": 0,
-            "route_generation_ms": 0,
-            "geojson_write_ms": 0,
-            "total_ms": 0,
-            "slow_steps": [],
-            "cache_hit": True,
-        }
-        cached.setdefault("warnings", [])
-        if "Cached proximity result reused for this prompt." not in cached["warnings"]:
-            cached["warnings"].append("Cached proximity result reused for this prompt.")
+        cached = _cacheable_copy(_PROXIMITY_CACHE[cache_key])
+        if persist and not allow_route_draft and cached.get("route_mode") != "road_following_draft":
+            preferred_cached = _cached_successful_result_for_prompt(prompt, schema_name=schema_name)
+            if preferred_cached and preferred_cached.get("route_mode") == "road_following_draft":
+                preferred_cached = _normalize_route_result_metadata(preferred_cached)
+                _PROXIMITY_CACHE[cache_key] = deepcopy(preferred_cached)
+                return preferred_cached
         return cached
     if client is None and layer_catalog is None and persist and not allow_route_draft:
         cached = _cached_successful_result_for_prompt(prompt, schema_name=schema_name)
@@ -1603,7 +1674,7 @@ def run_proximity_request(
         resolve_property=resolve_property,
     )
     if client is None and layer_catalog is None and result.get("status") == "ok":
-        _PROXIMITY_CACHE[cache_key] = deepcopy(result)
+        _cache_proximity_result(prompt, result, allow_route_draft=allow_route_draft, resolve_property=resolve_property)
     return result
 
 

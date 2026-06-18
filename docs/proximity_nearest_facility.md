@@ -33,7 +33,7 @@ Target examples:
 
 Fire district wording matters. If the user asks what district a parcel is in, AutoMap treats that as polygon containment. If the user asks for nearest fire station, AutoMap uses station point layers when verified.
 
-Road-network routing is not implied by a line request. AutoMap first checks for approved routing support, then tries a bounded road-following draft using verified street centerlines. If that cannot be completed within safety limits, the output remains a straight-line reference, not a driving route.
+Road-network routing is not implied by a line request. AutoMap first checks for approved routing support, then tries a bounded road-following draft using verified street centerlines. If that bounded graph route succeeds, the Composer preview uses `route_line.geojson` as a solid road-following draft and hides the straight-line reference by default. If the route cannot be completed within safety limits, the output remains a dashed straight-line reference, not a driving route.
 
 In the Map Composer, v4.0 renders the local proximity GeoJSON outputs as focused enterprise map overlays. The map extent is fit to the origin, target, and route/line with a buffer. Full address and parcel REST layers are hidden by default to avoid neighbor-dot clutter; the origin address marker remains visible. If the origin address is matched but a related parcel is not resolved, AutoMap shows the address point and route/line and warns that no selected parcel outline is available.
 

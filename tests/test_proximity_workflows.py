@@ -4,12 +4,14 @@ from pathlib import Path
 from app.geometry_utils import build_straight_line_geojson, compute_straight_line_distance
 from app.road_network_route_engine import build_road_following_draft
 from app.proximity_engine import (
+    _PROXIMITY_CACHE,
     build_proximity_context,
     extract_origin_and_destination,
     find_target_layer,
     resolve_address_point,
     resolve_origin,
     run_nearest_facility,
+    run_proximity_request,
     run_route_draft,
 )
 from app.route_models import RouteDraftResult
@@ -271,6 +273,104 @@ def test_proximity_result_writes_origin_target_and_line_geojson(monkeypatch, tmp
     assert {overlay["symbol_key"] for overlay in result["derived_overlays"]} >= {"origin_home", "target_fire_station", "route_straight_line"}
     assert "selected_parcel" not in {overlay["role"] for overlay in result["derived_overlays"]}
     assert result["property_match_status"] == "not_resolved"
+
+
+def test_road_following_output_is_preferred_over_straight_line(monkeypatch, tmp_path):
+    monkeypatch.setattr("app.proximity_engine.repo_root", lambda: tmp_path)
+    monkeypatch.setattr("app.local_output_server.repo_root", lambda: tmp_path)
+    monkeypatch.setattr("app.proximity_engine._safe_output_folder", lambda prompt: Path("outputs/proximity/test_road_route"))
+    monkeypatch.setattr(
+        "app.proximity_engine.resolve_origin",
+        lambda origin_input, **kwargs: {
+            "status": "matched",
+            "origin_type": "address",
+            "property_match_status": "not_resolved",
+            "origin_feature": point_feature("Origin", -80, 35),
+            "warnings": [],
+        },
+    )
+    route_geojson = {
+        "type": "FeatureCollection",
+        "features": [
+            line_feature("Road route", [[-80.0, 35.0], [-80.005, 35.006], [-80.01, 35.01]])
+            | {"properties": {"automap_line_type": "road_following_draft", "route_mode": "road_following_draft"}}
+        ],
+    }
+    straight_geojson = {
+        "type": "FeatureCollection",
+        "features": [line_feature("Straight reference", [[-80.0, 35.0], [-80.01, 35.01]])],
+    }
+    monkeypatch.setattr(
+        "app.proximity_engine.build_road_following_draft",
+        lambda *args, **kwargs: RouteDraftResult(
+            route_mode="road_following_draft",
+            route_label="Road-following draft route",
+            route_warning="Road-following draft route, not official driving directions.",
+            route_geojson=route_geojson,
+            straight_line_geojson=straight_geojson,
+            road_feature_count=2,
+            metadata={"street_layer_key": "streets_centerlines"},
+        ),
+    )
+    client = MockSpatialClient(counts=[1], features=[point_feature("Fire Station 1", -80.01, 35.01)])
+
+    result = run_nearest_facility(
+        "793 bartram ave",
+        target_type="nearest_fire_station",
+        layer_catalog=proximity_catalog(),
+        client=client,
+        persist=False,
+        allow_route_draft=True,
+        resolve_property=False,
+    )
+
+    output_folder = tmp_path / "outputs" / "proximity" / "test_road_route"
+    assert (output_folder / "route_line.geojson").exists()
+    assert (output_folder / "straight_line.geojson").exists()
+    assert result["route_mode"] == "road_following_draft"
+    assert result["line_geojson_path"] == result["route_line_geojson_path"]
+    assert result["route_geojson_path"] == result["route_line_geojson_path"]
+    assert result["straight_line_visible_default"] is False
+    route_overlay = next(overlay for overlay in result["derived_overlays"] if overlay["role"] == "route_line")
+    assert route_overlay["id"] == "road_following_route_draft"
+    assert route_overlay["symbol_key"] == "route_road_following"
+
+
+def test_fast_proximity_cache_prefers_saved_road_following_result(monkeypatch):
+    prompt = "make a map of my address 793 bartram ave and include nearest line to the nearest fire station"
+    cache_key = (prompt.lower(), False, False)
+    road_result = {
+        "status": "ok",
+        "raw_prompt": prompt,
+        "route_mode": "road_following_draft",
+        "route_label": "Road-following draft route",
+        "route_line_geojson_path": "outputs/proximity/test/route_line.geojson",
+        "line_geojson_path": "outputs/proximity/test/route_line.geojson",
+        "warnings": [],
+    }
+
+    _PROXIMITY_CACHE.clear()
+    _PROXIMITY_CACHE[cache_key] = {
+        "status": "ok",
+        "raw_prompt": prompt,
+        "route_mode": "straight_line_reference",
+        "line_geojson_path": "outputs/proximity/test/straight_line.geojson",
+        "warnings": [],
+    }
+    monkeypatch.setattr(
+        "app.proximity_engine._cached_successful_result_for_prompt",
+        lambda prompt_value, schema_name="automap": dict(road_result),
+    )
+
+    try:
+        result = run_proximity_request(prompt, persist=True, allow_route_draft=False, resolve_property=False)
+        assert result["route_mode"] == "road_following_draft"
+        assert result["route_geojson_path"] == road_result["route_line_geojson_path"]
+        assert result["straight_line_visible_default"] is False
+        assert result["route_refinement_status"] == "succeeded"
+        assert _PROXIMITY_CACHE[cache_key]["route_mode"] == "road_following_draft"
+    finally:
+        _PROXIMITY_CACHE.clear()
 
 
 def test_road_following_draft_succeeds_on_mocked_centerline_graph():

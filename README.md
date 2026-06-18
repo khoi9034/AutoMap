@@ -518,9 +518,9 @@ python -m app.main --validate-proximity-result <proximity_result_id>
 
 The `/proximity` frontend page supports origin input, target selection, straight-line nearest-facility requests, route drafts, result cards, warnings, and local output links. `/parcel-workspace` also includes parcel-origin actions for nearest school, nearest fire station, containing fire district, and route draft to address.
 
-Nearest-facility searches use bounded distance rings and candidate caps. Road-network routing is not supported unless an approved routing/network service is added later; route drafts are labeled as straight-line references, not driving routes. Outputs are written under `outputs/proximity/`, ignored by Git, and are local draft files only.
+Nearest-facility searches use bounded distance rings and candidate caps. AutoMap tries a bounded road-following draft with verified street centerlines when safe, writes `route_line.geojson` on success, and keeps the dashed straight-line reference as fallback only. These drafts are not official driving directions. Outputs are written under `outputs/proximity/`, ignored by Git, and are local draft files only.
 
-See `docs/proximity_nearest_facility.md` and `docs/route_drafts.md`.
+See `docs/proximity_nearest_facility.md`, `docs/route_draft_modes.md`, `docs/road_following_route_drafts.md`, and `docs/route_drafts.md`.
 
 ## Simple Map Composer And True Preview Behavior
 
