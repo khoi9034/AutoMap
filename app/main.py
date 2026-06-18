@@ -117,6 +117,14 @@ from app.scenario_variant_engine import create_scenario_variant, list_scenario_v
 from app.scenario_workbench import build_recipe_from_scenario
 from app.system_status import format_system_status, get_system_status
 from app.source_discovery import discovery_summary_lines, discover_sources, verify_all_external_sources, verify_external_source
+from app.table_query_engine import (
+    execute_table_export,
+    get_table_request,
+    list_table_requests,
+    plan_table_query,
+    preview_table_rows,
+    validate_table_export,
+)
 from app.version import AUTOMAP_VERSION
 from app.webmap_builder import validate_webmap_json
 from app.webmap_exporter import export_recipe_and_webmap
@@ -968,6 +976,43 @@ def _validate_proximity_result(proximity_result_id: str) -> int:
     return 0 if result.get("is_valid") else 1
 
 
+def _make_table(prompt: str) -> int:
+    recipe = plan_table_query(prompt)
+    print(json.dumps(recipe, indent=2, default=str))
+    return 0 if recipe.get("source_layers") else 1
+
+
+def _preview_table(table_request_id: str) -> int:
+    row = get_table_request(table_request_id)
+    recipe = row.get("table_recipe") or {}
+    result = preview_table_rows(recipe)
+    print(json.dumps(result, indent=2, default=str))
+    return 0
+
+
+def _export_table(table_request_id: str) -> int:
+    row = get_table_request(table_request_id)
+    recipe = row.get("table_recipe") or {}
+    result = execute_table_export(recipe)
+    print(json.dumps(result, indent=2, default=str))
+    return 0 if result.get("export_id") else 1
+
+
+def _list_table_requests() -> int:
+    rows = list_table_requests()
+    for row in rows:
+        recipe = row.get("table_recipe") or {}
+        print(f"{row.get('table_request_id')} | {recipe.get('table_title')} | {row.get('status')} | estimated={row.get('estimated_count')}")
+    print(f"table requests listed: {len(rows)}")
+    return 0
+
+
+def _validate_table_export(folder: str) -> int:
+    result = validate_table_export(folder)
+    print(json.dumps(result, indent=2, default=str))
+    return 0 if result.get("is_valid") else 1
+
+
 def _preview_packet(path: str, port: int | None = None) -> int:
     try:
         config = build_preview_config(path)
@@ -1071,6 +1116,31 @@ def main() -> int:
         "--validate-recipe",
         metavar="PROMPT",
         help="Create, validate, and log a recipe with filter intelligence.",
+    )
+    parser.add_argument(
+        "--make-table",
+        metavar="PROMPT",
+        help="Create a safe table recipe from a plain-English data request.",
+    )
+    parser.add_argument(
+        "--preview-table",
+        metavar="TABLE_REQUEST_ID",
+        help="Preview rows for a saved table request.",
+    )
+    parser.add_argument(
+        "--export-table",
+        metavar="TABLE_REQUEST_ID",
+        help="Export a saved table request when safety allows.",
+    )
+    parser.add_argument(
+        "--list-table-requests",
+        action="store_true",
+        help="List saved table requests.",
+    )
+    parser.add_argument(
+        "--validate-table-export",
+        metavar="EXPORT_FOLDER",
+        help="Validate a local table export folder under outputs/tables.",
     )
     parser.add_argument(
         "--list-data-gaps",
@@ -1494,6 +1564,16 @@ def main() -> int:
             return _profile_catalog_fields(args.category)
         if args.validate_recipe:
             return _validate_recipe(args.validate_recipe)
+        if args.make_table:
+            return _make_table(args.make_table)
+        if args.preview_table:
+            return _preview_table(args.preview_table)
+        if args.export_table:
+            return _export_table(args.export_table)
+        if args.list_table_requests:
+            return _list_table_requests()
+        if args.validate_table_export:
+            return _validate_table_export(args.validate_table_export)
         if args.list_data_gaps:
             return _list_data_gaps()
         if args.load_external_sources:

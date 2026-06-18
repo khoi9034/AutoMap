@@ -104,6 +104,15 @@ from app.proximity_engine import (
 )
 from app.recipe_engine import build_recipe
 from app.report_generator import generate_report, get_report, list_reports
+from app.table_query_engine import (
+    execute_table_export,
+    get_table_export,
+    get_table_request,
+    list_table_exports,
+    list_table_requests,
+    plan_table_query,
+    preview_table_rows,
+)
 from app.request_history import list_request_history, record_request_history
 from app.review_packet_builder import (
     build_layer_review_table,
@@ -144,6 +153,18 @@ class PromptRequest(BaseModel):
     """Prompt payload from the frontend."""
 
     prompt: str
+
+
+class TableRecipePayload(BaseModel):
+    """Table recipe payload for preview/export."""
+
+    table_recipe: dict[str, Any]
+
+
+class TableExportPayload(BaseModel):
+    """Table export payload."""
+
+    table_recipe: dict[str, Any]
 
 
 class ComposerAdjustLayerPayload(BaseModel):
@@ -631,8 +652,58 @@ def api_report_detail(report_id: str) -> Any:
         return _json_response(get_report(report_id))
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@api_router.post("/tables/plan")
+def api_table_plan(payload: PromptRequest) -> Any:
+    """Plan a bounded metadata-first table request."""
+    try:
+        recipe = plan_table_query(payload.prompt)
     except ValueError as exc:
         raise _handle_value_error(exc) from exc
+    return _json_response({"table_recipe": recipe, "table_context": {"table_requested": True, "table_recipe": recipe}})
+
+
+@api_router.post("/tables/preview")
+def api_table_preview(payload: TableRecipePayload) -> Any:
+    """Return a small returnGeometry=false table preview."""
+    return _json_response(preview_table_rows(payload.table_recipe))
+
+
+@api_router.post("/tables/export")
+def api_table_export(payload: TableExportPayload) -> Any:
+    """Write a local bounded table export package."""
+    return _json_response(execute_table_export(payload.table_recipe))
+
+
+@api_router.get("/tables/requests")
+def api_table_requests() -> Any:
+    """List saved table requests."""
+    return _json_response({"table_requests": list_table_requests()})
+
+
+@api_router.get("/tables/requests/{table_request_id}")
+def api_table_request_detail(table_request_id: str) -> Any:
+    """Return one table request."""
+    try:
+        return _json_response(get_table_request(table_request_id))
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@api_router.get("/tables/exports")
+def api_table_exports() -> Any:
+    """List local table export history rows."""
+    return _json_response({"table_exports": list_table_exports()})
+
+
+@api_router.get("/tables/exports/{export_id}")
+def api_table_export_detail(export_id: str) -> Any:
+    """Return one table export history row."""
+    try:
+        return _json_response(get_table_export(export_id))
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 @api_router.post("/generate-report")

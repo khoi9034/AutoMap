@@ -544,9 +544,43 @@ def test_api_client_has_timeout_and_sanitized_fallback_version():
     assert "Backend is online, but this request took too long" in source
     assert "http://127.0.0.1:8010" in source
     assert "timeoutMs: 60000" in source
-    assert 'version: "4.5.0"' in source
+    assert 'version: "4.6.0"' in source
     assert "redactProtected" in source
     assert "AutoMap is checking the catalog, parcel fields, and context layers" in map_request
+
+
+def test_table_center_page_components_and_api_are_present():
+    navigation = read("components/navigation.ts")
+    page = read("app/tables/page.tsx")
+    client = read("components/table-center-client.tsx")
+    request_panel = read("components/table-request-panel.tsx")
+    recipe_card = read("components/table-recipe-card.tsx")
+    preview_grid = read("components/table-preview-grid.tsx")
+    export_card = read("components/table-export-card.tsx")
+    safety_warning = read("components/table-safety-warning.tsx")
+    composer_preview = read("components/map-composer/preview-step.tsx")
+    api = read("lib/api.ts")
+    types = read("types/automap.ts")
+
+    assert 'href: "/tables"' in navigation
+    assert "Tables" in navigation
+    assert "Table and Data Export Center" in page
+    assert "TableCenterClient" in page
+    assert "TableRequestPanel" in client
+    assert "TableRecipeCard" in client
+    assert "TablePreviewGrid" in client
+    assert "TableExportCard" in client
+    assert "TableSafetyWarning" in client
+    assert "Plan Table" in request_panel
+    assert "returnGeometry=false" in preview_grid
+    assert "Export Table" in export_card
+    assert "Export needs review" in safety_warning
+    assert "Table recipe" in recipe_card
+    assert "Open Table Center" in composer_preview
+    assert "planTableRequest" in api
+    assert '"/api/tables/plan"' in api
+    assert '"/api/tables/export"' in api
+    assert "TableRecipe" in types
 
 
 def test_parcel_workspace_page_components_and_api_are_present():

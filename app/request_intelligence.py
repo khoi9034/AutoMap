@@ -13,6 +13,7 @@ from app.request_explainer import build_reasoning_summary
 from app.request_quality_evaluator import evaluate_request_quality
 from app.scenario_classifier import classify_scenario
 from app.spatial_intent_planner import plan_spatial_intent
+from app.table_request_classifier import classify_table_request
 
 
 def _append_unique(items: list[str], value: str) -> None:
@@ -111,6 +112,7 @@ def build_request_intelligence(
     quality = evaluate_request_quality(prompt, parsed_request, classification, spatial_plan, missing_data)
     parcel_parse = parse_parcel_input(prompt)
     proximity_context = build_proximity_context(prompt)
+    table_context = classify_table_request(prompt)
 
     analysis_plan = {
         "goal": _goal_from_intent(classification, parsed_request),
@@ -154,6 +156,18 @@ def build_request_intelligence(
             ),
         },
         "proximity_context": proximity_context,
+        "table_context": {
+            "table_requested": bool(table_context.get("table_requested")),
+            "table_intents": table_context.get("intents") or [],
+            "primary_table_intent": table_context.get("primary_intent"),
+            "matched_keywords": table_context.get("matched_keywords") or [],
+            "map_and_table": bool(table_context.get("map_and_table")),
+            "recommended_workflow": (
+                "Use the Tables page for bounded returnGeometry=false previews and local CSV/JSON exports."
+                if table_context.get("table_requested")
+                else None
+            ),
+        },
     }
     request_intelligence["reasoning_summary"] = build_reasoning_summary(
         request_intelligence,

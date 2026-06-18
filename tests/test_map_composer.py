@@ -68,6 +68,38 @@ def selected_parcel_geojson(path: Path) -> None:
     )
 
 
+def test_composer_table_prompt_hands_off_to_table_center(monkeypatch, tmp_path):
+    table_recipe = {
+        "table_request_id": "table_test",
+        "table_title": "Parcel Table",
+        "raw_prompt": "Give me a table of parcels in Concord.",
+        "table_intent": "parcel_table",
+        "source_layers": [{"layer_key": "tax_parcels", "layer_name": "Tax Parcels", "returnGeometry": False}],
+        "selected_fields": [{"layer_key": "tax_parcels", "name": "PIN14", "alias": "PIN14"}],
+        "estimated_count": 12,
+        "export_ready": True,
+        "safety_status": "export_ready",
+        "missing_data_needed": [],
+        "warnings": [],
+        "query_options": {"returnGeometry": False},
+    }
+    monkeypatch.setattr("app.map_composer._session_root", lambda: tmp_path / "composer_sessions")
+    monkeypatch.setattr("app.map_composer.plan_table_query", lambda prompt: table_recipe)
+    monkeypatch.setattr(
+        "app.map_composer.preview_table_rows",
+        lambda recipe: {"preview_rows": [{"PIN14": "preview_1"}], "returnGeometry": False},
+    )
+
+    result = generate_composer_draft("Give me a table of parcels in Concord.")
+
+    assert result["request_type"] == "table_request"
+    assert result["can_preview"] is False
+    assert result["next_action"] == "open_table_center"
+    assert result["table_context"]["table_recipe"]["query_options"]["returnGeometry"] is False
+    assert "Open Table Center" in result["preview_blockers"][0]
+    assert result["webmap_json"] is None
+
+
 def test_composer_unmatched_parcel_blocks_preview_without_countywide_extent(monkeypatch, tmp_path):
     monkeypatch.setattr("app.map_composer._session_root", lambda: tmp_path / "composer_sessions")
     monkeypatch.setattr(

@@ -32,6 +32,8 @@ DEFAULT_REPORT_SECTION_CONFIG = {
     "include_permit_summary": False,
     "include_planning_summary": False,
     "include_development_proxy_summary": False,
+    "include_table_preview": True,
+    "include_table_export_summary": True,
 }
 
 

@@ -32,6 +32,7 @@ from app.proximity_engine import init_proximity_tables
 from app.request_history import ensure_request_history_table
 from app.scenario_builder import init_planning_scenario_table
 from app.scenario_workbench import init_scenario_workbench_tables
+from app.table_query_engine import init_table_request_tables
 from app.version import AUTOMAP_VERSION
 
 
@@ -80,6 +81,8 @@ def get_system_status(schema_name: str | None = None) -> dict[str, Any]:
         "proximity_request_count": 0,
         "proximity_result_count": 0,
         "composer_map_state_count": 0,
+        "table_request_count": 0,
+        "table_export_count": 0,
         "packets": {
             "review_packet_count": len(list_review_packets()),
             "adjusted_packet_count": len(list_adjusted_packets()),
@@ -133,6 +136,7 @@ def get_system_status(schema_name: str | None = None) -> dict[str, Any]:
         ensure_parcel_field_map_table(schema)
         init_proximity_tables(schema)
         init_composer_map_state_table(schema)
+        init_table_request_tables(schema)
         engine = get_engine(settings)
         with engine.connect() as connection:
             catalog_table = _qualified(schema, "layer_catalog")
@@ -154,6 +158,8 @@ def get_system_status(schema_name: str | None = None) -> dict[str, Any]:
             proximity_requests_table = _qualified(schema, "proximity_requests")
             proximity_results_table = _qualified(schema, "proximity_results")
             composer_map_states_table = _qualified(schema, "composer_map_states")
+            table_requests_table = _qualified(schema, "table_requests")
+            table_export_history_table = _qualified(schema, "table_export_history")
             status["catalog"] = {
                 "layer_count": _scalar_count(connection, f"SELECT count(*) FROM {catalog_table};"),
                 "verified_layer_count": _scalar_count(connection, f"SELECT count(*) FROM {catalog_table} WHERE is_verified = true;"),
@@ -204,6 +210,8 @@ def get_system_status(schema_name: str | None = None) -> dict[str, Any]:
             status["proximity_request_count"] = _scalar_count(connection, f"SELECT count(*) FROM {proximity_requests_table};")
             status["proximity_result_count"] = _scalar_count(connection, f"SELECT count(*) FROM {proximity_results_table};")
             status["composer_map_state_count"] = _scalar_count(connection, f"SELECT count(*) FROM {composer_map_states_table};")
+            status["table_request_count"] = _scalar_count(connection, f"SELECT count(*) FROM {table_requests_table};")
+            status["table_export_count"] = _scalar_count(connection, f"SELECT count(*) FROM {table_export_history_table};")
     except (SQLAlchemyError, ValueError) as exc:
         status["errors"].append(str(exc))
 
@@ -244,6 +252,8 @@ def format_system_status(status: dict[str, Any]) -> str:
         f"Proximity requests: {status.get('proximity_request_count', 0)}",
         f"Proximity results: {status.get('proximity_result_count', 0)}",
         f"Composer map states: {status.get('composer_map_state_count', 0)}",
+        f"Table requests: {status.get('table_request_count', 0)}",
+        f"Table exports: {status.get('table_export_count', 0)}",
         f"Review packets: {packets['review_packet_count']}",
         f"Adjusted packets: {packets['adjusted_packet_count']}",
         f"Approved packets: {packets['approved_packet_count']}",

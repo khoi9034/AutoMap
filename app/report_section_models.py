@@ -84,6 +84,37 @@ def build_report_sections(
                 "items": stats,
             }
         )
+    table_context = state.get("table_context") or {}
+    table_recipe = table_context.get("table_recipe") if isinstance(table_context, dict) else {}
+    table_recipe = table_recipe if isinstance(table_recipe, dict) else {}
+    if options.get("include_table_preview") and table_context:
+        sections.append(
+            {
+                "section_key": "table_preview",
+                "title": "Table Preview",
+                "items": {
+                    "table_title": table_recipe.get("table_title"),
+                    "source_layers": table_recipe.get("source_layers") or [],
+                    "selected_fields": table_recipe.get("selected_fields") or [],
+                    "preview_rows": table_context.get("preview_rows") or table_recipe.get("preview_rows") or [],
+                    "returnGeometry": (table_recipe.get("query_options") or {}).get("returnGeometry"),
+                },
+            }
+        )
+    if options.get("include_table_export_summary") and table_context:
+        sections.append(
+            {
+                "section_key": "table_export_summary",
+                "title": "Table Export Summary",
+                "items": {
+                    "estimated_count": table_recipe.get("estimated_count"),
+                    "safety_status": table_recipe.get("safety_status"),
+                    "export_status": table_context.get("export_status"),
+                    "export_links": table_context.get("export_links") or [],
+                    "limitations": table_recipe.get("warnings") or [],
+                },
+            }
+        )
     if options["include_permit_summary"]:
         sections.append({"section_key": "permit_summary", "title": "Permit Summary", "items": stats.get("permit_summary")})
     if options["include_planning_summary"]:

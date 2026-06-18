@@ -33,6 +33,8 @@ from app.recipe_engine import PARCEL_NOT_MATCHED_WARNING, build_recipe
 from app.report_generator import generate_report
 from app.report_section_models import build_report_sections
 from app.report_statistics_builder import build_report_statistics
+from app.table_request_classifier import classify_table_request
+from app.table_query_engine import plan_table_query, preview_table_rows
 from app.review_packet_builder import (
     build_layer_review_table,
     build_review_summary,
@@ -702,6 +704,7 @@ def _build_composer_map_state(response: dict[str, Any], payload: dict[str, Any] 
         "route_summary": route_summary,
         "proximity_summary": proximity if isinstance(proximity, dict) else {},
         "parcel_context": response.get("parcel_context") or {},
+        "table_context": response.get("table_context") or (response.get("composer_map_state") or {}).get("table_context") or {},
         "warnings": response.get("warnings") or [],
         "missing_data": response.get("missing_data") or [],
         "reviewer_notes": (payload or {}).get("notes") or (response.get("composer_map_state") or {}).get("reviewer_notes") or "",
@@ -851,6 +854,46 @@ def generate_composer_draft(prompt: str) -> dict[str, Any]:
     session_folder = _session_path(session_id)
     session_folder.mkdir(parents=True, exist_ok=False)
 
+    table_classification = classify_table_request(prompt)
+    table_context: dict[str, Any] | None = None
+    if table_classification.get("table_requested"):
+        table_recipe = plan_table_query(prompt)
+        preview = preview_table_rows(table_recipe)
+        table_context = {
+            "table_requested": True,
+            "table_recipe": table_recipe,
+            "preview_rows": preview.get("preview_rows") or [],
+            "export_status": "export_ready" if table_recipe.get("export_ready") else "needs_refinement",
+            "export_links": [],
+            "warnings": table_recipe.get("warnings") or [],
+        }
+        if not table_classification.get("map_and_table"):
+            response = {
+                "composer_session_id": session_id,
+                "prompt": prompt,
+                "raw_prompt": prompt,
+                "map_title": table_recipe.get("table_title"),
+                "request_type": "table_request",
+                "recipe": None,
+                "webmap_json": None,
+                "preview_config": None,
+                "map_layout": None,
+                "selected_layers": [],
+                "warnings": table_recipe.get("warnings") or ["This looks like a table/data request."],
+                "missing_data": table_recipe.get("missing_data_needed") or [],
+                "can_preview": False,
+                "can_analyze": False,
+                "can_report": False,
+                "preview_blockers": ["This looks like a table/data request. Open Table Center to preview or export rows."],
+                "next_action": "open_table_center",
+                "table_context": table_context,
+                "draft_only": True,
+                "published": False,
+                "created_at": _utc_now(),
+            }
+            _save_session_payload(session_folder, response)
+            return response
+
     recipe = build_recipe(prompt)
     if _is_proximity_prompt(prompt):
         try:
@@ -885,6 +928,9 @@ def generate_composer_draft(prompt: str) -> dict[str, Any]:
         preview_config=preview_config,
         review_packet_path=review_packet_path,
     )
+    if table_context:
+        response["table_context"] = table_context
+        response["warnings"] = sorted({*[str(item) for item in response.get("warnings") or []], *[str(item) for item in table_context.get("warnings") or []]})
     response = _attach_composer_map_state(response, session_folder)
     _save_session_payload(session_folder, response)
     return response

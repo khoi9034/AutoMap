@@ -806,6 +806,49 @@ button {
   font-weight: 700;
 }
 
+.two-column-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.65fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.large-prompt-input {
+  width: 100%;
+  min-height: 140px;
+  margin: 12px 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  resize: vertical;
+  font: inherit;
+}
+
+.table-scroll {
+  overflow: auto;
+  max-width: 100%;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.data-table th,
+.data-table td {
+  border: 1px solid var(--line);
+  padding: 8px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.data-table th {
+  background: #f1f5f9;
+  color: #203a56;
+  font-weight: 900;
+}
+
 .stack-small {
   display: grid;
   gap: 6px;

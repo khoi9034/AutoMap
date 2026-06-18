@@ -110,6 +110,8 @@ export function ExportStep({
               ["include_proximity_summary", "Include proximity/distance summary"],
               ["include_parcel_summary", "Include parcel summary if available"],
               ["include_statistics", "Include statistics section"],
+              ["include_table_preview", "Include table preview if available"],
+              ["include_table_export_summary", "Include table export summary"],
               ["include_permit_summary", "Include permit stats when available"],
               ["include_planning_summary", "Include planning stats when available"],
               ["include_development_proxy_summary", "Include development proxy stats when available"],

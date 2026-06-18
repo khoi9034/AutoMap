@@ -37,6 +37,10 @@ import type {
   SelectedParcelGeometryResult,
   SourceDiscoveryResult,
   SystemStatus,
+  TableExportResponse,
+  TablePlanResponse,
+  TablePreviewResponse,
+  TableRecipe,
   WorkflowRunResponse,
 } from "@/types/automap";
 
@@ -161,7 +165,7 @@ export async function getStatusOrFallback(): Promise<SystemStatus> {
     return await getSystemStatus();
   } catch {
     return {
-      version: "4.5.0",
+      version: "4.6.0",
       database_connected: false,
       catalog: {},
       profiles: {},
@@ -684,6 +688,38 @@ export async function getExhibit(exhibitId: string): Promise<ExhibitPackage> {
 
 export async function getReports(): Promise<{ reports: ReportSummary[] }> {
   return apiFetch<{ reports: ReportSummary[] }>("/api/reports");
+}
+
+export async function planTableRequest(prompt: string): Promise<TablePlanResponse> {
+  return apiFetch<TablePlanResponse>("/api/tables/plan", {
+    method: "POST",
+    timeoutMs: 60000,
+    body: JSON.stringify({ prompt }),
+  });
+}
+
+export async function previewTableRequest(tableRecipe: TableRecipe): Promise<TablePreviewResponse> {
+  return apiFetch<TablePreviewResponse>("/api/tables/preview", {
+    method: "POST",
+    timeoutMs: 60000,
+    body: JSON.stringify({ table_recipe: tableRecipe }),
+  });
+}
+
+export async function exportTableRequest(tableRecipe: TableRecipe): Promise<TableExportResponse> {
+  return apiFetch<TableExportResponse>("/api/tables/export", {
+    method: "POST",
+    timeoutMs: 60000,
+    body: JSON.stringify({ table_recipe: tableRecipe }),
+  });
+}
+
+export async function listTableRequests(): Promise<{ table_requests: Array<Record<string, unknown>> }> {
+  return apiFetch<{ table_requests: Array<Record<string, unknown>> }>("/api/tables/requests");
+}
+
+export async function listTableExports(): Promise<{ table_exports: Array<Record<string, unknown>> }> {
+  return apiFetch<{ table_exports: Array<Record<string, unknown>> }>("/api/tables/exports");
 }
 
 export async function getReport(reportId: string): Promise<ReportDetail> {

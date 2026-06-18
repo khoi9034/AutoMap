@@ -2,11 +2,11 @@
 
 AutoMap converts plain-English county GIS map requests into structured map recipes using only approved GIS layers from a local layer catalog.
 
-Version: `4.5.0`
+Version: `4.6.0`
 
 ## Current Phase
 
-v4.5 Print/Report Uses Exact Composer Map State on top of enterprise UI layout cleanup, step-specific Map Composer layouts, enterprise centered scale bar and final map layout polish, county exhibit and staff report map layouts, enterprise cartography, road-following route drafts, semantic Map Composer symbols, real map composer preview rendering, derived GeoJSON overlays, the four-step composer, address-to-parcel resolver, proximity, real parcel lookup, parcel workspace, scenario workbench, planning scenario and suitability intelligence, development/transportation source intelligence, real source verification, data gap resolution, analysis summary reporting, and user-guided safe spatial analysis refinement.
+v4.6 Table Request Engine and Data Export Center on top of exact composer map state preservation, enterprise UI layout cleanup, step-specific Map Composer layouts, enterprise centered scale bar and final map layout polish, county exhibit and staff report map layouts, enterprise cartography, road-following route drafts, semantic Map Composer symbols, real map composer preview rendering, derived GeoJSON overlays, the four-step composer, address-to-parcel resolver, proximity, real parcel lookup, parcel workspace, scenario workbench, planning scenario and suitability intelligence, development/transportation source intelligence, real source verification, data gap resolution, analysis summary reporting, and user-guided safe spatial analysis refinement.
 
 This repository is intentionally independent. It does not connect to CFS or import CFS code. AutoMap uses its own local PostGIS database and trusted layer catalog.
 
@@ -62,6 +62,9 @@ AutoMap helps GIS and planning staff turn plain-English county map requests into
 - enterprise Map Composer scroll behavior where the desktop workbench fills the viewport, the map remains visible, and only the right-side control panel scrolls when needed
 - saved composer map state so print layouts, exhibit packages, and reports preserve the exact adjusted map title, extent, basemap, visible layers, opacity, order, symbology, legend, scale bar, north arrow, warnings, and notes
 - optional report/statistics sections that summarize available map metadata honestly and mark unresolved permit/planning/development data as unavailable instead of inventing counts
+- table/data request classification for parcel lists, permit tables, zoning records, historical tables, attribute tables, data exports, and combined map+table requests
+- bounded Table Center previews and local CSV/JSON/Markdown exports using verified catalog layers, selected real fields, count-first safety limits, and `returnGeometry=false`
+- historical table handling that can use verified legacy layers for requested years while keeping unresolved current permit gaps honest
 
 ## What AutoMap Does Not Do Yet
 
@@ -116,6 +119,7 @@ ArcGIS publishing and smoke testing remain dry-run by default unless a guarded C
 43. v4.3 step-specific map composer layouts
 44. v4.4 enterprise UI layout and scroll behavior cleanup
 45. v4.5 print/report uses exact composer map state
+46. v4.6 table request engine and export center
 
 ## Project Structure
 

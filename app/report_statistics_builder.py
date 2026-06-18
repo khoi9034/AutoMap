@@ -40,6 +40,9 @@ def build_report_statistics(map_state: dict[str, Any] | None) -> dict[str, Any]:
     missing_data = _as_list(state.get("missing_data"))
     proximity = state.get("proximity_summary") or {}
     parcel_context = state.get("parcel_context") or {}
+    table_context = state.get("table_context") or {}
+    table_recipe = table_context.get("table_recipe") if isinstance(table_context, dict) else {}
+    table_recipe = table_recipe if isinstance(table_recipe, dict) else {}
 
     buckets = {"official": 0, "proxy": 0, "reference": 0, "derived_local": 0}
     for layer in [*visible_layers, *derived_overlays]:
@@ -75,6 +78,17 @@ def build_report_statistics(map_state: dict[str, Any] | None) -> dict[str, Any]:
             or parcel_context.get("origin_match_status")
             or proximity.get("property_match_status"),
             "selected_parcel_count": parcel_context.get("matched_count") or parcel_context.get("selected_parcel_count"),
+        },
+        "table": {
+            "available": bool(table_context),
+            "title": table_recipe.get("table_title"),
+            "intent": table_recipe.get("table_intent"),
+            "estimated_count": table_recipe.get("estimated_count"),
+            "field_count": len(table_recipe.get("selected_fields") or []),
+            "source_layer_count": len(table_recipe.get("source_layers") or []),
+            "safety_status": table_recipe.get("safety_status"),
+            "export_status": table_context.get("export_status") if isinstance(table_context, dict) else None,
+            "returnGeometry": (table_recipe.get("query_options") or {}).get("returnGeometry"),
         },
         "permit_summary": {
             "available": False,

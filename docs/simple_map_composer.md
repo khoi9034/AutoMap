@@ -17,6 +17,8 @@ AutoMap v4.4 refines the desktop composer into a fixed workbench: the app shell 
 
 AutoMap v4.5 saves the exact composer map state before print/export. The saved state includes title, subtitle, extent, basemap, visible/hidden layers, opacity, order, route styling, symbols, legend, scale bar, north arrow, warnings, and reviewer notes.
 
+AutoMap v4.6 detects table/data prompts. Pure table requests are handed to `/tables` instead of forcing a map preview. Combined map+table prompts keep the map workflow and add a bounded table context section.
+
 ## Simple Adjustments
 
 Reviewers can adjust the map without editing YAML:
@@ -47,7 +49,7 @@ The composer can generate local draft exhibit/export links:
 
 These are draft review outputs, not official print maps. Exhibit packages are written under ignored `outputs/exhibits/` folders and include HTML, JSON, CSV, warning, and manifest files.
 
-The Print / Export step also lets reviewers choose report sections such as map summary, selected layer table, source notes, warnings, proximity summary, parcel summary, and safe statistics. Permit/planning/development statistics remain marked unavailable when verified bounded data is not present.
+The Print / Export step also lets reviewers choose report sections such as map summary, selected layer table, source notes, warnings, proximity summary, parcel summary, table preview/export summary, and safe statistics. Permit/planning/development statistics remain marked unavailable when verified bounded data is not present.
 
 ## Internal Workflow Tools
 

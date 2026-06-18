@@ -38,6 +38,8 @@ export type SystemStatus = {
   parcel_field_map_count?: number;
   proximity_request_count?: number;
   proximity_result_count?: number;
+  table_request_count?: number;
+  table_export_count?: number;
   packets?: {
     review_packet_count?: number;
     adjusted_packet_count?: number;
@@ -1040,6 +1042,65 @@ export type WorkflowRunResponse = {
   published?: boolean;
 };
 
+export type TableField = {
+  layer_key?: string;
+  name?: string;
+  alias?: string;
+  source?: string;
+};
+
+export type TableRecipe = {
+  table_request_id?: string;
+  table_title?: string;
+  raw_prompt?: string;
+  table_intent?: string;
+  source_layers?: Array<Record<string, JsonValue>>;
+  selected_fields?: TableField[];
+  filters?: Array<Record<string, JsonValue>>;
+  where_clauses?: Array<Record<string, JsonValue>>;
+  geography_filter?: string | null;
+  time_filter?: string | null;
+  historical_year?: number | null;
+  output_formats?: string[];
+  estimated_count?: number | null;
+  safety_status?: string;
+  missing_data_needed?: string[];
+  warnings?: string[];
+  preview_rows?: Array<Record<string, JsonValue>>;
+  export_ready?: boolean;
+  blocked_reasons?: string[];
+  refinement_suggestions?: string[];
+  query_options?: Record<string, JsonValue>;
+  classification?: Record<string, JsonValue>;
+};
+
+export type TablePlanResponse = {
+  table_recipe?: TableRecipe;
+  table_context?: Record<string, JsonValue>;
+};
+
+export type TablePreviewResponse = {
+  table_request_id?: string;
+  table_recipe?: TableRecipe;
+  preview_rows?: Array<Record<string, JsonValue>>;
+  rows?: Array<Record<string, JsonValue>>;
+  row_count?: number;
+  returnGeometry?: boolean;
+  query_options?: Record<string, JsonValue>;
+};
+
+export type TableExportResponse = TablePreviewResponse & {
+  export_id?: string;
+  export_ready?: boolean;
+  safety_status?: string;
+  blocked_reasons?: string[];
+  output_folder?: string;
+  files?: ReportFileLink[];
+  output_formats?: string[];
+  draft_only?: boolean;
+  published?: boolean;
+};
+
 export type ComposerLayerAdjustment = {
   layer_key?: string;
   title?: string;
@@ -1065,6 +1126,8 @@ export type ReportSectionConfig = {
   include_permit_summary?: boolean;
   include_planning_summary?: boolean;
   include_development_proxy_summary?: boolean;
+  include_table_preview?: boolean;
+  include_table_export_summary?: boolean;
 };
 
 export type ReportStatistics = {
@@ -1076,6 +1139,7 @@ export type ReportStatistics = {
   source_coverage_counts?: Record<string, number>;
   proximity?: Record<string, JsonValue>;
   parcel?: Record<string, JsonValue>;
+  table?: Record<string, JsonValue>;
   permit_summary?: Record<string, JsonValue>;
   planning_cases_summary?: Record<string, JsonValue>;
   development_proxy_summary?: Record<string, JsonValue>;
@@ -1104,6 +1168,14 @@ export type ComposerMapState = {
   route_summary?: Record<string, JsonValue>;
   proximity_summary?: ProximityResult | Record<string, JsonValue>;
   parcel_context?: ParcelContext | Record<string, JsonValue>;
+  table_context?: {
+    table_requested?: boolean;
+    table_recipe?: TableRecipe;
+    preview_rows?: Array<Record<string, JsonValue>>;
+    export_status?: string;
+    export_links?: ReportFileLink[];
+    warnings?: string[];
+  } | null;
   warnings?: string[];
   missing_data?: string[];
   reviewer_notes?: string;
@@ -1201,6 +1273,14 @@ export type ComposerResponse = {
   webmap_path?: string | null;
   composer_session_path?: string | null;
   applied_adjustments?: Record<string, JsonValue>;
+  table_context?: {
+    table_requested?: boolean;
+    table_recipe?: TableRecipe;
+    preview_rows?: Array<Record<string, JsonValue>>;
+    export_status?: string;
+    export_links?: ReportFileLink[];
+    warnings?: string[];
+  } | null;
   export?: ComposerExport | null;
   exhibit?: ExhibitPackage | null;
   report_sections?: Record<string, JsonValue> | null;

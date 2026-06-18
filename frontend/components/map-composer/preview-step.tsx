@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import { SharedMapRenderer } from "@/components/map-renderer/shared-map-renderer";
 import { StatusChip } from "@/components/status-chip";
 import type { ComposerResponse, ProximityResult } from "@/types/automap";
@@ -162,6 +164,28 @@ export function SelectedLayersAndWarnings({ response }: { response: ComposerResp
   );
 }
 
+function TableContextPanel({ response }: { response: ComposerResponse }) {
+  const tableContext = response.table_context;
+  const recipe = tableContext?.table_recipe;
+  if (!tableContext?.table_requested) return null;
+  return (
+    <section className="panel">
+      <p className="eyebrow">Table/data request</p>
+      <h3>{recipe?.table_title || "This looks like a table request"}</h3>
+      <p className="muted">
+        AutoMap planned a returnGeometry=false table workflow with {recipe?.selected_fields?.length || 0} fields and estimated{" "}
+        {recipe?.estimated_count ?? "unknown"} rows.
+      </p>
+      {tableContext.preview_rows?.length ? <p className="muted">Preview rows are available in Table Center.</p> : null}
+      <div className="button-row">
+        <Link className="button button-secondary" href={`/tables?prompt=${encodeURIComponent(response.raw_prompt || response.prompt || "")}`}>
+          Open Table Center
+        </Link>
+      </div>
+    </section>
+  );
+}
+
 export function PreviewStep({ loading, onGoToAdjust, onGoToExport, onGoToRequest, onRegenerate, previewPacketId, response }: PreviewStepProps) {
   if (!response) {
     return (
@@ -223,6 +247,7 @@ export function PreviewStep({ loading, onGoToAdjust, onGoToExport, onGoToRequest
           </div>
         </section>
         <ProximityResultSummary result={response.proximity_result} />
+        <TableContextPanel response={response} />
         <SelectedLayersAndWarnings response={response} />
       </aside>
     </section>
