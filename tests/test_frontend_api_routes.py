@@ -123,6 +123,7 @@ def test_frontend_workflow_api_routes_exist():
         "/api/composer/generate",
         "/api/composer/adjust",
         "/api/composer/export",
+        "/api/composer/{composer_session_id}/route-refine",
         "/api/composer/{composer_session_id}",
         "/api/tables/plan",
         "/api/tables/preview",

@@ -5,8 +5,10 @@ from __future__ import annotations
 from copy import deepcopy
 from datetime import UTC, datetime
 import json
+import logging
 from pathlib import Path
 import re
+import time
 from typing import Any
 from uuid import uuid4
 
@@ -51,6 +53,49 @@ COMBINED_FIRE_EMS_WARNING = (
 EMS_TARGET_REVIEW_WARNING = (
     "Nearest target name appears to be EMS-related; review before treating it as a fire station."
 )
+ROUTE_REFINEMENT_AVAILABLE_WARNING = "Road-following route can be refined separately."
+INITIAL_PROPERTY_RESOLUTION_SKIPPED_WARNING = (
+    "Address matched, but related parcel resolution was skipped for the initial composer preview."
+)
+LOGGER = logging.getLogger(__name__)
+_PROXIMITY_CACHE: dict[tuple[str, bool, bool], dict[str, Any]] = {}
+
+
+def _elapsed_ms(start: float) -> int:
+    return int((time.perf_counter() - start) * 1000)
+
+
+def _empty_proximity_timing(start: float | None = None) -> dict[str, Any]:
+    return {
+        "address_match_ms": 0,
+        "parcel_resolve_ms": 0,
+        "nearest_facility_ms": 0,
+        "route_generation_ms": 0,
+        "geojson_write_ms": 0,
+        "total_ms": _elapsed_ms(start) if start else 0,
+        "slow_steps": [],
+    }
+
+
+def _finish_proximity_timing(timing: dict[str, Any], start: float) -> dict[str, Any]:
+    timing["total_ms"] = _elapsed_ms(start)
+    timing["slow_steps"] = [
+        key
+        for key, value in timing.items()
+        if key != "total_ms" and key.endswith("_ms") and isinstance(value, (int, float)) and value >= 5000
+    ]
+    return timing
+
+
+def _with_proximity_timing(result: dict[str, Any], timing: dict[str, Any], start: float) -> dict[str, Any]:
+    result["proximity_timing"] = _finish_proximity_timing(timing, start)
+    LOGGER.info(
+        "proximity workflow timing status=%s target=%s timing=%s",
+        result.get("status"),
+        result.get("target_type"),
+        result["proximity_timing"],
+    )
+    return result
 
 
 def _requests_table(schema_name: str) -> str:
@@ -235,6 +280,60 @@ def get_proximity_result(proximity_result_id: str, schema_name: str = "automap")
     if row is None:
         raise ValueError(f"Proximity result not found: {proximity_result_id}")
     return _row_dict(row)
+
+
+def _cached_successful_result_for_prompt(prompt: str, schema_name: str = "automap") -> dict[str, Any] | None:
+    """Return the latest successful exact-prompt proximity result when its local line output still exists."""
+    init_proximity_tables(schema_name)
+    table = _results_table(schema_name)
+    engine = get_engine()
+    try:
+        with engine.connect() as connection:
+            row = connection.execute(
+                text(
+                    f"""
+                    SELECT result_json
+                    FROM {table}
+                    WHERE result_json->>'raw_prompt' = :prompt
+                      AND result_json->>'status' = 'ok'
+                    ORDER BY created_at DESC
+                    LIMIT 1;
+                    """
+                ),
+                {"prompt": prompt},
+            ).mappings().first()
+    except Exception:
+        return None
+    if not row:
+        return None
+    result = row.get("result_json") or {}
+    if isinstance(result, str):
+        try:
+            result = json.loads(result)
+        except json.JSONDecodeError:
+            return None
+    if not isinstance(result, dict):
+        return None
+    line_path = result.get("line_geojson_path") or result.get("straight_line_geojson_path") or result.get("route_line_geojson_path")
+    if line_path and not (repo_root() / str(line_path)).exists():
+        return None
+    cached = deepcopy(result)
+    cached["cache_hit"] = True
+    cached["cache_source"] = "database"
+    cached["proximity_timing"] = {
+        "address_match_ms": 0,
+        "parcel_resolve_ms": 0,
+        "nearest_facility_ms": 0,
+        "route_generation_ms": 0,
+        "geojson_write_ms": 0,
+        "total_ms": 0,
+        "slow_steps": [],
+        "cache_hit": True,
+    }
+    cached.setdefault("warnings", [])
+    if "Cached proximity result reused for this prompt." not in cached["warnings"]:
+        cached["warnings"].append("Cached proximity result reused for this prompt.")
+    return cached
 
 
 def validate_proximity_result(proximity_result_id: str, schema_name: str = "automap") -> dict[str, Any]:
@@ -499,6 +598,7 @@ def resolve_origin(
     schema_name: str = "automap",
     client: SpatialQueryClient | None = None,
     max_origins: int = DEFAULT_MAX_ORIGIN_FEATURES,
+    resolve_property: bool = True,
 ) -> dict[str, Any]:
     """Resolve an origin parcel/address with returnGeometry=false before geometry fetch."""
     warnings: list[str] = []
@@ -516,6 +616,16 @@ def resolve_origin(
         query_client = client or SpatialQueryClient(max_features=MAX_TARGET_CANDIDATES)
         address_result = resolve_address_point(address_value, client=query_client, schema_name=schema_name)
         if address_result.get("status") == "matched":
+            if not resolve_property:
+                return {
+                    **address_result,
+                    "property_match_status": "not_resolved",
+                    "candidate_matches": [],
+                    "warnings": [
+                        *(address_result.get("warnings") or []),
+                        INITIAL_PROPERTY_RESOLUTION_SKIPPED_WARNING,
+                    ],
+                }
             spatial_parcel_result: dict[str, Any] = {}
             try:
                 parcel_set = create_parcel_set(address_value, schema_name=schema_name)
@@ -1237,12 +1347,19 @@ def run_nearest_facility(
     client: SpatialQueryClient | None = None,
     layer_catalog: list[dict[str, Any]] | None = None,
     persist: bool = True,
+    allow_route_draft: bool = True,
+    resolve_property: bool = True,
 ) -> dict[str, Any]:
     """Execute a bounded nearest-facility or containment request."""
+    started_at = time.perf_counter()
+    timing = _empty_proximity_timing()
     target_type = normalize_target_type(target_type)
     prompt = raw_prompt or f"Nearest {target_type} from {origin_input}"
     query_client = client or SpatialQueryClient(max_features=MAX_TARGET_CANDIDATES)
-    origin = resolve_origin(origin_input, schema_name=schema_name, client=query_client)
+    origin_started = time.perf_counter()
+    origin = resolve_origin(origin_input, schema_name=schema_name, client=query_client, resolve_property=resolve_property)
+    timing["address_match_ms"] = _elapsed_ms(origin_started)
+    timing["parcel_resolve_ms"] = 0 if not resolve_property else timing["address_match_ms"]
     request = ProximityRequest(
         proximity_request_id=f"prox_req_{uuid4().hex[:12]}",
         raw_prompt=prompt,
@@ -1272,6 +1389,7 @@ def run_nearest_facility(
             "downloaded_countywide": False,
             "published": False,
         }
+        result = _with_proximity_timing(result, timing, started_at)
         return _record_result(result, schema_name) if persist else result
 
     target_layer = find_target_layer(target_type, layer_catalog=layer_catalog, schema_name=schema_name)
@@ -1291,8 +1409,10 @@ def run_nearest_facility(
             "downloaded_countywide": False,
             "published": False,
         }
+        result = _with_proximity_timing(result, timing, started_at)
         return _record_result(result, schema_name) if persist else result
 
+    nearest_started = time.perf_counter()
     candidates = _query_target_candidates(origin["origin_feature"], target_layer, target_type, client=query_client)
     features = candidates.get("features") or []
     warnings.extend(candidates.get("warnings") or [])
@@ -1301,6 +1421,7 @@ def run_nearest_facility(
     features = classification.get("features") or features
     target_type = classification.get("target_type") or target_type
     warnings.extend(classification.get("warnings") or [])
+    timing["nearest_facility_ms"] = _elapsed_ms(nearest_started)
     if not features:
         result = {
             "proximity_result_id": f"prox_result_{uuid4().hex[:12]}",
@@ -1321,6 +1442,7 @@ def run_nearest_facility(
             "downloaded_countywide": False,
             "published": False,
         }
+        result = _with_proximity_timing(result, timing, started_at)
         return _record_result(result, schema_name) if persist else result
 
     if target_type.startswith("containing_"):
@@ -1343,7 +1465,9 @@ def run_nearest_facility(
         },
     )
     route_draft = None
-    if not target_type.startswith("containing_"):
+    route_generation_started = time.perf_counter()
+    route_refinement_available = False
+    if not target_type.startswith("containing_") and allow_route_draft:
         route_draft = build_road_following_draft(
             origin["origin_feature"],
             nearest["feature"],
@@ -1354,6 +1478,11 @@ def run_nearest_facility(
             schema_name=schema_name,
         )
         warnings.extend(warning for warning in route_draft.warnings if warning not in warnings)
+    elif not target_type.startswith("containing_"):
+        route_refinement_available = True
+        if ROUTE_REFINEMENT_AVAILABLE_WARNING not in warnings:
+            warnings.append(ROUTE_REFINEMENT_AVAILABLE_WARNING)
+    timing["route_generation_ms"] = _elapsed_ms(route_generation_started)
     result_geojson = build_proximity_result_geojson(origin["origin_feature"], nearest["feature"], line_feature)
     output_folder = _safe_output_folder(prompt)
     output_path = repo_root() / output_folder
@@ -1383,6 +1512,8 @@ def run_nearest_facility(
         "route_status": route_draft.route_mode if route_draft else "straight_line_supported",
         "route_label": route_draft.route_label if route_draft else "Straight-line reference",
         "route_warning": route_draft.route_warning if route_draft else STRAIGHT_LINE_FALLBACK_WARNING,
+        "route_refinement_available": route_refinement_available,
+        "route_refinement_status": "available" if route_refinement_available else ("attempted" if route_draft else "not_applicable"),
         "road_feature_count": route_draft.road_feature_count if route_draft else None,
         "route_metadata": route_draft.metadata if route_draft else {},
         "status": "ok",
@@ -1406,8 +1537,11 @@ def run_nearest_facility(
     if route_draft:
         result["_route_geojson"] = route_draft.route_geojson
         result["_straight_line_geojson"] = route_draft.straight_line_geojson
+    geojson_started = time.perf_counter()
     _write_geojson_output(result, output_folder, "proximity_result.geojson", result_geojson, key_prefix="proximity_result")
     result = _write_line_output(result, output_folder, {"type": "FeatureCollection", "features": [line_feature]})
+    timing["geojson_write_ms"] = _elapsed_ms(geojson_started)
+    result = _with_proximity_timing(result, timing, started_at)
     return _record_result(result, schema_name) if persist else result
 
 
@@ -1418,8 +1552,33 @@ def run_proximity_request(
     client: SpatialQueryClient | None = None,
     layer_catalog: list[dict[str, Any]] | None = None,
     persist: bool = True,
+    allow_route_draft: bool = True,
+    resolve_property: bool = True,
 ) -> dict[str, Any]:
     """Run a prompt-driven proximity request."""
+    cache_key = (prompt.strip().lower(), bool(allow_route_draft), bool(resolve_property))
+    if client is None and layer_catalog is None and cache_key in _PROXIMITY_CACHE:
+        cached = deepcopy(_PROXIMITY_CACHE[cache_key])
+        cached["cache_hit"] = True
+        cached["proximity_timing"] = {
+            "address_match_ms": 0,
+            "parcel_resolve_ms": 0,
+            "nearest_facility_ms": 0,
+            "route_generation_ms": 0,
+            "geojson_write_ms": 0,
+            "total_ms": 0,
+            "slow_steps": [],
+            "cache_hit": True,
+        }
+        cached.setdefault("warnings", [])
+        if "Cached proximity result reused for this prompt." not in cached["warnings"]:
+            cached["warnings"].append("Cached proximity result reused for this prompt.")
+        return cached
+    if client is None and layer_catalog is None and persist and not allow_route_draft:
+        cached = _cached_successful_result_for_prompt(prompt, schema_name=schema_name)
+        if cached:
+            _PROXIMITY_CACHE[cache_key] = deepcopy(cached)
+            return cached
     classification = classify_proximity_request(prompt)
     parts = extract_origin_and_destination(prompt)
     target_type = classification["target_type"]
@@ -1432,7 +1591,7 @@ def run_proximity_request(
             client=client,
             persist=persist,
         )
-    return run_nearest_facility(
+    result = run_nearest_facility(
         parts.get("origin_input") or prompt,
         target_type=target_type,
         raw_prompt=prompt,
@@ -1440,7 +1599,12 @@ def run_proximity_request(
         client=client,
         layer_catalog=layer_catalog,
         persist=persist,
+        allow_route_draft=allow_route_draft,
+        resolve_property=resolve_property,
     )
+    if client is None and layer_catalog is None and result.get("status") == "ok":
+        _PROXIMITY_CACHE[cache_key] = deepcopy(result)
+    return result
 
 
 def run_route_draft(

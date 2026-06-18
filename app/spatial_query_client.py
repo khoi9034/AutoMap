@@ -192,9 +192,16 @@ def _chunked(values: list[Any], size: int) -> list[list[Any]]:
 class SpatialQueryClient:
     """Small bounded client for ArcGIS REST analysis queries."""
 
-    def __init__(self, *, max_features: int = DEFAULT_MAX_FEATURES, hard_max_features: int = HARD_MAX_FEATURES) -> None:
+    def __init__(
+        self,
+        *,
+        max_features: int = DEFAULT_MAX_FEATURES,
+        hard_max_features: int = HARD_MAX_FEATURES,
+        timeout: int = 8,
+    ) -> None:
         self.max_features = _bounded_limit(max_features, hard_max=hard_max_features)
         self.hard_max_features = hard_max_features
+        self.timeout = max(1, min(int(timeout), 30))
 
     def get_layer_metadata(self, layer_url: str) -> dict[str, Any]:
         """Return layer metadata without feature geometry."""
@@ -221,7 +228,7 @@ class SpatialQueryClient:
             "inSR": 4326 if geometry else None,
             "spatialRel": spatial_rel,
         }
-        data, request_metadata = _fetch_layer_query(layer_url, params, timeout=60)
+        data, request_metadata = _fetch_layer_query(layer_url, params, timeout=self.timeout)
         count = data.get("count")
         if not isinstance(count, int):
             raise SpatialQueryError("Count query response did not include an integer count.")
@@ -254,7 +261,7 @@ class SpatialQueryClient:
             "inSR": 4326 if geometry else None,
             "spatialRel": spatial_rel,
         }
-        data, request_metadata = _fetch_layer_query(layer_url, params, timeout=60)
+        data, request_metadata = _fetch_layer_query(layer_url, params, timeout=self.timeout)
         object_ids = data.get("objectIds") or []
         if not isinstance(object_ids, list):
             raise SpatialQueryError("Object ID query response did not include objectIds.")
@@ -305,7 +312,7 @@ class SpatialQueryClient:
                 "returnGeometry": "true" if return_geometry else "false",
                 "outSR": 4326 if return_geometry else None,
             }
-            data, metadata = _fetch_layer_query(layer_url, params, timeout=60)
+            data, metadata = _fetch_layer_query(layer_url, params, timeout=self.timeout)
             methods.append(metadata["request_method"])
             geometry_type = geometry_type or data.get("geometryType")
             all_features.extend(data.get("features") or [])
@@ -381,7 +388,7 @@ class SpatialQueryClient:
         fallback_warning = None
         request_metadata: dict[str, Any]
         try:
-            data, request_metadata = _fetch_layer_query(layer_url, params, timeout=60)
+            data, request_metadata = _fetch_layer_query(layer_url, params, timeout=self.timeout)
         except SpatialQueryError as exc:
             fallback_warning = str(exc)
             id_result = self.query_object_ids(
@@ -439,7 +446,7 @@ class SpatialQueryClient:
             "orderByFields": field_name,
             "resultRecordCount": min(self.max_features, 500),
         }
-        data, request_metadata = _fetch_layer_query(layer_url, params)
+        data, request_metadata = _fetch_layer_query(layer_url, params, timeout=self.timeout)
         values = []
         for feature in data.get("features") or []:
             attributes = feature.get("attributes") or {}
@@ -473,7 +480,7 @@ class SpatialQueryClient:
             "returnGeometry": "false",
             "resultRecordCount": row_limit,
         }
-        data, request_metadata = _fetch_layer_query(layer_url, params, timeout=60)
+        data, request_metadata = _fetch_layer_query(layer_url, params, timeout=self.timeout)
         rows: list[dict[str, Any]] = []
         features = data.get("features") or []
         for feature in features[:row_limit]:

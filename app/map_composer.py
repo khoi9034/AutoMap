@@ -6,7 +6,9 @@ from copy import deepcopy
 from datetime import UTC, datetime
 import csv
 import json
+import logging
 from pathlib import Path
+import time
 from typing import Any
 from uuid import uuid4
 
@@ -47,6 +49,64 @@ from app.proximity_engine import build_proximity_context, run_proximity_request
 
 
 COMPOSER_ROOT = Path("outputs/composer_sessions")
+LOGGER = logging.getLogger(__name__)
+
+COMPOSER_TIMING_KEYS = [
+    "parse_ms",
+    "intelligence_ms",
+    "recipe_ms",
+    "address_match_ms",
+    "parcel_resolve_ms",
+    "nearest_facility_ms",
+    "route_mode_ms",
+    "route_generation_ms",
+    "geojson_write_ms",
+    "preview_config_ms",
+    "review_packet_ms",
+    "composer_state_ms",
+]
+
+
+def _elapsed_ms(start: float) -> int:
+    return int((time.perf_counter() - start) * 1000)
+
+
+def _new_composer_timing() -> dict[str, Any]:
+    return {key: 0 for key in COMPOSER_TIMING_KEYS}
+
+
+def _finalize_composer_timing(timing: dict[str, Any], started_at: float) -> dict[str, Any]:
+    for key in COMPOSER_TIMING_KEYS:
+        timing.setdefault(key, 0)
+    timing["total_ms"] = _elapsed_ms(started_at)
+    timing["slow_steps"] = [
+        key
+        for key, value in timing.items()
+        if key != "total_ms" and key.endswith("_ms") and isinstance(value, (int, float)) and value >= 5000
+    ]
+    return timing
+
+
+def _merge_proximity_timing(timing: dict[str, Any], proximity_result: dict[str, Any] | None) -> None:
+    proximity_timing = (proximity_result or {}).get("proximity_timing") or {}
+    for source_key, target_key in [
+        ("address_match_ms", "address_match_ms"),
+        ("parcel_resolve_ms", "parcel_resolve_ms"),
+        ("nearest_facility_ms", "nearest_facility_ms"),
+        ("route_generation_ms", "route_generation_ms"),
+        ("geojson_write_ms", "geojson_write_ms"),
+    ]:
+        value = proximity_timing.get(source_key)
+        if isinstance(value, (int, float)):
+            timing[target_key] = int(value)
+
+
+def _attach_timing(response: dict[str, Any], timing: dict[str, Any], started_at: float) -> dict[str, Any]:
+    finalized = _finalize_composer_timing(timing, started_at)
+    response["composer_timing"] = finalized
+    response.setdefault("debug_details", {})["composer_timing"] = finalized
+    LOGGER.info("composer generate timing session=%s timing=%s", response.get("composer_session_id"), finalized)
+    return response
 
 
 def _utc_now() -> str:
@@ -380,6 +440,8 @@ def _apply_proximity_result_to_recipe(recipe: dict[str, Any], prompt: str, resul
         "route_status": result.get("route_status"),
         "route_label": result.get("route_label"),
         "route_warning": result.get("route_warning"),
+        "route_refinement_available": bool(result.get("route_refinement_available")),
+        "route_refinement_status": result.get("route_refinement_status"),
     }
     if result.get("derived_overlays"):
         recipe["derived_overlays"] = result["derived_overlays"]
@@ -472,6 +534,8 @@ def _augment_preview_config(preview_config: dict[str, Any] | None, recipe: dict[
             "route_mode": proximity_result.get("route_mode"),
             "route_label": proximity_result.get("route_label"),
             "route_warning": proximity_result.get("route_warning"),
+            "route_refinement_available": proximity_result.get("route_refinement_available"),
+            "route_refinement_status": proximity_result.get("route_refinement_status"),
         }
         config["parcel_resolution_summary"] = {
             "property_match_status": proximity_result.get("property_match_status"),
@@ -780,6 +844,8 @@ def _base_session_response(
         "origin_candidates": origin_context.get("candidate_matches") or parcel_context.get("candidate_matches") or [],
         "related_parcel": origin_context.get("related_parcel"),
         "proximity_result": proximity_result,
+        "route_refinement_available": bool((proximity_result or {}).get("route_refinement_available")),
+        "route_refinement_status": (proximity_result or {}).get("route_refinement_status"),
         "recipe": recipe,
         "webmap_json": webmap_json,
         "preview_config": preview_config,
@@ -850,15 +916,21 @@ def _write_session_files(session_folder: Path, recipe: dict[str, Any], webmap_js
 
 def generate_composer_draft(prompt: str) -> dict[str, Any]:
     """Generate one clean composer response without running analysis or publishing."""
+    started_at = time.perf_counter()
+    timing = _new_composer_timing()
     session_id = f"composer_{uuid4().hex[:12]}"
     session_folder = _session_path(session_id)
     session_folder.mkdir(parents=True, exist_ok=False)
 
+    parse_started = time.perf_counter()
     table_classification = classify_table_request(prompt)
+    timing["parse_ms"] = _elapsed_ms(parse_started)
     table_context: dict[str, Any] | None = None
     if table_classification.get("table_requested"):
+        table_started = time.perf_counter()
         table_recipe = plan_table_query(prompt)
         preview = preview_table_rows(table_recipe)
+        timing["intelligence_ms"] = _elapsed_ms(table_started)
         table_context = {
             "table_requested": True,
             "table_recipe": table_recipe,
@@ -891,13 +963,23 @@ def generate_composer_draft(prompt: str) -> dict[str, Any]:
                 "published": False,
                 "created_at": _utc_now(),
             }
+            response = _attach_timing(response, timing, started_at)
             _save_session_payload(session_folder, response)
             return response
 
+    recipe_started = time.perf_counter()
     recipe = build_recipe(prompt)
+    timing["recipe_ms"] = _elapsed_ms(recipe_started)
     if _is_proximity_prompt(prompt):
         try:
-            proximity_result = run_proximity_request(prompt)
+            proximity_started = time.perf_counter()
+            proximity_result = run_proximity_request(
+                prompt,
+                allow_route_draft=False,
+                resolve_property=False,
+            )
+            timing["nearest_facility_ms"] = _elapsed_ms(proximity_started)
+            _merge_proximity_timing(timing, proximity_result)
         except Exception as exc:
             proximity_result = {
                 "status": "needs_review",
@@ -909,6 +991,7 @@ def generate_composer_draft(prompt: str) -> dict[str, Any]:
             }
         _apply_proximity_result_to_recipe(recipe, prompt, proximity_result)
     recipe["map_title"] = generate_map_title(prompt, recipe=recipe, proximity_result=recipe.get("proximity_result"))
+    preview_started = time.perf_counter()
     webmap_json = build_webmap_json(recipe)
     _write_session_files(session_folder, recipe, webmap_json)
     blockers = _preview_blockers(recipe)
@@ -916,8 +999,11 @@ def generate_composer_draft(prompt: str) -> dict[str, Any]:
 
     review_packet_path: Path | None = None
     if can_preview:
+        review_started = time.perf_counter()
         review_packet_path = save_review_packet(prompt, recipe, webmap_json)
+        timing["review_packet_ms"] = _elapsed_ms(review_started)
     preview_config = _augment_preview_config(_preview_config_for(review_packet_path or session_folder, can_preview), recipe, webmap_json)
+    timing["preview_config_ms"] = _elapsed_ms(preview_started)
 
     response = _base_session_response(
         session_id=session_id,
@@ -931,7 +1017,84 @@ def generate_composer_draft(prompt: str) -> dict[str, Any]:
     if table_context:
         response["table_context"] = table_context
         response["warnings"] = sorted({*[str(item) for item in response.get("warnings") or []], *[str(item) for item in table_context.get("warnings") or []]})
+    state_started = time.perf_counter()
     response = _attach_composer_map_state(response, session_folder)
+    timing["composer_state_ms"] = _elapsed_ms(state_started)
+    response = _attach_timing(response, timing, started_at)
+    _save_session_payload(session_folder, response)
+    return response
+
+
+def refine_composer_route(session_id: str) -> dict[str, Any]:
+    """Attempt a slower road-following route after the initial composer preview is already available."""
+    started_at = time.perf_counter()
+    timing = _new_composer_timing()
+    session = get_composer_session(session_id)
+    session_folder = _session_path(session_id)
+    prompt = str(session.get("raw_prompt") or session.get("prompt") or "").strip()
+    if not prompt or not _is_proximity_prompt(prompt):
+        raise ValueError("Route refinement requires a saved proximity composer session.")
+
+    recipe = deepcopy(session.get("recipe") or {})
+    if not recipe:
+        recipe_started = time.perf_counter()
+        recipe = build_recipe(prompt)
+        timing["recipe_ms"] = _elapsed_ms(recipe_started)
+
+    try:
+        proximity_started = time.perf_counter()
+        proximity_result = run_proximity_request(
+            prompt,
+            allow_route_draft=True,
+            resolve_property=False,
+        )
+        timing["nearest_facility_ms"] = _elapsed_ms(proximity_started)
+        _merge_proximity_timing(timing, proximity_result)
+    except Exception as exc:
+        previous_result = recipe.get("proximity_result") or {}
+        proximity_result = {
+            **previous_result,
+            "status": previous_result.get("status") or "needs_review",
+            "raw_prompt": prompt,
+            "warnings": [
+                *(previous_result.get("warnings") or []),
+                f"Road-following route refinement could not complete safely: {exc}",
+            ],
+            "route_refinement_available": True,
+            "route_refinement_status": "failed",
+            "published": False,
+        }
+
+    _apply_proximity_result_to_recipe(recipe, prompt, proximity_result)
+    recipe["map_title"] = generate_map_title(prompt, recipe=recipe, proximity_result=recipe.get("proximity_result"))
+    preview_started = time.perf_counter()
+    webmap_json = build_webmap_json(recipe)
+    _write_session_files(session_folder, recipe, webmap_json)
+    blockers = _preview_blockers(recipe)
+    can_preview = _can_preview(recipe, webmap_json) and not blockers
+    review_packet_path: Path | None = None
+    if can_preview:
+        review_started = time.perf_counter()
+        review_packet_path = save_review_packet(prompt, recipe, webmap_json)
+        timing["review_packet_ms"] = _elapsed_ms(review_started)
+    preview_config = _augment_preview_config(_preview_config_for(review_packet_path or session_folder, can_preview), recipe, webmap_json)
+    timing["preview_config_ms"] = _elapsed_ms(preview_started)
+
+    response = _base_session_response(
+        session_id=session_id,
+        raw_prompt=prompt,
+        session_folder=session_folder,
+        recipe=recipe,
+        webmap_json=webmap_json,
+        preview_config=preview_config,
+        review_packet_path=review_packet_path,
+    )
+    response["route_refinement_attempted"] = True
+    response["route_refinement_status"] = proximity_result.get("route_refinement_status") or proximity_result.get("route_status")
+    state_started = time.perf_counter()
+    response = _attach_composer_map_state(response, session_folder)
+    timing["composer_state_ms"] = _elapsed_ms(state_started)
+    response = _attach_timing(response, timing, started_at)
     _save_session_payload(session_folder, response)
     return response
 

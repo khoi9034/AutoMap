@@ -14,8 +14,10 @@ type PreviewStepProps = {
   onGoToExport: () => void;
   onGoToRequest: () => void;
   onRegenerate: () => void;
+  onRouteRefine?: () => void;
   previewPacketId: string;
   response: ComposerResponse | null;
+  routeRefineLoading?: boolean;
 };
 
 export function PreviewBlocker({ response, onGoToRequest }: { response: ComposerResponse; onGoToRequest: () => void }) {
@@ -75,7 +77,15 @@ export function PreviewBlocker({ response, onGoToRequest }: { response: Composer
   );
 }
 
-export function ProximityResultSummary({ result }: { result?: ProximityResult | null }) {
+export function ProximityResultSummary({
+  result,
+  onRouteRefine,
+  routeRefineLoading = false,
+}: {
+  result?: ProximityResult | null;
+  onRouteRefine?: () => void;
+  routeRefineLoading?: boolean;
+}) {
   if (!result) return null;
   const targetKind =
     result.target_type === "nearest_fire_ems_station" || result.target_classification === "mixed_fire_ems"
@@ -122,6 +132,17 @@ export function ProximityResultSummary({ result }: { result?: ProximityResult | 
       </div>
       {result.property_match_status === "not_resolved" ? (
         <p className="muted">Address matched, but related parcel was not resolved from verified fields.</p>
+      ) : null}
+      {result.route_refinement_available ? (
+        <div className="definition-box">
+          <strong>Road-following route refinement available</strong>
+          <p>The draft returned quickly with a straight-line reference. AutoMap can try a bounded road-following draft separately.</p>
+          {onRouteRefine ? (
+            <button className="button button-secondary" type="button" onClick={onRouteRefine} disabled={routeRefineLoading}>
+              {routeRefineLoading ? "Trying Road-Following Route..." : "Try Road-Following Route"}
+            </button>
+          ) : null}
+        </div>
       ) : null}
     </section>
   );
@@ -186,7 +207,17 @@ function TableContextPanel({ response }: { response: ComposerResponse }) {
   );
 }
 
-export function PreviewStep({ loading, onGoToAdjust, onGoToExport, onGoToRequest, onRegenerate, previewPacketId, response }: PreviewStepProps) {
+export function PreviewStep({
+  loading,
+  onGoToAdjust,
+  onGoToExport,
+  onGoToRequest,
+  onRegenerate,
+  onRouteRefine,
+  previewPacketId,
+  response,
+  routeRefineLoading = false,
+}: PreviewStepProps) {
   if (!response) {
     return (
       <section className="panel empty-state">
@@ -246,7 +277,7 @@ export function PreviewStep({ loading, onGoToAdjust, onGoToExport, onGoToRequest
             </button>
           </div>
         </section>
-        <ProximityResultSummary result={response.proximity_result} />
+        <ProximityResultSummary result={response.proximity_result} onRouteRefine={onRouteRefine} routeRefineLoading={routeRefineLoading} />
         <TableContextPanel response={response} />
         <SelectedLayersAndWarnings response={response} />
       </aside>

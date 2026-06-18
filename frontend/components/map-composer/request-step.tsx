@@ -33,7 +33,7 @@ export function RequestStep({ error, loading = false, onGenerate, prompt, setPro
         <button className="button composer-generate-button" type="button" onClick={onGenerate} disabled={loading || !prompt.trim()}>
           {loading ? "Generating Draft Map..." : "Generate Draft Map"}
         </button>
-        {loading ? <p className="muted">AutoMap is checking catalog layers, origin matching, and preview readiness...</p> : null}
+        {loading ? <p className="muted">Matching address and nearest facility, then preparing the fastest safe draft preview...</p> : null}
         {error ? <p className="error-text">{error}</p> : null}
         <ToastMessage toast={toast || null} />
       </div>

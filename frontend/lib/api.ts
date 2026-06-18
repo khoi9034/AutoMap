@@ -643,7 +643,7 @@ export async function runWorkflow(prompt: string): Promise<WorkflowRunResponse> 
 export async function generateComposerDraft(prompt: string): Promise<ComposerResponse> {
   return apiFetch<ComposerResponse>("/api/composer/generate", {
     method: "POST",
-    timeoutMs: 60000,
+    timeoutMs: 90000,
     body: JSON.stringify({ prompt }),
   });
 }
@@ -657,6 +657,14 @@ export async function adjustComposerDraft(payload: ComposerAdjustPayload): Promi
     method: "POST",
     timeoutMs: 60000,
     body: JSON.stringify(payload),
+  });
+}
+
+export async function refineComposerRoute(composerSessionId: string): Promise<ComposerResponse> {
+  return apiFetch<ComposerResponse>(`/api/composer/${encodeURIComponent(composerSessionId)}/route-refine`, {
+    method: "POST",
+    timeoutMs: 90000,
+    body: JSON.stringify({}),
   });
 }
 

@@ -131,7 +131,7 @@ def test_composer_address_proximity_unmatched_says_address_not_parcel(monkeypatc
     )
     monkeypatch.setattr(
         "app.map_composer.run_proximity_request",
-        lambda prompt: {
+        lambda prompt, **kwargs: {
             "status": "needs_review",
             "raw_prompt": prompt,
             "origin_input": "793 bartram ave",
@@ -186,7 +186,7 @@ def test_composer_address_proximity_matched_adds_line_output(monkeypatch, tmp_pa
     monkeypatch.setattr("app.map_composer._preview_config_for", lambda path, can_preview: {"operational_layers": []})
     monkeypatch.setattr(
         "app.map_composer.run_proximity_request",
-        lambda prompt: {
+        lambda prompt, **kwargs: {
             "status": "ok",
             "raw_prompt": prompt,
             "origin_input": "793 bartram ave",
@@ -234,6 +234,84 @@ def test_composer_address_proximity_matched_adds_line_output(monkeypatch, tmp_pa
     assert result["report_statistics"]["proximity"]["distance"]["value"] == 1.25
 
 
+def test_composer_address_proximity_uses_fast_initial_route_mode(monkeypatch, tmp_path):
+    prompt = "make a map of my address 793 bartram ave and include nearest line to the nearest fire station"
+    captured_kwargs = {}
+    line_path = tmp_path / "proximity_line.geojson"
+    line_path.write_text(
+        json.dumps(
+            {
+                "type": "FeatureCollection",
+                "features": [
+                    {
+                        "type": "Feature",
+                        "properties": {"label": "Straight-line distance"},
+                        "geometry": {"type": "LineString", "coordinates": [[-80.6, 35.4], [-80.58, 35.42]]},
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    packet_path = tmp_path / "review_packets" / "packet"
+    packet_path.mkdir(parents=True)
+    monkeypatch.setattr("app.map_composer._session_root", lambda: tmp_path / "composer_sessions")
+    monkeypatch.setattr(
+        "app.map_composer.build_recipe",
+        lambda prompt: build_recipe(prompt, sample_catalog(), persist_data_gaps=False),
+    )
+    monkeypatch.setattr("app.map_composer.save_review_packet", lambda prompt, recipe, webmap: packet_path)
+    monkeypatch.setattr("app.map_composer._preview_config_for", lambda path, can_preview: {"operational_layers": []})
+
+    def fake_proximity(prompt, **kwargs):
+        captured_kwargs.update(kwargs)
+        return {
+            "status": "ok",
+            "raw_prompt": prompt,
+            "origin_input": "793 bartram ave",
+            "origin_type": "address",
+            "property_match_status": "not_resolved",
+            "target_type": "nearest_fire_station",
+            "target_name": "Fire Station 1",
+            "distance_value": 1.25,
+            "distance_unit": "miles",
+            "line_geojson_path": str(line_path),
+            "proximity_result_id": "prox_result_test",
+            "target_layer": {
+                "layer_key": "fire_stations",
+                "layer_name": "Fire and EMS Stations",
+                "category": "public_facilities",
+                "layer_url": "https://example.test/Fire/0",
+            },
+            "derived_layer": {"layer_key": "derived_proximity_line_test"},
+            "route_mode": "straight_line_reference",
+            "route_refinement_available": True,
+            "route_refinement_status": "available",
+            "proximity_timing": {
+                "address_match_ms": 12,
+                "parcel_resolve_ms": 0,
+                "nearest_facility_ms": 34,
+                "route_generation_ms": 0,
+                "geojson_write_ms": 7,
+            },
+            "warnings": ["Road-following route can be refined separately."],
+            "published": False,
+        }
+
+    monkeypatch.setattr("app.map_composer.run_proximity_request", fake_proximity)
+
+    result = generate_composer_draft(prompt)
+
+    assert captured_kwargs["allow_route_draft"] is False
+    assert captured_kwargs["resolve_property"] is False
+    assert result["can_preview"] is True
+    assert result["proximity_result"]["route_refinement_available"] is True
+    assert result["route_refinement_available"] is True
+    assert result["composer_timing"]["address_match_ms"] == 12
+    assert result["composer_timing"]["geojson_write_ms"] == 7
+    assert "composer_timing" in result["debug_details"]
+
+
 def test_composer_proximity_preview_config_includes_derived_overlays(monkeypatch, tmp_path):
     prompt = "make a map of my address 793 bartram ave and include nearest line to the nearest fire station"
     packet_path = tmp_path / "review_packets" / "packet"
@@ -256,7 +334,7 @@ def test_composer_proximity_preview_config_includes_derived_overlays(monkeypatch
     )
     monkeypatch.setattr(
         "app.map_composer.run_proximity_request",
-        lambda prompt: {
+        lambda prompt, **kwargs: {
             "status": "ok",
             "raw_prompt": prompt,
             "origin_input": "793 bartram ave",

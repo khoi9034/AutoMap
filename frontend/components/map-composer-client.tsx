@@ -16,12 +16,12 @@ import {
   layerEditsFromResponse,
   packetIdForPreview,
 } from "@/components/map-composer/utils";
-import { adjustComposerDraft, exportComposerDraft, generateComposerDraft, generateExhibitPackage } from "@/lib/api";
+import { adjustComposerDraft, exportComposerDraft, generateComposerDraft, generateExhibitPackage, refineComposerRoute } from "@/lib/api";
 import { mergeWorkflowState } from "@/lib/workflow-store";
 import type { ComposerAdjustPayload, ComposerResponse, ExhibitPackage, ReportSectionConfig } from "@/types/automap";
 import type { WorkflowToast } from "@/types/workflow";
 
-type ComposerLoadingState = "generate" | "adjust" | "export" | "exhibit" | null;
+type ComposerLoadingState = "generate" | "adjust" | "export" | "exhibit" | "route-refine" | null;
 
 const defaultReportConfig: ReportSectionConfig = {
   include_map_summary: true,
@@ -129,7 +129,9 @@ export function MapComposerClient() {
       });
       setToast({
         tone: result.can_preview ? "success" : "warning",
-        message: result.can_preview ? "Draft map and preview are ready." : "Draft created, but preview is blocked until the address or parcel matches.",
+        message: result.can_preview
+          ? "Draft map and preview are ready."
+          : "Draft created, but preview is blocked until the address or parcel matches.",
       });
     } catch (exc) {
       setError(exc instanceof Error ? exc.message : "Composer draft generation failed.");
@@ -162,6 +164,24 @@ export function MapComposerClient() {
       setToast({ tone: "success", message: "Adjustments applied and adjusted preview is ready." });
     } catch (exc) {
       setError(exc instanceof Error ? exc.message : "Adjustment failed.");
+    } finally {
+      setLoading(null);
+    }
+  }
+
+  async function tryRouteRefinement() {
+    if (!response?.composer_session_id) return;
+    setLoading("route-refine");
+    setError(null);
+    try {
+      const result = await refineComposerRoute(response.composer_session_id);
+      setResponse(result);
+      setLayers(layerEditsFromResponse(result));
+      setMapTitle(composerDisplayTitle(result));
+      setMapSubtitle(composerDisplaySubtitle(result));
+      setToast({ tone: "success", message: "Route refinement finished. The straight-line reference remains available if refinement was not possible." });
+    } catch (exc) {
+      setError(exc instanceof Error ? exc.message : "Route refinement failed.");
     } finally {
       setLoading(null);
     }
@@ -233,8 +253,10 @@ export function MapComposerClient() {
           onGoToExport={() => setActiveStep("export")}
           onGoToRequest={() => setActiveStep("request")}
           onRegenerate={generateDraft}
+          onRouteRefine={tryRouteRefinement}
           previewPacketId={previewPacketId}
           response={response}
+          routeRefineLoading={loading === "route-refine"}
         />
       ) : null}
       {activeStep === "adjust" ? (

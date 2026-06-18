@@ -72,6 +72,7 @@ from app.map_composer import (
     export_composer_session,
     generate_composer_draft,
     get_composer_session,
+    refine_composer_route,
     update_composer_map_state_for_session,
 )
 from app.packet_index import (
@@ -1417,6 +1418,26 @@ def api_composer_adjust(payload: ComposerAdjustRequest) -> Any:
         workflow_step="map_composer_adjusted",
         map_title=result.get("map_title"),
         status=result.get("next_action"),
+        packet_path=result.get("packet_path"),
+        notes={"composer_session_id": result.get("composer_session_id")},
+    )
+    return _json_response(result)
+
+
+@api_router.post("/composer/{composer_session_id}/route-refine")
+def api_composer_route_refine(composer_session_id: str) -> Any:
+    """Attempt a slower road-following route refinement for an existing composer session."""
+    try:
+        result = refine_composer_route(composer_session_id)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise _handle_value_error(exc) from exc
+    _record_history_safely(
+        raw_prompt=result.get("raw_prompt"),
+        workflow_step="map_composer_route_refine",
+        map_title=result.get("map_title"),
+        status=result.get("route_refinement_status") or result.get("next_action"),
         packet_path=result.get("packet_path"),
         notes={"composer_session_id": result.get("composer_session_id")},
     )

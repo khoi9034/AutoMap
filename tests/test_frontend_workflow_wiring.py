@@ -238,6 +238,9 @@ def test_map_composer_is_primary_simple_workflow():
     assert "AdjustStep" in client
     assert "ExportStep" in client
     assert "exportComposerDraft" in client
+    assert "refineComposerRoute" in client
+    assert "Try Road-Following Route" in preview_step
+    assert "Matching address and nearest facility" in request_step
     assert "currentComposerPayload" in client
     assert "report_config: reportConfig" in client
     assert "map_state: response.composer_map_state" in client
@@ -374,6 +377,8 @@ def test_map_composer_is_primary_simple_workflow():
     assert '"/api/exhibits/generate"' in api
     assert '"/api/exhibits"' in api
     assert '"/api/composer/generate"' in api
+    assert "`/api/composer/${encodeURIComponent(composerSessionId)}/route-refine`" in api
+    assert "timeoutMs: 90000" in api
     assert '"/api/composer/adjust"' in api
     assert '"/api/composer/export"' in api
     assert "ComposerResponse" in types

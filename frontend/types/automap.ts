@@ -562,6 +562,8 @@ export type ProximityResult = {
   route_mode?: string;
   route_label?: string | null;
   route_warning?: string | null;
+  route_refinement_available?: boolean;
+  route_refinement_status?: string | null;
   road_feature_count?: number | null;
   line_type?: string;
   distance_value?: number | null;
@@ -595,6 +597,8 @@ export type ProximityResult = {
   bounded_search?: Record<string, JsonValue>;
   derived_layer?: Record<string, JsonValue>;
   derived_overlays?: DerivedOverlay[];
+  proximity_timing?: Record<string, JsonValue>;
+  cache_hit?: boolean;
   published?: boolean;
 };
 
@@ -1246,6 +1250,8 @@ export type ComposerResponse = {
   origin_candidates?: Array<Record<string, JsonValue>> | JsonValue[];
   related_parcel?: Record<string, JsonValue> | null;
   proximity_result?: ProximityResult | null;
+  route_refinement_available?: boolean;
+  route_refinement_status?: string | null;
   recipe?: MapRecipe;
   webmap_json?: Record<string, JsonValue>;
   preview_config?: PreviewConfig | null;
@@ -1262,6 +1268,7 @@ export type ComposerResponse = {
   preview_blockers?: string[];
   next_action?: string;
   simple_steps?: Array<{ step?: string; status?: string }>;
+  composer_timing?: Record<string, JsonValue>;
   debug_details?: Record<string, JsonValue>;
   review_packet_id?: string | null;
   review_packet_path?: string | null;
