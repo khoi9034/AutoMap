@@ -151,6 +151,8 @@ def test_exhibit_data_json_contains_title_prompt_layers_and_warnings(monkeypatch
     assert data["report_sections"]["sections"]
     assert data["statistics_sections"]["proximity"]["distance"]["value"] == 1.22
     assert data["export_mode"] == "map_exhibit_only"
+    assert data["included_sections"]
+    assert data["locked_map_state_used"] is True
 
 
 def test_default_exhibit_html_is_map_first_without_forced_layer_table(monkeypatch, tmp_path):
@@ -158,9 +160,13 @@ def test_default_exhibit_html_is_map_first_without_forced_layer_table(monkeypatc
 
     package = generate_exhibit_package_from_session(sample_composer_session())
     html = (package.exhibit_folder / "exhibit.html").read_text(encoding="utf-8")
+    manifest = json.loads((package.exhibit_folder / "export_manifest.json").read_text(encoding="utf-8"))
 
     assert "Exhibit map frame" in html
     assert "Layer Source Table" not in html
+    assert manifest["exportMode"] == "map_exhibit_only"
+    assert manifest["lockedMapStateUsed"] is True
+    assert any(section["section_id"] == "key_findings" for section in manifest["includedSections"])
 
 
 def test_full_report_exhibit_html_includes_appendix_table(monkeypatch, tmp_path):
@@ -171,9 +177,12 @@ def test_full_report_exhibit_html_includes_appendix_table(monkeypatch, tmp_path)
 
     package = generate_exhibit_package_from_session(session)
     html = (package.exhibit_folder / "exhibit.html").read_text(encoding="utf-8")
+    manifest = json.loads((package.exhibit_folder / "export_manifest.json").read_text(encoding="utf-8"))
 
     assert "Layer Source Table" in html
     assert 'class="appendix"' in html
+    assert manifest["exportMode"] == "full_report"
+    assert any(section["section_id"] == "statistics" for section in manifest["includedSections"])
 
 
 def test_layer_sources_csv_contains_source_table(monkeypatch, tmp_path):

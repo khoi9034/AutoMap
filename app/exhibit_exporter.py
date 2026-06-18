@@ -11,6 +11,7 @@ from typing import Any
 
 from app.exhibit_models import ExhibitPackage, REQUIRED_EXHIBIT_FILES, SUPPORTED_EXHIBIT_TYPES
 from app.layer_semantics import slugify
+from app.print_options_models import export_manifest_metadata, included_sections_from_options, normalize_print_options
 from app.report_section_models import build_report_sections
 from app.report_statistics_builder import build_report_statistics
 from app.ui_models import output_file_url, repo_root
@@ -342,7 +343,7 @@ def _render_key_findings(findings: list[dict[str, str]]) -> str:
 def _render_html(data: dict[str, Any], layer_rows: list[dict[str, str]], warnings: list[str]) -> str:
     title = data["title_block"]
     findings = data.get("key_findings") or []
-    export_options = data.get("export_options") if isinstance(data.get("export_options"), dict) else {}
+    export_options = normalize_print_options(data.get("export_options") if isinstance(data.get("export_options"), dict) else {})
     export_mode = str(data.get("export_mode") or export_options.get("export_mode") or "map_exhibit_only")
     include_appendix = bool(export_options.get("include_appendix") or export_mode == "full_report")
     include_layer_table = include_appendix or export_mode == "full_report"
@@ -490,7 +491,7 @@ def generate_exhibit_package_from_session(session: dict[str, Any], *, mode: str 
     layer_rows = build_layer_source_rows(session)
     warning_summary = build_warning_summary(session)
     map_state = _map_state(session)
-    export_options = map_state.get("export_options") if isinstance(map_state.get("export_options"), dict) else {}
+    export_options = normalize_print_options(map_state.get("export_options") if isinstance(map_state.get("export_options"), dict) else {})
     export_mode = str(map_state.get("export_mode") or export_options.get("export_mode") or "map_exhibit_only")
     statistics = build_report_statistics(map_state or session)
     report_sections = build_report_sections(map_state or session, statistics, (map_state or {}).get("report_section_config"))
@@ -507,6 +508,8 @@ def generate_exhibit_package_from_session(session: dict[str, Any], *, mode: str 
             "map_state_json": map_state,
             "export_mode": export_mode,
             "export_options": export_options,
+            "included_sections": included_sections_from_options(export_options),
+            "locked_map_state_used": bool(map_state),
             "report_sections": report_sections,
             "statistics_sections": statistics,
             "key_findings": _key_findings(session),
@@ -524,12 +527,14 @@ def generate_exhibit_package_from_session(session: dict[str, Any], *, mode: str 
     (folder / "warnings.json").write_text(json.dumps(_sanitize({"warnings": warning_summary}), indent=2), encoding="utf-8")
     (folder / "exhibit.html").write_text(_render_html(data, _sanitize(layer_rows), _sanitize(warning_summary)), encoding="utf-8")
 
+    manifest_metadata = export_manifest_metadata(export_options, locked_map_state_used=bool(map_state))
     manifest = _sanitize(
         {
             "exhibit_id": exhibit_id,
             "exhibit_title": title_block["title"],
             "exhibit_type": exhibit_type,
             "created_at": created_at,
+            **manifest_metadata,
             "exhibit_folder": _output_relative(folder),
             "files": _manifest_files(folder),
             "supported_formats": ["html", "json", "csv"],
@@ -547,6 +552,9 @@ def generate_exhibit_package_from_session(session: dict[str, Any], *, mode: str 
         "prompt": title_block["original_prompt"],
         "created_at": created_at,
         "map_type": exhibit_type,
+        "exportMode": manifest_metadata["exportMode"],
+        "includedSections": manifest_metadata["includedSections"],
+        "lockedMapStateUsed": manifest_metadata["lockedMapStateUsed"],
         "warning_count": len(warning_summary),
         "layer_count": len(layer_rows),
         "draft_status": title_block["draft_status"],

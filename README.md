@@ -2,11 +2,11 @@
 
 AutoMap converts plain-English county GIS map requests into structured map recipes using only approved GIS layers from a local layer catalog.
 
-Version: `4.7.0`
+Version: `4.8.0`
 
 ## Current Phase
 
-v4.7 WYSIWYG Print Export and Exact Map Snapshot Reports on top of table requests, exact composer map state preservation, enterprise UI layout cleanup, step-specific Map Composer layouts, enterprise centered scale bar and final map layout polish, county exhibit and staff report map layouts, enterprise cartography, road-following route drafts, semantic Map Composer symbols, real map composer preview rendering, derived GeoJSON overlays, the four-step composer, address-to-parcel resolver, proximity, real parcel lookup, parcel workspace, scenario workbench, planning scenario and suitability intelligence, development/transportation source intelligence, real source verification, data gap resolution, analysis summary reporting, and user-guided safe spatial analysis refinement.
+v4.8 Live Print Preview Panel with Optional Report Sections on top of WYSIWYG print export, table requests, exact composer map state preservation, enterprise UI layout cleanup, step-specific Map Composer layouts, enterprise centered scale bar and final map layout polish, county exhibit and staff report map layouts, enterprise cartography, road-following route drafts, semantic Map Composer symbols, real map composer preview rendering, derived GeoJSON overlays, the four-step composer, address-to-parcel resolver, proximity, real parcel lookup, parcel workspace, scenario workbench, planning scenario and suitability intelligence, development/transportation source intelligence, real source verification, data gap resolution, analysis summary reporting, and user-guided safe spatial analysis refinement.
 
 This repository is intentionally independent. It does not connect to CFS or import CFS code. AutoMap uses its own local PostGIS database and trusted layer catalog.
 
@@ -62,6 +62,7 @@ AutoMap helps GIS and planning staff turn plain-English county map requests into
 - enterprise Map Composer scroll behavior where the desktop workbench fills the viewport, the map remains visible, and only the right-side control panel scrolls when needed
 - saved composer map state so print layouts, exhibit packages, and reports preserve the exact adjusted map title, extent, basemap, visible layers, opacity, order, symbology, legend, scale bar, north arrow, warnings, and notes
 - optional report/statistics sections that summarize available map metadata honestly and mark unresolved permit/planning/development data as unavailable instead of inventing counts
+- live Print / Export preview with controls on the left, a scrollable final-page preview on the right, and optional report sections that update before printing
 - table/data request classification for parcel lists, permit tables, zoning records, historical tables, attribute tables, data exports, and combined map+table requests
 - bounded Table Center previews and local CSV/JSON/Markdown exports using verified catalog layers, selected real fields, count-first safety limits, and `returnGeometry=false`
 - historical table handling that can use verified legacy layers for requested years while keeping unresolved current permit gaps honest
@@ -564,7 +565,7 @@ Open:
 http://localhost:3010/map-composer
 ```
 
-See `docs/simple_map_composer.md`, `docs/map_preview_behavior.md`, `docs/simplified_workflow.md`, `docs/parcel_focused_preview.md`, `docs/derived_geojson_preview.md`, `docs/address_proximity_preview.md`, `docs/real_composer_map_preview.md`, `docs/fire_station_targeting.md`, `docs/route_draft_modes.md`, `docs/map_symbology_system.md`, `docs/enterprise_cartography.md`, `docs/map_layout_refinement.md`, `docs/map_title_rules.md`, `docs/print_layout.md`, `docs/wysiwyg_print_export.md`, `docs/exhibit_exports.md`, `docs/staff_report_map_layout.md`, `docs/map_scale_bar.md`, `docs/map_composer_step_layouts.md`, and `docs/enterprise_ui_layout.md`.
+See `docs/simple_map_composer.md`, `docs/map_preview_behavior.md`, `docs/simplified_workflow.md`, `docs/parcel_focused_preview.md`, `docs/derived_geojson_preview.md`, `docs/address_proximity_preview.md`, `docs/real_composer_map_preview.md`, `docs/fire_station_targeting.md`, `docs/route_draft_modes.md`, `docs/map_symbology_system.md`, `docs/enterprise_cartography.md`, `docs/map_layout_refinement.md`, `docs/map_title_rules.md`, `docs/print_layout.md`, `docs/wysiwyg_print_export.md`, `docs/live_print_preview.md`, `docs/print_export_options.md`, `docs/exhibit_exports.md`, `docs/staff_report_map_layout.md`, `docs/map_scale_bar.md`, `docs/map_composer_step_layouts.md`, and `docs/enterprise_ui_layout.md`.
 
 ## ArcGIS WebMap Draft Generator
 

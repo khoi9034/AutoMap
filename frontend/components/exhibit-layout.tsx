@@ -76,7 +76,7 @@ export function ExhibitLayout({ response, sessionId, map, actions }: ExhibitLayo
   const exportMode = mapState.export_mode || mapState.export_options?.export_mode || "map_exhibit_only";
   const reportConfig = mapState.report_section_config || {};
   const isFullReport = exportMode === "full_report";
-  const isMapSummary = exportMode === "map_summary";
+  const isMapSummary = exportMode === "map_plus_summary" || exportMode === "map_summary";
   const showKeyFindings = mapState.export_options?.include_key_findings !== false || isMapSummary || isFullReport;
   const showLayerTable = Boolean(reportConfig.include_layer_table || isFullReport);
   const showWarnings = Boolean(reportConfig.include_warnings || isFullReport);

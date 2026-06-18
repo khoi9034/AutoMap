@@ -17,9 +17,16 @@ import {
   packetIdForPreview,
 } from "@/components/map-composer/utils";
 import { adjustComposerDraft, exportComposerDraft, exportComposerExhibit, generateComposerDraft, refineComposerRoute, saveComposerMapState } from "@/lib/api";
-import { buildComposerExportPayload, reportConfigForExportMode } from "@/lib/composer-map-state";
+import { buildComposerExportPayload } from "@/lib/composer-map-state";
 import { mergeWorkflowState } from "@/lib/workflow-store";
-import type { ComposerAdjustPayload, ComposerResponse, ExhibitPackage, ExportMode, ReportSectionConfig } from "@/types/automap";
+import type { ComposerAdjustPayload, ComposerMapState, ComposerResponse, ExhibitPackage, ReportSectionConfig } from "@/types/automap";
+import {
+  DEFAULT_LIVE_PRINT_OPTIONS,
+  backendExportOptionsToPrintOptions,
+  printOptionsForMode,
+  printOptionsToReportConfig,
+  type LivePrintOptions,
+} from "@/types/print-options";
 import type { WorkflowToast } from "@/types/workflow";
 
 type ComposerLoadingState = "generate" | "adjust" | "export" | "exhibit" | "route-refine" | null;
@@ -28,9 +35,9 @@ const defaultReportConfig: ReportSectionConfig = {
   include_map_summary: true,
   include_layer_table: false,
   include_warnings: true,
-  include_source_notes: true,
+  include_source_notes: false,
   include_proximity_summary: true,
-  include_parcel_summary: true,
+  include_parcel_summary: false,
   include_statistics: false,
   include_permit_summary: false,
   include_planning_summary: false,
@@ -64,7 +71,7 @@ export function MapComposerClient() {
   const [mapSubtitle, setMapSubtitle] = useState("");
   const [notes, setNotes] = useState("");
   const [reportConfig, setReportConfig] = useState<ReportSectionConfig>(defaultReportConfig);
-  const [exportMode, setExportMode] = useState<ExportMode>("map_exhibit_only");
+  const [printOptions, setPrintOptionsState] = useState<LivePrintOptions>(DEFAULT_LIVE_PRINT_OPTIONS);
   const [exhibitPackage, setExhibitPackage] = useState<ExhibitPackage | null>(null);
   const [activeStep, setActiveStep] = useState<ComposerStepId>("request");
   const [loading, setLoading] = useState<ComposerLoadingState>(null);
@@ -98,8 +105,19 @@ export function MapComposerClient() {
       mapSubtitle,
       notes,
       reportConfig,
-      exportMode,
+      exportMode: printOptions.exportMode,
+      printOptions,
     });
+  }
+
+  function currentLockedMapState(): ComposerMapState | null {
+    return currentComposerPayload()?.map_state || response?.composer_map_state || null;
+  }
+
+  function setPrintOptions(nextOptions: LivePrintOptions) {
+    const normalized = printOptionsForMode(nextOptions.exportMode, nextOptions);
+    setPrintOptionsState(normalized);
+    setReportConfig(printOptionsToReportConfig(normalized));
   }
 
   function changeStep(step: ComposerStepId) {
@@ -118,9 +136,11 @@ export function MapComposerClient() {
       setMapTitle(composerDisplayTitle(result));
       setMapSubtitle(composerDisplaySubtitle(result));
       setNotes("");
-      const nextExportMode = result.composer_map_state?.export_mode || "map_exhibit_only";
-      setExportMode(nextExportMode);
-      setReportConfig(reportConfigForExportMode(nextExportMode, result.composer_map_state?.report_section_config || defaultReportConfig));
+      const nextPrintOptions = backendExportOptionsToPrintOptions(
+        result.composer_map_state?.export_options,
+        result.composer_map_state?.report_section_config || defaultReportConfig,
+      );
+      setPrintOptions(nextPrintOptions);
       setActiveStep("preview");
       mergeWorkflowState({
         rawPrompt: prompt,
@@ -292,14 +312,10 @@ export function MapComposerClient() {
           onGoToAdjust={() => setActiveStep("adjust")}
           onOpenPrintLayout={openPrintLayout}
           previewPacketId={previewPacketId}
-          reportConfig={reportConfig}
           response={response}
-          exportMode={exportMode}
-          setExportMode={(mode) => {
-            setExportMode(mode);
-            setReportConfig(reportConfigForExportMode(mode, reportConfig));
-          }}
-          setReportConfig={setReportConfig}
+          lockedMapState={currentLockedMapState()}
+          printOptions={printOptions}
+          setPrintOptions={setPrintOptions}
         />
       ) : null}
     </MapComposerShell>

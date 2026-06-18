@@ -1134,12 +1134,23 @@ export type ReportSectionConfig = {
   include_table_export_summary?: boolean;
 };
 
-export type ExportMode = "map_exhibit_only" | "map_summary" | "full_report" | string;
+export type ExportMode = "map_exhibit_only" | "map_plus_summary" | "map_summary" | "full_report" | string;
 
 export type PrintExportOptions = {
   export_mode?: ExportMode;
+  include_map_summary?: boolean;
   include_key_findings?: boolean;
+  include_layer_table?: boolean;
+  include_warnings?: boolean;
+  include_source_notes?: boolean;
+  include_statistics?: boolean;
+  include_parcel_summary?: boolean;
+  include_proximity_summary?: boolean;
+  include_permit_summary?: boolean;
+  include_planning_summary?: boolean;
+  include_development_proxy_summary?: boolean;
   include_appendix?: boolean;
+  include_draft_disclaimer?: boolean;
   preserve_extent?: boolean;
   preserve_layer_state?: boolean;
   wysiwyg?: boolean;

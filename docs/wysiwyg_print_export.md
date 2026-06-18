@@ -1,10 +1,10 @@
 # WYSIWYG Print Export
 
-AutoMap v4.7 makes print/export use the current Map Composer state instead of rebuilding a separate map. The print layout loads the saved `composer_map_state` for the active session and renders the same map title, extent, basemap, visible layers, hidden layers, layer opacity, layer order, route style, origin/target symbols, legend, scale bar, north arrow, warnings, and reviewer notes.
+AutoMap v4.7 made print/export use the current Map Composer state instead of rebuilding a separate map. AutoMap v4.8 adds a live Print / Export preview panel so users can choose report sections and immediately see the final page layout. The print layout loads the saved `composer_map_state` for the active session and renders the same map title, extent, basemap, visible layers, hidden layers, layer opacity, layer order, route style, origin/target symbols, legend, scale bar, north arrow, warnings, and reviewer notes.
 
 ## Default Mode
 
-The default export mode is `Map Exhibit Only`.
+The default export mode is `Map only`.
 
 This mode is map-first and intended to produce a one-page county GIS draft exhibit. It includes:
 
@@ -20,9 +20,9 @@ It does not force long layer/source tables, statistics, technical metadata, or a
 
 ## Other Modes
 
-`Map + Summary` keeps the map page first and adds a short summary.
+`Map + summary` keeps the map page first and adds a short summary.
 
-`Full Report with Appendix` adds the longer sections:
+`Full report` adds longer sections by default:
 
 - layer source table
 - warning summary
@@ -35,6 +35,8 @@ These sections are optional appendices. Missing data remains explicit and is not
 ## State Capture
 
 Before adjustment, print preview, exhibit package generation, or report export, the frontend sends a snapshot of the current composer state to the backend. That snapshot records the adjusted title, subtitle, layer visibility, opacity, order, layer names, route style, symbol state, saved map extent, report options, and export mode.
+
+In v4.8, section checkbox choices are also stored as print/export options. The live preview and browser print route use the same print document component so the visible preview and printed pages stay aligned.
 
 The backend persists the state in:
 

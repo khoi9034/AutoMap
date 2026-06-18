@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from "react";
 
-import { ExhibitLayout } from "@/components/exhibit-layout";
-import { SharedMapRenderer } from "@/components/map-renderer/shared-map-renderer";
+import { PrintDocumentPreview } from "@/components/print-preview/print-document-preview";
 import { API_BASE_URL, getComposerSession } from "@/lib/api";
 import type { ComposerResponse } from "@/types/automap";
+import { backendExportOptionsToPrintOptions } from "@/types/print-options";
 
 function localFileUrl(path?: string | null): string {
   return path ? `${API_BASE_URL}/local-file?path=${encodeURIComponent(path)}` : "#";
@@ -33,7 +33,7 @@ export function ComposerPrintClient({ sessionId }: { sessionId: string }) {
 
   if (error) {
     return (
-      <main className="composer-print-page exhibit-layout">
+      <main className="composer-print-route">
         <section className="panel">
           <h1>Print layout unavailable</h1>
           <p className="error-text">{error}</p>
@@ -44,7 +44,7 @@ export function ComposerPrintClient({ sessionId }: { sessionId: string }) {
 
   if (!response) {
     return (
-      <main className="composer-print-page exhibit-layout">
+      <main className="composer-print-route">
         <section className="panel">
           <h1>Loading print layout</h1>
           <p className="muted">AutoMap is loading the local composer session.</p>
@@ -54,9 +54,9 @@ export function ComposerPrintClient({ sessionId }: { sessionId: string }) {
   }
 
   const actions = (
-    <div className="button-row">
+    <div className="button-row print-route-actions no-print">
       <button className="button" type="button" onClick={() => window.print()}>
-        Print Draft Map Exhibit
+        Open Browser Print
       </button>
       {response.webmap_path ? (
         <a className="button button-secondary" href={localFileUrl(response.webmap_path)} target="_blank" rel="noreferrer">
@@ -65,22 +65,19 @@ export function ComposerPrintClient({ sessionId }: { sessionId: string }) {
       ) : null}
     </div>
   );
+  const printOptions = backendExportOptionsToPrintOptions(response.composer_map_state?.export_options, response.composer_map_state?.report_section_config);
 
   return (
-    <ExhibitLayout
-      response={response}
-      sessionId={sessionId}
-      actions={actions}
-      map={
-        response.can_preview ? (
-          <SharedMapRenderer mode="print" mapState={response.composer_map_state} response={response} packetId={packetId} showLayerPanel />
-        ) : (
-          <div className="preview-error">
-            <strong>Preview is not ready.</strong>
-            <p>{warningList(response)[0] || "Generate a preview-ready composer session before printing."}</p>
-          </div>
-        )
-      }
-    />
+    <main className="composer-print-route">
+      {actions}
+      {response.can_preview ? (
+        <PrintDocumentPreview mapState={response.composer_map_state} packetId={packetId} printOptions={printOptions} response={response} />
+      ) : (
+        <div className="preview-error">
+          <strong>Preview is not ready.</strong>
+          <p>{warningList(response)[0] || "Generate a preview-ready composer session before printing."}</p>
+        </div>
+      )}
+    </main>
   );
 }

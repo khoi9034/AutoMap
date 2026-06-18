@@ -30,7 +30,7 @@ outputs/exhibits/<timestamp>_<slug>/
   export_manifest.json
 ```
 
-The package includes a professional title block, key findings, warning summary, draft disclaimer, saved composer map state, configurable report sections, and links to local files where appropriate. The default `Map Exhibit Only` mode keeps `exhibit.html` map-first and does not force the long layer source table into the main exhibit page. `Full Report with Appendix` adds the longer layer/source/statistics sections.
+The package includes a professional title block, key findings, warning summary, draft disclaimer, saved composer map state, configurable report sections, and links to local files where appropriate. The default `Map only` mode keeps `exhibit.html` map-first and does not force the long layer source table into the main exhibit page. `Full report` adds longer layer/source/statistics sections by default, while the live preview checkboxes control the exact included sections.
 
 ## Safety
 
@@ -53,8 +53,8 @@ The generator requires a preview-ready composer session. Blocked parcel/address 
 
 The Map Composer Print / Export step exposes:
 
-- Open Print Preview
-- Save/Generate Exhibit Package
+- Open Browser Print
+- Generate Exhibit Package
 - Export WebMap JSON
 - Export Layer Source CSV
 - Export Warning Summary

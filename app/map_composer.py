@@ -762,10 +762,10 @@ def _build_composer_map_state(response: dict[str, Any], payload: dict[str, Any] 
     if (payload or {}).get("export_mode"):
         export_options_payload["export_mode"] = (payload or {}).get("export_mode")
     export_options = normalize_export_options(export_options_payload)
-    report_config = report_config_for_export_mode(
-        (payload or {}).get("report_config") or incoming_state.get("report_section_config") or (response.get("composer_map_state") or {}).get("report_section_config"),
-        export_options,
-    )
+    report_config_payload = (payload or {}).get("report_config")
+    if report_config_payload is None and not ((payload or {}).get("export_mode") or (payload or {}).get("export_options")):
+        report_config_payload = incoming_state.get("report_section_config") or (response.get("composer_map_state") or {}).get("report_section_config")
+    report_config = report_config_for_export_mode(report_config_payload, export_options)
     state = {
         "composer_session_id": response.get("composer_session_id"),
         "map_title": map_title,

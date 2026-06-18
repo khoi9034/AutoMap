@@ -7,6 +7,13 @@ import type {
   ReportSectionConfig,
 } from "@/types/automap";
 import type { ComposerLayerEdit } from "@/components/map-composer/types";
+import {
+  DEFAULT_LIVE_PRINT_OPTIONS,
+  printOptionsForMode,
+  printOptionsToBackendExportOptions,
+  printOptionsToReportConfig,
+  type LivePrintOptions,
+} from "@/types/print-options";
 
 type BuildComposerMapStateSnapshotArgs = {
   response: ComposerResponse;
@@ -16,63 +23,31 @@ type BuildComposerMapStateSnapshotArgs = {
   notes: string;
   reportConfig: ReportSectionConfig;
   exportMode: ExportMode;
+  printOptions?: LivePrintOptions;
 };
 
-export const defaultPrintExportOptions: PrintExportOptions = {
-  export_mode: "map_exhibit_only",
-  include_key_findings: true,
-  include_appendix: false,
-  preserve_extent: true,
-  preserve_layer_state: true,
-  wysiwyg: true,
-};
+export const defaultPrintExportOptions: PrintExportOptions = printOptionsToBackendExportOptions(DEFAULT_LIVE_PRINT_OPTIONS);
 
 export function reportConfigForExportMode(exportMode: ExportMode, current?: ReportSectionConfig): ReportSectionConfig {
-  const base: ReportSectionConfig = {
-    include_map_summary: true,
-    include_layer_table: false,
-    include_warnings: true,
-    include_source_notes: true,
-    include_proximity_summary: true,
-    include_parcel_summary: true,
-    include_statistics: false,
-    include_permit_summary: false,
-    include_planning_summary: false,
-    include_development_proxy_summary: false,
-    include_table_preview: false,
-    include_table_export_summary: false,
-    ...(current || {}),
-  };
+  const defaults = printOptionsToReportConfig(printOptionsForMode(exportMode));
+  const merged = { ...defaults, ...(current || {}) };
   if (exportMode === "map_exhibit_only") {
     return {
-      ...base,
+      ...merged,
       include_layer_table: false,
       include_statistics: false,
-      include_table_preview: false,
-      include_table_export_summary: false,
       include_permit_summary: false,
       include_planning_summary: false,
       include_development_proxy_summary: false,
+      include_table_preview: false,
+      include_table_export_summary: false,
     };
   }
-  if (exportMode === "full_report") {
-    return {
-      ...base,
-      include_layer_table: true,
-      include_warnings: true,
-      include_source_notes: true,
-      include_statistics: true,
-    };
-  }
-  return base;
+  return merged;
 }
 
-export function printExportOptionsForMode(exportMode: ExportMode): PrintExportOptions {
-  return {
-    ...defaultPrintExportOptions,
-    export_mode: exportMode,
-    include_appendix: exportMode === "full_report",
-  };
+export function printExportOptionsForMode(exportMode: ExportMode, printOptions?: LivePrintOptions): PrintExportOptions {
+  return printOptionsToBackendExportOptions(printOptionsForMode(exportMode, printOptions));
 }
 
 export function buildComposerMapStateSnapshot({
@@ -83,11 +58,17 @@ export function buildComposerMapStateSnapshot({
   notes,
   reportConfig,
   exportMode,
+  printOptions,
 }: BuildComposerMapStateSnapshotArgs): ComposerMapState {
   const priorState = response.composer_map_state || {};
   const previewConfig = response.preview_config || priorState.preview_config || {};
-  const exportOptions = printExportOptionsForMode(exportMode);
-  const normalizedReportConfig = reportConfigForExportMode(exportMode, reportConfig);
+  const normalizedPrintOptions = printOptionsForMode(exportMode, printOptions);
+  const exportOptions = printOptionsToBackendExportOptions(normalizedPrintOptions);
+  const normalizedReportConfig = {
+    ...printOptionsToReportConfig(normalizedPrintOptions),
+    include_table_preview: reportConfig.include_table_preview || false,
+    include_table_export_summary: reportConfig.include_table_export_summary || false,
+  };
   const visibleLayers = layers.filter((layer) => layer.visibility && !layer.remove_layer);
   const hiddenLayers = layers.filter((layer) => !layer.visibility || layer.remove_layer);
   const layerOpacity = Object.fromEntries(layers.map((layer) => [layer.layer_key, layer.opacity]));

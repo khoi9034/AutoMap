@@ -605,7 +605,6 @@ def test_full_report_export_mode_enables_appendix_sections(monkeypatch, tmp_path
         result["composer_session_id"],
         {
             "export_mode": "full_report",
-            "report_config": {"include_layer_table": False, "include_statistics": False},
             "map_state": {"map_extent": {"xmin": -80.7, "ymin": 35.2, "xmax": -80.4, "ymax": 35.5}},
         },
     )

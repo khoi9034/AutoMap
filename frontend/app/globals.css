@@ -1128,6 +1128,11 @@ button {
   padding-right: 2px;
 }
 
+.composer-step-body-export {
+  overflow: hidden;
+  padding-right: 0;
+}
+
 .composer-request-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 320px;
@@ -1266,25 +1271,262 @@ button {
 
 .composer-export-layout {
   display: grid;
-  grid-template-columns: minmax(0, 7fr) minmax(320px, 3fr);
+  grid-template-columns: minmax(320px, 380px) minmax(0, 1fr);
   gap: 16px;
-  align-items: start;
-  min-height: 100%;
+  align-items: stretch;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .composer-export-panel {
   display: grid;
   gap: 14px;
-  position: sticky;
-  top: 0;
-  max-height: calc(100vh - 150px);
-  overflow-y: auto;
+  align-content: start;
+  position: static;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
   padding: 14px;
 }
 
 .composer-export-buttons {
   display: grid;
   grid-template-columns: 1fr;
+}
+
+.print-export-controls {
+  border-color: #c9d7e5;
+  box-shadow: 0 12px 28px rgba(16, 35, 59, 0.08);
+}
+
+.compact-report-options {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 6px;
+}
+
+.compact-report-options .toggle-line {
+  min-height: 28px;
+  font-size: 13px;
+}
+
+.print-preview-panel {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid #c9d7e5;
+  border-radius: 8px;
+  background: #dfe7ef;
+  box-shadow: 0 12px 28px rgba(16, 35, 59, 0.08);
+}
+
+.print-preview-panel-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  border-bottom: 1px solid #c8d4e1;
+  background: #f8fafc;
+  padding: 12px 16px;
+}
+
+.print-preview-panel-header h3 {
+  margin: 0;
+}
+
+.print-preview-panel-header span {
+  border: 1px solid #b7e0c7;
+  border-radius: 999px;
+  background: #f2fbf6;
+  color: var(--green);
+  font-size: 12px;
+  font-weight: 900;
+  padding: 4px 8px;
+}
+
+.print-preview-scroll {
+  min-height: 0;
+  overflow-y: auto;
+  padding: 24px;
+}
+
+.print-document-preview {
+  display: grid;
+  gap: 20px;
+  max-width: 1120px;
+  margin: 0 auto;
+}
+
+.print-preview-sheet {
+  border: 1px solid #c8d4e1;
+  background: #ffffff;
+  box-shadow: 0 20px 45px rgba(15, 23, 42, 0.18);
+}
+
+.print-map-page-preview {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  min-height: 760px;
+  padding: 18px;
+  break-inside: avoid;
+}
+
+.print-preview-title-block {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+  border-bottom: 4px solid #203a56;
+  padding-bottom: 12px;
+}
+
+.print-preview-title-block h1 {
+  margin: 0;
+  color: #10233b;
+  font-size: 26px;
+  line-height: 1.15;
+}
+
+.print-preview-title-block p {
+  margin: 4px 0 0;
+  color: #475467;
+  font-weight: 700;
+}
+
+.print-preview-title-block strong {
+  flex: 0 0 auto;
+  border: 1px solid #9a3412;
+  border-radius: 999px;
+  background: #fff7ed;
+  color: #9a3412;
+  font-size: 11px;
+  font-weight: 900;
+  padding: 6px 10px;
+}
+
+.print-preview-map-frame {
+  min-height: 0;
+  margin: 14px 0;
+  border: 2px solid #203a56;
+  overflow: hidden;
+}
+
+.print-preview-map-frame .map-preview-shell {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+  height: 100%;
+}
+
+.print-preview-map-frame .preview-stage {
+  height: 100%;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 0;
+}
+
+.print-preview-map-frame .composer-derived-preview,
+.print-preview-map-frame .composer-derived-map-shell,
+.print-preview-map-frame .shared-map-renderer,
+.print-preview-map-frame .enterprise-map-frame {
+  height: 100%;
+  min-height: 560px;
+}
+
+.print-preview-map-frame .composer-real-map {
+  height: 100%;
+  min-height: 560px;
+}
+
+.print-preview-map-frame .preview-side-panel,
+.print-preview-map-frame .composer-derived-layer-panel,
+.print-preview-map-frame .panel-title-row .chip-row {
+  display: none;
+}
+
+.print-preview-map-notes {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  border-top: 1px solid #d8e0ea;
+  color: #475467;
+  font-size: 12px;
+  font-weight: 800;
+  padding-top: 10px;
+}
+
+.print-preview-section {
+  padding: 20px;
+}
+
+.print-preview-section h2 {
+  margin: 0 0 12px;
+  color: #203a56;
+  font-size: 18px;
+}
+
+.print-preview-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+
+.print-preview-summary-grid div {
+  border-left: 3px solid #8eb8e0;
+  padding-left: 10px;
+}
+
+.print-preview-summary-grid dt {
+  color: #667085;
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.print-preview-summary-grid dd {
+  margin: 2px 0 0;
+  color: #172033;
+  font-weight: 800;
+}
+
+.print-preview-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.print-preview-table th,
+.print-preview-table td {
+  border: 1px solid #d8e0ea;
+  padding: 8px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.print-preview-table th {
+  background: #f1f5f9;
+  color: #203a56;
+}
+
+.print-preview-list {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.composer-print-route {
+  min-height: 100vh;
+  background: #dfe7ef;
+  padding: 24px;
+}
+
+.print-route-actions {
+  justify-content: flex-end;
+  max-width: 1120px;
+  margin: 0 auto 14px;
 }
 
 .composer-preview-layout .composer-derived-preview,
@@ -2649,6 +2891,8 @@ th {
   .composer-preview-layout,
   .composer-adjust-layout,
   .composer-export-layout,
+  .print-preview-panel,
+  .print-preview-scroll,
   .composer-preview-main,
   .composer-adjust-map-column,
   .composer-derived-preview,
@@ -2695,6 +2939,19 @@ th {
     max-height: none;
     overflow: visible;
   }
+
+  .print-preview-scroll {
+    padding: 14px;
+  }
+
+  .print-map-page-preview {
+    min-height: 640px;
+  }
+
+  .print-preview-title-block,
+  .print-preview-map-notes {
+    display: grid;
+  }
 }
 
 @media print {
@@ -2702,17 +2959,93 @@ th {
   .top-header,
   .footer,
   .right-rail,
+  .print-route-actions,
+  .print-preview-panel-header,
+  .print-export-controls,
   .no-print {
     display: none !important;
   }
 
   .app-shell,
-  .content-grid {
+  .content-grid,
+  .main-shell,
+  .content-main,
+  .page-stack,
+  .composer-step-body-export,
+  .composer-export-layout,
+  .print-preview-panel,
+  .print-preview-scroll {
     display: block;
+    height: auto;
+    min-height: 0;
+    overflow: visible;
+    padding: 0;
   }
 
   .composer-print-page {
     padding: 0;
+  }
+
+  .composer-print-route {
+    min-height: 0;
+    background: #ffffff;
+    padding: 0;
+  }
+
+  .print-document-preview {
+    display: block;
+    max-width: none;
+    margin: 0;
+  }
+
+  .print-preview-sheet {
+    border: 0;
+    box-shadow: none;
+  }
+
+  .print-map-page-preview {
+    display: grid;
+    min-height: calc(100vh - 0.7in);
+    break-after: page;
+    padding: 0;
+  }
+
+  .print-preview-section {
+    break-before: page;
+    padding: 0;
+  }
+
+  .print-preview-appendix {
+    break-before: page;
+  }
+
+  .print-preview-table tr {
+    break-inside: avoid;
+  }
+
+  .print-preview-title-block {
+    padding-bottom: 8px;
+  }
+
+  .print-preview-title-block h1 {
+    font-size: 24px;
+  }
+
+  .print-preview-map-frame {
+    min-height: 6.05in;
+    margin: 10px 0;
+  }
+
+  .print-preview-map-frame .composer-derived-preview,
+  .print-preview-map-frame .composer-derived-map-shell,
+  .print-preview-map-frame .shared-map-renderer,
+  .print-preview-map-frame .enterprise-map-frame,
+  .print-preview-map-frame .composer-real-map {
+    min-height: 6.05in;
+  }
+
+  .print-preview-map-notes {
+    font-size: 11px;
   }
 
   .exhibit-layout {

@@ -182,9 +182,18 @@ def test_map_composer_is_primary_simple_workflow():
     preview_step = read("components/map-composer/preview-step.tsx")
     adjust_step = read("components/map-composer/adjust-step.tsx")
     export_step = read("components/map-composer/export-step.tsx")
+    print_export_step = read("components/map-composer/print-export-step.tsx")
     map_state_capture = read("components/map-composer/map-state-capture.tsx")
     step_types = read("components/map-composer/types.ts")
     composer_map_state_lib = read("lib/composer-map-state.ts")
+    print_options = read("types/print-options.ts")
+    print_preview_panel = read("components/print-preview/print-preview-panel.tsx")
+    print_document_preview = read("components/print-preview/print-document-preview.tsx")
+    print_map_page_preview = read("components/print-preview/print-map-page-preview.tsx")
+    print_statistics = read("components/print-preview/print-statistics-section.tsx")
+    print_layer_table = read("components/print-preview/print-layer-table-section.tsx")
+    print_warning = read("components/print-preview/print-warning-section.tsx")
+    print_sources = read("components/print-preview/print-source-notes-section.tsx")
     composer_preview = read("components/composer-map-preview.tsx")
     derived_layer = read("components/derived-geojson-layer.tsx")
     composer_layer_panel = read("components/composer-layer-panel.tsx")
@@ -239,11 +248,14 @@ def test_map_composer_is_primary_simple_workflow():
     assert "PreviewStep" in client
     assert "AdjustStep" in client
     assert "ExportStep" in client
+    assert "PrintExportStep" in export_step
     assert "exportComposerDraft" in client
     assert "saveComposerMapState" in client
     assert "exportComposerExhibit" in client
     assert "refineComposerRoute" in client
     assert "buildComposerExportPayload" in client
+    assert "printOptions" in client
+    assert "lockedMapState" in client
     assert "Try Road-Following Route" in preview_step
     assert "Matching address and nearest facility" in request_step
     assert "currentComposerPayload" in client
@@ -336,42 +348,58 @@ def test_map_composer_is_primary_simple_workflow():
     assert "Line thickness" in adjust_step
     assert "Line style" in adjust_step
     assert "samplePrompts" not in adjust_step
-    assert "Open Print Preview" in export_step
-    assert "Save/Generate Exhibit Package" in export_step
-    assert "Map Exhibit Only" in export_step
-    assert "Map + Summary" in export_step
-    assert "Full Report with Appendix" in export_step
-    assert "MapStateCapture" in export_step
-    assert "Generate Review Report" in export_step
-    assert "Export Layer Source CSV" in export_step
-    assert "Export Warning Summary" in export_step
-    assert "Export WebMap JSON" in export_step
-    assert "Include statistics section" in export_step
-    assert "Include permit stats when available" in export_step
-    assert "reportConfig" in export_step
+    assert "Open Browser Print" in print_export_step
+    assert "Generate Exhibit Package" in print_export_step
+    assert "Map only" in print_export_step
+    assert "Map + summary" in print_export_step
+    assert "Full report" in print_export_step
+    assert "MapStateCapture" in print_export_step
+    assert "PrintPreviewPanel" in print_export_step
+    assert "Unlock and Edit Map" in print_export_step
+    assert "Generate Review Report" in print_export_step
+    assert "Export Layer Source CSV" in print_export_step
+    assert "Export Warning Summary" in print_export_step
+    assert "Export WebMap JSON" in print_export_step
+    assert "Statistics" in print_export_step
+    assert "Permit section" in print_export_step
+    assert "reportConfig" not in print_export_step
+    assert "Live Print Preview" in print_preview_panel
+    assert "Final printout" in print_preview_panel
+    assert "PrintDocumentPreview" in print_preview_panel
+    assert "PrintMapPagePreview" in print_document_preview
+    assert "PrintStatisticsSection" in print_document_preview
+    assert "PrintLayerTableSection" in print_document_preview
+    assert "Statistics" in print_statistics
+    assert "Layer Source Table" in print_layer_table
+    assert "Warnings and Limitations" in print_warning
+    assert "Source Notes" in print_sources
+    assert "data-locked-map-state" in print_map_page_preview
     assert "Exact composer state" in map_state_capture
     assert "Map exhibit first" in map_state_capture
     assert "buildComposerMapStateSnapshot" in composer_map_state_lib
     assert "map_exhibit_only" in composer_map_state_lib
-    assert "full_report" in composer_map_state_lib
+    assert "map_plus_summary" in print_options
+    assert "full_report" in print_options
     assert "include_layer_table: false" in composer_map_state_lib
+    assert "DEFAULT_LIVE_PRINT_OPTIONS" in print_options
+    assert "includeLayerTable: false" in print_options
     assert "System Snapshot" not in client
     assert "System Snapshot" not in request_step
     assert "Request to preview to print" not in client
     assert "composer-side" not in client
     assert "Address matched, but related parcel was not resolved" in preview_step
-    normal_composer_sources = "\n".join([client, shell, tabs, request_step, preview_step, adjust_step, export_step])
+    normal_composer_sources = "\n".join([client, shell, tabs, request_step, preview_step, adjust_step, print_export_step])
     assert "Generate WebMap Draft" not in normal_composer_sources
     assert "Generate Review Packet" not in normal_composer_sources
     assert "confirm-publish" not in normal_composer_sources.lower()
     assert "publish-draft-webmap" not in normal_composer_sources.lower()
     assert "ComposerPrintClient" in print_page
     assert "ComposerPrintClient" in print_alias
-    assert "ExhibitLayout" in print_client
-    assert "SharedMapRenderer" in print_client
+    assert "PrintDocumentPreview" in print_client
+    assert "SharedMapRenderer" in print_map_page_preview
     assert "ComposerMapPreview" in shared_renderer
     assert "mapState" in shared_renderer
-    assert "Print Draft Map Exhibit" in print_client
+    assert "Open Browser Print" in print_client
     assert "exhibit-layout" in exhibit_layout
     assert "ExhibitTitleBlock" in exhibit_layout
     assert "ExhibitMapFrame" in exhibit_layout
@@ -441,7 +469,7 @@ def test_map_composer_uses_enterprise_workbench_scroll_model():
     css = read("app/globals.css")
     preview_step = read("components/map-composer/preview-step.tsx")
     adjust_step = read("components/map-composer/adjust-step.tsx")
-    export_step = read("components/map-composer/export-step.tsx")
+    print_export_step = read("components/map-composer/print-export-step.tsx")
     composer_preview = read("components/composer-map-preview.tsx")
 
     assert ".content-grid:has(.map-composer-shell)" in css
@@ -462,7 +490,11 @@ def test_map_composer_uses_enterprise_workbench_scroll_model():
     assert "showLayerPanel ? <ComposerLayerPanel" in composer_preview
     assert "showLayerPanel={false}" in preview_step
     assert "showLayerPanel={false}" in adjust_step
-    assert "showLayerPanel={false}" in export_step
+    assert ".composer-step-body-export" in css and "overflow: hidden" in css[css.index(".composer-step-body-export") : css.index(".composer-request-layout")]
+    assert ".print-preview-panel" in css
+    assert ".print-preview-scroll" in css and "overflow-y: auto" in css[css.index(".print-preview-scroll") : css.index(".print-document-preview")]
+    assert "PrintPreviewPanel" in print_export_step
+    assert "lockedMapState" in print_export_step
     assert "samplePrompts" not in adjust_step
 
 
@@ -572,7 +604,7 @@ def test_api_client_has_timeout_and_sanitized_fallback_version():
     assert "Backend is online, but this request took too long" in source
     assert "http://127.0.0.1:8010" in source
     assert "timeoutMs: 60000" in source
-    assert 'version: "4.7.0"' in source
+    assert 'version: "4.8.0"' in source
     assert "redactProtected" in source
     assert "AutoMap is checking the catalog, parcel fields, and context layers" in map_request
 
