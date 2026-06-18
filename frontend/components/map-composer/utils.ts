@@ -1,0 +1,107 @@
+"use client";
+
+import { API_BASE_URL } from "@/lib/api";
+import { packetIdFromPath } from "@/lib/workflow-store";
+import type { ComposerResponse, DerivedOverlay, PreviewLayer } from "@/types/automap";
+
+import type { ComposerLayerEdit } from "./types";
+
+export const defaultComposerPrompt = "make a map of my address 793 bartram ave and include nearest line to the nearest fire station";
+
+export function localFileUrl(path?: string | null): string {
+  return path ? `${API_BASE_URL}/local-file?path=${encodeURIComponent(path)}` : "#";
+}
+
+export function actionLabel(action?: string): string {
+  if (action === "correct_address") return "Correct address";
+  if (action === "correct_parcel_identifier") return "Correct parcel/PIN/address";
+  if (action === "preview_map") return "Preview Map";
+  if (action === "preview_adjusted_map") return "Preview Adjusted Map";
+  if (action === "print_or_export") return "Print / Export";
+  return "Review Draft";
+}
+
+export function isAddressFocused(response: ComposerResponse): boolean {
+  const blockerText = (response.preview_blockers || []).join(" ").toLowerCase();
+  return (
+    response.origin_type === "address" ||
+    response.request_type === "address_context" ||
+    blockerText.includes("address not matched") ||
+    response.recipe?.origin_context?.origin_type === "address" ||
+    response.parcel_context?.origin_type === "address" ||
+    response.parcel_context?.input_type === "address"
+  );
+}
+
+export function identifierText(value: unknown): string {
+  if (!value || typeof value !== "object") return String(value || "");
+  const item = value as { value?: string; normalized_value?: string; identifier_type?: string };
+  return item.value || item.normalized_value || item.identifier_type || JSON.stringify(item);
+}
+
+function derivedRouteStyle(overlay: DerivedOverlay): Pick<ComposerLayerEdit, "line_style" | "line_thickness"> {
+  const blob = `${overlay.role || ""} ${overlay.geometry_role || ""} ${overlay.symbol_key || ""} ${overlay.route_mode || ""}`.toLowerCase();
+  if (!blob.includes("route") && !blob.includes("distance") && !blob.includes("line")) return {};
+  const dashed = blob.includes("straight") || overlay.route_mode === "straight_line_reference";
+  return {
+    line_style: dashed ? "dashed" : "solid",
+    line_thickness: dashed ? 2.4 : 3.2,
+  };
+}
+
+export function layerEditsFromResponse(response: ComposerResponse): ComposerLayerEdit[] {
+  const previewLayers = response.preview_config?.operational_layers || [];
+  const derivedOverlays = response.preview_config?.derived_overlays || response.proximity_result?.derived_overlays || [];
+  const derivedEdits: ComposerLayerEdit[] = derivedOverlays.map((overlay, index) => ({
+    layer_key: overlay.id || `derived_overlay_${index}`,
+    title: overlay.title || overlay.id || `Derived overlay ${index + 1}`,
+    visibility: overlay.visible !== false,
+    opacity: 1,
+    role: overlay.role,
+    definition_expression: "",
+    is_derived: true,
+    ...derivedRouteStyle(overlay),
+  }));
+  if (previewLayers.length) {
+    const contextEdits = previewLayers
+      .filter((layer: PreviewLayer) => !layer.derived_local_analysis && !layer.local_output)
+      .map((layer: PreviewLayer, index) => ({
+        layer_key: layer.layer_key || layer.id || `layer_${index}`,
+        title: layer.title || layer.layer_key || `Layer ${index + 1}`,
+        visibility: layer.visibility !== false,
+        opacity: typeof layer.opacity === "number" ? layer.opacity : 1,
+        role: layer.role,
+        definition_expression: layer.definition_expression || "",
+      }));
+    return [...derivedEdits, ...contextEdits];
+  }
+  return [
+    ...derivedEdits,
+    ...(response.selected_layers || []).map((layer, index) => ({
+      layer_key: layer.layer_key || `layer_${index}`,
+      title: layer.layer_name || layer.layer_key || `Layer ${index + 1}`,
+      visibility: true,
+      opacity: layer.category === "flood" ? 0.35 : layer.category === "zoning" ? 0.65 : 0.85,
+      role: layer.role,
+      definition_expression: "",
+    })),
+  ];
+}
+
+export function packetIdForPreview(response: ComposerResponse | null): string {
+  if (!response?.can_preview) return "";
+  return response.adjusted_packet_id || response.packet_id || response.review_packet_id || packetIdFromPath(response.packet_path || "");
+}
+
+export function composerDisplayTitle(response: ComposerResponse | null): string {
+  return response?.map_layout?.title || response?.map_title || response?.recipe?.map_title || "AutoMap Draft Map";
+}
+
+export function composerDisplaySubtitle(response: ComposerResponse | null): string {
+  return response?.map_layout?.subtitle || "Draft preview only. Not an official map.";
+}
+
+export function isRouteLayer(layer: ComposerLayerEdit): boolean {
+  const blob = `${layer.layer_key} ${layer.title} ${layer.role || ""}`.toLowerCase();
+  return blob.includes("route") || blob.includes("distance") || blob.includes("line");
+}

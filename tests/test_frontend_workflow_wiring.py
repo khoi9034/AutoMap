@@ -176,6 +176,13 @@ def test_map_composer_is_primary_simple_workflow():
     sidebar = read("components/sidebar.tsx")
     page = read("app/map-composer/page.tsx")
     client = read("components/map-composer-client.tsx")
+    shell = read("components/map-composer/map-composer-shell.tsx")
+    tabs = read("components/map-composer/composer-step-tabs.tsx")
+    request_step = read("components/map-composer/request-step.tsx")
+    preview_step = read("components/map-composer/preview-step.tsx")
+    adjust_step = read("components/map-composer/adjust-step.tsx")
+    export_step = read("components/map-composer/export-step.tsx")
+    step_types = read("components/map-composer/types.ts")
     composer_preview = read("components/composer-map-preview.tsx")
     derived_layer = read("components/derived-geojson-layer.tsx")
     composer_layer_panel = read("components/composer-layer-panel.tsx")
@@ -184,7 +191,6 @@ def test_map_composer_is_primary_simple_workflow():
     symbol_legend = read("components/map-symbol-legend.tsx")
     north_arrow = read("components/north-arrow.tsx")
     scale_bar = read("components/map-scale-bar.tsx")
-    stepper = read("components/simple-map-composer-stepper.tsx")
     print_page = read("app/map-composer/[sessionId]/print/page.tsx")
     print_alias = read("app/print/[sessionId]/page.tsx")
     print_client = read("components/composer-print-client.tsx")
@@ -225,8 +231,24 @@ def test_map_composer_is_primary_simple_workflow():
     assert "nav-section-label" in sidebar
     assert '"Support"' in sidebar
     assert "MapComposerClient" in page
-    assert "SimpleMapComposerStepper" in client
-    assert "ComposerMapPreview" in client
+    assert "MapComposerShell" in client
+    assert "RequestStep" in client
+    assert "PreviewStep" in client
+    assert "AdjustStep" in client
+    assert "ExportStep" in client
+    assert "exportComposerDraft" in client
+    assert "ComposerStepTabs" in shell
+    assert "composer-step-body" in shell
+    assert "ComposerStepId" in step_types
+    assert "ComposerStepDisabled" in step_types
+    assert "Request" in tabs
+    assert "Preview" in tabs
+    assert "Adjust" in tabs
+    assert "Print / Export" in tabs
+    assert "disabled={isDisabled}" in tabs
+    assert "Clarify" not in tabs
+    assert "Recipe" not in tabs
+    assert "Dry-Run Publish" not in tabs
     assert "ArcGISMapPreview" not in client
     assert "MapView" in composer_preview
     assert "GraphicsLayer" in composer_preview
@@ -278,36 +300,46 @@ def test_map_composer_is_primary_simple_workflow():
     assert "500" in scale_bar
     assert "approx." not in scale_bar
     assert "map-symbol-legend" in symbol_legend
-    assert "Generate Draft Map" in client
-    assert "Apply Adjustments" in client
-    assert "Generate Review Report" not in client
-    assert "Open Print Layout" in client
-    assert "Generate Exhibit Package" in client
-    assert "Export Layer Source CSV" in client
-    assert "Export Warning Summary" in client
-    assert "Export WebMap JSON" in client
-    assert "Parcel not matched" in client
-    assert "Address not matched" in client
-    assert "Try corrected address/PIN" in client
+    assert "Generate Draft Map" in request_step
+    assert "samplePrompts" in request_step
+    assert "No map preview" not in request_step
+    assert "Continue to Adjust" in preview_step
+    assert "Regenerate Draft" in preview_step
+    assert "Print / Export" in preview_step
+    assert "ComposerMapPreview" in preview_step
+    assert "Parcel not matched" in preview_step
+    assert "Address not matched" in preview_step
+    assert "Correct address/PIN" in preview_step
+    assert "Nearest facility draft" in preview_step
+    assert "nearest fire/EMS station" in preview_step
+    assert "Route mode" in preview_step
+    assert "composer-adjust-layout" in adjust_step
+    assert "composer-adjust-controls-panel" in adjust_step
+    assert "ComposerMapPreview" in adjust_step
+    assert "Map controls" in adjust_step
+    assert "Apply Adjustments" in adjust_step
+    assert "Reset adjustments" in adjust_step
+    assert "Route style" in adjust_step
+    assert "Symbol overlays" in adjust_step
+    assert "Line thickness" in adjust_step
+    assert "Line style" in adjust_step
+    assert "samplePrompts" not in adjust_step
+    assert "Open Print Layout" in export_step
+    assert "Generate Exhibit Package" in export_step
+    assert "Generate Review Report" in export_step
+    assert "Export Layer Source CSV" in export_step
+    assert "Export Warning Summary" in export_step
+    assert "Export WebMap JSON" in export_step
     assert "System Snapshot" not in client
+    assert "System Snapshot" not in request_step
     assert "Request to preview to print" not in client
     assert "composer-side" not in client
-    assert "response.can_preview ? (" in client
-    assert "Nearest facility draft" in client
-    assert "nearest fire/EMS station" in client
-    assert "Route mode" in client
-    assert "Address matched, but related parcel was not resolved" in client
-    assert "Analysis is optional" in client
-    assert "Request" in stepper
-    assert "Preview" in stepper
-    assert "Adjust" in stepper
-    assert "Print / Export" in stepper
-    assert "Clarify" not in stepper
-    assert "Recipe" not in stepper
-    assert "Review Packet" not in stepper
-    assert "Dry-Run Publish" not in stepper
-    assert "Generate WebMap Draft" not in client
-    assert "Generate Review Packet" not in client
+    assert "Address matched, but related parcel was not resolved" in preview_step
+    normal_composer_sources = "\n".join([client, shell, tabs, request_step, preview_step, adjust_step, export_step])
+    assert "Generate WebMap Draft" not in normal_composer_sources
+    assert "Generate Review Packet" not in normal_composer_sources
+    assert "confirm-publish" not in normal_composer_sources.lower()
+    assert "publish-draft-webmap" not in normal_composer_sources.lower()
     assert "ComposerPrintClient" in print_page
     assert "ComposerPrintClient" in print_alias
     assert "ExhibitLayout" in print_client
@@ -471,7 +503,7 @@ def test_api_client_has_timeout_and_sanitized_fallback_version():
     assert "Backend is online, but this request took too long" in source
     assert "http://127.0.0.1:8010" in source
     assert "timeoutMs: 60000" in source
-    assert 'version: "4.2.0"' in source
+    assert 'version: "4.3.0"' in source
     assert "redactProtected" in source
     assert "AutoMap is checking the catalog, parcel fields, and context layers" in map_request
 

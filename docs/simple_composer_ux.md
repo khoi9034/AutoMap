@@ -11,17 +11,16 @@ The composer hides internal recipe, WebMap, review-packet, approval, and publish
 
 ## Clean Layout
 
-The Map Composer page shows:
+The Map Composer page uses a different layout for each step:
 
-- one title and subtitle from the page header
-- a prompt box with examples
-- a four-step progress bar
-- a map preview or a clear blocker
-- selected layers and warnings
-- adjustment controls only after preview is available
-- print/export controls only after preview is available
+- Request: prompt box, examples, and Generate Draft Map
+- Preview: large map, compact summary, selected layers, and warnings
+- Adjust: map on the left with controls on the right
+- Print / Export: print/exhibit preview and output actions
 
 The System Snapshot remains on System Status, not the normal composer.
+
+The full prompt panel belongs to Request. Preview, Adjust, and Print / Export only show a compact original-request summary so the map and task-specific controls have room to breathe.
 
 ## Blocked Preview UX
 

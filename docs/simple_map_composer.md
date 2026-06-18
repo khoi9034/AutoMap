@@ -11,16 +11,23 @@ The intended path is:
 
 The composer runs request intelligence, builds the technical map artifacts, creates local preview files when preview is valid, and returns one clean response to the frontend. It does not run analysis by default, publish to ArcGIS, require ArcGIS login, or create public items.
 
+AutoMap v4.3 makes those steps layout-specific. The prompt and examples live in Request, the generated map dominates Preview, Adjust uses a side-by-side map/control workspace, and Print / Export focuses on local output actions.
+
 ## Simple Adjustments
 
 Reviewers can adjust the map without editing YAML:
 
 - map title
+- subtitle
 - layer visibility
 - opacity
 - draw order
+- display name
+- route style and symbol visibility where relevant
 - definition expression text
 - reviewer notes
+
+The Adjust step keeps the map on the left and controls on the right so reviewers can see changes while tuning the draft.
 
 The older YAML adjustment workflow remains available under Advanced tools.
 

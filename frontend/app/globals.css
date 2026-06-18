@@ -940,6 +940,229 @@ button {
   align-items: start;
 }
 
+.map-composer-shell {
+  display: grid;
+  gap: 16px;
+}
+
+.composer-step-tabs {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.composer-step-tab {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+  color: #1d2939;
+  text-align: left;
+  padding: 12px;
+  cursor: pointer;
+}
+
+.composer-step-tab span {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  background: #e8eef6;
+  color: #1d344d;
+  font-weight: 900;
+}
+
+.composer-step-tab strong,
+.composer-step-tab small {
+  display: block;
+}
+
+.composer-step-tab strong {
+  font-size: 14px;
+}
+
+.composer-step-tab small {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.composer-step-tab-active {
+  border-color: #8eb8e0;
+  background: #f3f8fd;
+  box-shadow: 0 10px 24px rgba(16, 35, 59, 0.08);
+}
+
+.composer-step-tab-complete span {
+  background: #d9f2e4;
+  color: var(--green);
+}
+
+.composer-step-tab-blocked {
+  border-color: #fecdca;
+  background: #fff1f0;
+}
+
+.composer-step-tab-blocked span {
+  background: #fee4e2;
+  color: var(--red);
+}
+
+.composer-step-tab:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.composer-step-body {
+  min-width: 0;
+}
+
+.composer-request-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 16px;
+  align-items: start;
+  max-width: 1120px;
+  margin: 0 auto;
+}
+
+.composer-request-card,
+.composer-request-explainer,
+.composer-preview-main,
+.composer-preview-sidebar,
+.composer-adjust-map-column,
+.composer-adjust-controls-panel,
+.composer-export-preview,
+.composer-export-panel {
+  min-width: 0;
+}
+
+.composer-request-card {
+  display: grid;
+  gap: 14px;
+}
+
+.composer-request-textarea {
+  min-height: 220px;
+  font-size: 16px;
+}
+
+.composer-generate-button {
+  justify-self: start;
+}
+
+.composer-request-explainer {
+  position: sticky;
+  top: 96px;
+  display: grid;
+  gap: 12px;
+}
+
+.composer-request-samples {
+  grid-template-columns: 1fr;
+}
+
+.composer-preview-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 350px;
+  gap: 16px;
+  align-items: start;
+}
+
+.composer-preview-main,
+.composer-preview-sidebar {
+  display: grid;
+  gap: 12px;
+}
+
+.composer-preview-sidebar {
+  position: sticky;
+  top: 96px;
+  max-height: calc(100vh - 116px);
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.composer-compact-request {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: center;
+}
+
+.composer-compact-request p {
+  margin: 0;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.composer-adjust-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 390px;
+  gap: 16px;
+  align-items: start;
+}
+
+.composer-adjust-map-column {
+  display: grid;
+  gap: 12px;
+}
+
+.composer-adjust-controls-panel {
+  position: sticky;
+  top: 96px;
+  display: grid;
+  gap: 14px;
+  max-height: calc(100vh - 116px);
+  overflow: auto;
+}
+
+.composer-adjust-controls-panel .composer-layer-row {
+  grid-template-columns: 1fr;
+}
+
+.composer-route-controls,
+.composer-symbol-controls {
+  display: grid;
+  gap: 10px;
+}
+
+.field-stack select {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+  color: #1d2939;
+  font: inherit;
+  padding: 9px 10px;
+  text-transform: none;
+}
+
+.composer-export-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: 16px;
+  align-items: start;
+}
+
+.composer-export-panel {
+  position: sticky;
+  top: 96px;
+  display: grid;
+  gap: 14px;
+  max-height: calc(100vh - 116px);
+  overflow: auto;
+}
+
+.composer-export-buttons {
+  display: grid;
+  grid-template-columns: 1fr;
+}
+
 .workflow-prompt-panel,
 .workflow-side,
 .composer-prompt-panel,
@@ -2111,6 +2334,11 @@ th {
   .map-preview-shell,
   .workflow-page-grid,
   .map-composer-grid,
+  .composer-step-tabs,
+  .composer-request-layout,
+  .composer-preview-layout,
+  .composer-adjust-layout,
+  .composer-export-layout,
   .composer-status-panel .simple-map-composer-stepper,
   .composer-summary-columns,
   .composer-layer-row {
@@ -2143,9 +2371,14 @@ th {
   .workflow-prompt-panel,
   .workflow-side,
   .composer-prompt-panel,
-  .composer-side {
+  .composer-side,
+  .composer-request-explainer,
+  .composer-preview-sidebar,
+  .composer-adjust-controls-panel,
+  .composer-export-panel {
     position: relative;
     top: auto;
+    max-height: none;
   }
 }
 
