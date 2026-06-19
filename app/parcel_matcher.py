@@ -8,6 +8,7 @@ from pathlib import Path
 import re
 from typing import Any
 
+from app.address_normalizer import normalize_for_compare, parse_address
 from app.address_field_mapper import build_verified_address_field_map
 from app.field_profiler import infer_field_roles, load_field_profiles
 from app.layer_catalog_store import load_catalog_records
@@ -68,6 +69,30 @@ def _normalized_identifier_value(value: str) -> str:
 
 def _normalized_field_expression(field: str) -> str:
     return f"REPLACE(REPLACE(UPPER({field}), '-', ''), ' ', '')"
+
+
+def _normalized_address_field_expression(field: str) -> str:
+    return f"REPLACE(REPLACE(REPLACE(UPPER({field}), ' ', ''), '.', ''), ',', '')"
+
+
+def _address_candidate_clauses(field: str, raw_value: str) -> list[str]:
+    parsed = parse_address(raw_value)
+    variants = _dedupe_fields([raw_value, *(parsed.get("normalized_variants") or [])])
+    clauses: list[str] = []
+    for candidate in variants:
+        upper = str(candidate).upper()
+        comparison = normalize_for_compare(candidate)
+        clauses.append(f"UPPER({field}) LIKE {_sql_literal('%' + upper + '%')}")
+        if comparison:
+            clauses.append(f"{_normalized_address_field_expression(field)} = {_sql_literal(comparison)}")
+    house = str(parsed.get("house_number") or "").strip()
+    street_core = str(parsed.get("street_name_core") or "").strip().upper()
+    if house and street_core:
+        clauses.append(
+            f"(UPPER({field}) LIKE {_sql_literal('%' + house.upper() + '%')} "
+            f"AND UPPER({field}) LIKE {_sql_literal('%' + street_core + '%')})"
+        )
+    return clauses
 
 
 def find_tax_parcel_layer(
@@ -191,7 +216,8 @@ def build_parcel_where_clause(
                 if normalized:
                     field_clauses.append(f"{_normalized_field_expression(field)} = {_sql_literal(normalized)}")
         if identifier_type == "address":
-            field_clauses.extend(f"UPPER({field}) LIKE {_sql_literal('%' + value.upper() + '%')}" for field in candidate_fields)
+            for field in candidate_fields:
+                field_clauses.extend(_address_candidate_clauses(field, raw_value or value))
         clauses.append("(" + " OR ".join(field_clauses) + ")")
     if not clauses:
         return None, warnings
@@ -434,8 +460,12 @@ def _match_addresses_on_address_layer(
     ]
     out_fields = _dedupe_fields([*(fields_by_role.get("object_id") or []), *address_fields, *relation_fields])
     for address in addresses:
-        value = str(address.get("normalized_value") or address.get("value") or "").upper()
-        where = " OR ".join(f"UPPER({field}) LIKE {_sql_literal('%' + value + '%')}" for field in address_fields)
+        value = str(address.get("value") or address.get("normalized_value") or "")
+        where = " OR ".join(
+            clause
+            for field in address_fields
+            for clause in _address_candidate_clauses(field, value)
+        )
         if not where:
             continue
         try:

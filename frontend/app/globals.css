@@ -2804,6 +2804,29 @@ button {
   color: #12395c;
 }
 
+.candidate-choice-list {
+  display: grid;
+  gap: 8px;
+}
+
+.candidate-choice-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  border: 1px solid #d7e6f5;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 8px 10px;
+  color: #12395c;
+}
+
+.button-small {
+  min-height: 30px;
+  padding: 5px 9px;
+  font-size: 12px;
+}
+
 .warning-group {
   min-height: 150px;
 }

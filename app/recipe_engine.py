@@ -28,8 +28,8 @@ PARCEL_NOT_MATCHED_WARNING = (
     "parcel/PIN/address is provided."
 )
 ADDRESS_NOT_MATCHED_WARNING = (
-    "Address not matched. AutoMap cannot zoom to or map this address until a valid public "
-    "address record or related parcel/PIN is matched."
+    "Address not matched. Address not found in verified public address/parcel fields. "
+    "Try adding city, ZIP, or a directional suffix such as SW."
 )
 
 

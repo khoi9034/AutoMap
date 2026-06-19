@@ -345,7 +345,9 @@ def test_map_composer_is_primary_simple_workflow():
     assert "SharedMapRenderer" in preview_step
     assert 'mode="preview_locked"' in preview_step
     assert "Parcel not matched" in preview_step
-    assert "Address not matched" in preview_step
+    assert "Address not found" in preview_step
+    assert "Multiple possible address matches" in preview_step
+    assert "Select Candidate" in preview_step
     assert "Correct address/PIN" in preview_step
     assert "Nearest facility draft" in preview_step
     assert "nearest fire/EMS station" in preview_step

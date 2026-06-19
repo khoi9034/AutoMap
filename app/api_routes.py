@@ -58,6 +58,7 @@ from app.exhibit_exporter import (
     get_exhibit_html,
     list_exhibits,
 )
+from app.address_parcel_resolver import resolve_address_or_parcel_origin
 from app.address_field_mapper import build_verified_address_field_map
 from app.feedback_learning import (
     learn_from_approved_packet,
@@ -343,6 +344,12 @@ class ParcelInputRequest(BaseModel):
     """Parcel input payload for parsing or parcel-set creation."""
 
     raw_input: str
+
+
+class AddressResolveRequest(BaseModel):
+    """Address resolver payload."""
+
+    address: str
 
 
 class ParcelContextRequest(BaseModel):
@@ -1076,6 +1083,32 @@ def api_match_parcels(payload: ParcelInputRequest) -> Any:
             "geometry_output_path": parcel_set.get("geometry_output_path"),
             "warnings": parcel_set.get("warnings") or [],
             "downloaded_geometry": False,
+        }
+    )
+
+
+@api_router.post("/address/resolve")
+def api_resolve_address(payload: AddressResolveRequest) -> Any:
+    """Resolve one address through verified public address/parcel fields."""
+    try:
+        result = resolve_address_or_parcel_origin(payload.address)
+    except ValueError as exc:
+        raise _handle_value_error(exc) from exc
+    return _json_response(
+        {
+            "address": payload.address,
+            "normalized_address": result.get("normalized_address"),
+            "parsed_address_parts": result.get("parsed_address_parts"),
+            "match_status": result.get("match_status"),
+            "candidates": result.get("candidate_matches") or [],
+            "matched_address_candidates": result.get("matched_address_candidates") or [],
+            "matched_parcel_candidates": result.get("matched_parcel_candidates") or [],
+            "related_parcel": {
+                "pin": result.get("related_pin"),
+                "pin14": result.get("related_pin14"),
+                "parcel_number": result.get("related_parcel_number"),
+            },
+            "warnings": result.get("warnings") or [],
         }
     )
 

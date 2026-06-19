@@ -42,6 +42,7 @@ import type {
   TablePreviewResponse,
   TableRecipe,
   WorkflowRunResponse,
+  AddressResolveResponse,
 } from "@/types/automap";
 
 export const API_BASE_URL =
@@ -424,6 +425,14 @@ export async function createParcelSet(rawInput: string): Promise<{ parcel_set: P
     method: "POST",
     timeoutMs: 120000,
     body: JSON.stringify({ raw_input: rawInput }),
+  });
+}
+
+export async function resolveAddress(address: string): Promise<AddressResolveResponse> {
+  return apiFetch<AddressResolveResponse>("/api/address/resolve", {
+    method: "POST",
+    timeoutMs: 60000,
+    body: JSON.stringify({ address }),
   });
 }
 

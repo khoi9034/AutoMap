@@ -27,7 +27,7 @@ If unmatched, AutoMap:
 - does not show a broad county map as successful parcel output
 - does not run analysis
 
-Address-focused prompts follow the same focused-preview rule. If the address is unmatched, AutoMap sets `can_preview=false`, shows `Address not matched`, and does not show a broad county map as a successful address preview.
+Address-focused prompts follow the same focused-preview rule. If the address is unmatched, AutoMap sets `can_preview=false`, shows `Address not found` guidance, and does not show a broad county map as a successful address preview.
 
 If an address is matched and a proximity result exists, AutoMap can preview the address point, nearest facility target, and straight-line distance line even when a related parcel is not resolved. In that case it warns that the related parcel was not resolved and does not show the full Tax Parcels layer as the selected property.
 

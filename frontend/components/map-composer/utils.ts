@@ -35,8 +35,22 @@ export function isAddressFocused(response: ComposerResponse): boolean {
 
 export function identifierText(value: unknown): string {
   if (!value || typeof value !== "object") return String(value || "");
-  const item = value as { value?: string; normalized_value?: string; identifier_type?: string };
-  return item.value || item.normalized_value || item.identifier_type || JSON.stringify(item);
+  const item = value as {
+    address?: string;
+    city?: string;
+    display_address?: string;
+    identifier_type?: string;
+    normalized_value?: string;
+    parcel_id?: string;
+    pin?: string;
+    pin14?: string;
+    value?: string;
+    zip?: string;
+  };
+  const address = item.display_address || item.address || item.value || item.normalized_value || item.identifier_type || "";
+  const locality = [item.city, item.zip].filter(Boolean).join(" ");
+  const parcel = item.pin14 || item.pin || item.parcel_id;
+  return [address, locality, parcel ? `Parcel/PIN ${parcel}` : ""].filter(Boolean).join(" - ") || JSON.stringify(item);
 }
 
 function derivedRouteStyle(overlay: DerivedOverlay): Pick<ComposerLayerEdit, "line_style" | "line_thickness"> {

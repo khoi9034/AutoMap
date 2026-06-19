@@ -15,7 +15,7 @@ from uuid import uuid4
 from sqlalchemy import text
 
 from app.address_field_mapper import build_verified_address_field_map
-from app.address_parcel_resolver import ADDRESS_NOT_MATCHED_WARNING, looks_like_address
+from app.address_parcel_resolver import ADDRESS_NOT_MATCHED_WARNING, looks_like_address, resolve_verified_address
 from app.db import _quote_identifier, get_engine
 from app.geometry_utils import (
     GeometrySafetyError,
@@ -867,46 +867,43 @@ def resolve_address_point(
 ) -> dict[str, Any]:
     """Resolve a supplied address against the verified Addresses layer."""
     parsed = parse_parcel_input(address)
-    address_value = (
-        (parsed.get("address_candidates") or [{}])[0].get("value")
-        if parsed.get("address_candidates")
-        else address
+    address_value = (parsed.get("address_candidates") or [{}])[0].get("value") if parsed.get("address_candidates") else address
+    result = resolve_verified_address(
+        str(address_value or address),
+        client=client,
+        schema_name=schema_name,
+        fetch_geometry=True,
+        max_candidates=MAX_TARGET_CANDIDATES,
     )
-    field_map = build_verified_address_field_map(schema_name=schema_name)
-    layer_url = field_map.get("layer_url")
-    where_clause, warnings = _address_where(str(address_value or address), field_map)
-    if not layer_url or not where_clause:
-        return {"status": "needs_review", "origin_type": "address", "origin_feature": None, "warnings": warnings}
-    query_client = client or SpatialQueryClient(max_features=MAX_TARGET_CANDIDATES)
-    try:
-        count_result = query_client.query_count(layer_url, where=where_clause)
-    except Exception as exc:
-        return {"status": "needs_review", "origin_type": "address", "origin_feature": None, "warnings": [str(exc)]}
-    count = int(count_result.get("count") or 0)
-    if count == 0:
-        return {"status": "unmatched", "origin_type": "address", "origin_feature": None, "warnings": [ADDRESS_NOT_MATCHED_WARNING]}
-    if count > 1:
-        candidates = query_client.query_features(
-            layer_url,
-            where=where_clause,
-            out_fields="*",
-            return_geometry=False,
-            result_record_count=min(count, MAX_TARGET_CANDIDATES),
-        )
+    if result.get("status") == "matched" and result.get("origin_feature"):
+        return {
+            "status": "matched",
+            "origin_type": "address",
+            "origin_feature": result.get("origin_feature"),
+            "candidate_matches": [],
+            "matched_address_candidates": result.get("matched_address_candidates") or [],
+            "related_pin": result.get("related_pin"),
+            "related_pin14": result.get("related_pin14"),
+            "related_parcel_number": result.get("related_parcel_number"),
+            "query_attempts": result.get("query_attempts") or [],
+            "warnings": result.get("warnings") or [],
+        }
+    if result.get("status") == "ambiguous":
         return {
             "status": "needs_review",
             "origin_type": "address",
             "origin_feature": None,
-            "candidate_matches": candidates.get("features") or [],
-            "warnings": [f"Address matched {count} candidates; choose one before proximity analysis."],
+            "candidate_matches": result.get("candidate_matches") or [],
+            "query_attempts": result.get("query_attempts") or [],
+            "warnings": result.get("warnings") or ["Multiple possible address matches were found; choose one before proximity analysis."],
         }
-    features = query_client.query_features(layer_url, where=where_clause, out_fields="*", return_geometry=True, result_record_count=1)
-    rows = features.get("features") or []
     return {
-        "status": "matched" if rows else "needs_review",
+        "status": result.get("status") or "unmatched",
         "origin_type": "address",
-        "origin_feature": rows[0] if rows else None,
-        "warnings": warnings,
+        "origin_feature": None,
+        "candidate_matches": result.get("candidate_matches") or [],
+        "query_attempts": result.get("query_attempts") or [],
+        "warnings": result.get("warnings") or [ADDRESS_NOT_MATCHED_WARNING],
     }
 
 

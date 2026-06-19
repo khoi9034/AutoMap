@@ -189,14 +189,17 @@ def test_labeled_parcel_still_parses_as_pin():
 
 def test_address_resolver_does_not_use_owner_lookup_by_default(monkeypatch):
     monkeypatch.setattr(
-        "app.address_parcel_resolver.match_parcels_by_address",
-        lambda addresses, **kwargs: {
-            "matched_parcels": [],
-            "candidate_matches": [],
-            "address_candidates": [],
-            "unmatched_identifiers": addresses,
+        "app.address_parcel_resolver.resolve_verified_address",
+        lambda address, **kwargs: {
+            "status": "unmatched",
             "match_status": "unmatched",
-            "warnings": [],
+            "matched_address_candidates": [],
+            "matched_parcel_candidates": [],
+            "candidate_matches": [],
+            "warnings": ["Address not matched. Address not found in verified public address/parcel fields."],
+            "downloaded_geometry": False,
+            "can_preview": False,
+            "owner_lookup_used": False,
         },
     )
 
@@ -205,7 +208,7 @@ def test_address_resolver_does_not_use_owner_lookup_by_default(monkeypatch):
     assert result["origin_type"] == "address"
     assert result["match_status"] == "unmatched"
     assert result["owner_lookup_used"] is False
-    assert "Address not matched" in " ".join(result["warnings"])
+    assert "Address not found" in " ".join(result["warnings"])
 
 
 def test_owner_lookup_is_privacy_sensitive_and_needs_review():

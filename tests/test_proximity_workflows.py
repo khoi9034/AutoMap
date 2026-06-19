@@ -160,7 +160,7 @@ def test_address_origin_unmatched_uses_address_warning(monkeypatch):
             "status": "unmatched",
             "origin_type": "address",
             "origin_feature": None,
-            "warnings": ["Address not matched. AutoMap cannot zoom to or map this address until a valid public address record or related parcel/PIN is matched."],
+            "warnings": ["Address not matched. Address not found in verified public address/parcel fields. Try adding city, ZIP, or a directional suffix such as SW."],
         },
     )
     monkeypatch.setattr(
@@ -179,7 +179,7 @@ def test_address_origin_unmatched_uses_address_warning(monkeypatch):
 
     assert result["status"] == "needs_review"
     assert result["origin_type"] == "address"
-    assert "Address not matched" in " ".join(result["warnings"])
+    assert "Address not found" in " ".join(result["warnings"])
 
 
 def test_target_layer_mapping_uses_verified_catalog_only():

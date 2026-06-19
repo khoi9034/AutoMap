@@ -50,7 +50,7 @@ If the identifier is unmatched, AutoMap:
 
 If the identifier is matched safely, AutoMap fetches only the matched parcel geometry, computes a buffered parcel extent, and focuses the preview on that extent.
 
-If an address is unmatched, the normal composer says `Address not matched`, not `Parcel not matched`, and blocks focused preview until the user corrects the address.
+If an address is unmatched, the normal composer says `Address not found`, not `Parcel not matched`, and blocks focused preview until the user corrects the address.
 
 ## CLI
 

@@ -28,7 +28,7 @@ AutoMap v4.4 removes the messy nested-scroll feel from desktop composer screens.
 
 Blocked focused previews show one clear blocker:
 
-- `Address not matched` for address origins
+- `Address not found` for unmatched address origins
 - `Parcel not matched` for parcel/PIN/PIN14 origins
 
 AutoMap explains what it tried, shows candidate or unmatched records when available, and asks the user to try a corrected address/PIN.

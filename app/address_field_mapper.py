@@ -12,10 +12,17 @@ from app.parcel_field_mapper import ensure_parcel_field_map_table, _store_field_
 
 ADDRESS_FIELD_ROLES = (
     "full_address",
+    "site_address",
+    "situs_address",
     "house_number",
+    "street_number",
     "street_name",
+    "street_suffix",
     "street_type",
+    "street_direction",
+    "unit",
     "city",
+    "zip",
     "pin",
     "pin14",
     "parcel_id",
@@ -123,14 +130,27 @@ def identify_address_fields(profiles: list[dict[str, Any]]) -> list[dict[str, An
             or compact in {"address", "addr"}
         ):
             rows.append(_role_row(profile, "full_address", 0.9, "Field appears to contain address text."))
+        if any(term in compact for term in ["siteaddress", "propertyaddress", "locationaddress", "locaddress"]):
+            rows.append(_role_row(profile, "site_address", 0.86, "Field appears to contain site/location address text."))
+        if any(term in compact for term in ["situsaddress", "situsaddr", "premiseaddress"]):
+            rows.append(_role_row(profile, "situs_address", 0.86, "Field appears to contain situs address text."))
         if any(term in compact for term in ["housenum", "addrnum", "addressnum", "streetnumber"]):
             rows.append(_role_row(profile, "house_number", 0.78, "Field appears to contain address number."))
+        if any(term in compact for term in ["streetnum", "stnum", "strnum"]):
+            rows.append(_role_row(profile, "street_number", 0.76, "Field appears to contain street number."))
         if any(term in compact for term in ["streetname", "stname", "plainst", "roadname"]):
             rows.append(_role_row(profile, "street_name", 0.78, "Field appears to contain street name."))
-        if any(term in compact for term in ["streettype", "sttype"]):
+        if any(term in compact for term in ["streetsuffix", "stsuffix", "streettype", "sttype", "roadtype"]):
+            rows.append(_role_row(profile, "street_suffix", 0.74, "Field appears to contain street suffix/type."))
             rows.append(_role_row(profile, "street_type", 0.72, "Field appears to contain street type."))
+        if any(term in compact for term in ["streetdirection", "stdirection", "predir", "postdir", "prefixdirection", "suffixdirection"]):
+            rows.append(_role_row(profile, "street_direction", 0.72, "Field appears to contain street direction."))
+        if any(term in compact for term in ["unit", "apartment", "suite", "apt", "ste"]):
+            rows.append(_role_row(profile, "unit", 0.68, "Field appears to contain unit/suite text."))
         if any(term in compact for term in ["city", "municipality", "town"]):
             rows.append(_role_row(profile, "city", 0.7, "Field appears to contain locality."))
+        if compact in {"zip", "zipcode", "postalcode", "zip5"} or any(term in compact for term in ["zip", "postal"]):
+            rows.append(_role_row(profile, "zip", 0.7, "Field appears to contain ZIP/postal code."))
     return _dedupe(rows)
 
 

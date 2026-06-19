@@ -26,14 +26,16 @@ export function PreviewBlocker({ response, onGoToRequest }: { response: Composer
   const blockerText = response.preview_blockers?.[0] || context?.reason_if_not_focusable || "";
   if (!response.preview_blockers?.length && context?.can_focus_map !== false && response.recipe?.origin_context?.can_preview !== false) return null;
   const candidates = [...(response.origin_candidates || []), ...(context?.candidate_matches || [])];
+  const hasAddressCandidates = isAddress && candidates.length > 0;
+  const addressHeading = hasAddressCandidates ? "Multiple possible address matches" : "Address not found";
   return (
     <section className="panel parcel-preview-blocked" role="alert">
       <p className="eyebrow">{isAddress ? "Address-focused preview blocked" : "Parcel-focused preview blocked"}</p>
-      <h3>{isAddress ? "Address not matched" : "Parcel not matched"}</h3>
+      <h3>{isAddress ? addressHeading : "Parcel not matched"}</h3>
       <p>
         {blockerText ||
           (isAddress
-            ? "Address not matched. AutoMap cannot zoom to or map this address until a valid public address record or related parcel/PIN is matched."
+            ? "Address not found in verified public address/parcel fields. Try adding city, ZIP, or a directional suffix such as SW."
             : "Parcel not matched. AutoMap cannot zoom to or map this parcel until a valid parcel/PIN/address is provided.")}
       </p>
       <div className="detail-grid">
@@ -67,11 +69,20 @@ export function PreviewBlocker({ response, onGoToRequest }: { response: Composer
       {candidates.length ? (
         <div className="definition-box">
           <strong>Candidate matches</strong>
-          <p>{candidates.slice(0, 4).map(identifierText).join(", ")}</p>
+          <div className="candidate-choice-list">
+            {candidates.slice(0, 6).map((candidate, index) => (
+              <div className="candidate-choice-row" key={`${identifierText(candidate)}-${index}`}>
+                <span>{identifierText(candidate)}</span>
+                <button className="button button-secondary button-small" type="button" disabled>
+                  Select Candidate
+                </button>
+              </div>
+            ))}
+          </div>
         </div>
       ) : null}
       <button className="button" type="button" onClick={onGoToRequest}>
-        Correct address/PIN
+        {isAddress ? "Try corrected address" : "Correct address/PIN"}
       </button>
     </section>
   );

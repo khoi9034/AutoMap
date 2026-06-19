@@ -16,7 +16,7 @@ PIN_LABEL_RE = re.compile(r"\b(?:pin14|pin|parcel(?:\s+id)?|parcel)\s*[:#]?\s*([
 ADDRESS_RE = re.compile(
     r"\b\d{1,7}\s+[A-Za-z0-9.' -]+?\s+"
     r"(?:st|street|rd|road|ave|avenue|blvd|boulevard|dr|drive|ln|lane|ct|court|cir|circle|hwy|highway|pkwy|parkway|pl|place|way|ter|terrace|trl|trail)"
-    r"(?:\s+[NSEW])?\b",
+    r"(?:\s+(?:N|S|E|W|NE|NW|SE|SW|NORTH|SOUTH|EAST|WEST|NORTHEAST|NORTHWEST|SOUTHEAST|SOUTHWEST))?\b",
     re.I,
 )
 PARCEL_INTENT_RE = re.compile(r"\b(my parcels|these parcels|parcel list|pin14s|pins|parcel ids?|property ids?)\b", re.I)

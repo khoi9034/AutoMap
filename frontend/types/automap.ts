@@ -1328,6 +1328,22 @@ export type ComposerResponse = {
   created_at?: string;
 };
 
+export type AddressResolveResponse = {
+  address?: string;
+  normalized_address?: string;
+  parsed_address_parts?: Record<string, JsonValue>;
+  match_status?: string;
+  candidates?: Array<Record<string, JsonValue>>;
+  matched_address_candidates?: Array<Record<string, JsonValue>>;
+  matched_parcel_candidates?: Array<Record<string, JsonValue>>;
+  related_parcel?: {
+    pin?: string | null;
+    pin14?: string | null;
+    parcel_number?: string | null;
+  };
+  warnings?: string[];
+};
+
 export type DataGap = {
   gap_key?: string;
   topic?: string;

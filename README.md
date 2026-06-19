@@ -46,7 +46,7 @@ AutoMap helps GIS and planning staff turn plain-English county map requests into
 - proximity, nearest-facility, containing-district, and straight-line route draft workflows with local GeoJSON/report outputs
 - simple Map Composer workflow for prompt, preview, adjustment, and print/export
 - parcel-focused preview blocking until a parcel is matched
-- address-focused prompts resolved through verified address/parcel fields without owner-name lookup by default
+- address-focused prompts resolved through progressive verified address/parcel field matching, normalized variants, bounded candidates, and no owner-name lookup by default
 - nearest-facility address prompts routed to straight-line proximity drafts when safe
 - clean composer blocked states that hide adjust/export controls until preview is ready
 - composer preview rendering with a real ArcGIS basemap, REST context layers, and local derived GeoJSON overlays for origin points, selected parcels, nearest facilities, and straight-line distance lines
@@ -567,7 +567,7 @@ Open:
 http://localhost:3010/map-composer
 ```
 
-See `docs/simple_map_composer.md`, `docs/map_preview_behavior.md`, `docs/simplified_workflow.md`, `docs/parcel_focused_preview.md`, `docs/derived_geojson_preview.md`, `docs/address_proximity_preview.md`, `docs/real_composer_map_preview.md`, `docs/fire_station_targeting.md`, `docs/route_draft_modes.md`, `docs/map_symbology_system.md`, `docs/enterprise_cartography.md`, `docs/map_layout_refinement.md`, `docs/map_title_rules.md`, `docs/print_layout.md`, `docs/wysiwyg_print_export.md`, `docs/live_print_preview.md`, `docs/print_export_options.md`, `docs/exhibit_exports.md`, `docs/staff_report_map_layout.md`, `docs/map_scale_bar.md`, `docs/map_composer_step_layouts.md`, and `docs/enterprise_ui_layout.md`.
+See `docs/simple_map_composer.md`, `docs/map_preview_behavior.md`, `docs/simplified_workflow.md`, `docs/parcel_focused_preview.md`, `docs/address_matching.md`, `docs/address_to_parcel_resolver.md`, `docs/derived_geojson_preview.md`, `docs/address_proximity_preview.md`, `docs/real_composer_map_preview.md`, `docs/fire_station_targeting.md`, `docs/route_draft_modes.md`, `docs/map_symbology_system.md`, `docs/enterprise_cartography.md`, `docs/map_layout_refinement.md`, `docs/map_title_rules.md`, `docs/print_layout.md`, `docs/wysiwyg_print_export.md`, `docs/live_print_preview.md`, `docs/print_export_options.md`, `docs/exhibit_exports.md`, `docs/staff_report_map_layout.md`, `docs/map_scale_bar.md`, `docs/map_composer_step_layouts.md`, and `docs/enterprise_ui_layout.md`.
 
 ## ArcGIS WebMap Draft Generator
 

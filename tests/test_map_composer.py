@@ -139,7 +139,7 @@ def test_composer_address_proximity_unmatched_says_address_not_parcel(monkeypatc
             "target_type": "nearest_fire_station",
             "candidate_matches": [],
             "warnings": [
-                "Address not matched. AutoMap cannot zoom to or map this address until a valid public address record or related parcel/PIN is matched."
+                "Address not matched. Address not found in verified public address/parcel fields. Try adding city, ZIP, or a directional suffix such as SW."
             ],
             "published": False,
         },
@@ -152,7 +152,7 @@ def test_composer_address_proximity_unmatched_says_address_not_parcel(monkeypatc
     assert result["origin_match_status"] == "needs_review"
     assert result["can_preview"] is False
     assert result["next_action"] == "correct_address"
-    assert "Address not matched" in result["preview_blockers"][0]
+    assert "Address not found" in result["preview_blockers"][0]
     assert "Parcel not matched" not in result["preview_blockers"][0]
     assert result["review_packet_id"] is None
 

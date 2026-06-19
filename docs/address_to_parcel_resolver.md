@@ -28,6 +28,8 @@ It does not use owner/name fields by default. If a user explicitly asks for owne
 
 Matching uses `returnGeometry=false` first. Geometry is fetched only after a safe single or small match count. AutoMap does not download countywide parcel, address, deed, permit, or planning datasets.
 
+Address matching is progressive. AutoMap first tries exact normalized address variants such as `ave` and `avenue`, then house number plus street core, then bounded full-address and street-only candidate searches. If the address remains ambiguous, candidates are returned for reviewer selection instead of guessing.
+
 If address fields do not expose a parcel/PIN relationship, AutoMap can safely test whether the matched address point intersects exactly one parcel. It runs a count-only parcel query first. If the count is exactly one, it fetches only that parcel geometry and may render `Selected Parcel`. If the count is zero, the property remains `not_resolved`. If the count is greater than one, the property match is `ambiguous` and candidates are returned for review.
 
 ## Composer Behavior
@@ -36,6 +38,6 @@ If an address matches, AutoMap can focus the map on the address or related parce
 
 If an address matches but no related parcel is resolved, the composer can still preview the address point, nearest facility point, and straight-line distance. It must not show the full Tax Parcels layer as the selected property.
 
-If an address does not match, the composer shows `Address not matched` and blocks preview. It does not show a broad county map as a successful address-focused map.
+If an address does not match, the composer shows `Address not found` guidance and blocks preview. It asks for city, ZIP, or a directional suffix such as `SW`. It does not show a broad county map as a successful address-focused map.
 
 CFS remains separate. AutoMap does not connect to `cfs_dev`.

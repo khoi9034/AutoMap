@@ -98,6 +98,7 @@ def test_frontend_workflow_api_routes_exist():
         "/api/parcels/parse",
         "/api/parcels/profile-fields",
         "/api/parcels/match",
+        "/api/address/resolve",
         "/api/parcels/sets",
         "/api/parcels/sets/{parcel_set_id}",
         "/api/parcels/{parcel_set_id}/fetch-geometry",
@@ -348,6 +349,35 @@ def test_api_parcel_routes_are_json_and_sanitized(monkeypatch):
     assert "parcel_set_test" in serialized
     assert "parcel_context_test" in serialized
     assert "database_url" not in serialized
+
+
+def test_api_address_resolve_is_json_and_sanitized(monkeypatch):
+    monkeypatch.setattr(
+        "app.api_routes.resolve_address_or_parcel_origin",
+        lambda address: {
+            "normalized_address": "793 BARTRAM AVE",
+            "parsed_address_parts": {"house_number": "793", "street_name_core": "bartram", "suffix": "ave"},
+            "match_status": "ambiguous",
+            "candidate_matches": [{"display_address": "793 BARTRAM AVE SW", "pin14": "12345678901234"}],
+            "matched_address_candidates": [],
+            "matched_parcel_candidates": [],
+            "related_pin": None,
+            "related_pin14": None,
+            "related_parcel_number": None,
+            "warnings": ["Multiple possible address matches were found."],
+            "DATABASE_URL": "postgresql://secret",
+        },
+    )
+    client = TestClient(create_app())
+
+    response = client.post("/api/address/resolve", json={"address": "793 bartram ave"})
+    serialized = json.dumps(response.json()).lower()
+
+    assert response.status_code == 200
+    assert response.json()["match_status"] == "ambiguous"
+    assert response.json()["candidates"][0]["display_address"] == "793 BARTRAM AVE SW"
+    assert "database_url" not in serialized
+    assert "secret" not in serialized
 
 
 def test_api_proximity_routes_are_json_and_sanitized(monkeypatch):

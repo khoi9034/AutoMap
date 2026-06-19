@@ -31,6 +31,7 @@ from app.analysis_refinement_engine import (
 )
 from app.analysis_result_store import validate_analysis_run
 from app.address_field_mapper import build_verified_address_field_map
+from app.address_parcel_resolver import debug_address_match
 from app.approval_engine import (
     apply_approval_to_adjusted_packet,
     create_approval_template,
@@ -896,6 +897,12 @@ def _match_parcels(raw_input: str) -> int:
     return 0
 
 
+def _debug_address_match(address: str) -> int:
+    result = debug_address_match(address)
+    print(json.dumps(result, indent=2, default=str))
+    return 0
+
+
 def _fetch_selected_parcels(parcel_set_id: str) -> int:
     result = fetch_selected_parcels(parcel_set_id)
     print(json.dumps(result, indent=2, default=str))
@@ -1450,6 +1457,11 @@ def main() -> int:
         help="Safely match parcel/PIN/address input using verified fields without geometry download.",
     )
     parser.add_argument(
+        "--debug-address-match",
+        metavar="ADDRESS",
+        help="Print progressive verified address matching diagnostics for one address.",
+    )
+    parser.add_argument(
         "--create-parcel-set",
         metavar="RAW_INPUT",
         help="Create a local parcel set with safe count/attribute-first matching.",
@@ -1687,6 +1699,8 @@ def main() -> int:
             return _profile_parcel_fields()
         if args.match_parcels:
             return _match_parcels(args.match_parcels)
+        if args.debug_address_match:
+            return _debug_address_match(args.debug_address_match)
         if args.create_parcel_set:
             return _create_parcel_set(args.create_parcel_set)
         if args.fetch_selected_parcels:
