@@ -2431,6 +2431,8 @@ button {
 
 .enterprise-map-frame {
   position: relative;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
   border: 1px solid #aab9c8;
   border-radius: 8px;
@@ -2439,8 +2441,70 @@ button {
 }
 
 .enterprise-map-frame .composer-real-map {
+  flex: 1 1 auto;
+  min-height: 0;
   border: 0;
   border-radius: 0;
+}
+
+.map-frame-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(82, 103, 124, 0.42);
+  background: rgba(255, 255, 255, 0.95);
+  color: #12263a;
+  z-index: 12;
+}
+
+.map-frame-title h3 {
+  margin: 0;
+  font-size: 17px;
+  line-height: 1.2;
+  letter-spacing: 0;
+}
+
+.map-frame-title p {
+  margin: 3px 0 0;
+  color: #52677c;
+  font-size: 12px;
+}
+
+.map-frame-title span {
+  flex: 0 0 auto;
+  border: 1px solid rgba(82, 103, 124, 0.35);
+  border-radius: 999px;
+  padding: 4px 8px;
+  background: #eef4fa;
+  color: #30485f;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.map-interaction-blocker {
+  position: absolute;
+  inset: 51px 0 0;
+  z-index: 3;
+  cursor: default;
+  touch-action: none;
+  background: transparent;
+}
+
+.map-interaction-blocker span {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  border: 1px solid rgba(32, 58, 86, 0.24);
+  border-radius: 999px;
+  padding: 5px 9px;
+  background: rgba(255, 255, 255, 0.92);
+  color: #30485f;
+  font-size: 11px;
+  font-weight: 800;
+  box-shadow: 0 8px 20px rgba(16, 35, 59, 0.14);
 }
 
 .north-arrow {

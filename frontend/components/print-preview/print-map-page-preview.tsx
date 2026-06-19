@@ -33,7 +33,7 @@ export function PrintMapPagePreview({ mapState, packetId, printOptions, response
         {printOptions.includeDraftDisclaimer ? <strong>DRAFT - For GIS review only</strong> : null}
       </header>
       <div className="print-preview-map-frame">
-        <SharedMapRenderer mode="print" mapState={mapState} response={response} packetId={packetId} showLayerPanel={false} />
+        <SharedMapRenderer mode="print_locked" mapState={mapState} response={response} packetId={packetId} showLayerPanel={false} />
       </div>
       <footer className="print-preview-map-notes">
         <span>{routeSummary(response, mapState)}</span>

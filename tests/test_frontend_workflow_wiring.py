@@ -200,6 +200,7 @@ def test_map_composer_is_primary_simple_workflow():
     map_symbols = read("lib/map-symbols.ts")
     map_legend = read("components/map-legend.tsx")
     symbol_legend = read("components/map-symbol-legend.tsx")
+    map_frame_title = read("components/map-frame-title.tsx")
     north_arrow = read("components/north-arrow.tsx")
     scale_bar = read("components/map-scale-bar.tsx")
     shared_renderer = read("components/map-renderer/shared-map-renderer.tsx")
@@ -285,6 +286,17 @@ def test_map_composer_is_primary_simple_workflow():
     assert "MapLegend" in composer_preview
     assert "NorthArrow" in composer_preview
     assert "MapScaleBar" in composer_preview
+    assert "MapFrameTitle" in composer_preview
+    assert "map-interaction-blocker" in composer_preview
+    assert "Locked preview" in composer_preview
+    assert "Locked for print" in composer_preview
+    assert "components: locked ? [\"attribution\"] : [\"attribution\", \"zoom\"]" in composer_preview
+    assert "mouseWheelZoomEnabled: false" in composer_preview
+    assert "browserTouchPanEnabled: false" in composer_preview
+    assert "onViewStateChange" in composer_preview
+    assert "viewCommand" in composer_preview
+    assert "map-frame-title" in map_frame_title
+    assert "data-testid=\"map-frame-title\"" in map_frame_title
     assert "<MapScaleBar scale={viewScale} mapWidth={viewWidth}" in composer_preview
     assert "<MapLegend overlays={derivedOverlays} contextLayers={contextLayers} />" in composer_preview
     frame_index = composer_preview.index('className="enterprise-map-frame"')
@@ -331,6 +343,7 @@ def test_map_composer_is_primary_simple_workflow():
     assert "Regenerate Draft" in preview_step
     assert "Print / Export" in preview_step
     assert "SharedMapRenderer" in preview_step
+    assert 'mode="preview_locked"' in preview_step
     assert "Parcel not matched" in preview_step
     assert "Address not matched" in preview_step
     assert "Correct address/PIN" in preview_step
@@ -340,6 +353,13 @@ def test_map_composer_is_primary_simple_workflow():
     assert "composer-adjust-layout" in adjust_step
     assert "composer-adjust-controls-panel" in adjust_step
     assert "SharedMapRenderer" in adjust_step
+    assert 'mode="adjust_interactive"' in adjust_step
+    assert "Reset to Generated View" in adjust_step
+    assert "Reset to Full Route / Feature Extent" in adjust_step
+    assert "Center on Origin" in adjust_step
+    assert "Center on Target" in adjust_step
+    assert "Lock Final Map" in adjust_step
+    assert "onMapViewStateChange" in adjust_step
     assert "Map controls" in adjust_step
     assert "Apply Adjustments" in adjust_step
     assert "Reset adjustments" in adjust_step
@@ -374,6 +394,7 @@ def test_map_composer_is_primary_simple_workflow():
     assert "Warnings and Limitations" in print_warning
     assert "Source Notes" in print_sources
     assert "data-locked-map-state" in print_map_page_preview
+    assert 'mode="print_locked"' in print_map_page_preview
     assert "Exact composer state" in map_state_capture
     assert "Map exhibit first" in map_state_capture
     assert "buildComposerMapStateSnapshot" in composer_map_state_lib
@@ -399,6 +420,12 @@ def test_map_composer_is_primary_simple_workflow():
     assert "SharedMapRenderer" in print_map_page_preview
     assert "ComposerMapPreview" in shared_renderer
     assert "mapState" in shared_renderer
+    assert "preview_locked" in shared_renderer
+    assert "adjust_interactive" in shared_renderer
+    assert "print_locked" in shared_renderer
+    assert "exhibit_locked" in shared_renderer
+    assert "viewCommand" in shared_renderer
+    assert "onViewStateChange" in shared_renderer
     assert "Open Browser Print" in print_client
     assert "exhibit-layout" in exhibit_layout
     assert "ExhibitTitleBlock" in exhibit_layout
@@ -604,7 +631,7 @@ def test_api_client_has_timeout_and_sanitized_fallback_version():
     assert "Backend is online, but this request took too long" in source
     assert "http://127.0.0.1:8010" in source
     assert "timeoutMs: 60000" in source
-    assert 'version: "4.8.0"' in source
+    assert 'version: "4.9.0"' in source
     assert "redactProtected" in source
     assert "AutoMap is checking the catalog, parcel fields, and context layers" in map_request
 

@@ -1,8 +1,11 @@
 "use client";
 
+import { useState } from "react";
+
+import type { MapViewCommand, MapViewCommandType } from "@/components/map-renderer/shared-map-renderer";
 import { SharedMapRenderer } from "@/components/map-renderer/shared-map-renderer";
 import { StatusChip } from "@/components/status-chip";
-import type { ComposerResponse } from "@/types/automap";
+import type { ComposerMapState, ComposerResponse } from "@/types/automap";
 
 import type { ComposerLayerEdit } from "./types";
 import { composerDisplaySubtitle, composerDisplayTitle, isRouteLayer } from "./utils";
@@ -15,6 +18,7 @@ type AdjustStepProps = {
   notes: string;
   onApply: () => void;
   onGoToPreview: () => void;
+  onMapViewStateChange?: (state: Partial<ComposerMapState>) => void;
   onReset: () => void;
   previewPacketId: string;
   response: ComposerResponse | null;
@@ -172,6 +176,7 @@ export function AdjustStep({
   notes,
   onApply,
   onGoToPreview,
+  onMapViewStateChange,
   onReset,
   previewPacketId,
   response,
@@ -180,6 +185,7 @@ export function AdjustStep({
   setMapTitle,
   setNotes,
 }: AdjustStepProps) {
+  const [viewCommand, setViewCommand] = useState<MapViewCommand | null>(null);
   if (!response?.can_preview || !previewPacketId) {
     return (
       <section className="panel empty-state">
@@ -189,10 +195,25 @@ export function AdjustStep({
     );
   }
 
+  const overlays = response.preview_config?.derived_overlays || response.proximity_result?.derived_overlays || [];
+  const overlayBlob = overlays.map((overlay) => `${overlay.id || ""} ${overlay.role || ""} ${overlay.geometry_role || ""} ${overlay.symbol_key || ""}`).join(" ").toLowerCase();
+  const hasOrigin = overlayBlob.includes("origin");
+  const hasTarget = overlayBlob.includes("target") || overlayBlob.includes("facility");
+  const hasFeatureExtent = overlays.length > 0;
+  const sendViewCommand = (type: MapViewCommandType) => setViewCommand({ id: Date.now(), type });
+
   return (
     <section className="composer-adjust-layout">
       <div className="composer-adjust-map-column">
-        <SharedMapRenderer mapState={response.composer_map_state} response={response} packetId={previewPacketId} showLayerPanel={false} />
+        <SharedMapRenderer
+          mode="adjust_interactive"
+          mapState={response.composer_map_state}
+          onViewStateChange={onMapViewStateChange}
+          packetId={previewPacketId}
+          response={response}
+          showLayerPanel={false}
+          viewCommand={viewCommand}
+        />
       </div>
       <aside className="panel composer-adjust-controls-panel">
         <div className="panel-title-row">
@@ -203,6 +224,31 @@ export function AdjustStep({
           </div>
           <StatusChip tone="success">Live preview</StatusChip>
         </div>
+
+        <section className="definition-box composer-view-reset-controls">
+          <strong>Final view</strong>
+          <p className="muted">Pan or zoom the map here, then lock the final map for print/export.</p>
+          <div className="button-row compact-buttons">
+            <button className="button button-secondary" type="button" onClick={() => sendViewCommand("reset_generated")}>
+              Reset to Generated View
+            </button>
+            {hasFeatureExtent ? (
+              <button className="button button-secondary" type="button" onClick={() => sendViewCommand("reset_feature_extent")}>
+                Reset to Full Route / Feature Extent
+              </button>
+            ) : null}
+            {hasOrigin ? (
+              <button className="button button-secondary" type="button" onClick={() => sendViewCommand("center_origin")}>
+                Center on Origin
+              </button>
+            ) : null}
+            {hasTarget ? (
+              <button className="button button-secondary" type="button" onClick={() => sendViewCommand("center_target")}>
+                Center on Target
+              </button>
+            ) : null}
+          </div>
+        </section>
 
         <label className="field-stack">
           <span>Map title</span>
@@ -222,6 +268,9 @@ export function AdjustStep({
         <div className="button-row composer-adjust-action-bar">
           <button className="button" type="button" onClick={onApply} disabled={loading || !layers.length}>
             {loading ? "Applying..." : "Apply Adjustments"}
+          </button>
+          <button className="button" type="button" onClick={onApply} disabled={loading || !layers.length}>
+            {loading ? "Locking..." : "Lock Final Map"}
           </button>
           <button className="button button-secondary" type="button" onClick={onReset} disabled={loading}>
             Reset adjustments

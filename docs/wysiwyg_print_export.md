@@ -1,6 +1,6 @@
 # WYSIWYG Print Export
 
-AutoMap v4.7 made print/export use the current Map Composer state instead of rebuilding a separate map. AutoMap v4.8 adds a live Print / Export preview panel so users can choose report sections and immediately see the final page layout. The print layout loads the saved `composer_map_state` for the active session and renders the same map title, extent, basemap, visible layers, hidden layers, layer opacity, layer order, route style, origin/target symbols, legend, scale bar, north arrow, warnings, and reviewer notes.
+AutoMap v4.7 made print/export use the current Map Composer state instead of rebuilding a separate map. AutoMap v4.8 adds a live Print / Export preview panel so users can choose report sections and immediately see the final page layout. AutoMap v4.9 locks map navigation outside the Adjust step. The print layout loads the saved `composer_map_state` for the active session and renders the same map title, extent, basemap, visible layers, hidden layers, layer opacity, layer order, route style, origin/target symbols, legend, scale bar, north arrow, warnings, and reviewer notes.
 
 ## Default Mode
 
@@ -37,6 +37,8 @@ These sections are optional appendices. Missing data remains explicit and is not
 Before adjustment, print preview, exhibit package generation, or report export, the frontend sends a snapshot of the current composer state to the backend. That snapshot records the adjusted title, subtitle, layer visibility, opacity, order, layer names, route style, symbol state, saved map extent, report options, and export mode.
 
 In v4.8, section checkbox choices are also stored as print/export options. The live preview and browser print route use the same print document component so the visible preview and printed pages stay aligned.
+
+In v4.9, Apply Adjustments and Lock Final Map capture the active Adjust-step map center, zoom, scale, and extent. Preview, Print / Export, live print preview, and exhibit print pages render that state in locked mode with no pan/zoom controls.
 
 The backend persists the state in:
 

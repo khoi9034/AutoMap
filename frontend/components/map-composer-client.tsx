@@ -1,7 +1,7 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 import { AdjustStep } from "@/components/map-composer/adjust-step";
 import { ExportStep } from "@/components/map-composer/export-step";
@@ -72,6 +72,7 @@ export function MapComposerClient() {
   const [notes, setNotes] = useState("");
   const [reportConfig, setReportConfig] = useState<ReportSectionConfig>(defaultReportConfig);
   const [printOptions, setPrintOptionsState] = useState<LivePrintOptions>(DEFAULT_LIVE_PRINT_OPTIONS);
+  const [activeMapViewState, setActiveMapViewState] = useState<Partial<ComposerMapState> | null>(null);
   const [exhibitPackage, setExhibitPackage] = useState<ExhibitPackage | null>(null);
   const [activeStep, setActiveStep] = useState<ComposerStepId>("request");
   const [loading, setLoading] = useState<ComposerLoadingState>(null);
@@ -94,6 +95,7 @@ export function MapComposerClient() {
     setMapTitle(composerDisplayTitle(nextResponse));
     setMapSubtitle(composerDisplaySubtitle(nextResponse));
     setNotes("");
+    setActiveMapViewState(null);
   }
 
   function currentComposerPayload(): ComposerAdjustPayload | null {
@@ -107,12 +109,17 @@ export function MapComposerClient() {
       reportConfig,
       exportMode: printOptions.exportMode,
       printOptions,
+      activeMapViewState,
     });
   }
 
   function currentLockedMapState(): ComposerMapState | null {
     return currentComposerPayload()?.map_state || response?.composer_map_state || null;
   }
+
+  const handleMapViewStateChange = useCallback((state: Partial<ComposerMapState>) => {
+    setActiveMapViewState(state);
+  }, []);
 
   function setPrintOptions(nextOptions: LivePrintOptions) {
     const normalized = printOptionsForMode(nextOptions.exportMode, nextOptions);
@@ -136,6 +143,7 @@ export function MapComposerClient() {
       setMapTitle(composerDisplayTitle(result));
       setMapSubtitle(composerDisplaySubtitle(result));
       setNotes("");
+      setActiveMapViewState(null);
       const nextPrintOptions = backendExportOptionsToPrintOptions(
         result.composer_map_state?.export_options,
         result.composer_map_state?.report_section_config || defaultReportConfig,
@@ -178,6 +186,7 @@ export function MapComposerClient() {
       setLayers(layerEditsFromResponse(result));
       setMapTitle(composerDisplayTitle(result));
       setMapSubtitle(composerDisplaySubtitle(result));
+      setActiveMapViewState(null);
       mergeWorkflowState({
         rawPrompt: prompt,
         recipe: result.recipe,
@@ -293,6 +302,7 @@ export function MapComposerClient() {
           notes={notes}
           onApply={applyAdjustments}
           onGoToPreview={() => setActiveStep("preview")}
+          onMapViewStateChange={handleMapViewStateChange}
           onReset={() => resetAdjustments()}
           previewPacketId={previewPacketId}
           response={response}

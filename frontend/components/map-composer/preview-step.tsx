@@ -237,7 +237,13 @@ export function PreviewStep({
         </div>
         <PreviewBlocker response={response} onGoToRequest={onGoToRequest} />
         {previewReady ? (
-          <SharedMapRenderer mapState={response.composer_map_state} response={response} packetId={previewPacketId} showLayerPanel={false} />
+          <SharedMapRenderer
+            mode="preview_locked"
+            mapState={response.composer_map_state}
+            response={response}
+            packetId={previewPacketId}
+            showLayerPanel={false}
+          />
         ) : null}
       </div>
 

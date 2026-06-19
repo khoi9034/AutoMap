@@ -3,7 +3,12 @@
 import { ComposerMapPreview } from "@/components/composer-map-preview";
 import type { ComposerMapState, ComposerResponse, ProximityResult } from "@/types/automap";
 
-type SharedMapRendererMode = "interactive" | "print" | "exhibit";
+export type SharedMapRendererMode = "preview_locked" | "adjust_interactive" | "print_locked" | "exhibit_locked";
+export type MapViewCommandType = "reset_generated" | "reset_feature_extent" | "center_origin" | "center_target";
+export type MapViewCommand = {
+  id: number;
+  type: MapViewCommandType;
+};
 
 type SharedMapRendererProps = {
   mapState?: ComposerMapState | null;
@@ -13,6 +18,8 @@ type SharedMapRendererProps = {
   showControls?: boolean;
   showLayerPanel?: boolean;
   showMapFurniture?: boolean;
+  viewCommand?: MapViewCommand | null;
+  onViewStateChange?: (state: Partial<ComposerMapState>) => void;
 };
 
 function responseFromMapState(response: ComposerResponse | null | undefined, mapState: ComposerMapState | null | undefined): ComposerResponse | null {
@@ -42,9 +49,11 @@ export function SharedMapRenderer({
   mapState,
   response,
   packetId,
-  mode = "interactive",
+  mode = "preview_locked",
   showControls = false,
   showLayerPanel,
+  viewCommand,
+  onViewStateChange,
 }: SharedMapRendererProps) {
   const rendererResponse = responseFromMapState(response, mapState);
   if (!rendererResponse) {
@@ -57,7 +66,14 @@ export function SharedMapRenderer({
   }
   return (
     <div className={`shared-map-renderer shared-map-renderer-${mode}`}>
-      <ComposerMapPreview response={rendererResponse} packetId={packetId} showLayerPanel={showLayerPanel ?? showControls} />
+      <ComposerMapPreview
+        interactionMode={mode}
+        onViewStateChange={onViewStateChange}
+        packetId={packetId}
+        response={rendererResponse}
+        showLayerPanel={showLayerPanel ?? showControls}
+        viewCommand={viewCommand}
+      />
     </div>
   );
 }

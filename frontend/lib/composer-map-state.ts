@@ -24,6 +24,7 @@ type BuildComposerMapStateSnapshotArgs = {
   reportConfig: ReportSectionConfig;
   exportMode: ExportMode;
   printOptions?: LivePrintOptions;
+  activeMapViewState?: Partial<ComposerMapState> | null;
 };
 
 export const defaultPrintExportOptions: PrintExportOptions = printOptionsToBackendExportOptions(DEFAULT_LIVE_PRINT_OPTIONS);
@@ -59,6 +60,7 @@ export function buildComposerMapStateSnapshot({
   reportConfig,
   exportMode,
   printOptions,
+  activeMapViewState,
 }: BuildComposerMapStateSnapshotArgs): ComposerMapState {
   const priorState = response.composer_map_state || {};
   const previewConfig = response.preview_config || priorState.preview_config || {};
@@ -93,10 +95,11 @@ export function buildComposerMapStateSnapshot({
     raw_prompt: response.raw_prompt || response.prompt || priorState.raw_prompt,
     request_type: response.request_type || priorState.request_type,
     preview_config: previewConfig,
-    map_extent: priorState.map_extent || previewConfig.focus_extent || previewConfig.initial_extent || null,
-    current_scale: priorState.current_scale || null,
-    current_zoom: priorState.current_zoom || null,
-    current_rotation: priorState.current_rotation || 0,
+    map_extent: activeMapViewState?.map_extent || priorState.map_extent || previewConfig.focus_extent || previewConfig.initial_extent || null,
+    current_center: activeMapViewState?.current_center || priorState.current_center || null,
+    current_scale: activeMapViewState?.current_scale ?? priorState.current_scale ?? null,
+    current_zoom: activeMapViewState?.current_zoom ?? priorState.current_zoom ?? null,
+    current_rotation: activeMapViewState?.current_rotation ?? priorState.current_rotation ?? 0,
     basemap: previewConfig.basemap || priorState.basemap || "streets-vector",
     visible_layers: visibleLayers,
     hidden_layers: hiddenLayers,

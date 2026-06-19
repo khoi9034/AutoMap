@@ -5,13 +5,15 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ArcGISMapPreview } from "@/components/arcgis-map-preview";
 import { ComposerLayerPanel } from "@/components/composer-layer-panel";
 import { featureCollectionBounds, type GeoJsonFeature, type GeoJsonFeatureCollection } from "@/components/derived-geojson-layer";
+import { MapFrameTitle } from "@/components/map-frame-title";
+import type { MapViewCommand, SharedMapRendererMode } from "@/components/map-renderer/shared-map-renderer";
 import { MapLegend } from "@/components/map-legend";
 import { MapScaleBar } from "@/components/map-scale-bar";
 import { NorthArrow } from "@/components/north-arrow";
 import { StatusChip } from "@/components/status-chip";
 import { API_BASE_URL } from "@/lib/api";
 import { arcgisSymbolForOverlay } from "@/lib/map-symbols";
-import type { ComposerResponse, DerivedOverlay, PreviewLayer } from "@/types/automap";
+import type { ComposerMapState, ComposerResponse, DerivedOverlay, JsonValue, PreviewLayer } from "@/types/automap";
 
 type LoadedOverlay = {
   overlay: DerivedOverlay;
@@ -30,7 +32,11 @@ type ArcView = {
   when: (callback?: () => unknown) => Promise<unknown>;
   goTo: (target: unknown, options?: Record<string, unknown>) => Promise<unknown>;
   destroy: () => void;
+  center?: unknown;
+  extent?: unknown;
+  zoom?: number;
   scale?: number;
+  rotation?: number;
   width?: number;
   watch?: (property: string, callback: (value: unknown) => void) => { remove?: () => void };
   ui?: { add?: (item: unknown, position: string) => void };
@@ -77,6 +83,33 @@ function bufferedBounds(bounds: [number, number, number, number] | null): [numbe
   const bufferX = Math.max(width * 0.28, 0.002);
   const bufferY = Math.max(height * 0.28, 0.002);
   return [bounds[0] - bufferX, bounds[1] - bufferY, bounds[2] + bufferX, bounds[3] + bufferY];
+}
+
+function isLockedMode(mode: SharedMapRendererMode): boolean {
+  return mode !== "adjust_interactive";
+}
+
+function lockedModeLabel(mode: SharedMapRendererMode): string {
+  if (mode === "print_locked") return "Locked for print";
+  if (mode === "exhibit_locked") return "Locked exhibit";
+  return "Locked preview";
+}
+
+function serializeArcObject(value: unknown): Record<string, JsonValue> | null {
+  if (!value || typeof value !== "object") return null;
+  const withToJSON = value as { toJSON?: () => Record<string, JsonValue> };
+  if (typeof withToJSON.toJSON === "function") return withToJSON.toJSON();
+  return value as Record<string, JsonValue>;
+}
+
+function viewStateFromArcView(view: ArcView): Partial<ComposerMapState> {
+  return {
+    current_center: serializeArcObject(view.center),
+    current_zoom: typeof view.zoom === "number" ? view.zoom : null,
+    current_scale: typeof view.scale === "number" ? view.scale : null,
+    current_rotation: typeof view.rotation === "number" ? view.rotation : 0,
+    map_extent: serializeArcObject(view.extent),
+  };
 }
 
 function panelTitle(response: ComposerResponse): string {
@@ -313,16 +346,23 @@ async function loadArcModules(): Promise<ArcModules> {
 }
 
 export function ComposerMapPreview({
+  interactionMode = "preview_locked",
+  onViewStateChange,
   response,
   packetId,
   showLayerPanel = true,
+  viewCommand,
 }: {
+  interactionMode?: SharedMapRendererMode;
+  onViewStateChange?: (state: Partial<ComposerMapState>) => void;
   response: ComposerResponse;
   packetId?: string;
   showLayerPanel?: boolean;
+  viewCommand?: MapViewCommand | null;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const viewRef = useRef<ArcView | null>(null);
+  const modulesRef = useRef<ArcModules | null>(null);
   const derivedOverlays = useMemo(
     () => response.preview_config?.derived_overlays || response.proximity_result?.derived_overlays || [],
     [response.preview_config?.derived_overlays, response.proximity_result?.derived_overlays],
@@ -337,6 +377,7 @@ export function ComposerMapPreview({
   const [mapError, setMapError] = useState<string | null>(null);
   const [viewScale, setViewScale] = useState<number | null>(null);
   const [viewWidth, setViewWidth] = useState<number | null>(null);
+  const locked = isLockedMode(interactionMode);
 
   useEffect(() => {
     if (!derivedOverlays.length) {
@@ -375,12 +416,16 @@ export function ComposerMapPreview({
     let view: ArcView | undefined;
     let scaleHandle: { remove?: () => void } | undefined;
     let widthHandle: { remove?: () => void } | undefined;
+    let extentHandle: { remove?: () => void } | undefined;
+    let centerHandle: { remove?: () => void } | undefined;
+    let zoomHandle: { remove?: () => void } | undefined;
     setMapError(null);
     setViewWidth(containerRef.current?.clientWidth || null);
 
     loadArcModules()
       .then((modules) => {
         if (cancelled || !containerRef.current) return;
+        modulesRef.current = modules;
         const map = new modules.EsriMap({
           basemap: response.preview_config?.basemap || "streets-vector",
         });
@@ -398,9 +443,18 @@ export function ComposerMapPreview({
           extent,
           constraints: {
             snapToZoom: false,
+            rotationEnabled: false,
           },
+          navigation: locked
+            ? {
+                browserTouchPanEnabled: false,
+                gamepadEnabled: false,
+                momentumEnabled: false,
+                mouseWheelZoomEnabled: false,
+              }
+            : undefined,
           ui: {
-            components: ["attribution", "zoom"],
+            components: locked ? ["attribution"] : ["attribution", "zoom"],
           },
         });
         view = nextView;
@@ -415,7 +469,13 @@ export function ComposerMapPreview({
           widthHandle = nextView.watch?.("width", (value) => {
             if (!cancelled) setViewWidth(typeof value === "number" && Number.isFinite(value) ? value : null);
           });
-          return nextView.goTo(extent, { animate: false });
+          const emitState = () => {
+            if (!cancelled) onViewStateChange?.(viewStateFromArcView(nextView));
+          };
+          extentHandle = nextView.watch?.("extent", emitState);
+          centerHandle = nextView.watch?.("center", emitState);
+          zoomHandle = nextView.watch?.("zoom", emitState);
+          return nextView.goTo(extent, { animate: false }).finally(emitState);
         });
       })
       .catch((exc) => {
@@ -428,6 +488,9 @@ export function ComposerMapPreview({
       cancelled = true;
       scaleHandle?.remove?.();
       widthHandle?.remove?.();
+      extentHandle?.remove?.();
+      centerHandle?.remove?.();
+      zoomHandle?.remove?.();
       if (viewRef.current) {
         viewRef.current.destroy();
         viewRef.current = null;
@@ -435,7 +498,40 @@ export function ComposerMapPreview({
         view.destroy();
       }
     };
-  }, [contextLayers, derivedOverlays.length, loadError, loaded, loading, response.preview_config?.basemap, response.preview_config?.focus_extent, response.preview_config?.initial_extent]);
+  }, [
+    contextLayers,
+    derivedOverlays.length,
+    interactionMode,
+    loadError,
+    loaded,
+    loading,
+    locked,
+    onViewStateChange,
+    response.preview_config?.basemap,
+    response.preview_config?.focus_extent,
+    response.preview_config?.initial_extent,
+  ]);
+
+  useEffect(() => {
+    if (!viewCommand || !viewRef.current || !modulesRef.current || !loaded.length) return;
+    const modules = modulesRef.current;
+    const configuredExtent = numericExtent(response.preview_config?.focus_extent || response.preview_config?.initial_extent);
+    const boundsForKind = (kind: ReturnType<typeof overlayKind>) =>
+      featureCollectionBounds(loaded.filter((item) => overlayKind(item.overlay) === kind).map((item) => item.collection));
+    const commandBounds =
+      viewCommand.type === "reset_generated"
+        ? configuredExtent
+        : viewCommand.type === "center_origin"
+          ? boundsForKind("origin")
+          : viewCommand.type === "center_target"
+            ? boundsForKind("target")
+            : featureCollectionBounds(loaded.map((item) => item.collection));
+    const [xmin, ymin, xmax, ymax] = bufferedBounds(commandBounds || configuredExtent);
+    const extent = new modules.Extent({ xmin, ymin, xmax, ymax, spatialReference: WGS84 });
+    viewRef.current.goTo(extent, { animate: true }).finally(() => {
+      if (viewRef.current) onViewStateChange?.(viewStateFromArcView(viewRef.current));
+    });
+  }, [loaded, onViewStateChange, response.preview_config?.focus_extent, response.preview_config?.initial_extent, viewCommand]);
 
   if (!derivedOverlays.length && packetId) {
     return <ArcGISMapPreview packetId={packetId} />;
@@ -459,14 +555,6 @@ export function ComposerMapPreview({
   return (
     <div className="composer-derived-preview page-stack">
       <section className="panel composer-derived-map-shell enterprise-map-shell">
-        <div className="enterprise-map-title-block">
-          <div>
-            <p className="eyebrow">AutoMap draft preview</p>
-            <h2>{layoutTitle}</h2>
-            <p>{layoutSubtitle}</p>
-          </div>
-          <span>Draft AutoMap preview - Local only - Not official county map</span>
-        </div>
         <div className="panel-title-row">
           <div>
             <p className="eyebrow">Focused ArcGIS map</p>
@@ -506,7 +594,13 @@ export function ComposerMapPreview({
         {mapError ? <div className="preview-error">Map preview failed to load. {mapError}</div> : null}
 
         <div className="enterprise-map-frame">
+          <MapFrameTitle title={layoutTitle} subtitle={layoutSubtitle} badge="Draft - local only" />
           <div className="composer-real-map" ref={containerRef} aria-label="Focused ArcGIS composer map preview" />
+          {locked ? (
+            <div className="map-interaction-blocker" aria-hidden="true" data-map-mode={interactionMode}>
+              <span>{lockedModeLabel(interactionMode)}</span>
+            </div>
+          ) : null}
           <NorthArrow />
           <MapScaleBar scale={viewScale} mapWidth={viewWidth} />
           <MapLegend overlays={derivedOverlays} contextLayers={contextLayers} />

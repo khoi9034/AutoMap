@@ -2,11 +2,11 @@
 
 AutoMap converts plain-English county GIS map requests into structured map recipes using only approved GIS layers from a local layer catalog.
 
-Version: `4.8.0`
+Version: `4.9.0`
 
 ## Current Phase
 
-v4.8 Live Print Preview Panel with Optional Report Sections on top of WYSIWYG print export, table requests, exact composer map state preservation, enterprise UI layout cleanup, step-specific Map Composer layouts, enterprise centered scale bar and final map layout polish, county exhibit and staff report map layouts, enterprise cartography, road-following route drafts, semantic Map Composer symbols, real map composer preview rendering, derived GeoJSON overlays, the four-step composer, address-to-parcel resolver, proximity, real parcel lookup, parcel workspace, scenario workbench, planning scenario and suitability intelligence, development/transportation source intelligence, real source verification, data gap resolution, analysis summary reporting, and user-guided safe spatial analysis refinement.
+v4.9 Locked Map Navigation Outside Adjust Step and Map Frame Titles on top of live Print / Export preview, WYSIWYG print export, table requests, exact composer map state preservation, enterprise UI layout cleanup, step-specific Map Composer layouts, enterprise centered scale bar and final map layout polish, county exhibit and staff report map layouts, enterprise cartography, road-following route drafts, semantic Map Composer symbols, real map composer preview rendering, derived GeoJSON overlays, the four-step composer, address-to-parcel resolver, proximity, real parcel lookup, parcel workspace, scenario workbench, planning scenario and suitability intelligence, development/transportation source intelligence, real source verification, data gap resolution, analysis summary reporting, and user-guided safe spatial analysis refinement.
 
 This repository is intentionally independent. It does not connect to CFS or import CFS code. AutoMap uses its own local PostGIS database and trusted layer catalog.
 
@@ -63,6 +63,8 @@ AutoMap helps GIS and planning staff turn plain-English county map requests into
 - saved composer map state so print layouts, exhibit packages, and reports preserve the exact adjusted map title, extent, basemap, visible layers, opacity, order, symbology, legend, scale bar, north arrow, warnings, and notes
 - optional report/statistics sections that summarize available map metadata honestly and mark unresolved permit/planning/development data as unavailable instead of inventing counts
 - live Print / Export preview with controls on the left, a scrollable final-page preview on the right, and optional report sections that update before printing
+- locked map interaction modes so Preview and Print / Export are read-only while Adjust is the only pan/zoom step that can set the final map extent
+- map-frame titles shown directly inside the map canvas frame for preview, adjustment, and print/export consistency
 - table/data request classification for parcel lists, permit tables, zoning records, historical tables, attribute tables, data exports, and combined map+table requests
 - bounded Table Center previews and local CSV/JSON/Markdown exports using verified catalog layers, selected real fields, count-first safety limits, and `returnGeometry=false`
 - historical table handling that can use verified legacy layers for requested years while keeping unresolved current permit gaps honest

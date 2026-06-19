@@ -605,7 +605,12 @@ def test_full_report_export_mode_enables_appendix_sections(monkeypatch, tmp_path
         result["composer_session_id"],
         {
             "export_mode": "full_report",
-            "map_state": {"map_extent": {"xmin": -80.7, "ymin": 35.2, "xmax": -80.4, "ymax": 35.5}},
+            "map_state": {
+                "map_extent": {"xmin": -80.7, "ymin": 35.2, "xmax": -80.4, "ymax": 35.5},
+                "current_center": {"longitude": -80.55, "latitude": 35.36},
+                "current_zoom": 14,
+                "current_scale": 9028.4,
+            },
         },
     )
 
@@ -615,6 +620,9 @@ def test_full_report_export_mode_enables_appendix_sections(monkeypatch, tmp_path
     assert state["report_section_config"]["include_layer_table"] is True
     assert state["report_section_config"]["include_statistics"] is True
     assert state["map_extent"]["xmin"] == -80.7
+    assert state["current_center"]["longitude"] == -80.55
+    assert state["current_zoom"] == 14
+    assert state["current_scale"] == 9028.4
 
 
 def test_save_map_state_api_returns_exact_state(monkeypatch):
@@ -626,6 +634,9 @@ def test_save_map_state_api_returns_exact_state(monkeypatch):
                 "composer_session_id": session_id,
                 "map_title": payload["map_title"],
                 "map_extent": payload["map_state"]["map_extent"],
+                "current_center": payload["map_state"]["current_center"],
+                "current_zoom": payload["map_state"]["current_zoom"],
+                "current_scale": payload["map_state"]["current_scale"],
                 "export_mode": payload["export_mode"],
             },
             "composer_map_state_persisted": True,
@@ -639,7 +650,12 @@ def test_save_map_state_api_returns_exact_state(monkeypatch):
             "composer_session_id": "composer_test",
             "map_title": "Adjusted Print Title",
             "export_mode": "map_exhibit_only",
-            "map_state": {"map_extent": {"xmin": 1, "ymin": 2, "xmax": 3, "ymax": 4}},
+            "map_state": {
+                "map_extent": {"xmin": 1, "ymin": 2, "xmax": 3, "ymax": 4},
+                "current_center": {"longitude": -80.5, "latitude": 35.4},
+                "current_zoom": 13,
+                "current_scale": 12000,
+            },
         },
     )
 
@@ -647,6 +663,9 @@ def test_save_map_state_api_returns_exact_state(monkeypatch):
     body = response.json()
     assert body["composer_map_state"]["map_title"] == "Adjusted Print Title"
     assert body["composer_map_state"]["map_extent"]["xmax"] == 3
+    assert body["composer_map_state"]["current_center"]["latitude"] == 35.4
+    assert body["composer_map_state"]["current_zoom"] == 13
+    assert body["composer_map_state"]["current_scale"] == 12000
     assert body["export_mode"] == "map_exhibit_only"
 
 

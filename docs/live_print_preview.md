@@ -2,6 +2,8 @@
 
 AutoMap v4.8 adds a live Print / Export preview panel to Map Composer.
 
+AutoMap v4.9 locks the map inside that live preview. The print document can scroll, but the map canvas cannot pan, zoom, rotate, or drift away from the saved final view.
+
 The Print / Export step uses two columns:
 
 - left: export mode, report section checkboxes, local export buttons, and locked-map status
@@ -9,11 +11,15 @@ The Print / Export step uses two columns:
 
 The preview updates immediately when a section checkbox changes. It uses the locked final composer map state, including the adjusted title, extent, basemap, visible layers, hidden layers, layer order, opacity, route line, origin and target symbols, legend, scale bar, north arrow, warnings, and reviewer notes.
 
+The map frame also includes its own concise title and subtitle so the printed map is understandable even when viewed apart from the surrounding report sections.
+
 ## Locked Map State
 
 Print/export does not re-run the prompt or regenerate the recipe. The frontend captures the current composer state and sends it to the backend before browser print or exhibit package generation.
 
 If the reviewer returns to Adjust, the map can be edited again and re-locked by applying adjustments.
+
+Preview and Print / Export remain read-only. Adjust is the only Map Composer step that allows pan/zoom.
 
 ## Browser Print
 
