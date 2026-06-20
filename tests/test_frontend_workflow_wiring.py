@@ -200,6 +200,7 @@ def test_map_composer_is_primary_simple_workflow():
     map_symbols = read("lib/map-symbols.ts")
     map_legend = read("components/map-legend.tsx")
     symbol_legend = read("components/map-symbol-legend.tsx")
+    map_frame = read("components/map-renderer/map-frame.tsx")
     map_frame_title = read("components/map-frame-title.tsx")
     north_arrow = read("components/north-arrow.tsx")
     scale_bar = read("components/map-scale-bar.tsx")
@@ -286,7 +287,11 @@ def test_map_composer_is_primary_simple_workflow():
     assert "MapLegend" in composer_preview
     assert "NorthArrow" in composer_preview
     assert "MapScaleBar" in composer_preview
-    assert "MapFrameTitle" in composer_preview
+    assert "MapFrame" in composer_preview
+    assert "frameModeForInteraction" in composer_preview
+    assert "mode={frameMode}" in composer_preview
+    assert "MapFrameTitle" in map_frame
+    assert "data-map-frame-mode" in map_frame
     assert "map-interaction-blocker" in composer_preview
     assert "Locked preview" in composer_preview
     assert "Locked for print" in composer_preview
@@ -299,7 +304,7 @@ def test_map_composer_is_primary_simple_workflow():
     assert "data-testid=\"map-frame-title\"" in map_frame_title
     assert "<MapScaleBar scale={viewScale} mapWidth={viewWidth}" in composer_preview
     assert "<MapLegend overlays={derivedOverlays} contextLayers={contextLayers} />" in composer_preview
-    frame_index = composer_preview.index('className="enterprise-map-frame"')
+    frame_index = composer_preview.index("<MapFrame")
     legend_index = composer_preview.index("<MapLegend overlays={derivedOverlays} contextLayers={contextLayers} />")
     assert frame_index < legend_index
     assert "addDerivedOverlayLayers" in composer_preview
@@ -500,11 +505,19 @@ def test_map_composer_uses_enterprise_workbench_scroll_model():
     adjust_step = read("components/map-composer/adjust-step.tsx")
     print_export_step = read("components/map-composer/print-export-step.tsx")
     composer_preview = read("components/composer-map-preview.tsx")
+    map_frame = read("components/map-renderer/map-frame.tsx")
+    print_map_page_preview = read("components/print-preview/print-map-page-preview.tsx")
 
     assert ".content-grid:has(.map-composer-shell)" in css
     assert ".content-grid:has(.map-composer-shell) .right-rail" in css
     assert ".content-grid:has(.map-composer-shell) + .footer" in css
     assert ".composer-step-body-adjust" in css
+    assert ".composer-preview-layout .shared-map-renderer-preview_locked" in css
+    assert "min-height: clamp(560px, 68vh, 760px)" in css
+    assert ".composer-preview-layout .map-frame-preview" in css
+    assert "aspect-ratio: var(--map-frame-aspect-ratio, 16 / 10)" in css
+    assert "data-map-frame-mode" in map_frame
+    assert "map-frame-preview" in css
     assert ".composer-preview-layout" in css and "height: 100%" in css[css.index(".composer-preview-layout") : css.index(".composer-preview-main", css.index(".composer-preview-layout"))]
     assert ".composer-adjust-layout" in css and "height: 100%" in css[css.index(".composer-adjust-layout") : css.index(".composer-adjust-map-column", css.index(".composer-adjust-layout"))]
     assert ".composer-adjust-map-column" in css and "overflow: hidden" in css[
@@ -519,6 +532,8 @@ def test_map_composer_uses_enterprise_workbench_scroll_model():
     assert "showLayerPanel ? <ComposerLayerPanel" in composer_preview
     assert "showLayerPanel={false}" in preview_step
     assert "showLayerPanel={false}" in adjust_step
+    assert "SharedMapRenderer" in print_map_page_preview
+    assert 'mode="print_locked"' in print_map_page_preview
     assert ".composer-step-body-export" in css and "overflow: hidden" in css[css.index(".composer-step-body-export") : css.index(".composer-request-layout")]
     assert ".print-preview-panel" in css
     assert ".print-preview-scroll" in css and "overflow-y: auto" in css[css.index(".print-preview-scroll") : css.index(".print-document-preview")]

@@ -22,6 +22,8 @@ The map frame includes a concise title above the map, compact in-frame legend, n
 
 The v4.2 scale bar sits bottom-center inside the map frame and spans roughly 64% of the frame width. It uses clear tick labels such as `0 0.25 0.5 mi` or `0 500 1000 ft` depending on the current view scale. The compact legend stays inside the frame but moves away from the scale bar so the distance guide reads like a county GIS exhibit element.
 
+Preview and Print / Export share the same map-frame sizing logic. The Preview step now uses a locked, print-like frame rather than a compressed card, so the route, origin marker, target marker, legend, north arrow, and centered scale bar are visible before the user moves to print/export. Adjust is the only step where pan and zoom are enabled.
+
 ## Exhibit Layouts
 
 v4.1 adds reusable exhibit components for a title block, map frame, staff-report notes, source table, warning summary, footer, and draft disclaimer. The print layout uses the same live composer map renderer, so the basemap, semantic symbols, route casing, in-frame legend, scale bar, and north arrow remain consistent between preview and printed staff report figures.

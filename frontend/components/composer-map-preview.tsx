@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ArcGISMapPreview } from "@/components/arcgis-map-preview";
 import { ComposerLayerPanel } from "@/components/composer-layer-panel";
 import { featureCollectionBounds, type GeoJsonFeature, type GeoJsonFeatureCollection } from "@/components/derived-geojson-layer";
-import { MapFrameTitle } from "@/components/map-frame-title";
+import { MapFrame, type MapFrameMode } from "@/components/map-renderer/map-frame";
 import type { MapViewCommand, SharedMapRendererMode } from "@/components/map-renderer/shared-map-renderer";
 import { MapLegend } from "@/components/map-legend";
 import { MapScaleBar } from "@/components/map-scale-bar";
@@ -93,6 +93,23 @@ function lockedModeLabel(mode: SharedMapRendererMode): string {
   if (mode === "print_locked") return "Locked for print";
   if (mode === "exhibit_locked") return "Locked exhibit";
   return "Locked preview";
+}
+
+function frameModeForInteraction(mode: SharedMapRendererMode): MapFrameMode {
+  if (mode === "adjust_interactive") return "adjust";
+  if (mode === "print_locked") return "print";
+  if (mode === "exhibit_locked") return "exhibit";
+  return "preview";
+}
+
+function frameSizingForInteraction(mode: SharedMapRendererMode): { aspectRatio?: string; minHeight?: string; maxHeight?: string } {
+  if (mode === "adjust_interactive") {
+    return { minHeight: "600px" };
+  }
+  if (mode === "print_locked" || mode === "exhibit_locked") {
+    return { aspectRatio: "16 / 10", minHeight: "560px" };
+  }
+  return { aspectRatio: "16 / 10", minHeight: "clamp(520px, 68vh, 760px)", maxHeight: "760px" };
 }
 
 function serializeArcObject(value: unknown): Record<string, JsonValue> | null {
@@ -545,6 +562,8 @@ export function ComposerMapPreview({
   const layoutSubtitle =
     layout?.subtitle ||
     (routeMode === "road_following_draft" ? "Road-following draft route, not official navigation." : "Straight-line reference only, not a driving route.");
+  const frameMode = frameModeForInteraction(interactionMode);
+  const frameSizing = frameSizingForInteraction(interactionMode);
   const routeWarning = routeMode !== "road_following_draft" ||
     Boolean(response.proximity_result?.route_warning) ||
     (response.proximity_result?.warnings || []).some((warning) => warning.toLowerCase().includes("not a driving route"));
@@ -593,8 +612,16 @@ export function ComposerMapPreview({
         {loadError ? <div className="preview-error">Map preview failed to load. {loadError}</div> : null}
         {mapError ? <div className="preview-error">Map preview failed to load. {mapError}</div> : null}
 
-        <div className="enterprise-map-frame">
-          <MapFrameTitle title={layoutTitle} subtitle={layoutSubtitle} badge="Draft - local only" />
+        <MapFrame
+          mode={frameMode}
+          locked={locked}
+          title={layoutTitle}
+          subtitle={layoutSubtitle}
+          badge="Draft - local only"
+          aspectRatio={frameSizing.aspectRatio}
+          minHeight={frameSizing.minHeight}
+          maxHeight={frameSizing.maxHeight}
+        >
           <div className="composer-real-map" ref={containerRef} aria-label="Focused ArcGIS composer map preview" />
           {locked ? (
             <div className="map-interaction-blocker" aria-hidden="true" data-map-mode={interactionMode}>
@@ -604,7 +631,7 @@ export function ComposerMapPreview({
           <NorthArrow />
           <MapScaleBar scale={viewScale} mapWidth={viewWidth} />
           <MapLegend overlays={derivedOverlays} contextLayers={contextLayers} />
-        </div>
+        </MapFrame>
       </section>
 
       {showLayerPanel ? <ComposerLayerPanel derivedOverlays={derivedOverlays} contextLayers={contextLayers} /> : null}

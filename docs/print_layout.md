@@ -34,4 +34,6 @@ Default export mode is `Map only`, a map-first output. `Map + summary` and `Full
 
 v4.2 keeps the scale bar bottom-center inside the map frame, spanning about 64% of the frame width. The scale bar stays readable in print and uses real tick labels such as `0 0.25 0.5 mi` or `0 500 1000 ft`. The legend remains in-frame but avoids the scale bar.
 
+Preview now uses the same shared map frame sizing as Print / Export. The Preview map is locked/read-only and print-like, while Adjust remains the only step that allows pan/zoom before saving the locked final map state. This keeps the composer preview from showing a clipped or vertically squeezed map that differs from the print layout.
+
 CFS remains separate and `cfs_dev` is not touched.

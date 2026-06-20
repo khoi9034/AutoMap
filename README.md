@@ -561,6 +561,8 @@ AutoMap v4.3 gives each Map Composer step its own layout. Request shows the larg
 
 AutoMap v4.4 refines Map Composer into an enterprise workbench. On desktop, the shell fills the viewport, the map canvas does not create its own vertical scrollbar, and the Adjust controls panel is the only composer area that scrolls when the control list exceeds the available height. This keeps the map visible while reviewers tune layers and route styling.
 
+AutoMap also keeps Preview and Print / Export on the same shared map-frame sizing path. Preview is locked/read-only but uses a print-like frame with enough height for the route, origin/target markers, legend, centered scale bar, and north arrow, while Adjust remains the only pan/zoom state for setting the final map view.
+
 Open:
 
 ```text

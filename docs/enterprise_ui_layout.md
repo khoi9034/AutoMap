@@ -25,6 +25,12 @@ Adjust uses a side-by-side workbench. The map remains fixed on the left while th
 
 Print / Export focuses on output actions and may scroll when output links are long.
 
+## Shared Map Frame
+
+Preview, Print / Export, and exhibit layouts use the same shared map frame contract so the map does not look compressed in one step and print-ready in another. Preview is locked/read-only and uses a print-like `16:10` frame with an enterprise minimum height. Adjust remains the only interactive map state and fills the workbench so reviewers can pan or zoom before locking the final map.
+
+The map canvas itself does not get a vertical scrollbar. Legend, north arrow, and centered scale bar are in-frame overlays, and the frame height is large enough for route, origin marker, target marker, and map furniture to remain visible.
+
 ## Normal UI
 
 Normal Map Composer screens hide debug-style JSON and internal workflow terms by default. Advanced recipe, packet, approval, and publish tooling remains outside the normal composer.

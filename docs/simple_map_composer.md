@@ -17,6 +17,8 @@ AutoMap v4.4 refines the desktop composer into a fixed workbench: the app shell 
 
 AutoMap v4.5 saves the exact composer map state before print/export. The saved state includes title, subtitle, extent, basemap, visible/hidden layers, opacity, order, route styling, symbols, legend, scale bar, north arrow, warnings, and reviewer notes.
 
+AutoMap keeps Preview and Print / Export visually aligned through a shared map frame. Preview uses a locked, print-like frame with enough height for the route, markers, legend, north arrow, and centered scale bar. Adjust remains the only interactive step for setting the final view.
+
 AutoMap v4.6 detects table/data prompts. Pure table requests are handed to `/tables` instead of forcing a map preview. Combined map+table prompts keep the map workflow and add a bounded table context section.
 
 ## Simple Adjustments

@@ -1196,7 +1196,7 @@ button {
 }
 
 .composer-preview-main {
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
   overflow: hidden;
 }
 
@@ -1537,6 +1537,11 @@ button {
   min-height: 0;
 }
 
+.composer-preview-layout .shared-map-renderer-preview_locked {
+  height: 100%;
+  min-height: clamp(560px, 68vh, 760px);
+}
+
 .composer-preview-layout .composer-derived-map-shell,
 .composer-adjust-layout .composer-derived-map-shell,
 .composer-export-layout .composer-derived-map-shell {
@@ -1591,7 +1596,25 @@ button {
 .composer-adjust-layout .enterprise-map-frame,
 .composer-export-layout .enterprise-map-frame {
   flex: 1 1 auto;
-  min-height: 360px;
+  min-height: var(--map-frame-min-height, 560px);
+}
+
+.composer-preview-layout .map-frame-preview {
+  flex: 0 0 auto;
+  height: min(68vh, var(--map-frame-max-height, 760px));
+  min-height: var(--map-frame-min-height, clamp(520px, 68vh, 760px));
+  aspect-ratio: var(--map-frame-aspect-ratio, 16 / 10);
+}
+
+.composer-adjust-layout .map-frame-adjust {
+  height: 100%;
+  min-height: var(--map-frame-min-height, 600px);
+}
+
+.composer-export-layout .map-frame-print,
+.composer-export-layout .map-frame-exhibit {
+  min-height: var(--map-frame-min-height, 560px);
+  aspect-ratio: var(--map-frame-aspect-ratio, 16 / 10);
 }
 
 .composer-preview-layout .composer-real-map,
@@ -2433,11 +2456,17 @@ button {
   position: relative;
   display: flex;
   flex-direction: column;
+  min-height: var(--map-frame-min-height, 560px);
+  max-height: var(--map-frame-max-height, none);
   overflow: hidden;
   border: 1px solid #aab9c8;
   border-radius: 8px;
   background: #eef3f8;
   box-shadow: 0 18px 44px rgba(16, 35, 59, 0.1);
+}
+
+.map-frame {
+  isolation: isolate;
 }
 
 .enterprise-map-frame .composer-real-map {
