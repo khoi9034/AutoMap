@@ -10,7 +10,10 @@ from sqlalchemy.engine import make_url
 DEFAULT_AUTOMAP_SCHEMA = "automap"
 AUTOMAP_DEV_DATABASE = "automap"
 SUPABASE_DIRECT_DATABASE = "postgres"
-SUPABASE_HOST_SUFFIX = ".supabase.co"
+SUPABASE_PROJECT_REF = "mjfbpmatxvjczikqbuva"
+SUPABASE_DIRECT_HOST = f"db.{SUPABASE_PROJECT_REF}.supabase.co"
+SUPABASE_POOLER_HOST_SUFFIX = ".pooler.supabase.com"
+LOCAL_AUTOMAP_HOSTS = {"localhost", "127.0.0.1", "::1", ""}
 PROTECTED_DATABASE_NAMES = {"cfs_dev"}
 PLACEHOLDER_PASSWORDS = {
     "YOUR_LOCAL_POSTGRES_PASSWORD",
@@ -49,14 +52,54 @@ def _database_name_from_url(database_url: str) -> str | None:
     return make_url(database_url).database
 
 
+def _normalized_host(database_url: str) -> str:
+    return (make_url(database_url).host or "").lower()
+
+
+def _normalized_username(database_url: str) -> str:
+    return (make_url(database_url).username or "").lower()
+
+
+def _is_local_automap_database(database_url: str) -> bool:
+    parsed_url = make_url(database_url)
+    host = (parsed_url.host or "").lower()
+    return parsed_url.database == AUTOMAP_DEV_DATABASE and host in LOCAL_AUTOMAP_HOSTS
+
+
 def _is_supabase_direct_database(database_url: str) -> bool:
     parsed_url = make_url(database_url)
-    host = parsed_url.host or ""
+    return parsed_url.database == SUPABASE_DIRECT_DATABASE and _normalized_host(database_url) == SUPABASE_DIRECT_HOST
+
+
+def _is_supabase_pooler_database(database_url: str) -> bool:
+    parsed_url = make_url(database_url)
+    host = _normalized_host(database_url)
+    username = _normalized_username(database_url)
+    pooler_host = host.endswith(SUPABASE_POOLER_HOST_SUFFIX)
+    postgres_user = username == "postgres" or username.startswith("postgres.")
+    known_project = SUPABASE_PROJECT_REF in username or SUPABASE_PROJECT_REF in host
     return (
         parsed_url.database == SUPABASE_DIRECT_DATABASE
-        and host.startswith("db.")
-        and host.endswith(SUPABASE_HOST_SUFFIX)
+        and pooler_host
+        and postgres_user
+        and known_project
     )
+
+
+def database_host_kind(database_url: str | None) -> str:
+    """Classify an AutoMap DATABASE_URL without exposing host or credentials."""
+    if not database_url:
+        return "unknown"
+    try:
+        if _is_local_automap_database(database_url):
+            return "local_dev"
+        if _is_supabase_direct_database(database_url):
+            return "supabase_direct"
+        if _is_supabase_pooler_database(database_url):
+            return "supabase_pooler"
+    except Exception:
+        return "unknown"
+    return "unknown"
 
 
 def parse_allowed_origins(value: str | None) -> list[str]:
@@ -108,11 +151,17 @@ def validate_settings(settings: Settings) -> None:
             "must use its own database 'automap'."
         )
 
-    if database_name != AUTOMAP_DEV_DATABASE and not _is_supabase_direct_database(database_url):
+    is_allowed_database = (
+        _is_local_automap_database(database_url)
+        or _is_supabase_direct_database(database_url)
+        or _is_supabase_pooler_database(database_url)
+    )
+    if not is_allowed_database:
         raise ValueError(
             "Configured database must point to AutoMap's local dev database "
-            f"'{AUTOMAP_DEV_DATABASE}' or the Supabase direct Postgres "
-            "database 'postgres'."
+            f"'{AUTOMAP_DEV_DATABASE}', the Supabase direct Postgres database "
+            "'postgres', or the approved Supabase Session Pooler for the "
+            f"'{SUPABASE_PROJECT_REF}' project."
         )
 
     if parsed_url.password in PLACEHOLDER_PASSWORDS:

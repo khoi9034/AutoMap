@@ -5,7 +5,7 @@ import re
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
 
-from app.config import Settings, get_settings, require_database_url
+from app.config import Settings, database_host_kind, get_settings, require_database_url
 
 
 _IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
@@ -37,6 +37,13 @@ def test_db_connection(settings: Settings | None = None) -> dict:
 
     with engine.begin() as connection:
         database_name = connection.execute(text("SELECT current_database();")).scalar_one()
+        host_kind = database_host_kind(loaded_settings.DATABASE_URL)
+        if database_name == "cfs_dev":
+            raise ValueError("Connected database is protected CFS database 'cfs_dev'.")
+        if host_kind in {"supabase_direct", "supabase_pooler"} and database_name != "postgres":
+            raise ValueError("Supabase AutoMap connections must resolve to database 'postgres'.")
+        if host_kind == "local_dev" and database_name != "automap":
+            raise ValueError("Local AutoMap connections must resolve to database 'automap'.")
         connection.execute(text("SELECT current_schema();")).scalar_one()
         connection.execute(text("CREATE EXTENSION IF NOT EXISTS postgis;"))
         connection.execute(text("CREATE EXTENSION IF NOT EXISTS postgis_topology;"))
@@ -69,6 +76,7 @@ def test_db_connection(settings: Settings | None = None) -> dict:
     return {
         "database_connected": True,
         "database_name": database_name,
+        "database_host_kind": host_kind,
         "postgis_version": postgis_version,
         "automap_schema": active_schema,
         "health_check_table": f"{schema_name}.project_database_check",

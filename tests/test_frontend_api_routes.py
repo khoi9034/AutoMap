@@ -12,6 +12,7 @@ def test_api_status_is_json_and_sanitized(monkeypatch):
         lambda: {
             "version": "1.5.0",
             "database_connected": True,
+            "database_host_kind": "supabase_pooler",
             "DATABASE_URL": "postgresql://secret-password",
             "protected_note": "cfs_dev should never leave the API",
             "real_publish_enabled": False,
@@ -25,6 +26,7 @@ def test_api_status_is_json_and_sanitized(monkeypatch):
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("application/json")
     assert response.json()["version"] == "1.5.0"
+    assert response.json()["database_host_kind"] == "supabase_pooler"
     assert "database_url" not in serialized
     assert "secret" not in serialized
     assert "password" not in serialized

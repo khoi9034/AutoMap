@@ -280,7 +280,7 @@ Create a local environment file from the template:
 cp .env.example .env
 ```
 
-For production backend deployment, AutoMap can use Supabase PostGIS. Use the Supabase Dashboard -> Connect -> Direct Postgres connection string, convert it to `postgresql+psycopg2://...`, and set it as backend-only `DATABASE_URL`. Do not put the Supabase database password or service role key in frontend env.
+For production backend deployment, AutoMap can use Supabase PostGIS. Local machines can use the Supabase Dashboard -> Connect -> Direct Postgres connection string converted to `postgresql+psycopg2://...`. Render should use the Supabase Session Pooler URL when Direct IPv6 connectivity fails, also converted to `postgresql+psycopg2://...`, with the `postgres.mjfbpmatxvjczikqbuva` pooler username and `postgres` database name. Set this as backend-only `DATABASE_URL`. Do not put the Supabase database password or service role key in frontend env.
 
 Safe deployment initialization:
 
@@ -315,7 +315,7 @@ Start Command: uvicorn app.web_ui:app --host 0.0.0.0 --port $PORT
 Health Check Path: /api/health
 ```
 
-Set `DATABASE_URL` as a Render secret using the Supabase SQLAlchemy URL that worked locally. Keep `AUTOMAP_PUBLISH_DRY_RUN=true` and `AUTOMAP_ALLOW_REAL_PUBLISH=false`.
+Set `DATABASE_URL` as a Render secret using the Supabase Session Pooler SQLAlchemy URL for the `mjfbpmatxvjczikqbuva` project. Keep `AUTOMAP_PUBLISH_DRY_RUN=true` and `AUTOMAP_ALLOW_REAL_PUBLISH=false`.
 
 Then edit `.env` so `DATABASE_URL` points to AutoMap's own PostGIS database:
 

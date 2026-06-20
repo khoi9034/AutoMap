@@ -5,6 +5,7 @@ from app.config import (
     DEFAULT_AUTOMAP_SCHEMA,
     Settings,
     allowed_origins_from_settings,
+    database_host_kind,
     get_settings,
     parse_allowed_origins,
     require_database_url,
@@ -62,6 +63,15 @@ def test_validate_settings_rejects_non_automap_database():
         validate_settings(settings)
 
 
+def test_validate_settings_rejects_nonlocal_automap_database():
+    settings = Settings(
+        DATABASE_URL="postgresql+psycopg2://postgres:secret@example.com:5432/automap"
+    )
+
+    with pytest.raises(ValueError, match="approved Supabase Session Pooler"):
+        validate_settings(settings)
+
+
 def test_validate_settings_allows_supabase_direct_postgres_database():
     settings = Settings(
         DATABASE_URL=(
@@ -71,6 +81,60 @@ def test_validate_settings_allows_supabase_direct_postgres_database():
     )
 
     validate_settings(settings)
+
+
+def test_validate_settings_allows_supabase_session_pooler_database():
+    for port in (5432, 6543):
+        settings = Settings(
+            DATABASE_URL=(
+                "postgresql+psycopg2://postgres.mjfbpmatxvjczikqbuva:real-password"
+                f"@aws-0-us-east-1.pooler.supabase.com:{port}/postgres"
+            )
+        )
+
+        validate_settings(settings)
+        assert database_host_kind(settings.DATABASE_URL) == "supabase_pooler"
+
+
+def test_validate_settings_rejects_wrong_supabase_project_pooler_database():
+    settings = Settings(
+        DATABASE_URL=(
+            "postgresql+psycopg2://postgres.wrongprojectref:real-password"
+            "@aws-0-us-east-1.pooler.supabase.com:6543/postgres"
+        )
+    )
+
+    with pytest.raises(ValueError, match="mjfbpmatxvjczikqbuva"):
+        validate_settings(settings)
+
+
+def test_validate_settings_rejects_random_postgres_host():
+    settings = Settings(
+        DATABASE_URL="postgresql+psycopg2://postgres:real-password@db.example.com:5432/postgres"
+    )
+
+    with pytest.raises(ValueError, match="approved Supabase"):
+        validate_settings(settings)
+
+
+def test_database_host_kind_classifies_allowed_targets():
+    assert (
+        database_host_kind("postgresql+psycopg2://postgres:secret@localhost:5433/automap")
+        == "local_dev"
+    )
+    assert (
+        database_host_kind(
+            "postgresql+psycopg2://postgres:secret@db.mjfbpmatxvjczikqbuva.supabase.co:5432/postgres"
+        )
+        == "supabase_direct"
+    )
+    assert (
+        database_host_kind(
+            "postgresql+psycopg2://postgres.mjfbpmatxvjczikqbuva:secret@aws-0-us-east-1.pooler.supabase.com:6543/postgres"
+        )
+        == "supabase_pooler"
+    )
+    assert database_host_kind("postgresql+psycopg2://postgres:secret@db.example.com:5432/postgres") == "unknown"
 
 
 def test_validate_settings_rejects_placeholder_password():

@@ -14,7 +14,7 @@ from app.analysis_result_store import init_analysis_tables
 from app.approval_engine import ensure_review_approval_history_table
 from app.clarification_engine import ensure_clarification_sessions_table
 from app.composer_state_store import init_composer_map_state_table
-from app.config import Settings, get_settings, validate_settings
+from app.config import Settings, database_host_kind, get_settings, validate_settings
 from app.data_gap_registry import ensure_data_gap_registry_table
 from app.db import _quote_identifier, get_engine
 from app.external_source_registry import init_external_source_tables
@@ -117,12 +117,19 @@ def deployment_init_db(
     validate_settings(loaded_settings)
 
     schema_name = loaded_settings.AUTOMAP_DB_SCHEMA
+    host_kind = database_host_kind(loaded_settings.DATABASE_URL)
     engine = get_engine(loaded_settings)
     extension_warning: str | None = None
 
     try:
         with engine.connect().execution_options(isolation_level="AUTOCOMMIT") as connection:
             database_name = connection.execute(text("SELECT current_database();")).scalar_one()
+            if database_name == "cfs_dev":
+                raise ValueError("Connected database is protected CFS database 'cfs_dev'.")
+            if host_kind in {"supabase_direct", "supabase_pooler"} and database_name != "postgres":
+                raise ValueError("Supabase AutoMap connections must resolve to database 'postgres'.")
+            if host_kind == "local_dev" and database_name != "automap":
+                raise ValueError("Local AutoMap connections must resolve to database 'automap'.")
             try:
                 connection.execute(text("CREATE EXTENSION IF NOT EXISTS postgis;"))
             except SQLAlchemyError as exc:
@@ -137,6 +144,7 @@ def deployment_init_db(
                     "success": False,
                     "database_connected": True,
                     "database_name": database_name,
+                    "database_host_kind": host_kind,
                     "automap_schema": schema_name,
                     "postgis_version": None,
                     "created_tables": [],
@@ -144,17 +152,18 @@ def deployment_init_db(
                     "error": f"PostGIS is not available ({_safe_error_type(exc)}).",
                     "next_step": POSTGIS_SQL_EDITOR_INSTRUCTION,
                 }
-    except SQLAlchemyError as exc:
+    except (SQLAlchemyError, ValueError) as exc:
         return {
             "success": False,
             "database_connected": False,
             "database_name": None,
+            "database_host_kind": host_kind,
             "automap_schema": schema_name,
             "postgis_version": None,
             "created_tables": [],
             "warnings": [],
             "error": f"Database connection failed ({_safe_error_type(exc)}).",
-            "next_step": "Verify DATABASE_URL uses the Supabase direct Postgres connection string.",
+            "next_step": "Verify DATABASE_URL uses the Supabase direct Postgres or Session Pooler connection string.",
         }
 
     _create_schema_and_health_check(schema_name, database_name, str(postgis_version), loaded_settings)
@@ -174,6 +183,7 @@ def deployment_init_db(
         "success": True,
         "database_connected": True,
         "database_name": database_name,
+        "database_host_kind": host_kind,
         "automap_schema": schema_name,
         "postgis_version": str(postgis_version),
         "created_tables": created_tables,

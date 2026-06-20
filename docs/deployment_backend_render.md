@@ -22,7 +22,7 @@ The root `render.yaml` contains the same service settings and leaves `DATABASE_U
 Set:
 
 ```text
-DATABASE_URL=<Supabase SQLAlchemy URL, stored as secret>
+DATABASE_URL=<Supabase Session Pooler SQLAlchemy URL, stored as secret>
 AUTOMAP_DB_SCHEMA=automap
 ALLOWED_ORIGINS=https://auto-map-cyan.vercel.app
 FRONTEND_ORIGIN=https://auto-map-cyan.vercel.app
@@ -30,13 +30,24 @@ AUTOMAP_PUBLISH_DRY_RUN=true
 AUTOMAP_ALLOW_REAL_PUBLISH=false
 ```
 
-Use the same Supabase direct Postgres connection string that worked locally, converted for SQLAlchemy:
+For local machines that can reach Supabase Direct, this SQLAlchemy URL is valid:
 
 ```text
 postgresql+psycopg2://postgres:YOUR_SUPABASE_DB_PASSWORD@db.mjfbpmatxvjczikqbuva.supabase.co:5432/postgres
 ```
 
-If Render cannot reach Supabase Direct and `/api/status` shows `Network is unreachable` for an IPv6 address, use Supabase Dashboard -> Connect -> Session Pooler instead. Keep the same SQLAlchemy `postgresql+psycopg2://` prefix and store the pooler URL only in Render's secret environment variable.
+For Render, prefer the Supabase Session Pooler when `/api/status` shows `Network is unreachable` for the Direct IPv6 address. In Supabase Dashboard -> Connect -> Session Pooler, copy the pooler URI and convert it to SQLAlchemy format:
+
+```text
+postgresql+psycopg2://postgres.mjfbpmatxvjczikqbuva:YOUR_SUPABASE_DB_PASSWORD@aws-0-us-east-1.pooler.supabase.com:6543/postgres
+```
+
+The important parts are:
+
+- database name remains `postgres`
+- username contains `postgres.mjfbpmatxvjczikqbuva`
+- schema remains `automap`
+- URL is stored only in Render's secret environment variable
 
 Do not expose `DATABASE_URL` to the Vercel frontend. Do not use `NEXT_PUBLIC_SUPABASE_URL` as the backend database URL. Do not use a Supabase service role key for this backend database connection.
 

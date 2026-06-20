@@ -7,7 +7,7 @@ from typing import Any
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
-from app.config import get_settings
+from app.config import database_host_kind, get_settings
 from app.arcgis_publisher import load_arcgis_publish_settings
 from app.analysis_report_exporter import init_analysis_report_history_table
 from app.analysis_refinement_engine import init_refinement_tables
@@ -52,6 +52,7 @@ def get_system_status(schema_name: str | None = None) -> dict[str, Any]:
         "version": AUTOMAP_VERSION,
         "database_connected": False,
         "database_name": None,
+        "database_host_kind": database_host_kind(settings.DATABASE_URL),
         "automap_schema": schema,
         "postgis_version": None,
         "catalog": {
@@ -117,6 +118,7 @@ def get_system_status(schema_name: str | None = None) -> dict[str, Any]:
             {
                 "database_connected": bool(db_status.get("database_connected")),
                 "database_name": db_status.get("database_name"),
+                "database_host_kind": db_status.get("database_host_kind") or database_host_kind(settings.DATABASE_URL),
                 "automap_schema": db_status.get("automap_schema") or schema,
                 "postgis_version": db_status.get("postgis_version"),
             }
@@ -227,6 +229,7 @@ def format_system_status(status: dict[str, Any]) -> str:
         f"AutoMap version: {status['version']}",
         f"DB connected: {status['database_connected']}",
         f"Database name: {status.get('database_name') or 'unavailable'}",
+        f"Database host kind: {status.get('database_host_kind') or 'unknown'}",
         f"AutoMap schema: {status.get('automap_schema') or 'unavailable'}",
         f"PostGIS version: {status.get('postgis_version') or 'unavailable'}",
         f"Layer catalog records: {catalog['layer_count']}",

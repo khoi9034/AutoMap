@@ -10,6 +10,7 @@ export type SystemStatus = {
   version?: string;
   database_connected?: boolean;
   database_name?: string | null;
+  database_host_kind?: "supabase_direct" | "supabase_pooler" | "local_dev" | "unknown" | string;
   automap_schema?: string;
   postgis_version?: string | null;
   catalog?: {

@@ -27,6 +27,14 @@ postgresql+psycopg2://postgres:YOUR_SUPABASE_DB_PASSWORD@db.mjfbpmatxvjczikqbuva
 
 Set that value as the backend `DATABASE_URL`.
 
+For Render, the Direct host can fail when the platform cannot reach the Supabase IPv6 address. In that case, use Connect -> Session Pooler instead and convert that URI to SQLAlchemy format:
+
+```text
+postgresql+psycopg2://postgres.mjfbpmatxvjczikqbuva:YOUR_SUPABASE_DB_PASSWORD@aws-0-us-east-1.pooler.supabase.com:6543/postgres
+```
+
+AutoMap only accepts the pooler URL when it still identifies the known `mjfbpmatxvjczikqbuva` Supabase project and the database name remains `postgres`.
+
 Do not put the database password in frontend env variables. Do not use the Supabase service role key in the frontend.
 
 ## Initialize AutoMap Tables
