@@ -647,10 +647,24 @@ def test_api_client_has_timeout_and_sanitized_fallback_version():
     assert "Backend is offline. Start it with: python -m app.main --serve-ui --ui-port 8010" in source
     assert "Backend is online, but this request took too long" in source
     assert "http://127.0.0.1:8010" in source
+    assert 'process.env.NODE_ENV === "production" ? "" : LOCAL_DEV_API_BASE_URL' in source
+    assert "NEXT_PUBLIC_AUTOMAP_API_BASE_URL to the deployed AutoMap backend URL" in source
     assert "timeoutMs: 60000" in source
     assert 'version: "4.9.0"' in source
     assert "redactProtected" in source
     assert "AutoMap is checking the catalog, parcel fields, and context layers" in map_request
+
+
+def test_frontend_does_not_expose_supabase_service_role_key():
+    skipped = {"node_modules", ".next"}
+    combined = "\n".join(
+        path.read_text(encoding="utf-8").lower()
+        for path in FRONTEND.rglob("*")
+        if path.is_file() and not any(part in skipped for part in path.parts)
+    )
+
+    assert "service_role" not in combined
+    assert "supabase_service_role" not in combined
 
 
 def test_table_center_page_components_and_api_are_present():

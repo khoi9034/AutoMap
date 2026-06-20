@@ -45,9 +45,14 @@ import type {
   AddressResolveResponse,
 } from "@/types/automap";
 
+const CONFIGURED_API_BASE_URL = process.env.NEXT_PUBLIC_AUTOMAP_API_BASE_URL?.replace(/\/$/, "") || "";
+const LOCAL_DEV_API_BASE_URL = "http://127.0.0.1:8010";
+
 export const API_BASE_URL =
-  process.env.NEXT_PUBLIC_AUTOMAP_API_BASE_URL?.replace(/\/$/, "") ||
-  "http://127.0.0.1:8010";
+  CONFIGURED_API_BASE_URL || (process.env.NODE_ENV === "production" ? "" : LOCAL_DEV_API_BASE_URL);
+
+const MISSING_PRODUCTION_API_BASE_URL_MESSAGE =
+  "Backend API URL is not configured. Set NEXT_PUBLIC_AUTOMAP_API_BASE_URL to the deployed AutoMap backend URL.";
 
 const PROTECTED_MARKERS = [
   ".env",
@@ -89,6 +94,9 @@ export function redactProtected<T>(value: T): T {
 type ApiFetchInit = RequestInit & { timeoutMs?: number };
 
 async function checkBackendOnline(timeoutMs = 4000): Promise<boolean> {
+  if (!API_BASE_URL) {
+    return false;
+  }
   const controller = new AbortController();
   const timeout: ReturnType<typeof setTimeout> = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -105,6 +113,9 @@ async function checkBackendOnline(timeoutMs = 4000): Promise<boolean> {
 }
 
 async function apiFetch<T>(path: string, init?: ApiFetchInit): Promise<T> {
+  if (!API_BASE_URL) {
+    throw new Error(MISSING_PRODUCTION_API_BASE_URL_MESSAGE);
+  }
   const controller = new AbortController();
   const timeoutMs = init?.timeoutMs ?? 15000;
   const fetchInit: RequestInit = { ...(init || {}) };

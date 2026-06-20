@@ -32,3 +32,29 @@ After credentials are filled in and PostgreSQL/PostGIS is available, run:
 ```bash
 python -m app.main --check-db
 ```
+
+## Supabase Production Database
+
+For backend deployment, AutoMap can use Supabase PostGIS with the `automap` schema inside Supabase's direct Postgres database.
+
+In Supabase SQL Editor, run:
+
+```sql
+CREATE EXTENSION IF NOT EXISTS postgis;
+CREATE SCHEMA IF NOT EXISTS automap;
+```
+
+Set backend-only `DATABASE_URL` to the direct connection string converted for SQLAlchemy:
+
+```text
+postgresql+psycopg2://postgres:YOUR_SUPABASE_DB_PASSWORD@db.mjfbpmatxvjczikqbuva.supabase.co:5432/postgres
+```
+
+Then run:
+
+```bash
+python -m app.main --deployment-init-db
+python -m app.main --deployment-seed-catalog
+```
+
+Do not put the Supabase database password or service role key in frontend environment variables. See `docs/supabase_postgis_setup.md` for full setup steps.

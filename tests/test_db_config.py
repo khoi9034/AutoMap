@@ -4,7 +4,9 @@ from app.config import (
     AUTOMAP_DEV_DATABASE,
     DEFAULT_AUTOMAP_SCHEMA,
     Settings,
+    allowed_origins_from_settings,
     get_settings,
+    parse_allowed_origins,
     require_database_url,
     validate_settings,
 )
@@ -60,6 +62,17 @@ def test_validate_settings_rejects_non_automap_database():
         validate_settings(settings)
 
 
+def test_validate_settings_allows_supabase_direct_postgres_database():
+    settings = Settings(
+        DATABASE_URL=(
+            "postgresql+psycopg2://postgres:real-password"
+            "@db.mjfbpmatxvjczikqbuva.supabase.co:5432/postgres"
+        )
+    )
+
+    validate_settings(settings)
+
+
 def test_validate_settings_rejects_placeholder_password():
     settings = Settings(
         DATABASE_URL=(
@@ -70,6 +83,32 @@ def test_validate_settings_rejects_placeholder_password():
 
     with pytest.raises(ValueError, match="placeholder password"):
         validate_settings(settings)
+
+
+def test_validate_settings_rejects_supabase_placeholder_password():
+    settings = Settings(
+        DATABASE_URL=(
+            "postgresql+psycopg2://postgres:YOUR_SUPABASE_DB_PASSWORD"
+            "@db.mjfbpmatxvjczikqbuva.supabase.co:5432/postgres"
+        )
+    )
+
+    with pytest.raises(ValueError, match="placeholder password"):
+        validate_settings(settings)
+
+
+def test_allowed_origins_parse_local_and_deployed_frontend():
+    settings = Settings(
+        DATABASE_URL=None,
+        ALLOWED_ORIGINS="[http://localhost:3010,https://auto-map-cyan.vercel.app]",
+        FRONTEND_ORIGIN="https://auto-map-cyan.vercel.app",
+    )
+
+    assert parse_allowed_origins(settings.ALLOWED_ORIGINS) == [
+        "http://localhost:3010",
+        "https://auto-map-cyan.vercel.app",
+    ]
+    assert allowed_origins_from_settings(settings).count("https://auto-map-cyan.vercel.app") == 1
 
 
 def test_quote_identifier_accepts_simple_schema_name():

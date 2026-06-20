@@ -280,6 +280,31 @@ Create a local environment file from the template:
 cp .env.example .env
 ```
 
+For production backend deployment, AutoMap can use Supabase PostGIS. Use the Supabase Dashboard -> Connect -> Direct Postgres connection string, convert it to `postgresql+psycopg2://...`, and set it as backend-only `DATABASE_URL`. Do not put the Supabase database password or service role key in frontend env.
+
+Safe deployment initialization:
+
+```bash
+python -m app.main --deployment-init-db
+python -m app.main --deployment-seed-catalog
+```
+
+Deployment docs:
+
+- `docs/supabase_postgis_setup.md`
+- `docs/deployment_backend_env.md`
+- `docs/deployment_backend_render.md`
+- `docs/deployment_backend_railway.md`
+- `docs/deployment_vercel_frontend.md`
+
+After the backend is deployed, set the Vercel frontend variable:
+
+```text
+NEXT_PUBLIC_AUTOMAP_API_BASE_URL=https://YOUR_DEPLOYED_BACKEND_URL
+```
+
+Do not set the production frontend API URL to localhost.
+
 Then edit `.env` so `DATABASE_URL` points to AutoMap's own PostGIS database:
 
 ```text

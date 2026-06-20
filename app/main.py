@@ -51,6 +51,7 @@ from app.data_gap_resolver import (
     resolve_known_data_gaps,
 )
 from app.db import test_db_connection
+from app.deployment_database import deployment_init_db
 from app.demo_workflow import run_demo_workflow
 from app.external_source_registry import (
     inspect_registered_external_sources,
@@ -158,6 +159,49 @@ def _check_db() -> int:
     print(f"database name: {result['database_name']}")
     print(f"PostGIS version: {result['postgis_version']}")
     print(f"AutoMap schema: {result['automap_schema']}")
+    return 0
+
+
+def _deployment_init_db() -> int:
+    try:
+        result = deployment_init_db()
+    except ValueError as exc:
+        print(f"Database configuration error: {exc}")
+        return 1
+
+    print("AutoMap deployment database initialization")
+    print(f"success: {result['success']}")
+    print(f"database connected: {result['database_connected']}")
+    print(f"database name: {result['database_name']}")
+    print(f"PostGIS version: {result.get('postgis_version') or 'unavailable'}")
+    print(f"AutoMap schema: {result['automap_schema']}")
+    print(f"tables initialized: {len(result.get('created_tables') or [])}")
+    for warning in result.get("warnings") or []:
+        print(f"warning: {warning}")
+    if result.get("error"):
+        print(f"error: {result['error']}")
+    if result.get("next_step"):
+        print(f"next step: {result['next_step']}")
+    return 0 if result.get("success") else 1
+
+
+def _deployment_seed_catalog() -> int:
+    print("AutoMap deployment catalog seed")
+    print("Using metadata-only REST inspection and bounded field profiling; no feature datasets are ingested.")
+    steps = [
+        ("build catalog from REST", _build_catalog_from_rest),
+        ("profile catalog fields", lambda: _profile_catalog_fields(None)),
+        ("load external sources", _load_external_sources),
+        ("inspect external sources", _inspect_external_sources),
+        ("resolve data gaps", _resolve_data_gaps),
+    ]
+    for label, step in steps:
+        print(f"running: {label}")
+        status = step()
+        if status != 0:
+            print(f"deployment seed stopped at: {label}")
+            return status
+    print("deployment catalog seed complete")
     return 0
 
 
@@ -1062,6 +1106,16 @@ def main() -> int:
         help="Check AutoMap's own PostGIS database connection.",
     )
     parser.add_argument(
+        "--deployment-init-db",
+        action="store_true",
+        help="Initialize a cloud AutoMap PostGIS database with safe CREATE IF NOT EXISTS operations.",
+    )
+    parser.add_argument(
+        "--deployment-seed-catalog",
+        action="store_true",
+        help="Seed the deployment catalog from verified REST metadata without full feature downloads.",
+    )
+    parser.add_argument(
         "--inspect-rest-sources",
         action="store_true",
         help="Inspect configured ArcGIS REST services without writing to the database.",
@@ -1556,6 +1610,10 @@ def main() -> int:
     try:
         if args.check_db:
             return _check_db()
+        if args.deployment_init_db:
+            return _deployment_init_db()
+        if args.deployment_seed_catalog:
+            return _deployment_seed_catalog()
         if args.inspect_rest_sources:
             return _inspect_rest_sources()
         if args.build_catalog_from_rest:

@@ -47,6 +47,23 @@ def test_cors_allows_local_next_frontend():
     assert response.headers["access-control-allow-origin"] == "http://localhost:3010"
 
 
+def test_cors_reads_deployed_frontend_origin(monkeypatch):
+    monkeypatch.setenv("ALLOWED_ORIGINS", "https://auto-map-cyan.vercel.app")
+    monkeypatch.setenv("FRONTEND_ORIGIN", "https://auto-map-cyan.vercel.app")
+    client = TestClient(create_app())
+
+    response = client.options(
+        "/api/status",
+        headers={
+            "Origin": "https://auto-map-cyan.vercel.app",
+            "Access-Control-Request-Method": "GET",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == "https://auto-map-cyan.vercel.app"
+
+
 def test_no_real_publish_endpoint_exposed():
     client = TestClient(create_app())
     paths = client.get("/openapi.json").json()["paths"]
