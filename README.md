@@ -305,6 +305,18 @@ NEXT_PUBLIC_AUTOMAP_API_BASE_URL=https://YOUR_DEPLOYED_BACKEND_URL
 
 Do not set the production frontend API URL to localhost.
 
+## Render Backend Deployment
+
+AutoMap can deploy the FastAPI backend to Render as a Python Web Service using the root `render.yaml`.
+
+```text
+Build Command: pip install -r requirements.txt
+Start Command: uvicorn app.web_ui:app --host 0.0.0.0 --port $PORT
+Health Check Path: /api/health
+```
+
+Set `DATABASE_URL` as a Render secret using the Supabase SQLAlchemy URL that worked locally. Keep `AUTOMAP_PUBLISH_DRY_RUN=true` and `AUTOMAP_ALLOW_REAL_PUBLISH=false`.
+
 Then edit `.env` so `DATABASE_URL` points to AutoMap's own PostGIS database:
 
 ```text

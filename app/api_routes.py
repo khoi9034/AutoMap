@@ -520,6 +520,16 @@ def _handle_value_error(exc: Exception) -> HTTPException:
     return HTTPException(status_code=400, detail=str(exc))
 
 
+@api_router.get("/health")
+def api_health() -> dict[str, Any]:
+    """Return a lightweight deployment health check without database or GIS calls."""
+    return {
+        "ok": True,
+        "service": "automap-api",
+        "real_publish_enabled": False,
+    }
+
+
 @api_router.get("/status")
 def api_status() -> Any:
     """Return sanitized AutoMap system status for the frontend."""

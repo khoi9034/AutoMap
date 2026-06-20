@@ -11,6 +11,8 @@ AUTOMAP_PUBLISH_DRY_RUN=true
 AUTOMAP_ALLOW_REAL_PUBLISH=false
 ```
 
+`DATABASE_URL` must use the same Supabase SQLAlchemy URL that worked locally. Store it as a backend secret only.
+
 For local development, `ALLOWED_ORIGINS` can also include:
 
 ```text
@@ -18,6 +20,8 @@ http://localhost:3010,http://127.0.0.1:3010
 ```
 
 Never set frontend variables to the Supabase database password or service role key.
+Do not expose `DATABASE_URL` to Vercel and do not put it in any `NEXT_PUBLIC_*` variable.
+Do not use `NEXT_PUBLIC_SUPABASE_URL` or a Supabase publishable key as the FastAPI database connection string.
 
 ## Startup Command
 
@@ -37,6 +41,24 @@ python -m app.main --deployment-seed-catalog
 ```
 
 The initializer uses safe `CREATE IF NOT EXISTS` operations and refuses `cfs_dev`.
+
+## Health Checks
+
+Render should use:
+
+```text
+/api/health
+```
+
+Expected safe response:
+
+```json
+{
+  "ok": true,
+  "service": "automap-api",
+  "real_publish_enabled": false
+}
+```
 
 ## Publishing Safety
 

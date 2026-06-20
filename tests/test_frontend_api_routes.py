@@ -32,6 +32,24 @@ def test_api_status_is_json_and_sanitized(monkeypatch):
     assert "cfs_dev" not in serialized
 
 
+def test_api_health_is_lightweight_and_sanitized():
+    client = TestClient(create_app())
+
+    response = client.get("/api/health")
+    serialized = json.dumps(response.json()).lower()
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "ok": True,
+        "service": "automap-api",
+        "real_publish_enabled": False,
+    }
+    assert "database_url" not in serialized
+    assert "password" not in serialized
+    assert "secret" not in serialized
+    assert "cfs_dev" not in serialized
+
+
 def test_cors_allows_local_next_frontend():
     client = TestClient(create_app())
 

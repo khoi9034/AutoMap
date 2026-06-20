@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: automap-api
+    runtime: python
+    repo: https://github.com/khoi9034/AutoMap.git
+    branch: main
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.web_ui:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/health
+    autoDeployTrigger: commit
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: AUTOMAP_DB_SCHEMA
+        value: automap
+      - key: ALLOWED_ORIGINS
+        value: https://auto-map-cyan.vercel.app
+      - key: FRONTEND_ORIGIN
+        value: https://auto-map-cyan.vercel.app
+      - key: AUTOMAP_PUBLISH_DRY_RUN
+        value: "true"
+      - key: AUTOMAP_ALLOW_REAL_PUBLISH
+        value: "false"
