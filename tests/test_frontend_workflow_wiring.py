@@ -649,6 +649,8 @@ def test_api_client_has_timeout_and_sanitized_fallback_version():
     assert "Backend is online, but this request took too long" in source
     assert "http://127.0.0.1:8010" in source
     assert "https://automap-api.onrender.com" in source
+    assert "normalizeApiBaseUrl" in source
+    assert "Invalid public API URLs are treated as unset" in source
     assert "getApiBaseUrl" in source
     assert "DEFAULT_PRODUCTION_API_BASE_URL" in source
     assert "Backend route not found on" in source

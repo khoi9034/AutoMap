@@ -45,9 +45,22 @@ import type {
   AddressResolveResponse,
 } from "@/types/automap";
 
-const CONFIGURED_API_BASE_URL = process.env.NEXT_PUBLIC_AUTOMAP_API_BASE_URL?.replace(/\/$/, "") || "";
 const LOCAL_DEV_API_BASE_URL = "http://127.0.0.1:8010";
 const DEFAULT_PRODUCTION_API_BASE_URL = "https://automap-api.onrender.com";
+
+function normalizeApiBaseUrl(value: string | undefined): string {
+  const trimmed = value?.trim().replace(/\/+$/, "") || "";
+  if (!trimmed) return "";
+  try {
+    const parsed = new URL(trimmed);
+    if (parsed.protocol === "http:" || parsed.protocol === "https:") return trimmed;
+  } catch {
+    // Invalid public API URLs are treated as unset so production builds do not crash.
+  }
+  return "";
+}
+
+const CONFIGURED_API_BASE_URL = normalizeApiBaseUrl(process.env.NEXT_PUBLIC_AUTOMAP_API_BASE_URL);
 
 export function getApiBaseUrl(): string {
   if (CONFIGURED_API_BASE_URL) return CONFIGURED_API_BASE_URL;
