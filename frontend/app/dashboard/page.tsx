@@ -4,7 +4,7 @@ import { samplePrompts } from "@/components/navigation";
 import { SectionHeader } from "@/components/section-header";
 import { StatCard } from "@/components/stat-card";
 import { StatusChip } from "@/components/status-chip";
-import { getDataGaps, getHistory, getStatusOrFallback, listPackets } from "@/lib/api";
+import { getApiRuntimeInfo, getDataGaps, getHistory, getStatusOrFallback, listPackets } from "@/lib/api";
 import type { DataGap, HistoryRow, PacketSummary, PacketsResponse } from "@/types/automap";
 
 function shortDate(value: string | undefined): string {
@@ -67,6 +67,8 @@ export default async function DashboardPage() {
   const latestPackets = packetRows(packets);
   const knownGapKeys = ["current_permits", "current_planning_cases", "current_development_pipeline"];
   const activeKnownGaps = dataGaps.filter((gap) => knownGapKeys.includes(gap.gap_key || ""));
+  const apiInfo = getApiRuntimeInfo();
+  const productionLabels = apiInfo.isProduction && !apiInfo.isLocal;
 
   return (
     <div className="page-stack dashboard-page">
@@ -81,8 +83,8 @@ export default async function DashboardPage() {
           <div className="chip-row">
             <StatusChip tone="success">Dry-run only</StatusChip>
             <StatusChip tone="success">No ArcGIS login required</StatusChip>
-            <StatusChip tone="success">Frontend 3010</StatusChip>
-            <StatusChip tone="success">Backend/API 8010</StatusChip>
+            <StatusChip tone="success">Frontend {productionLabels ? "Vercel" : "3010"}</StatusChip>
+            <StatusChip tone="success">Backend/API {productionLabels ? "Render" : "8010"}</StatusChip>
           </div>
         </div>
         <div className="hero-health-panel">

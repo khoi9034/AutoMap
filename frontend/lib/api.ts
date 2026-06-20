@@ -47,12 +47,28 @@ import type {
 
 const CONFIGURED_API_BASE_URL = process.env.NEXT_PUBLIC_AUTOMAP_API_BASE_URL?.replace(/\/$/, "") || "";
 const LOCAL_DEV_API_BASE_URL = "http://127.0.0.1:8010";
+const DEFAULT_PRODUCTION_API_BASE_URL = "https://automap-api.onrender.com";
 
-export const API_BASE_URL =
-  CONFIGURED_API_BASE_URL || (process.env.NODE_ENV === "production" ? "" : LOCAL_DEV_API_BASE_URL);
+export function getApiBaseUrl(): string {
+  if (CONFIGURED_API_BASE_URL) return CONFIGURED_API_BASE_URL;
+  return process.env.NODE_ENV === "production" ? DEFAULT_PRODUCTION_API_BASE_URL : LOCAL_DEV_API_BASE_URL;
+}
 
-const MISSING_PRODUCTION_API_BASE_URL_MESSAGE =
-  "Backend API URL is not configured. Set NEXT_PUBLIC_AUTOMAP_API_BASE_URL to the deployed AutoMap backend URL.";
+export const API_BASE_URL = getApiBaseUrl();
+
+export function getApiRuntimeInfo() {
+  const url = new URL(API_BASE_URL);
+  const isLocal = url.hostname === "127.0.0.1" || url.hostname === "localhost";
+  return {
+    apiBaseUrl: API_BASE_URL,
+    apiHost: url.host,
+    apiPath: url.pathname === "/" ? "" : url.pathname,
+    isConfigured: Boolean(CONFIGURED_API_BASE_URL),
+    isLocal,
+    isProduction: process.env.NODE_ENV === "production",
+    label: isLocal ? "8010" : url.hostname.includes("onrender.com") ? "Render" : url.hostname,
+  };
+}
 
 const PROTECTED_MARKERS = [
   ".env",
@@ -93,14 +109,30 @@ export function redactProtected<T>(value: T): T {
 
 type ApiFetchInit = RequestInit & { timeoutMs?: number };
 
-async function checkBackendOnline(timeoutMs = 4000): Promise<boolean> {
-  if (!API_BASE_URL) {
-    return false;
+type ApiHealth = {
+  ok?: boolean;
+  service?: string;
+  real_publish_enabled?: boolean;
+};
+
+function apiUrl(path: string): string {
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  return `${API_BASE_URL}${normalizedPath}`;
+}
+
+function productionAwareOfflineMessage(): string {
+  const info = getApiRuntimeInfo();
+  if (info.isProduction) {
+    return `Render backend is unreachable at ${info.apiHost}.`;
   }
+  return "Backend is offline. Start it with: python -m app.main --serve-ui --ui-port 8010";
+}
+
+async function checkBackendOnline(timeoutMs = 4000): Promise<boolean> {
   const controller = new AbortController();
   const timeout: ReturnType<typeof setTimeout> = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const response = await fetch(`${API_BASE_URL}/api/status`, {
+    const response = await fetch(apiUrl("/api/health"), {
       cache: "no-store",
       signal: controller.signal,
     });
@@ -112,18 +144,17 @@ async function checkBackendOnline(timeoutMs = 4000): Promise<boolean> {
   }
 }
 
-async function apiFetch<T>(path: string, init?: ApiFetchInit): Promise<T> {
-  if (!API_BASE_URL) {
-    throw new Error(MISSING_PRODUCTION_API_BASE_URL_MESSAGE);
-  }
+export async function apiFetch<T>(path: string, init?: ApiFetchInit): Promise<T> {
   const controller = new AbortController();
   const timeoutMs = init?.timeoutMs ?? 15000;
   const fetchInit: RequestInit = { ...(init || {}) };
   delete (fetchInit as ApiFetchInit).timeoutMs;
   const timeout: ReturnType<typeof setTimeout> = setTimeout(() => controller.abort(), timeoutMs);
+  const requestUrl = apiUrl(path);
+  const requestHost = new URL(requestUrl).host;
 
   try {
-    const response = await fetch(`${API_BASE_URL}${path}`, {
+    const response = await fetch(requestUrl, {
       ...fetchInit,
       cache: "no-store",
       signal: controller.signal,
@@ -140,7 +171,10 @@ async function apiFetch<T>(path: string, init?: ApiFetchInit): Promise<T> {
       } catch {
         // Keep HTTP status detail.
       }
-      throw new Error(detail);
+      if (response.status === 404) {
+        throw new Error(`Backend route not found on ${requestHost}: ${path} (HTTP 404).`);
+      }
+      throw new Error(`Backend request failed on ${requestHost}: ${path} (HTTP ${response.status}): ${detail}`);
     }
     return redactProtected((await response.json()) as T);
   } catch (exc) {
@@ -149,19 +183,19 @@ async function apiFetch<T>(path: string, init?: ApiFetchInit): Promise<T> {
       if (backendOnline) {
         throw new Error("Backend is online, but this request took too long. Try again or simplify the request.");
       }
-      throw new Error(
-        "Backend is offline. Start it with: python -m app.main --serve-ui --ui-port 8010",
-      );
+      throw new Error(productionAwareOfflineMessage());
     }
     if (exc instanceof TypeError) {
-      throw new Error(
-        "Backend is offline. Start it with: python -m app.main --serve-ui --ui-port 8010",
-      );
+      throw new Error(productionAwareOfflineMessage());
     }
     throw exc;
   } finally {
     clearTimeout(timeout);
   }
+}
+
+export async function getApiHealth(): Promise<ApiHealth> {
+  return apiFetch<ApiHealth>("/api/health", { timeoutMs: 6000 });
 }
 
 export async function getSystemStatus(): Promise<SystemStatus> {
@@ -176,6 +210,21 @@ export async function getStatusOrFallback(): Promise<SystemStatus> {
   try {
     return await getSystemStatus();
   } catch {
+    try {
+      const health = await getApiHealth();
+      return {
+        version: "4.9.0",
+        database_connected: false,
+        catalog: {},
+        profiles: {},
+        packets: {},
+        real_publish_enabled: Boolean(health.real_publish_enabled),
+        arcgis_publisher_mode: "API online; database status unavailable",
+        errors: ["Backend health is reachable, but status is unavailable."],
+      };
+    } catch {
+      // Keep the generic backend fallback below.
+    }
     return {
       version: "4.9.0",
       database_connected: false,

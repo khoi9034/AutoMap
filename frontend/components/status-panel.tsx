@@ -2,6 +2,7 @@
 
 import { usePathname } from "next/navigation";
 
+import { getApiRuntimeInfo } from "@/lib/api";
 import type { SystemStatus } from "@/types/automap";
 
 type StatusPanelProps = {
@@ -10,6 +11,8 @@ type StatusPanelProps = {
 
 export function StatusPanel({ status }: StatusPanelProps) {
   const pathname = usePathname();
+  const apiInfo = getApiRuntimeInfo();
+  const productionLabels = apiInfo.isProduction && !apiInfo.isLocal;
   if (pathname === "/map-composer" || pathname.startsWith("/map-composer/")) {
     return null;
   }
@@ -52,11 +55,11 @@ export function StatusPanel({ status }: StatusPanelProps) {
         </div>
         <div>
           <dt>Frontend</dt>
-          <dd>{status.ports?.frontend || 3010}</dd>
+          <dd>{productionLabels ? "Vercel" : status.ports?.frontend || 3010}</dd>
         </div>
         <div>
           <dt>Backend/API</dt>
-          <dd>{status.ports?.backend_api || 8010}</dd>
+          <dd title={apiInfo.apiBaseUrl}>{productionLabels ? "Render" : status.ports?.backend_api || 8010}</dd>
         </div>
       </dl>
       <div className="notice">

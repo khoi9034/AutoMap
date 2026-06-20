@@ -13,6 +13,8 @@ AUTOMAP_ALLOW_REAL_PUBLISH=false
 
 `DATABASE_URL` must use the same Supabase SQLAlchemy URL that worked locally. Store it as a backend secret only.
 
+If Render reports a network error against the Supabase Direct host, especially an IPv6 address with `Network is unreachable`, switch Render's `DATABASE_URL` to the Supabase Session Pooler connection string from Supabase Dashboard -> Connect -> Session Pooler. Convert it to SQLAlchemy format by using `postgresql+psycopg2://...`.
+
 For local development, `ALLOWED_ORIGINS` can also include:
 
 ```text

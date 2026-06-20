@@ -121,8 +121,8 @@ def test_v16_dashboard_has_operations_and_safety_cards():
     assert "Latest workflow activity" in source
     assert "Latest packets" in source
     assert "Safety status" in source
-    assert "Frontend 3010" in source
-    assert "Backend/API 8010" in source
+    assert "Frontend {productionLabels ? \"Vercel\" : \"3010\"}" in source
+    assert "Backend/API {productionLabels ? \"Render\" : \"8010\"}" in source
     assert "CFS ports 3000 and 8000 are reserved" in source
 
 
@@ -645,14 +645,34 @@ def test_api_client_has_timeout_and_sanitized_fallback_version():
     map_request = read("components/map-request-client.tsx")
 
     assert "Backend is offline. Start it with: python -m app.main --serve-ui --ui-port 8010" in source
+    assert "Render backend is unreachable at" in source
     assert "Backend is online, but this request took too long" in source
     assert "http://127.0.0.1:8010" in source
-    assert 'process.env.NODE_ENV === "production" ? "" : LOCAL_DEV_API_BASE_URL' in source
-    assert "NEXT_PUBLIC_AUTOMAP_API_BASE_URL to the deployed AutoMap backend URL" in source
+    assert "https://automap-api.onrender.com" in source
+    assert "getApiBaseUrl" in source
+    assert "DEFAULT_PRODUCTION_API_BASE_URL" in source
+    assert "Backend route not found on" in source
+    assert "Backend request failed on" in source
+    assert "apiUrl(path)" in source
     assert "timeoutMs: 60000" in source
     assert 'version: "4.9.0"' in source
     assert "redactProtected" in source
     assert "AutoMap is checking the catalog, parcel fields, and context layers" in map_request
+
+
+def test_production_status_badges_are_render_aware():
+    top_header = read("components/top-header.tsx")
+    status_panel = read("components/status-panel.tsx")
+
+    assert "getApiRuntimeInfo" in top_header
+    assert "FE {frontendLabel}" in top_header
+    assert "API {apiLabel}" in top_header
+    assert "DB {dbLabel}" in top_header
+    assert "FE 3010" not in top_header
+    assert "API 8010" not in top_header
+    assert "getApiRuntimeInfo" in status_panel
+    assert "productionLabels ? \"Vercel\"" in status_panel
+    assert "productionLabels ? \"Render\"" in status_panel
 
 
 def test_frontend_does_not_expose_supabase_service_role_key():

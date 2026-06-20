@@ -36,6 +36,8 @@ Use the same Supabase direct Postgres connection string that worked locally, con
 postgresql+psycopg2://postgres:YOUR_SUPABASE_DB_PASSWORD@db.mjfbpmatxvjczikqbuva.supabase.co:5432/postgres
 ```
 
+If Render cannot reach Supabase Direct and `/api/status` shows `Network is unreachable` for an IPv6 address, use Supabase Dashboard -> Connect -> Session Pooler instead. Keep the same SQLAlchemy `postgresql+psycopg2://` prefix and store the pooler URL only in Render's secret environment variable.
+
 Do not expose `DATABASE_URL` to the Vercel frontend. Do not use `NEXT_PUBLIC_SUPABASE_URL` as the backend database URL. Do not use a Supabase service role key for this backend database connection.
 
 ## After Deploy
