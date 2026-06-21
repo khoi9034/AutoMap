@@ -461,7 +461,7 @@ def test_map_composer_is_primary_simple_workflow():
     assert "`/api/composer/${encodeURIComponent(payload.composer_session_id)}/save-map-state`" in api
     assert "`/api/composer/${encodeURIComponent(payload.composer_session_id)}/export-exhibit`" in api
     assert "`/api/composer/${encodeURIComponent(composerSessionId)}/route-refine`" in api
-    assert "timeoutMs: 90000" in api
+    assert "timeoutMs: 180000" in api
     assert '"/api/composer/adjust"' in api
     assert '"/api/composer/export"' in api
     assert "ComposerResponse" in types

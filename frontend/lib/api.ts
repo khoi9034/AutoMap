@@ -791,7 +791,7 @@ export async function runWorkflow(prompt: string): Promise<WorkflowRunResponse> 
 export async function generateComposerDraft(prompt: string): Promise<ComposerResponse> {
   return apiFetch<ComposerResponse>("/api/composer/generate", {
     method: "POST",
-    timeoutMs: 90000,
+    timeoutMs: 180000,
     body: JSON.stringify({ prompt }),
   });
 }
