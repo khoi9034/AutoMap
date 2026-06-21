@@ -1,4 +1,5 @@
 import pytest
+from sqlalchemy.pool import NullPool
 
 from app.config import (
     AUTOMAP_DEV_DATABASE,
@@ -11,7 +12,7 @@ from app.config import (
     require_database_url,
     validate_settings,
 )
-from app.db import _quote_identifier
+from app.db import _quote_identifier, get_engine
 
 
 def test_get_settings_reads_database_environment(monkeypatch):
@@ -135,6 +136,22 @@ def test_database_host_kind_classifies_allowed_targets():
         == "supabase_pooler"
     )
     assert database_host_kind("postgresql+psycopg2://postgres:secret@db.example.com:5432/postgres") == "unknown"
+
+
+def test_supabase_session_pooler_uses_nullpool():
+    settings = Settings(
+        DATABASE_URL=(
+            "postgresql+psycopg2://postgres.mjfbpmatxvjczikqbuva:real-password"
+            "@aws-1-us-east-1.pooler.supabase.com:5432/postgres"
+        )
+    )
+
+    engine = get_engine(settings)
+
+    try:
+        assert isinstance(engine.pool, NullPool)
+    finally:
+        engine.dispose()
 
 
 def test_validate_settings_rejects_placeholder_password():
