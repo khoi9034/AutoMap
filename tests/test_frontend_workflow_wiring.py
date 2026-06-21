@@ -643,14 +643,22 @@ def test_external_sources_page_components_and_api_are_present():
 def test_api_client_has_timeout_and_sanitized_fallback_version():
     source = read("lib/api.ts")
     map_request = read("components/map-request-client.tsx")
+    proxy_route = read("app/api/automap/[...path]/route.ts")
 
     assert "Backend is offline. Start it with: python -m app.main --serve-ui --ui-port 8010" in source
-    assert "Render backend is unreachable at" in source
+    assert "Vercel proxy could not reach Render backend at" in source
     assert "Render API is online, but ${path} timed out" in source
+    assert "Render API is online, but the Vercel proxy could not complete ${path}" in source
+    assert "same-origin proxy network block" in source
     assert "This is often a CORS deployment-origin issue" in source
+    assert "PRODUCTION_PROXY_API_BASE_PATH" in source
+    assert '"/api/automap"' in source
+    assert "getApiFetchBase" in source
+    assert "getApiDisplayHost" in source
     assert "Current page origin:" in source
     assert "window.location.origin" in source
     assert "API host:" in source
+    assert "Fetch base:" in source
     assert "Route:" in source
     assert "Failure:" in source
     assert "getDbHealth" in source
@@ -663,13 +671,45 @@ def test_api_client_has_timeout_and_sanitized_fallback_version():
     assert "Invalid public API URLs are treated as unset" in source
     assert "getApiBaseUrl" in source
     assert "DEFAULT_PRODUCTION_API_BASE_URL" in source
-    assert "Backend route not found on" in source
-    assert "Backend request failed on" in source
+    assert "Render backend route not found:" in source
+    assert "Render backend returned HTTP ${response.status}" in source
     assert "apiUrl(path)" in source
     assert "timeoutMs: 60000" in source
     assert 'version: "4.9.0"' in source
     assert "redactProtected" in source
     assert "AutoMap is checking the catalog, parcel fields, and context layers" in map_request
+    assert "AUTOMAP_API_SERVER_URL" in proxy_route
+    assert "DEFAULT_AUTOMAP_API_SERVER_URL" in proxy_route
+    assert "backend_unreachable" in proxy_route
+    assert "Vercel proxy could not reach Render backend." in proxy_route
+    assert "Invalid AutoMap API proxy path" in proxy_route
+    assert "segment.includes(\":\")" in proxy_route
+    assert "FORWARDED_REQUEST_HEADERS" in proxy_route
+    assert '"content-type"' in proxy_route
+    assert '"accept"' in proxy_route
+    assert "request.text()" in proxy_route
+    assert "error_category" in proxy_route
+
+
+def test_vercel_proxy_route_maps_automap_paths_without_secret_forwarding():
+    proxy_route = read("app/api/automap/[...path]/route.ts")
+
+    assert "frontend/app/api/automap" not in proxy_route.lower()
+    assert "new URL(`/api/${safePath}`, serverUrl)" in proxy_route
+    assert "AUTOMAP_API_SERVER_URL" in proxy_route
+    assert "https://automap-api.onrender.com" in proxy_route
+    assert "Invalid AutoMap API proxy path" in proxy_route
+    assert "segment === \"..\"" in proxy_route
+    assert "segment.includes(\":\")" in proxy_route
+    assert "FORWARDED_REQUEST_HEADERS" in proxy_route
+    assert '"content-type"' in proxy_route
+    assert '"accept"' in proxy_route
+    assert '"host"' not in proxy_route
+    assert '"connection"' not in proxy_route
+    assert '"cookie"' not in proxy_route
+    assert "backend_unreachable" in proxy_route
+    assert "database_url" not in proxy_route.lower()
+    assert "service_role" not in proxy_route.lower()
 
 
 def test_production_status_badges_are_render_aware():

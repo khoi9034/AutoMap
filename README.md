@@ -297,13 +297,16 @@ Deployment docs:
 - `docs/deployment_backend_railway.md`
 - `docs/deployment_vercel_frontend.md`
 
-After the backend is deployed, set the Vercel frontend variable:
+After the backend is deployed, set the Vercel server-side proxy target:
 
 ```text
-NEXT_PUBLIC_AUTOMAP_API_BASE_URL=https://YOUR_DEPLOYED_BACKEND_URL
+AUTOMAP_API_SERVER_URL=https://automap-api.onrender.com
 ```
 
-Do not set the production frontend API URL to localhost.
+Production browser API requests go to the same-origin proxy path `/api/automap/*`,
+which forwards to Render. Keep `NEXT_PUBLIC_AUTOMAP_API_BASE_URL=https://automap-api.onrender.com`
+only as a browser-safe display value if needed. Do not expose database URLs or set
+production API values to localhost.
 
 ## Render Backend Deployment
 

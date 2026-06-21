@@ -20,15 +20,26 @@ Output Directory: default / blank
 
 ## Backend API URL
 
-After the backend is deployed, set this Vercel environment variable:
+Production browser requests use a same-origin Vercel route handler at `/api/automap/*`.
+The route handler forwards requests to the Render backend. Set this server-only
+Vercel environment variable:
 
 ```text
-NEXT_PUBLIC_AUTOMAP_API_BASE_URL=https://YOUR_DEPLOYED_BACKEND_URL
+AUTOMAP_API_SERVER_URL=https://automap-api.onrender.com
+```
+
+This value is not a secret, but it must not be a `NEXT_PUBLIC_*` variable. The browser
+should call `/api/automap/composer/generate`, not Render directly.
+
+Keep this public variable if you want the UI to display the deployed backend host:
+
+```text
+NEXT_PUBLIC_AUTOMAP_API_BASE_URL=https://automap-api.onrender.com
 ```
 
 Then redeploy the Vercel frontend.
 
-Do not set the production value to `localhost` or `127.0.0.1`. Local values only belong in `frontend/.env.local`.
+Do not set production API values to `localhost` or `127.0.0.1`. Local values only belong in `frontend/.env.local`.
 
 ## Secrets Boundary
 

@@ -47,6 +47,7 @@ import type {
 
 const LOCAL_DEV_API_BASE_URL = "http://127.0.0.1:8010";
 const DEFAULT_PRODUCTION_API_BASE_URL = "https://automap-api.onrender.com";
+const PRODUCTION_PROXY_API_BASE_PATH = "/api/automap";
 
 function normalizeApiBaseUrl(value: string | undefined): string {
   const trimmed = value?.trim().replace(/\/+$/, "") || "";
@@ -62,24 +63,43 @@ function normalizeApiBaseUrl(value: string | undefined): string {
 
 const CONFIGURED_API_BASE_URL = normalizeApiBaseUrl(process.env.NEXT_PUBLIC_AUTOMAP_API_BASE_URL);
 
-export function getApiBaseUrl(): string {
+export function getApiFetchBase(): string {
+  if (process.env.NODE_ENV === "production") return PRODUCTION_PROXY_API_BASE_PATH;
   if (CONFIGURED_API_BASE_URL) return CONFIGURED_API_BASE_URL;
-  return process.env.NODE_ENV === "production" ? DEFAULT_PRODUCTION_API_BASE_URL : LOCAL_DEV_API_BASE_URL;
+  return LOCAL_DEV_API_BASE_URL;
 }
 
-export const API_BASE_URL = getApiBaseUrl();
+export function getApiDisplayBaseUrl(): string {
+  if (process.env.NODE_ENV === "production") return CONFIGURED_API_BASE_URL || DEFAULT_PRODUCTION_API_BASE_URL;
+  return CONFIGURED_API_BASE_URL || LOCAL_DEV_API_BASE_URL;
+}
+
+export function getApiBaseUrl(): string {
+  return getApiDisplayBaseUrl();
+}
+
+export function getApiDisplayHost(): string {
+  return new URL(getApiDisplayBaseUrl()).host;
+}
+
+export const API_FETCH_BASE_URL = getApiFetchBase();
+export const API_BASE_URL = getApiDisplayBaseUrl();
 
 export function getApiRuntimeInfo() {
-  const url = new URL(API_BASE_URL);
-  const isLocal = url.hostname === "127.0.0.1" || url.hostname === "localhost";
+  const displayUrl = new URL(getApiDisplayBaseUrl());
+  const fetchBase = getApiFetchBase();
+  const isLocal = displayUrl.hostname === "127.0.0.1" || displayUrl.hostname === "localhost";
   return {
-    apiBaseUrl: API_BASE_URL,
-    apiHost: url.host,
-    apiPath: url.pathname === "/" ? "" : url.pathname,
+    apiBaseUrl: getApiDisplayBaseUrl(),
+    apiDisplayBaseUrl: getApiDisplayBaseUrl(),
+    apiFetchBase: fetchBase,
+    apiHost: displayUrl.host,
+    apiDisplayHost: displayUrl.host,
+    apiPath: displayUrl.pathname === "/" ? "" : displayUrl.pathname,
     isConfigured: Boolean(CONFIGURED_API_BASE_URL),
     isLocal,
     isProduction: process.env.NODE_ENV === "production",
-    label: isLocal ? "8010" : url.hostname.includes("onrender.com") ? "Render" : url.hostname,
+    label: isLocal ? "8010" : displayUrl.hostname.includes("onrender.com") ? "Render" : displayUrl.hostname,
   };
 }
 
@@ -142,13 +162,21 @@ type DbHealth = {
 
 function apiUrl(path: string): string {
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
-  return `${API_BASE_URL}${normalizedPath}`;
+  const fetchBase = getApiFetchBase();
+  if (fetchBase.startsWith("/")) {
+    const proxyPath = normalizedPath.startsWith("/api/") ? normalizedPath.slice(4) : normalizedPath;
+    const relativeUrl = `${fetchBase}${proxyPath}`;
+    if (typeof window !== "undefined") return relativeUrl;
+    if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}${relativeUrl}`;
+    return `${getApiDisplayBaseUrl()}${normalizedPath}`;
+  }
+  return `${fetchBase}${normalizedPath}`;
 }
 
 function productionAwareOfflineMessage(): string {
   const info = getApiRuntimeInfo();
   if (info.isProduction) {
-    return `Render backend is unreachable at ${info.apiHost}.`;
+    return `Vercel proxy could not reach Render backend at ${info.apiHost}.`;
   }
   return "Backend is offline. Start it with: python -m app.main --serve-ui --ui-port 8010";
 }
@@ -165,6 +193,7 @@ function requestDiagnostics(path: string, failure: string): string {
   return [
     `Current page origin: ${currentPageOrigin()}`,
     `API host: ${info.apiHost}`,
+    `Fetch base: ${info.apiFetchBase}`,
     `Route: ${path}`,
     `Failure: ${failure}`,
   ].join("\n");
@@ -193,7 +222,6 @@ export async function apiFetch<T>(path: string, init?: ApiFetchInit): Promise<T>
   delete (fetchInit as ApiFetchInit).timeoutMs;
   const timeout: ReturnType<typeof setTimeout> = setTimeout(() => controller.abort(), timeoutMs);
   const requestUrl = apiUrl(path);
-  const requestHost = new URL(requestUrl).host;
 
   try {
     const response = await fetch(requestUrl, {
@@ -208,18 +236,18 @@ export async function apiFetch<T>(path: string, init?: ApiFetchInit): Promise<T>
     if (!response.ok) {
       let detail = `${response.status} ${response.statusText}`;
       try {
-        const body = (await response.json()) as { detail?: string };
-        detail = body.detail || detail;
+        const body = (await response.json()) as { detail?: string; error?: string; message?: string };
+        detail = body.detail || body.message || body.error || detail;
       } catch {
         // Keep HTTP status detail.
       }
       if (response.status === 404) {
         throw new Error(
-          `Backend route not found on ${requestHost}: ${path} (HTTP 404).\n${requestDiagnostics(path, "HTTP 404")}`,
+          `Render backend route not found: ${path}.\n${requestDiagnostics(path, "HTTP 404")}`,
         );
       }
       throw new Error(
-        `Backend request failed on ${requestHost}: ${path} (HTTP ${response.status}): ${detail}\n${requestDiagnostics(
+        `Render backend returned HTTP ${response.status} for ${path}: ${detail}\n${requestDiagnostics(
           path,
           `HTTP ${response.status}`,
         )}`,
@@ -242,6 +270,14 @@ export async function apiFetch<T>(path: string, init?: ApiFetchInit): Promise<T>
     if (exc instanceof TypeError) {
       const backendOnline = await checkBackendOnline();
       if (backendOnline) {
+        const info = getApiRuntimeInfo();
+        if (info.isProduction && info.apiFetchBase.startsWith("/")) {
+          throw new Error(
+            `Render API is online, but the Vercel proxy could not complete ${path}. ` +
+              "The browser is using the same-origin AutoMap API proxy, so check the Vercel proxy function and Render logs.\n" +
+              requestDiagnostics(path, "same-origin proxy network block"),
+          );
+        }
         throw new Error(
           `Render API is online, but ${path} could not be reached from this page. ` +
             "This is often a CORS deployment-origin issue; use https://auto-map-cyan.vercel.app or allow this Vercel URL.\n" +

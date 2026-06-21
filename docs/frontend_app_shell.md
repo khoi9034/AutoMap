@@ -38,6 +38,10 @@ npm run dev
 NEXT_PUBLIC_AUTOMAP_API_BASE_URL=http://127.0.0.1:8010
 ```
 
+In production, browser API requests use the same-origin Vercel proxy route
+`/api/automap/*`, which forwards to Render using the server-only
+`AUTOMAP_API_SERVER_URL` value.
+
 Do not commit `.env.local`.
 
 Cabarrus FutureScape keeps `http://localhost:3000` and `http://127.0.0.1:8000`. AutoMap must not bind to those ports.
