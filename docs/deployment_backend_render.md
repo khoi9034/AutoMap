@@ -25,6 +25,7 @@ Set:
 DATABASE_URL=<Supabase Session Pooler SQLAlchemy URL, stored as secret>
 AUTOMAP_DB_SCHEMA=automap
 ALLOWED_ORIGINS=https://auto-map-cyan.vercel.app
+ALLOWED_ORIGIN_REGEX=^https://(?:auto-map-cyan|auto-[a-z0-9-]+-khoi-nguyens-projects-9f6b140b)\.vercel\.app$
 FRONTEND_ORIGIN=https://auto-map-cyan.vercel.app
 AUTOMAP_PUBLISH_DRY_RUN=true
 AUTOMAP_ALLOW_REAL_PUBLISH=false
@@ -50,6 +51,8 @@ The important parts are:
 - URL is stored only in Render's secret environment variable
 
 Do not expose `DATABASE_URL` to the Vercel frontend. Do not use `NEXT_PUBLIC_SUPABASE_URL` as the backend database URL. Do not use a Supabase service role key for this backend database connection.
+
+The backend also includes a restricted default CORS regex for the `auto-map` Vercel production and deployment URLs. Keep Render's `ALLOWED_ORIGINS` on the canonical production frontend and use `ALLOWED_ORIGIN_REGEX` only for this project's Vercel preview/deployment hosts. Do not use a wildcard origin in production.
 
 ## After Deploy
 

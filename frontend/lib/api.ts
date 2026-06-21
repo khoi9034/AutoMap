@@ -211,6 +211,13 @@ export async function apiFetch<T>(path: string, init?: ApiFetchInit): Promise<T>
       throw new Error(productionAwareOfflineMessage());
     }
     if (exc instanceof TypeError) {
+      const backendOnline = await checkBackendOnline();
+      if (backendOnline) {
+        throw new Error(
+          `Render API is online, but ${path} could not be reached from this page. ` +
+            "This is often a CORS deployment-origin issue; use https://auto-map-cyan.vercel.app or allow this Vercel URL.",
+        );
+      }
       throw new Error(productionAwareOfflineMessage());
     }
     throw exc;

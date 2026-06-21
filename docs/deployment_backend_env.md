@@ -6,6 +6,7 @@ Set these environment variables on the backend host:
 DATABASE_URL=postgresql+psycopg2://postgres.mjfbpmatxvjczikqbuva:YOUR_SUPABASE_DB_PASSWORD@aws-0-us-east-1.pooler.supabase.com:6543/postgres
 AUTOMAP_DB_SCHEMA=automap
 ALLOWED_ORIGINS=https://auto-map-cyan.vercel.app
+ALLOWED_ORIGIN_REGEX=^https://(?:auto-map-cyan|auto-[a-z0-9-]+-khoi-nguyens-projects-9f6b140b)\.vercel\.app$
 FRONTEND_ORIGIN=https://auto-map-cyan.vercel.app
 AUTOMAP_PUBLISH_DRY_RUN=true
 AUTOMAP_ALLOW_REAL_PUBLISH=false
@@ -20,6 +21,8 @@ For local development, `ALLOWED_ORIGINS` can also include:
 ```text
 http://localhost:3010,http://127.0.0.1:3010
 ```
+
+`ALLOWED_ORIGIN_REGEX` is optional because AutoMap includes a restricted default for this Vercel project. Keep it restricted to `https://*.vercel.app` deployment URLs for the `auto-map` project/team, and do not use `*` in production.
 
 Never set frontend variables to the Supabase database password or service role key.
 Do not expose `DATABASE_URL` to Vercel and do not put it in any `NEXT_PUBLIC_*` variable.

@@ -5,6 +5,7 @@ from app.config import (
     AUTOMAP_DEV_DATABASE,
     DEFAULT_AUTOMAP_SCHEMA,
     Settings,
+    allowed_origin_regex_from_settings,
     allowed_origins_from_settings,
     database_host_kind,
     get_settings,
@@ -190,6 +191,15 @@ def test_allowed_origins_parse_local_and_deployed_frontend():
         "https://auto-map-cyan.vercel.app",
     ]
     assert allowed_origins_from_settings(settings).count("https://auto-map-cyan.vercel.app") == 1
+
+
+def test_allowed_origin_regex_includes_safe_vercel_deployment_urls():
+    settings = Settings(DATABASE_URL=None)
+
+    regex = allowed_origin_regex_from_settings(settings)
+
+    assert "khoi-nguyens-projects-9f6b140b" in regex
+    assert "vercel" in regex
 
 
 def test_quote_identifier_accepts_simple_schema_name():

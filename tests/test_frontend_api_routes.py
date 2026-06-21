@@ -130,6 +130,41 @@ def test_cors_reads_deployed_frontend_origin(monkeypatch):
     assert response.headers["access-control-allow-origin"] == "https://auto-map-cyan.vercel.app"
 
 
+def test_cors_allows_same_project_vercel_deployment_origin():
+    client = TestClient(create_app())
+
+    response = client.options(
+        "/api/composer/generate",
+        headers={
+            "Origin": "https://auto-g6olhkee7-khoi-nguyens-projects-9f6b140b.vercel.app",
+            "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "content-type",
+        },
+    )
+
+    assert response.status_code == 200
+    assert (
+        response.headers["access-control-allow-origin"]
+        == "https://auto-g6olhkee7-khoi-nguyens-projects-9f6b140b.vercel.app"
+    )
+
+
+def test_cors_rejects_random_vercel_origin():
+    client = TestClient(create_app())
+
+    response = client.options(
+        "/api/composer/generate",
+        headers={
+            "Origin": "https://auto-attacker.vercel.app",
+            "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "content-type",
+        },
+    )
+
+    assert response.status_code == 400
+    assert "access-control-allow-origin" not in response.headers
+
+
 def test_no_real_publish_endpoint_exposed():
     client = TestClient(create_app())
     paths = client.get("/openapi.json").json()["paths"]

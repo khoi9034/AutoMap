@@ -13,6 +13,9 @@ SUPABASE_DIRECT_DATABASE = "postgres"
 SUPABASE_PROJECT_REF = "mjfbpmatxvjczikqbuva"
 SUPABASE_DIRECT_HOST = f"db.{SUPABASE_PROJECT_REF}.supabase.co"
 SUPABASE_POOLER_HOST_SUFFIX = ".pooler.supabase.com"
+VERCEL_PROJECT_PREVIEW_ORIGIN_REGEX = (
+    r"^https://(?:auto-map-cyan|auto-[a-z0-9-]+-khoi-nguyens-projects-9f6b140b)\.vercel\.app$"
+)
 LOCAL_AUTOMAP_HOSTS = {"localhost", "127.0.0.1", "::1", ""}
 PROTECTED_DATABASE_NAMES = {"cfs_dev"}
 PLACEHOLDER_PASSWORDS = {
@@ -31,6 +34,7 @@ class Settings:
     DATABASE_URL: str | None
     AUTOMAP_DB_SCHEMA: str = DEFAULT_AUTOMAP_SCHEMA
     ALLOWED_ORIGINS: str | None = None
+    ALLOWED_ORIGIN_REGEX: str | None = None
     FRONTEND_ORIGIN: str | None = None
 
 
@@ -44,6 +48,7 @@ def get_settings(load_env_file: bool = True) -> Settings:
         AUTOMAP_DB_SCHEMA=os.getenv("AUTOMAP_DB_SCHEMA", DEFAULT_AUTOMAP_SCHEMA)
         or DEFAULT_AUTOMAP_SCHEMA,
         ALLOWED_ORIGINS=os.getenv("ALLOWED_ORIGINS"),
+        ALLOWED_ORIGIN_REGEX=os.getenv("ALLOWED_ORIGIN_REGEX"),
         FRONTEND_ORIGIN=os.getenv("FRONTEND_ORIGIN"),
     )
 
@@ -132,6 +137,14 @@ def allowed_origins_from_settings(settings: Settings) -> list[str]:
         if origin and origin not in deduped:
             deduped.append(origin)
     return deduped
+
+
+def allowed_origin_regex_from_settings(settings: Settings) -> str:
+    """Return a restricted CORS regex for AutoMap's Vercel production/preview hosts."""
+    configured = (settings.ALLOWED_ORIGIN_REGEX or "").strip()
+    if configured:
+        return f"(?:{configured})|(?:{VERCEL_PROJECT_PREVIEW_ORIGIN_REGEX})"
+    return VERCEL_PROJECT_PREVIEW_ORIGIN_REGEX
 
 
 def validate_settings(settings: Settings) -> None:
