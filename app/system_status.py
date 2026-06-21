@@ -9,30 +9,14 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app.config import database_host_kind, get_settings
 from app.arcgis_publisher import load_arcgis_publish_settings
-from app.analysis_report_exporter import init_analysis_report_history_table
-from app.analysis_refinement_engine import init_refinement_tables
-from app.analysis_result_store import init_analysis_tables
-from app.composer_state_store import init_composer_map_state_table
-from app.data_gap_registry import ensure_data_gap_registry_table
 from app.db import _quote_identifier, get_engine, test_db_connection
-from app.external_source_registry import init_external_source_tables
-from app.field_profiler import ensure_field_intelligence_tables
-from app.layer_catalog_store import ensure_layer_catalog_table
 from app.packet_index import list_adjusted_packets, list_approved_packets, list_review_packets
-from app.approval_engine import ensure_review_approval_history_table
-from app.parcel_context_engine import init_parcel_tables
-from app.parcel_field_mapper import ensure_parcel_field_map_table
 from app.ports import (
     AUTOMAP_BACKEND_PORT,
     AUTOMAP_FRONTEND_PORT,
     CFS_RESERVED_BACKEND_PORT,
     CFS_RESERVED_FRONTEND_PORT,
 )
-from app.proximity_engine import init_proximity_tables
-from app.request_history import ensure_request_history_table
-from app.scenario_builder import init_planning_scenario_table
-from app.scenario_workbench import init_scenario_workbench_tables
-from app.table_query_engine import init_table_request_tables
 from app.version import AUTOMAP_VERSION
 
 
@@ -44,15 +28,44 @@ def _scalar_count(connection: Any, sql: str, params: dict[str, Any] | None = Non
     return int(connection.execute(text(sql), params or {}).scalar_one() or 0)
 
 
-def get_system_status(schema_name: str | None = None) -> dict[str, Any]:
-    """Return sanitized local status for UI and CLI display."""
-    settings = get_settings()
-    schema = schema_name or settings.AUTOMAP_DB_SCHEMA
-    status: dict[str, Any] = {
+def categorize_database_error(exc: BaseException) -> str:
+    """Map database exceptions to safe categories without leaking connection strings."""
+    message = str(exc).lower()
+    if "timeout" in message or "statement timeout" in message or "canceling statement" in message:
+        return "timeout"
+    if "password authentication failed" in message or "authentication failed" in message:
+        return "auth_failed"
+    if "network is unreachable" in message or "could not translate host" in message or "connection refused" in message:
+        return "network_unreachable"
+    if "emaxconnsession" in message or "max clients" in message or "pool_size" in message:
+        return "pool_exhausted"
+    if "ssl" in message:
+        return "ssl_required"
+    if "configured database" in message or "protected cfs database" in message or "must resolve to database" in message:
+        return "database_rejected"
+    return "unknown"
+
+
+def _publisher_status(status: dict[str, Any]) -> None:
+    status.setdefault("errors", [])
+    try:
+        publish_settings = load_arcgis_publish_settings()
+        status["arcgis_publish_profile"] = publish_settings.publish_env
+        status["real_publish_enabled"] = publish_settings.allow_real_publish and not publish_settings.dry_run
+        status["arcgis_publisher_mode"] = (
+            f"dry-run default={publish_settings.dry_run}; profile={publish_settings.publish_env}; "
+            f"real publish enabled={status['real_publish_enabled']}"
+        )
+    except ValueError as exc:
+        status["errors"].append(f"publisher_config:{categorize_database_error(exc)}")
+
+
+def _base_status(schema: str, database_url: str | None) -> dict[str, Any]:
+    return {
         "version": AUTOMAP_VERSION,
         "database_connected": False,
         "database_name": None,
-        "database_host_kind": database_host_kind(settings.DATABASE_URL),
+        "database_host_kind": database_host_kind(database_url),
         "automap_schema": schema,
         "postgis_version": None,
         "catalog": {
@@ -98,19 +111,81 @@ def get_system_status(schema_name: str | None = None) -> dict[str, Any]:
         "arcgis_publish_profile": "dev",
         "real_publish_enabled": False,
         "protected_database_status": "external project database was not accessed",
+        "counts_partial": True,
+        "status_mode": "quick",
         "errors": [],
     }
 
+
+def get_database_health(schema_name: str | None = None, statement_timeout_ms: int = 3000) -> dict[str, Any]:
+    """Return a fast, sanitized database health check for production badges."""
+    settings = get_settings()
+    schema = schema_name or settings.AUTOMAP_DB_SCHEMA
+    result: dict[str, Any] = {
+        "ok": False,
+        "database_connected": False,
+        "database_name": None,
+        "database_host_kind": database_host_kind(settings.DATABASE_URL),
+        "automap_schema": schema,
+        "postgis_available": False,
+        "postgis_version": None,
+        "real_publish_enabled": False,
+        "error_category": None,
+    }
+    _publisher_status(result)
+
     try:
-        publish_settings = load_arcgis_publish_settings()
-        status["arcgis_publish_profile"] = publish_settings.publish_env
-        status["real_publish_enabled"] = publish_settings.allow_real_publish and not publish_settings.dry_run
-        status["arcgis_publisher_mode"] = (
-            f"dry-run default={publish_settings.dry_run}; profile={publish_settings.publish_env}; "
-            f"real publish enabled={status['real_publish_enabled']}"
+        engine = get_engine(settings)
+        with engine.connect() as connection:
+            connection.execute(text(f"SET statement_timeout TO {int(statement_timeout_ms)};"))
+            connection.execute(text("SELECT 1;")).scalar_one()
+            database_name = connection.execute(text("SELECT current_database();")).scalar_one()
+            postgis_version = connection.execute(text("SELECT PostGIS_Version();")).scalar_one()
+            schema_exists = bool(
+                connection.execute(
+                    text("SELECT EXISTS (SELECT 1 FROM information_schema.schemata WHERE schema_name = :schema);"),
+                    {"schema": schema},
+                ).scalar_one()
+            )
+        result.update(
+            {
+                "ok": schema_exists,
+                "database_connected": True,
+                "database_name": database_name,
+                "postgis_available": bool(postgis_version),
+                "postgis_version": postgis_version,
+                "error_category": None if schema_exists else "database_rejected",
+            }
         )
-    except ValueError as exc:
-        status["errors"].append(str(exc))
+    except (SQLAlchemyError, ValueError) as exc:
+        result["error_category"] = categorize_database_error(exc)
+
+    return result
+
+
+def get_system_status(schema_name: str | None = None, mode: str = "quick") -> dict[str, Any]:
+    """Return sanitized AutoMap status; quick mode avoids slow count fan-out."""
+    settings = get_settings()
+    schema = schema_name or settings.AUTOMAP_DB_SCHEMA
+    normalized_mode = "full" if mode == "full" else "quick"
+    status = _base_status(schema, settings.DATABASE_URL)
+    status["status_mode"] = normalized_mode
+    _publisher_status(status)
+
+    db_health = get_database_health(schema)
+    status.update(
+        {
+            "database_connected": bool(db_health.get("database_connected")),
+            "database_name": db_health.get("database_name"),
+            "database_host_kind": db_health.get("database_host_kind"),
+            "automap_schema": db_health.get("automap_schema") or schema,
+            "postgis_version": db_health.get("postgis_version"),
+        }
+    )
+    if db_health.get("error_category"):
+        status["errors"].append(f"database:{db_health['error_category']}")
+    if normalized_mode == "quick" or not db_health.get("ok"):
+        return status
 
     try:
         db_status = test_db_connection(settings)
@@ -123,24 +198,9 @@ def get_system_status(schema_name: str | None = None) -> dict[str, Any]:
                 "postgis_version": db_status.get("postgis_version"),
             }
         )
-        ensure_layer_catalog_table(schema)
-        ensure_field_intelligence_tables(schema)
-        ensure_data_gap_registry_table(schema)
-        init_external_source_tables(schema)
-        ensure_request_history_table(schema)
-        ensure_review_approval_history_table(schema)
-        init_analysis_tables(schema)
-        init_refinement_tables(schema)
-        init_analysis_report_history_table(schema)
-        init_planning_scenario_table(schema)
-        init_scenario_workbench_tables(schema)
-        init_parcel_tables(schema)
-        ensure_parcel_field_map_table(schema)
-        init_proximity_tables(schema)
-        init_composer_map_state_table(schema)
-        init_table_request_tables(schema)
         engine = get_engine(settings)
         with engine.connect() as connection:
+            connection.execute(text("SET statement_timeout TO 4500;"))
             catalog_table = _qualified(schema, "layer_catalog")
             field_table = _qualified(schema, "layer_field_profile")
             value_table = _qualified(schema, "layer_value_profile")
@@ -214,8 +274,10 @@ def get_system_status(schema_name: str | None = None) -> dict[str, Any]:
             status["composer_map_state_count"] = _scalar_count(connection, f"SELECT count(*) FROM {composer_map_states_table};")
             status["table_request_count"] = _scalar_count(connection, f"SELECT count(*) FROM {table_requests_table};")
             status["table_export_count"] = _scalar_count(connection, f"SELECT count(*) FROM {table_export_history_table};")
+        status["counts_partial"] = False
     except (SQLAlchemyError, ValueError) as exc:
-        status["errors"].append(str(exc))
+        status["counts_partial"] = True
+        status["errors"].append(f"counts:{categorize_database_error(exc)}")
 
     return status
 

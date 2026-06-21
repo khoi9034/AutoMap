@@ -646,7 +646,11 @@ def test_api_client_has_timeout_and_sanitized_fallback_version():
 
     assert "Backend is offline. Start it with: python -m app.main --serve-ui --ui-port 8010" in source
     assert "Render backend is unreachable at" in source
-    assert "Backend is online, but this request took too long" in source
+    assert "Render API is online, but ${path} timed out" in source
+    assert "getDbHealth" in source
+    assert '"/api/db-health"' in source
+    assert '"/api/status?mode=quick"' in source
+    assert "database status check timed out" in source
     assert "http://127.0.0.1:8010" in source
     assert "https://automap-api.onrender.com" in source
     assert "normalizeApiBaseUrl" in source

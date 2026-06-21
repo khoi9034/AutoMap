@@ -1081,7 +1081,7 @@ def _preview_packet(path: str, port: int | None = None) -> int:
 def _system_status() -> int:
     status = get_system_status()
     print(format_system_status(status))
-    return 0 if status.get("database_connected") else 1
+    return 0
 
 
 def _run_demo_workflow(ui_port: int | None = None) -> int:

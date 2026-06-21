@@ -9,7 +9,7 @@ from app.web_ui import create_app
 def test_api_status_is_json_and_sanitized(monkeypatch):
     monkeypatch.setattr(
         "app.api_routes.get_system_status",
-        lambda: {
+        lambda mode="quick": {
             "version": "1.5.0",
             "database_connected": True,
             "database_host_kind": "supabase_pooler",
@@ -32,6 +32,52 @@ def test_api_status_is_json_and_sanitized(monkeypatch):
     assert "password" not in serialized
     assert "cfs" not in serialized
     assert "cfs_dev" not in serialized
+
+
+def test_api_db_health_is_json_and_sanitized(monkeypatch):
+    monkeypatch.setattr(
+        "app.api_routes.get_database_health",
+        lambda: {
+            "ok": True,
+            "database_connected": True,
+            "database_name": "postgres",
+            "database_host_kind": "supabase_pooler",
+            "automap_schema": "automap",
+            "postgis_available": True,
+            "real_publish_enabled": False,
+            "DATABASE_URL": "postgresql://secret-password",
+        },
+    )
+    client = TestClient(create_app())
+
+    response = client.get("/api/db-health")
+    serialized = json.dumps(response.json()).lower()
+
+    assert response.status_code == 200
+    assert response.json()["database_connected"] is True
+    assert response.json()["database_host_kind"] == "supabase_pooler"
+    assert "database_url" not in serialized
+    assert "secret" not in serialized
+    assert "password" not in serialized
+    assert "cfs_dev" not in serialized
+
+
+def test_api_status_quick_mode_is_default(monkeypatch):
+    modes: list[str] = []
+
+    def fake_status(mode: str = "quick"):
+        modes.append(mode)
+        return {"version": "1.5.0", "database_connected": True, "real_publish_enabled": False}
+
+    monkeypatch.setattr("app.api_routes.get_system_status", fake_status)
+    client = TestClient(create_app())
+
+    default_response = client.get("/api/status")
+    full_response = client.get("/api/status?mode=full")
+
+    assert default_response.status_code == 200
+    assert full_response.status_code == 200
+    assert modes == ["quick", "full"]
 
 
 def test_api_health_is_lightweight_and_sanitized():
@@ -101,6 +147,7 @@ def test_frontend_workflow_api_routes_exist():
 
     expected_paths = {
         "/api/status",
+        "/api/db-health",
         "/api/catalog/search",
         "/api/data-gaps",
         "/api/data-gaps/{gap_key}/candidates",
@@ -909,7 +956,7 @@ def test_api_clarification_routes_are_json_and_sanitized(monkeypatch):
 def test_api_status_includes_sanitized_port_separation(monkeypatch):
     monkeypatch.setattr(
         "app.api_routes.get_system_status",
-        lambda: {
+        lambda mode="quick": {
             "version": "1.5.0",
             "database_connected": True,
             "ports": {"frontend": 3010, "backend_api": 8010, "reserved": [3000, 8000]},

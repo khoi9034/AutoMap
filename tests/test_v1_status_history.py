@@ -3,10 +3,12 @@ import sys
 from uuid import uuid4
 
 import pytest
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.config import get_settings
+from app.db import test_db_connection as check_db_connection
 from app.request_history import list_request_history, record_request_history
-from app.system_status import format_system_status, get_system_status
+from app.system_status import categorize_database_error, format_system_status, get_system_status
 from app.version import AUTOMAP_VERSION
 
 
@@ -14,6 +16,10 @@ def require_database_url():
     settings = get_settings()
     if not settings.DATABASE_URL:
         pytest.skip("AutoMap DATABASE_URL is not configured.")
+    try:
+        check_db_connection(settings)
+    except (SQLAlchemyError, ValueError) as exc:
+        pytest.skip(f"AutoMap DATABASE_URL is configured but unreachable: {type(exc).__name__}")
 
 
 def test_request_history_insert_works():
@@ -54,3 +60,11 @@ def test_system_status_output_has_no_cfs_database_name_or_secrets():
     assert "database_url" not in output
     assert "arcgis_password" not in output
     assert ".env" not in output
+
+
+def test_database_error_categories_are_safe():
+    assert categorize_database_error(ValueError("statement timeout")) == "timeout"
+    assert categorize_database_error(ValueError("password authentication failed")) == "auth_failed"
+    assert categorize_database_error(ValueError("Network is unreachable")) == "network_unreachable"
+    assert categorize_database_error(ValueError("EMAXCONNSESSION max clients reached")) == "pool_exhausted"
+    assert categorize_database_error(ValueError("Configured database must point to AutoMap")) == "database_rejected"

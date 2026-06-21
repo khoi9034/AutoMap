@@ -54,6 +54,8 @@ export type SystemStatus = {
   arcgis_publisher_mode?: string;
   arcgis_publish_profile?: string;
   real_publish_enabled?: boolean;
+  counts_partial?: boolean;
+  status_mode?: "quick" | "full" | string;
   errors?: string[];
 };
 

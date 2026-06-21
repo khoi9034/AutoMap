@@ -128,6 +128,18 @@ type ApiHealth = {
   real_publish_enabled?: boolean;
 };
 
+type DbHealth = {
+  ok?: boolean;
+  database_connected?: boolean;
+  database_name?: string | null;
+  database_host_kind?: string;
+  automap_schema?: string;
+  postgis_available?: boolean;
+  postgis_version?: string | null;
+  real_publish_enabled?: boolean;
+  error_category?: string | null;
+};
+
 function apiUrl(path: string): string {
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
   return `${API_BASE_URL}${normalizedPath}`;
@@ -194,7 +206,7 @@ export async function apiFetch<T>(path: string, init?: ApiFetchInit): Promise<T>
     if (exc instanceof Error && exc.name === "AbortError") {
       const backendOnline = await checkBackendOnline();
       if (backendOnline) {
-        throw new Error("Backend is online, but this request took too long. Try again or simplify the request.");
+        throw new Error(`Render API is online, but ${path} timed out. Try again or check Render logs.`);
       }
       throw new Error(productionAwareOfflineMessage());
     }
@@ -211,8 +223,12 @@ export async function getApiHealth(): Promise<ApiHealth> {
   return apiFetch<ApiHealth>("/api/health", { timeoutMs: 6000 });
 }
 
+export async function getDbHealth(): Promise<DbHealth> {
+  return apiFetch<DbHealth>("/api/db-health", { timeoutMs: 8000 });
+}
+
 export async function getSystemStatus(): Promise<SystemStatus> {
-  return apiFetch<SystemStatus>("/api/status");
+  return apiFetch<SystemStatus>("/api/status?mode=quick", { timeoutMs: 10000 });
 }
 
 export async function getStatus(): Promise<SystemStatus> {
@@ -221,10 +237,24 @@ export async function getStatus(): Promise<SystemStatus> {
 
 export async function getStatusOrFallback(): Promise<SystemStatus> {
   try {
-    return await getSystemStatus();
-  } catch {
+    const health = await getApiHealth();
     try {
-      const health = await getApiHealth();
+      const dbHealth = await getDbHealth();
+      return {
+        version: "4.9.0",
+        database_connected: Boolean(dbHealth.database_connected),
+        database_name: dbHealth.database_name,
+        database_host_kind: dbHealth.database_host_kind,
+        automap_schema: dbHealth.automap_schema || "automap",
+        postgis_version: dbHealth.postgis_version,
+        catalog: {},
+        profiles: {},
+        packets: {},
+        real_publish_enabled: Boolean(health.real_publish_enabled),
+        arcgis_publisher_mode: "API online; DB health checked separately",
+        errors: dbHealth.error_category ? [`Database health unavailable: ${dbHealth.error_category}`] : [],
+      };
+    } catch {
       return {
         version: "4.9.0",
         database_connected: false,
@@ -233,11 +263,10 @@ export async function getStatusOrFallback(): Promise<SystemStatus> {
         packets: {},
         real_publish_enabled: Boolean(health.real_publish_enabled),
         arcgis_publisher_mode: "API online; database status unavailable",
-        errors: ["Backend health is reachable, but status is unavailable."],
+        errors: ["Render API is online, but database status check timed out."],
       };
-    } catch {
-      // Keep the generic backend fallback below.
     }
+  } catch {
     return {
       version: "4.9.0",
       database_connected: false,

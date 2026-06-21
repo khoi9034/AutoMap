@@ -127,7 +127,7 @@ from app.scenario_comparison import compare_scenarios
 from app.scenario_reporter import generate_scenario_report
 from app.scenario_variant_engine import create_scenario_variant, get_scenario_variant, list_scenario_variants
 from app.scenario_workbench import build_recipe_from_scenario
-from app.system_status import get_system_status
+from app.system_status import get_database_health, get_system_status
 from app.source_discovery import discover_sources, verify_all_external_sources, verify_external_source
 from app.ui_models import output_file_url, repo_root
 from app.webmap_exporter import export_recipe_and_webmap
@@ -530,10 +530,16 @@ def api_health() -> dict[str, Any]:
     }
 
 
+@api_router.get("/db-health")
+def api_db_health() -> Any:
+    """Return a lightweight database health check for production status badges."""
+    return _json_response(get_database_health())
+
+
 @api_router.get("/status")
-def api_status() -> Any:
+def api_status(mode: str = Query(default="quick", pattern="^(quick|full)$")) -> Any:
     """Return sanitized AutoMap system status for the frontend."""
-    return _json_response(get_system_status())
+    return _json_response(get_system_status(mode=mode))
 
 
 @api_router.get("/catalog/search")

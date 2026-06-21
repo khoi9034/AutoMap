@@ -26,7 +26,7 @@ def get_engine(settings: Settings | None = None) -> Engine:
     """Create a SQLAlchemy engine for AutoMap's own PostGIS database."""
     loaded_settings = settings or get_settings()
     database_url = require_database_url(loaded_settings)
-    engine_kwargs = {"future": True, "pool_pre_ping": True}
+    engine_kwargs = {"future": True, "pool_pre_ping": True, "connect_args": {"connect_timeout": 5}}
     if database_host_kind(database_url) == "supabase_pooler":
         # Render/Supabase session pooler connections are capped tightly; avoid
         # holding idle SQLAlchemy pooled clients across short status/init calls.
