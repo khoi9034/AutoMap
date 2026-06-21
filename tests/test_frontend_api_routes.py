@@ -130,6 +130,37 @@ def test_cors_reads_deployed_frontend_origin(monkeypatch):
     assert response.headers["access-control-allow-origin"] == "https://auto-map-cyan.vercel.app"
 
 
+def test_composer_preflight_allows_production_origin_post_and_content_type():
+    client = TestClient(create_app())
+
+    response = client.options(
+        "/api/composer/generate",
+        headers={
+            "Origin": "https://auto-map-cyan.vercel.app",
+            "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "content-type",
+        },
+    )
+
+    assert response.status_code in {200, 204}
+    assert response.headers["access-control-allow-origin"] == "https://auto-map-cyan.vercel.app"
+    assert "POST" in response.headers["access-control-allow-methods"]
+    assert "content-type" in response.headers["access-control-allow-headers"].lower()
+
+
+def test_composer_options_fallback_allows_production_origin():
+    client = TestClient(create_app())
+
+    response = client.options(
+        "/api/composer/generate",
+        headers={"Origin": "https://auto-map-cyan.vercel.app"},
+    )
+
+    assert response.status_code == 204
+    assert response.headers["access-control-allow-origin"] == "https://auto-map-cyan.vercel.app"
+    assert "POST" in response.headers["access-control-allow-methods"]
+
+
 def test_cors_allows_same_project_vercel_deployment_origin():
     client = TestClient(create_app())
 
@@ -167,6 +198,26 @@ def test_cors_rejects_random_vercel_origin():
     assert "access-control-allow-origin" not in response.headers
 
 
+def test_cors_debug_reports_allowed_origin_without_secrets():
+    client = TestClient(create_app())
+
+    response = client.get(
+        "/api/cors-debug",
+        headers={"Origin": "https://auto-map-cyan.vercel.app"},
+    )
+    serialized = json.dumps(response.json()).lower()
+
+    assert response.status_code == 200
+    assert response.json()["origin_received"] == "https://auto-map-cyan.vercel.app"
+    assert response.json()["origin_allowed"] is True
+    assert response.json()["allowed_origins_count"] >= 2
+    assert response.json()["has_allowed_origin_regex"] is True
+    assert response.json()["real_publish_enabled"] is False
+    assert "database_url" not in serialized
+    assert "password" not in serialized
+    assert "secret" not in serialized
+
+
 def test_no_real_publish_endpoint_exposed():
     client = TestClient(create_app())
     paths = client.get("/openapi.json").json()["paths"]
@@ -185,6 +236,7 @@ def test_frontend_workflow_api_routes_exist():
     expected_paths = {
         "/api/status",
         "/api/db-health",
+        "/api/cors-debug",
         "/api/catalog/search",
         "/api/data-gaps",
         "/api/data-gaps/{gap_key}/candidates",

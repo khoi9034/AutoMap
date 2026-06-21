@@ -26,8 +26,9 @@ def create_app() -> FastAPI:
         allow_origins=allowed_origins_from_settings(settings),
         allow_origin_regex=allowed_origin_regex_from_settings(settings),
         allow_credentials=False,
-        allow_methods=["GET", "POST", "OPTIONS"],
+        allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
         allow_headers=["*"],
+        expose_headers=["content-type"],
     )
     app.include_router(api_router)
     app.include_router(router)

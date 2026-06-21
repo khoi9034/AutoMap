@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 import os
+import re
 
 from dotenv import load_dotenv
 from sqlalchemy.engine import make_url
@@ -149,6 +150,19 @@ def allowed_origin_regex_from_settings(settings: Settings) -> str:
     if configured:
         return f"(?:{configured})|(?:{VERCEL_PROJECT_PREVIEW_ORIGIN_REGEX})"
     return VERCEL_PROJECT_PREVIEW_ORIGIN_REGEX
+
+
+def is_origin_allowed(origin: str | None, settings: Settings | None = None) -> bool:
+    """Return whether an HTTP Origin is allowed by AutoMap's CORS policy."""
+    if not origin:
+        return False
+    loaded_settings = settings or get_settings()
+    if origin in allowed_origins_from_settings(loaded_settings):
+        return True
+    try:
+        return re.fullmatch(allowed_origin_regex_from_settings(loaded_settings), origin) is not None
+    except re.error:
+        return False
 
 
 def validate_settings(settings: Settings) -> None:

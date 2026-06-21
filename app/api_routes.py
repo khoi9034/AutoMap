@@ -7,8 +7,8 @@ import json
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query
-from fastapi.responses import HTMLResponse
+from fastapi import APIRouter, HTTPException, Query, Request, Response
+from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel, Field
 
 from app.adjustment_engine import (
@@ -45,6 +45,7 @@ from app.clarification_engine import (
     list_clarification_sessions,
     refine_recipe_from_answers,
 )
+from app.config import allowed_origin_regex_from_settings, allowed_origins_from_settings, get_settings, is_origin_allowed
 from app.data_gap_registry import data_gap_records_from_recipe, list_data_gaps
 from app.data_gap_resolver import map_gap_to_candidate_sources, resolve_gap_with_source, resolve_known_data_gaps
 from app.external_source_registry import (
@@ -520,6 +521,24 @@ def _handle_value_error(exc: Exception) -> HTTPException:
     return HTTPException(status_code=400, detail=str(exc))
 
 
+def _cors_preflight_response(request: Request) -> Response:
+    origin = request.headers.get("origin")
+    if not is_origin_allowed(origin):
+        return JSONResponse(status_code=400, content={"detail": "Origin is not allowed."})
+
+    requested_headers = request.headers.get("access-control-request-headers") or "content-type, authorization"
+    return Response(
+        status_code=204,
+        headers={
+            "Access-Control-Allow-Origin": origin or "",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
+            "Access-Control-Allow-Headers": requested_headers,
+            "Access-Control-Max-Age": "600",
+            "Vary": "Origin",
+        },
+    )
+
+
 @api_router.get("/health")
 def api_health() -> dict[str, Any]:
     """Return a lightweight deployment health check without database or GIS calls."""
@@ -528,6 +547,23 @@ def api_health() -> dict[str, Any]:
         "service": "automap-api",
         "real_publish_enabled": False,
     }
+
+
+@api_router.get("/cors-debug")
+def api_cors_debug(request: Request, origin: str | None = Query(default=None)) -> Any:
+    """Return safe CORS diagnostics without exposing environment values."""
+    settings = get_settings()
+    received_origin = origin or request.headers.get("origin")
+    regex = allowed_origin_regex_from_settings(settings)
+    return _json_response(
+        {
+            "origin_received": received_origin,
+            "origin_allowed": is_origin_allowed(received_origin, settings),
+            "allowed_origins_count": len(allowed_origins_from_settings(settings)),
+            "has_allowed_origin_regex": bool(regex),
+            "real_publish_enabled": False,
+        }
+    )
 
 
 @api_router.get("/db-health")
@@ -1424,6 +1460,12 @@ def api_workflow_run(payload: PromptRequest) -> Any:
         },
     )
     return _json_response(result)
+
+
+@api_router.options("/composer/generate")
+def api_composer_generate_options(request: Request) -> Response:
+    """Return a safe CORS preflight response for composer draft generation."""
+    return _cors_preflight_response(request)
 
 
 @api_router.post("/composer/generate")
