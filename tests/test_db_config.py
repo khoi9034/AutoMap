@@ -1,4 +1,5 @@
 import pytest
+import re
 from sqlalchemy.pool import NullPool
 
 from app.config import (
@@ -199,7 +200,12 @@ def test_allowed_origin_regex_includes_safe_vercel_deployment_urls():
     regex = allowed_origin_regex_from_settings(settings)
 
     assert "khoi-nguyens-projects-9f6b140b" in regex
+    assert "khoi9034" in regex
     assert "vercel" in regex
+    assert re.fullmatch(regex, "https://auto-map-cyan.vercel.app")
+    assert re.fullmatch(regex, "https://auto-g6olhkee7-khoi-nguyens-projects-9f6b140b.vercel.app")
+    assert re.fullmatch(regex, "https://auto-map-cyan-git-main-khoi9034.vercel.app")
+    assert not re.fullmatch(regex, "https://auto-attacker.vercel.app")
 
 
 def test_quote_identifier_accepts_simple_schema_name():

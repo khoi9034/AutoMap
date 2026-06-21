@@ -133,20 +133,22 @@ def test_cors_reads_deployed_frontend_origin(monkeypatch):
 def test_cors_allows_same_project_vercel_deployment_origin():
     client = TestClient(create_app())
 
-    response = client.options(
-        "/api/composer/generate",
-        headers={
-            "Origin": "https://auto-g6olhkee7-khoi-nguyens-projects-9f6b140b.vercel.app",
-            "Access-Control-Request-Method": "POST",
-            "Access-Control-Request-Headers": "content-type",
-        },
-    )
+    for origin in (
+        "https://auto-g6olhkee7-khoi-nguyens-projects-9f6b140b.vercel.app",
+        "https://auto-map-git-main-khoi-nguyens-projects-9f6b140b.vercel.app",
+        "https://auto-map-cyan-git-main-khoi9034.vercel.app",
+    ):
+        response = client.options(
+            "/api/composer/generate",
+            headers={
+                "Origin": origin,
+                "Access-Control-Request-Method": "POST",
+                "Access-Control-Request-Headers": "content-type",
+            },
+        )
 
-    assert response.status_code == 200
-    assert (
-        response.headers["access-control-allow-origin"]
-        == "https://auto-g6olhkee7-khoi-nguyens-projects-9f6b140b.vercel.app"
-    )
+        assert response.status_code == 200
+        assert response.headers["access-control-allow-origin"] == origin
 
 
 def test_cors_rejects_random_vercel_origin():

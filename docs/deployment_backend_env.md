@@ -6,7 +6,7 @@ Set these environment variables on the backend host:
 DATABASE_URL=postgresql+psycopg2://postgres.mjfbpmatxvjczikqbuva:YOUR_SUPABASE_DB_PASSWORD@aws-0-us-east-1.pooler.supabase.com:6543/postgres
 AUTOMAP_DB_SCHEMA=automap
 ALLOWED_ORIGINS=https://auto-map-cyan.vercel.app
-ALLOWED_ORIGIN_REGEX=^https://(?:auto-map-cyan|auto-[a-z0-9-]+-khoi-nguyens-projects-9f6b140b)\.vercel\.app$
+ALLOWED_ORIGIN_REGEX=^https://(?:auto-map-cyan|auto-[a-z0-9-]+-(?:khoi9034|khoi-nguyens-projects-9f6b140b)|auto-map-[a-z0-9-]+-(?:khoi9034|khoi-nguyens-projects-9f6b140b))\.vercel\.app$
 FRONTEND_ORIGIN=https://auto-map-cyan.vercel.app
 AUTOMAP_PUBLISH_DRY_RUN=true
 AUTOMAP_ALLOW_REAL_PUBLISH=false

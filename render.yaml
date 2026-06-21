@@ -16,7 +16,7 @@ services:
       - key: ALLOWED_ORIGINS
         value: https://auto-map-cyan.vercel.app
       - key: ALLOWED_ORIGIN_REGEX
-        value: ^https://(?:auto-map-cyan|auto-[a-z0-9-]+-khoi-nguyens-projects-9f6b140b)\.vercel\.app$
+        value: ^https://(?:auto-map-cyan|auto-[a-z0-9-]+-(?:khoi9034|khoi-nguyens-projects-9f6b140b)|auto-map-[a-z0-9-]+-(?:khoi9034|khoi-nguyens-projects-9f6b140b))\.vercel\.app$
       - key: FRONTEND_ORIGIN
         value: https://auto-map-cyan.vercel.app
       - key: AUTOMAP_PUBLISH_DRY_RUN

@@ -153,6 +153,23 @@ function productionAwareOfflineMessage(): string {
   return "Backend is offline. Start it with: python -m app.main --serve-ui --ui-port 8010";
 }
 
+function currentPageOrigin(): string {
+  if (typeof window !== "undefined" && window.location?.origin) {
+    return window.location.origin;
+  }
+  return "server-rendered";
+}
+
+function requestDiagnostics(path: string, failure: string): string {
+  const info = getApiRuntimeInfo();
+  return [
+    `Current page origin: ${currentPageOrigin()}`,
+    `API host: ${info.apiHost}`,
+    `Route: ${path}`,
+    `Failure: ${failure}`,
+  ].join("\n");
+}
+
 async function checkBackendOnline(timeoutMs = 4000): Promise<boolean> {
   const controller = new AbortController();
   const timeout: ReturnType<typeof setTimeout> = setTimeout(() => controller.abort(), timeoutMs);
@@ -197,16 +214,28 @@ export async function apiFetch<T>(path: string, init?: ApiFetchInit): Promise<T>
         // Keep HTTP status detail.
       }
       if (response.status === 404) {
-        throw new Error(`Backend route not found on ${requestHost}: ${path} (HTTP 404).`);
+        throw new Error(
+          `Backend route not found on ${requestHost}: ${path} (HTTP 404).\n${requestDiagnostics(path, "HTTP 404")}`,
+        );
       }
-      throw new Error(`Backend request failed on ${requestHost}: ${path} (HTTP ${response.status}): ${detail}`);
+      throw new Error(
+        `Backend request failed on ${requestHost}: ${path} (HTTP ${response.status}): ${detail}\n${requestDiagnostics(
+          path,
+          `HTTP ${response.status}`,
+        )}`,
+      );
     }
     return redactProtected((await response.json()) as T);
   } catch (exc) {
     if (exc instanceof Error && exc.name === "AbortError") {
       const backendOnline = await checkBackendOnline();
       if (backendOnline) {
-        throw new Error(`Render API is online, but ${path} timed out. Try again or check Render logs.`);
+        throw new Error(
+          `Render API is online, but ${path} timed out. Try again or check Render logs.\n${requestDiagnostics(
+            path,
+            "timeout",
+          )}`,
+        );
       }
       throw new Error(productionAwareOfflineMessage());
     }
@@ -215,7 +244,8 @@ export async function apiFetch<T>(path: string, init?: ApiFetchInit): Promise<T>
       if (backendOnline) {
         throw new Error(
           `Render API is online, but ${path} could not be reached from this page. ` +
-            "This is often a CORS deployment-origin issue; use https://auto-map-cyan.vercel.app or allow this Vercel URL.",
+            "This is often a CORS deployment-origin issue; use https://auto-map-cyan.vercel.app or allow this Vercel URL.\n" +
+            requestDiagnostics(path, "CORS preflight or browser network block"),
         );
       }
       throw new Error(productionAwareOfflineMessage());

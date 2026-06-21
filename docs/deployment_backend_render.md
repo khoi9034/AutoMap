@@ -25,7 +25,7 @@ Set:
 DATABASE_URL=<Supabase Session Pooler SQLAlchemy URL, stored as secret>
 AUTOMAP_DB_SCHEMA=automap
 ALLOWED_ORIGINS=https://auto-map-cyan.vercel.app
-ALLOWED_ORIGIN_REGEX=^https://(?:auto-map-cyan|auto-[a-z0-9-]+-khoi-nguyens-projects-9f6b140b)\.vercel\.app$
+ALLOWED_ORIGIN_REGEX=^https://(?:auto-map-cyan|auto-[a-z0-9-]+-(?:khoi9034|khoi-nguyens-projects-9f6b140b)|auto-map-[a-z0-9-]+-(?:khoi9034|khoi-nguyens-projects-9f6b140b))\.vercel\.app$
 FRONTEND_ORIGIN=https://auto-map-cyan.vercel.app
 AUTOMAP_PUBLISH_DRY_RUN=true
 AUTOMAP_ALLOW_REAL_PUBLISH=false

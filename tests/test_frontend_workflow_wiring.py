@@ -648,6 +648,11 @@ def test_api_client_has_timeout_and_sanitized_fallback_version():
     assert "Render backend is unreachable at" in source
     assert "Render API is online, but ${path} timed out" in source
     assert "This is often a CORS deployment-origin issue" in source
+    assert "Current page origin:" in source
+    assert "window.location.origin" in source
+    assert "API host:" in source
+    assert "Route:" in source
+    assert "Failure:" in source
     assert "getDbHealth" in source
     assert '"/api/db-health"' in source
     assert '"/api/status?mode=quick"' in source

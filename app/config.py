@@ -14,7 +14,11 @@ SUPABASE_PROJECT_REF = "mjfbpmatxvjczikqbuva"
 SUPABASE_DIRECT_HOST = f"db.{SUPABASE_PROJECT_REF}.supabase.co"
 SUPABASE_POOLER_HOST_SUFFIX = ".pooler.supabase.com"
 VERCEL_PROJECT_PREVIEW_ORIGIN_REGEX = (
-    r"^https://(?:auto-map-cyan|auto-[a-z0-9-]+-khoi-nguyens-projects-9f6b140b)\.vercel\.app$"
+    r"^https://(?:"
+    r"auto-map-cyan|"
+    r"auto-[a-z0-9-]+-(?:khoi9034|khoi-nguyens-projects-9f6b140b)|"
+    r"auto-map-[a-z0-9-]+-(?:khoi9034|khoi-nguyens-projects-9f6b140b)"
+    r")\.vercel\.app$"
 )
 LOCAL_AUTOMAP_HOSTS = {"localhost", "127.0.0.1", "::1", ""}
 PROTECTED_DATABASE_NAMES = {"cfs_dev"}

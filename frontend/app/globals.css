@@ -2921,6 +2921,7 @@ th {
 .error-text {
   color: var(--red);
   font-weight: 700;
+  white-space: pre-line;
 }
 
 .toast {
