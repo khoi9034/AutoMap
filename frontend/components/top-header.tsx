@@ -34,12 +34,13 @@ export function TopHeader({ status }: TopHeaderProps) {
 
   const frontendLabel = isProduction ? "Vercel" : liveStatus.ports?.frontend || 3010;
   const apiLabel = isProduction ? apiInfo.label : liveStatus.ports?.backend_api || 8010;
+  const statusDelay = Boolean(
+    liveStatus.errors?.some((error) => error.toLowerCase().includes("database status check timed out")),
+  );
   const dbLabel = liveStatus.database_connected
     ? "online"
-    : !statusChecked
+    : !statusChecked || statusDelay
       ? "checking"
-      : liveStatus.errors?.some((error) => error.toLowerCase().includes("health is reachable"))
-      ? "unavailable"
       : "unavailable";
 
   return (

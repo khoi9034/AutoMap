@@ -312,6 +312,18 @@ export async function getStatusOrFallback(): Promise<SystemStatus> {
   try {
     const health = await getApiHealth();
     try {
+      const status = await getSystemStatus();
+      return {
+        ...status,
+        real_publish_enabled: Boolean(status.real_publish_enabled ?? health.real_publish_enabled),
+        arcgis_publisher_mode:
+          status.arcgis_publisher_mode || "API online; quick status checked through Vercel proxy",
+        errors: status.errors || [],
+      };
+    } catch {
+      // Fall through to the lightweight DB health endpoint.
+    }
+    try {
       const dbHealth = await getDbHealth();
       return {
         version: "4.9.0",
