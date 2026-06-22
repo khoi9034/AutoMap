@@ -17,18 +17,31 @@ export function TopHeader({ status }: TopHeaderProps) {
 
   useEffect(() => {
     let cancelled = false;
-    getStatusOrFallback()
-      .then((nextStatus) => {
-        if (!cancelled) {
-          setLiveStatus(nextStatus);
-          setStatusChecked(true);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setStatusChecked(true);
-      });
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const refreshStatus = () => {
+      getStatusOrFallback()
+        .then((nextStatus) => {
+          if (!cancelled) {
+            setLiveStatus(nextStatus);
+            setStatusChecked(true);
+            if (!nextStatus.database_connected) {
+              retryTimer = setTimeout(refreshStatus, 15000);
+            }
+          }
+        })
+        .catch(() => {
+          if (!cancelled) {
+            setStatusChecked(true);
+            retryTimer = setTimeout(refreshStatus, 15000);
+          }
+        });
+    };
+
+    refreshStatus();
     return () => {
       cancelled = true;
+      if (retryTimer) clearTimeout(retryTimer);
     };
   }, []);
 
