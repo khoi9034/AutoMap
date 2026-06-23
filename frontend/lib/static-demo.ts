@@ -21,8 +21,9 @@ export const staticDemoComposerResponse: ComposerResponse = {
   route_refinement_available: true,
   warnings: [
     "Static demo fallback. Live backend unavailable or warming up.",
-    "Scope: Cabarrus County, NC.",
+    "Live address and parcel workflows currently support Cabarrus County, NC only.",
     "Publishing is disabled for safety.",
+    "This prototype is county-scoped. It is not a nationwide address search tool.",
     "Route and distance details are for portfolio demonstration only.",
   ],
   preview_blockers: [],
@@ -41,7 +42,10 @@ export const staticDemoComposerResponse: ComposerResponse = {
     preview_status: "static_demo_fallback",
     can_focus_map: true,
     preview_only: true,
-    warnings: ["Static demo fallback. Live backend unavailable or warming up.", "Scope: Cabarrus County, NC."],
+    warnings: [
+      "Static demo fallback. Live backend unavailable or warming up.",
+      "Live address and parcel workflows currently support Cabarrus County, NC only.",
+    ],
     derived_overlays: [],
   },
   composer_timing: {
@@ -51,7 +55,8 @@ export const staticDemoComposerResponse: ComposerResponse = {
 };
 
 export const staticDemoHighlights = [
-  "Scope: Cabarrus County, NC.",
+  "Demo uses a Cabarrus County address.",
+  "This prototype is county-scoped, not a nationwide address search tool.",
   "Address prompt is parsed as an address origin.",
   "Nearest fire station workflow is selected.",
   "Preview/export remain draft-only with real publishing disabled.",

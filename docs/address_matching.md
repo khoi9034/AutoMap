@@ -2,6 +2,10 @@
 
 AutoMap treats street-address prompts as address origins, not parcel IDs.
 
+Live address and parcel workflows currently support Cabarrus County, NC only. AutoMap does not perform nationwide
+geocoding and does not use paid external geocoders. Recruiter/demo users should try a Cabarrus County address,
+parcel/PIN, or county planning request.
+
 For an input such as `793 bartram ave`, AutoMap normalizes casing, punctuation, repeated spaces, street suffixes, and directional text. It generates safe variants such as `793 bartram ave` and `793 bartram avenue`, parses the house number and street core, and then queries only verified public address or parcel-address fields.
 
 ## Progressive Matching
@@ -16,7 +20,9 @@ Address matching is bounded and count-first:
 
 AutoMap uses `returnGeometry=false` for counts and candidate rows. Geometry is fetched only after a strong single match is found.
 
-If multiple records match, AutoMap returns candidates and waits for reviewer selection. If no candidates are found, it asks the user to add city, ZIP, or a directional suffix such as `SW`.
+If multiple records match, AutoMap returns candidates and waits for reviewer selection. If no candidates are found, it
+shows `Address not found in Cabarrus County records` and reminds the user that live address lookup is limited to
+Cabarrus County, NC. Obvious out-of-county address inputs return `unsupported_area` without querying parcel geometry.
 
 ## Privacy And Safety
 

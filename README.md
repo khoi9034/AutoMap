@@ -868,6 +868,10 @@ https://auto-map-cyan.vercel.app
 
 The Vercel app is the stable recruiter-facing layer. Browser requests go through the same-origin `/api/automap/*` proxy to the Render FastAPI backend, which connects to Supabase PostGIS through the Session Pooler. If Render is asleep or slow on the free tier, the landing page and Map Composer show friendly "backend waking up" messages instead of scary raw errors.
 
+AutoMap is currently a Cabarrus County, NC GIS request engine. Live address search, parcel lookup, and address-based
+proximity workflows support Cabarrus County public records only; out-of-county addresses are not treated as a broken app
+state and are directed to the static demo or Cabarrus County sample prompts.
+
 Recruiter-safe behavior:
 
 - `/` is a professional project overview with live readiness status.

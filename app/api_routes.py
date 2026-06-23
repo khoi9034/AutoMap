@@ -1152,6 +1152,7 @@ def api_resolve_address(payload: AddressResolveRequest) -> Any:
             "normalized_address": result.get("normalized_address"),
             "parsed_address_parts": result.get("parsed_address_parts"),
             "match_status": result.get("match_status"),
+            "supported_area": result.get("supported_area"),
             "candidates": result.get("candidate_matches") or [],
             "matched_address_candidates": result.get("matched_address_candidates") or [],
             "matched_parcel_candidates": result.get("matched_parcel_candidates") or [],

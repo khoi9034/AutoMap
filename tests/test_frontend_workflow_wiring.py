@@ -719,7 +719,7 @@ def test_production_status_badges_are_render_aware():
     assert "getApiRuntimeInfo" in top_header
     assert "FE {frontendLabel}" in top_header
     assert "API {apiLabel}" in top_header
-    assert "Scope Cabarrus County, NC" in top_header
+    assert "Scope: Cabarrus County, NC" in top_header
     assert "Demo Mode" in top_header
     assert "Waking" in top_header
     assert "DB {dbLabel}" not in top_header
@@ -1150,6 +1150,7 @@ def test_static_demo_fallback_is_available_for_slow_composer_requests():
     client = read("components/map-composer-client.tsx")
     request_step = read("components/map-composer/request-step.tsx")
     static_demo = read("lib/static-demo.ts")
+    navigation = read("components/navigation.ts")
 
     assert "staticDemoComposerResponse" in client
     assert "setTimeout(resolve, 10000)" in client
@@ -1163,6 +1164,24 @@ def test_static_demo_fallback_is_available_for_slow_composer_requests():
     assert "The backend is waking up" in client
     assert "Nearest Fire Station from 793 Bartram Ave" in static_demo
     assert "Static demo fallback. Live backend unavailable or warming up." in static_demo
-    assert "Scope: Cabarrus County, NC." in static_demo
+    assert "Demo uses a Cabarrus County address." in static_demo
+    assert "This prototype is county-scoped, not a nationwide address search tool." in static_demo
+    assert "Make a map of my address 793 Bartram Ave" in navigation
+    assert "Make a table of parcels in Cabarrus County." in navigation
     assert "published: false" in static_demo
     assert "owner" not in static_demo.lower()
+
+
+def test_public_composer_explains_cabarrus_address_scope():
+    landing = read("app/page.tsx")
+    request_step = read("components/map-composer/request-step.tsx")
+    preview_step = read("components/map-composer/preview-step.tsx")
+    top_header = read("components/top-header.tsx")
+
+    assert "Live address and parcel workflows currently support Cabarrus County, NC only" in landing
+    assert "out-of-county addresses are not supported in this prototype" in landing
+    assert "Live address and parcel workflows currently support {STATIC_DEMO_SCOPE} only" in request_step
+    assert "Address search is limited to Cabarrus County, NC" in request_step
+    assert "Address not found in Cabarrus County records" in preview_step
+    assert "Try a Cabarrus County address, parcel/PIN, or planning request" in preview_step
+    assert "Scope: Cabarrus County, NC" in top_header

@@ -196,7 +196,7 @@ def test_address_resolver_does_not_use_owner_lookup_by_default(monkeypatch):
             "matched_address_candidates": [],
             "matched_parcel_candidates": [],
             "candidate_matches": [],
-            "warnings": ["Address not matched. Address not found in verified public address/parcel fields."],
+            "warnings": ["Address not found in Cabarrus County records."],
             "downloaded_geometry": False,
             "can_preview": False,
             "owner_lookup_used": False,

@@ -28,8 +28,8 @@ PARCEL_NOT_MATCHED_WARNING = (
     "parcel/PIN/address is provided."
 )
 ADDRESS_NOT_MATCHED_WARNING = (
-    "Address not matched. Address not found in verified public address/parcel fields. "
-    "Try adding city, ZIP, or a directional suffix such as SW."
+    "Address not found in Cabarrus County records. AutoMap's live address lookup currently supports "
+    "Cabarrus County, NC only. Try a Cabarrus County address, parcel/PIN, or planning request."
 )
 
 

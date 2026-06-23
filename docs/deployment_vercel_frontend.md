@@ -62,6 +62,9 @@ Production behavior:
 - `/api/automap/*` proxies backend requests through Vercel so the browser does not depend on direct Render CORS.
 - Health checks show friendly "backend waking up" copy for free-tier cold starts.
 - Map Composer offers a static demo fallback for the known 793 Bartram Ave nearest-fire-station prompt if live generation is slow or unavailable.
+- Live address and parcel workflows are explicitly labeled as Cabarrus County, NC only. Out-of-county addresses are not
+  supported in this prototype, so recruiter users should test Cabarrus County addresses, parcels/PINs, or planning
+  prompts.
 - Real ArcGIS publish remains disabled and no backend secrets are exposed to the browser.
 
 For recruiter/resume traffic, consider upgrading Render or adding uptime monitoring so the backend stays warm before interviews or application reviews.

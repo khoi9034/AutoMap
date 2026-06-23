@@ -77,7 +77,7 @@ export function TopHeader({ status }: TopHeaderProps) {
         <span className={apiChipClass} title={apiInfo.apiBaseUrl}>
           API {apiLabel}
         </span>
-        <span className="chip chip-success">Scope Cabarrus County, NC</span>
+        <span className="chip chip-success">Scope: Cabarrus County, NC</span>
         <span className={liveStatus.real_publish_enabled ? "chip chip-warning" : "chip chip-success"}>
           Real publish {liveStatus.real_publish_enabled ? "enabled" : "disabled"}
         </span>

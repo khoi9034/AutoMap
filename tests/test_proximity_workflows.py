@@ -160,7 +160,9 @@ def test_address_origin_unmatched_uses_address_warning(monkeypatch):
             "status": "unmatched",
             "origin_type": "address",
             "origin_feature": None,
-            "warnings": ["Address not matched. Address not found in verified public address/parcel fields. Try adding city, ZIP, or a directional suffix such as SW."],
+            "warnings": [
+                "Address not found in Cabarrus County records. AutoMap's live address lookup currently supports Cabarrus County, NC only. Try a Cabarrus County address, parcel/PIN, or planning request."
+            ],
         },
     )
     monkeypatch.setattr(
@@ -194,7 +196,7 @@ def test_target_layer_mapping_uses_verified_catalog_only():
 
 def test_address_origin_uses_return_geometry_false_first(monkeypatch):
     monkeypatch.setattr(
-        "app.proximity_engine.build_verified_address_field_map",
+        "app.address_parcel_resolver.build_verified_address_field_map",
         lambda schema_name="automap": {
             "layer_key": "addresses",
             "layer_url": "https://example.test/Addresses/0",

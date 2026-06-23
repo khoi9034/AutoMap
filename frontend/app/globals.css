@@ -322,6 +322,18 @@ button {
   font-size: 17px;
 }
 
+.scope-note {
+  max-width: 760px;
+  margin: 12px 0;
+  border-left: 3px solid #1d5f9f;
+  border-radius: 6px;
+  background: #edf6ff;
+  color: #194569;
+  font-size: 14px;
+  font-weight: 700;
+  padding: 10px 12px;
+}
+
 .landing-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(300px, 0.75fr);

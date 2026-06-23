@@ -281,14 +281,16 @@ def _origin_context_from_proximity(prompt: str, result: dict[str, Any]) -> dict[
     return {
         "origin_type": origin_type,
         "origin_input": result.get("origin_input"),
-        "origin_match_status": status,
-        "match_status": status,
+        "origin_match_status": result.get("origin_match_status") or status,
+        "match_status": result.get("origin_match_status") or status,
         "candidate_matches": result.get("candidate_matches") or [],
         "related_parcel": related_parcel,
-            "property_match_status": result.get("property_match_status") or ("not_resolved" if origin_type == "address" and status == "matched" and not related_parcel else None),
+        "property_match_status": result.get("property_match_status")
+        or ("not_resolved" if origin_type == "address" and status == "matched" and not related_parcel else None),
         "can_preview": result.get("status") == "ok",
         "reason_if_not_focusable": reason,
         "warnings": result.get("warnings") or [],
+        "supported_area": result.get("supported_area"),
     }
 
 
@@ -869,6 +871,7 @@ def _base_session_response(
         "request_type": recipe.get("request_type") or ("proximity" if proximity_result else (parcel_context.get("request_type") if parcel_context else "general_map")),
         "origin_type": origin_context.get("origin_type") or parcel_context.get("origin_type"),
         "origin_match_status": origin_context.get("origin_match_status") or parcel_context.get("origin_match_status") or parcel_context.get("match_status"),
+        "supported_area": origin_context.get("supported_area") or parcel_context.get("supported_area") or (proximity_result or {}).get("supported_area"),
         "origin_candidates": origin_context.get("candidate_matches") or parcel_context.get("candidate_matches") or [],
         "related_parcel": origin_context.get("related_parcel"),
         "proximity_result": proximity_result,

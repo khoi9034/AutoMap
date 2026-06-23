@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from app.address_field_mapper import build_verified_address_field_map
@@ -22,9 +23,12 @@ from app.spatial_query_client import SpatialQueryClient, SpatialQueryError
 
 
 ADDRESS_NOT_MATCHED_WARNING = (
-    "Address not matched. Address not found in verified public address/parcel fields. "
-    "Try adding city, ZIP, or a directional suffix such as SW."
+    "Address not found in Cabarrus County records. AutoMap's live address lookup currently supports "
+    "Cabarrus County, NC only. Try a Cabarrus County address, parcel/PIN, or planning request."
 )
+
+SUPPORTED_AREA = "Cabarrus County, NC"
+ADDRESS_UNSUPPORTED_AREA_WARNING = ADDRESS_NOT_MATCHED_WARNING
 
 PARCEL_ORIGIN_NOT_MATCHED_WARNING = (
     "Parcel not matched. AutoMap cannot zoom to or map this parcel until a valid parcel/PIN/address is provided."
@@ -32,6 +36,52 @@ PARCEL_ORIGIN_NOT_MATCHED_WARNING = (
 
 MAX_ADDRESS_CANDIDATES = 20
 STRONG_ATTEMPTS = {"exact_normalized_full_address", "house_number_street_core", "full_address_contains"}
+SUPPORTED_CABARRUS_PLACE_TERMS = {
+    "cabarrus",
+    "cabarrus county",
+    "concord",
+    "harrisburg",
+    "kannapolis",
+    "locust",
+    "midland",
+    "mount pleasant",
+    "mt pleasant",
+}
+OUT_OF_SCOPE_COUNTY_TERMS = {
+    "mecklenburg county",
+    "rowan county",
+    "stanly county",
+    "union county",
+    "gaston county",
+    "wake county",
+    "iredell county",
+    "davidson county",
+}
+NON_NC_STATE_TOKENS = {
+    "al",
+    "az",
+    "ar",
+    "ca",
+    "co",
+    "ct",
+    "de",
+    "fl",
+    "ga",
+    "il",
+    "in",
+    "ky",
+    "md",
+    "mi",
+    "nj",
+    "ny",
+    "oh",
+    "pa",
+    "sc",
+    "tn",
+    "tx",
+    "va",
+    "wa",
+}
 
 
 def normalize_address(value: str) -> str:
@@ -59,6 +109,32 @@ def parse_address_parts(value: str) -> dict[str, Any]:
         "zip": parsed.get("zip"),
         "address_like": parsed.get("address_like"),
     }
+
+
+def _city_without_state_or_zip(value: str | None) -> str:
+    clean = normalize_address_text(value or "")
+    clean = clean.replace("north carolina", "nc")
+    clean = re.sub(r"\b\d{5}(?:-\d{4})?\b", " ", clean)
+    clean = re.sub(r"\bnc\b", " ", clean)
+    return re.sub(r"\s+", " ", clean).strip()
+
+
+def _looks_outside_supported_area(value: str, parsed: dict[str, Any]) -> bool:
+    """Return true only for obvious out-of-Cabarrus address context."""
+    text = f" {normalize_address_text(value)} "
+    if any(f" {term} " in text for term in OUT_OF_SCOPE_COUNTY_TERMS):
+        return True
+    raw_city = value.split(",", 1)[1] if "," in value else ""
+    raw_city_clean = _city_without_state_or_zip(raw_city)
+    if raw_city_clean and not any(term in raw_city_clean for term in SUPPORTED_CABARRUS_PLACE_TERMS):
+        return True
+    city = _city_without_state_or_zip(str(parsed.get("city") or ""))
+    if city and not any(term in city for term in SUPPORTED_CABARRUS_PLACE_TERMS):
+        return True
+    city_raw = normalize_address_text(str(parsed.get("city") or ""))
+    if city_raw and any(re.search(rf"\b{state}\b", city_raw) for state in NON_NC_STATE_TOKENS):
+        return True
+    return False
 
 
 def _as_list(value: Any) -> list[Any]:
@@ -505,6 +581,7 @@ def resolve_verified_address(
     schema_name: str = "automap",
     fetch_geometry: bool = True,
     max_candidates: int = MAX_ADDRESS_CANDIDATES,
+    scope_input: str | None = None,
 ) -> dict[str, Any]:
     """Resolve an address through verified address and parcel address fields.
 
@@ -516,6 +593,32 @@ def resolve_verified_address(
     normalized_variants = parsed.get("normalized_variants") or []
     query_attempts: list[dict[str, Any]] = []
     warnings: list[str] = []
+
+    if _looks_outside_supported_area(scope_input or address, parsed):
+        return {
+            "status": "unsupported_area",
+            "match_status": "unsupported_area",
+            "origin_type": "address",
+            "normalized_address": normalize_address(address),
+            "normalized_variants": normalized_variants,
+            "parsed_address_parts": parse_address_parts(address),
+            "origin_feature": None,
+            "matched_address_candidates": [],
+            "matched_parcel_candidates": [],
+            "candidate_matches": [],
+            "related_identifiers": [],
+            "related_pin": None,
+            "related_pin14": None,
+            "related_parcel_number": None,
+            "query_attempts": query_attempts,
+            "address_fields_used": [],
+            "parcel_address_fields_used": [],
+            "warnings": [ADDRESS_UNSUPPORTED_AREA_WARNING],
+            "can_preview": False,
+            "downloaded_geometry": False,
+            "owner_lookup_used": False,
+            "supported_area": SUPPORTED_AREA,
+        }
 
     address_result = _address_layer_match(
         address,
@@ -553,6 +656,7 @@ def resolve_verified_address(
             "can_preview": status == "matched" and bool(address_result.get("matched_feature") or not fetch_geometry),
             "downloaded_geometry": bool(address_result.get("matched_feature")),
             "owner_lookup_used": False,
+            "supported_area": SUPPORTED_AREA,
         }
 
     parcel_result = _parcel_address_match(
@@ -592,6 +696,7 @@ def resolve_verified_address(
             "can_preview": status == "matched" and bool(parcel_result.get("matched_feature") or not fetch_geometry),
             "downloaded_geometry": bool(parcel_result.get("matched_feature")),
             "owner_lookup_used": False,
+            "supported_area": SUPPORTED_AREA,
         }
 
     return {
@@ -616,6 +721,7 @@ def resolve_verified_address(
         "can_preview": False,
         "downloaded_geometry": False,
         "owner_lookup_used": False,
+        "supported_area": SUPPORTED_AREA,
     }
 
 
@@ -687,6 +793,7 @@ def resolve_address_or_parcel_origin(
             client=client,
             schema_name=schema_name,
             fetch_geometry=True,
+            scope_input=raw_input,
         )
         result.update(
             {
@@ -707,6 +814,7 @@ def resolve_address_or_parcel_origin(
                 "parcel_address_fields_used": address_result.get("parcel_address_fields_used") or [],
                 "downloaded_geometry": bool(address_result.get("downloaded_geometry")),
                 "can_preview": bool(address_result.get("can_preview")),
+                "supported_area": address_result.get("supported_area"),
             }
         )
         return result

@@ -4,7 +4,7 @@ import Link from "next/link";
 
 import { samplePrompts } from "@/components/navigation";
 import { ToastMessage } from "@/components/toast";
-import { staticDemoHighlights } from "@/lib/static-demo";
+import { STATIC_DEMO_SCOPE, staticDemoHighlights } from "@/lib/static-demo";
 import type { ComposerResponse } from "@/types/automap";
 import type { WorkflowToast } from "@/types/workflow";
 
@@ -52,12 +52,13 @@ export function RequestStep({
           <p className="muted">
             AutoMap will parse the request, choose verified layers, create a draft preview, and keep publishing disabled.
           </p>
+          <p className="scope-note">Live address and parcel workflows currently support {STATIC_DEMO_SCOPE} only.</p>
         </div>
         <textarea
           className="textarea composer-textarea composer-request-textarea"
           value={prompt}
           onChange={(event) => setPrompt(event.target.value)}
-          placeholder="Describe the draft map..."
+          placeholder="Try a Cabarrus County address, parcel/PIN, or planning request..."
         />
         <button className="button composer-generate-button" type="button" onClick={onGenerate} disabled={loading || !prompt.trim()}>
           {loading ? "Generating Draft Map..." : "Generate Draft Map"}
@@ -75,7 +76,8 @@ export function RequestStep({
               <p className="eyebrow">Static fallback demo</p>
               <h3>{staticDemoResponse?.map_title || "Nearest Fire Station from 793 Bartram Ave"}</h3>
               <p className="muted">
-                Static demo fallback. Live backend unavailable or slow. No ArcGIS item is published and no owner data is shown.
+                Demo uses a Cabarrus County address. This prototype is county-scoped, not a nationwide address search tool.
+                No ArcGIS item is published and no owner data is shown.
               </p>
             </div>
             <ul className="check-list">
@@ -107,6 +109,10 @@ export function RequestStep({
               {sample}
             </button>
           ))}
+        </div>
+        <div className="definition-box">
+          <strong>Cabarrus County scope</strong>
+          <p>Address search is limited to Cabarrus County, NC. Out-of-county addresses are not supported in this prototype.</p>
         </div>
         <div className="definition-box">
           <strong>What happens next</strong>

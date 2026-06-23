@@ -32,6 +32,10 @@ export default function LandingPage() {
             exports. This county GIS request engine supports a Cabarrus County, NC live demo and stays professional even
             while the free Render backend is waking up.
           </p>
+          <p className="scope-note">
+            Live address and parcel workflows currently support Cabarrus County, NC only. Try a Cabarrus County address,
+            parcel/PIN, or county planning request; out-of-county addresses are not supported in this prototype.
+          </p>
           <div className="button-row">
             <Link className="button" href="/map-composer">
               Open Live Map Composer
@@ -69,7 +73,8 @@ export default function LandingPage() {
           <p className="muted">
             The live workflow matches the address, finds a nearest facility, draws the route/reference line, and prepares
             a draft map layout for {STATIC_DEMO_SCOPE}. If the backend is cold, the static demo explains the same
-            workflow without showing a broken page.
+            workflow without showing a broken page. This demo uses a Cabarrus County address and is not a nationwide
+            address search tool.
           </p>
           <Link className="text-link" href={demoHref}>
             Open the demo prompt in Map Composer

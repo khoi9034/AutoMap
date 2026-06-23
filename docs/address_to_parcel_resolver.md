@@ -2,6 +2,9 @@
 
 AutoMap v3.5 treats address prompts as user-supplied map origins, not as parcel IDs.
 
+Current live address and parcel workflows are scoped to Cabarrus County, NC. Out-of-county addresses are not supported
+in this prototype; AutoMap does not use nationwide geocoding or paid external address lookup.
+
 Examples parsed as address origins:
 
 - `address 793 bartram ave`
@@ -38,6 +41,6 @@ If an address matches, AutoMap can focus the map on the address or related parce
 
 If an address matches but no related parcel is resolved, the composer can still preview the address point, nearest facility point, and straight-line distance. It must not show the full Tax Parcels layer as the selected property.
 
-If an address does not match, the composer shows `Address not found` guidance and blocks preview. It asks for city, ZIP, or a directional suffix such as `SW`. It does not show a broad county map as a successful address-focused map.
+If an address does not match, the composer shows `Address not found in Cabarrus County records` guidance and blocks preview. It asks the user to try a Cabarrus County address, parcel/PIN, or planning request. It does not show a broad county map as a successful address-focused map.
 
 CFS remains separate. AutoMap does not connect to `cfs_dev`.

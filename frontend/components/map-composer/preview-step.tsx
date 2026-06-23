@@ -27,7 +27,14 @@ export function PreviewBlocker({ response, onGoToRequest }: { response: Composer
   if (!response.preview_blockers?.length && context?.can_focus_map !== false && response.recipe?.origin_context?.can_preview !== false) return null;
   const candidates = [...(response.origin_candidates || []), ...(context?.candidate_matches || [])];
   const hasAddressCandidates = isAddress && candidates.length > 0;
-  const addressHeading = hasAddressCandidates ? "Multiple possible address matches" : "Address not found";
+  const unsupportedArea = response.origin_match_status === "unsupported_area" || context?.match_status === "unsupported_area";
+  const addressHeading = hasAddressCandidates
+    ? "Multiple possible address matches"
+    : unsupportedArea
+      ? "Address not found in Cabarrus County records"
+      : "Address not found";
+  const addressGuidance =
+    "AutoMap's live address lookup currently supports Cabarrus County, NC only. Try a Cabarrus County address, parcel/PIN, or planning request.";
   return (
     <section className="panel parcel-preview-blocked" role="alert">
       <p className="eyebrow">{isAddress ? "Address-focused preview blocked" : "Parcel-focused preview blocked"}</p>
@@ -35,9 +42,15 @@ export function PreviewBlocker({ response, onGoToRequest }: { response: Composer
       <p>
         {blockerText ||
           (isAddress
-            ? "Address not found in verified public address/parcel fields. Try adding city, ZIP, or a directional suffix such as SW."
+            ? `Address not found in Cabarrus County records. ${addressGuidance}`
             : "Parcel not matched. AutoMap cannot zoom to or map this parcel until a valid parcel/PIN/address is provided.")}
       </p>
+      {isAddress ? (
+        <div className="definition-box">
+          <strong>Supported address area</strong>
+          <p>{addressGuidance}</p>
+        </div>
+      ) : null}
       <div className="detail-grid">
         <div>
           <span className="muted">Match status</span>
@@ -56,7 +69,7 @@ export function PreviewBlocker({ response, onGoToRequest }: { response: Composer
         <strong>What AutoMap tried</strong>
         <p>
           {isAddress
-            ? "It searched verified public address and parcel/address fields without using owner/name fields."
+            ? "It searched verified Cabarrus County public address and parcel/address fields without using owner/name fields."
             : "It searched verified parcel/PIN/PIN14 fields and did not fetch parcel geometry."}
         </p>
       </div>

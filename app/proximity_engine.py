@@ -679,6 +679,12 @@ def resolve_origin(
         address_value = address_candidates[0]["value"]
         query_client = client or SpatialQueryClient(max_features=MAX_TARGET_CANDIDATES)
         address_result = resolve_address_point(address_value, client=query_client, schema_name=schema_name)
+        if address_result.get("status") == "unsupported_area":
+            return {
+                **address_result,
+                "property_match_status": "not_resolved",
+                "warnings": address_result.get("warnings") or [ADDRESS_NOT_MATCHED_WARNING],
+            }
         if address_result.get("status") == "matched":
             if not resolve_property:
                 return {
@@ -874,6 +880,7 @@ def resolve_address_point(
         schema_name=schema_name,
         fetch_geometry=True,
         max_candidates=MAX_TARGET_CANDIDATES,
+        scope_input=address,
     )
     if result.get("status") == "matched" and result.get("origin_feature"):
         return {
@@ -887,6 +894,7 @@ def resolve_address_point(
             "related_parcel_number": result.get("related_parcel_number"),
             "query_attempts": result.get("query_attempts") or [],
             "warnings": result.get("warnings") or [],
+            "supported_area": result.get("supported_area"),
         }
     if result.get("status") == "ambiguous":
         return {
@@ -896,6 +904,7 @@ def resolve_address_point(
             "candidate_matches": result.get("candidate_matches") or [],
             "query_attempts": result.get("query_attempts") or [],
             "warnings": result.get("warnings") or ["Multiple possible address matches were found; choose one before proximity analysis."],
+            "supported_area": result.get("supported_area"),
         }
     return {
         "status": result.get("status") or "unmatched",
@@ -904,6 +913,7 @@ def resolve_address_point(
         "candidate_matches": result.get("candidate_matches") or [],
         "query_attempts": result.get("query_attempts") or [],
         "warnings": result.get("warnings") or [ADDRESS_NOT_MATCHED_WARNING],
+        "supported_area": result.get("supported_area"),
     }
 
 
@@ -1444,6 +1454,8 @@ def run_nearest_facility(
             "origin_input": origin_input,
             "target_type": target_type,
             "status": "needs_review",
+            "origin_match_status": origin.get("status"),
+            "supported_area": origin.get("supported_area"),
             "origin_feature": None,
             "target_feature": None,
             "distance_value": None,

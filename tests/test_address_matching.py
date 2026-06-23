@@ -154,3 +154,20 @@ def test_address_matching_does_not_search_owner_or_bulk_download(monkeypatch):
     assert "ownername" not in serialized
     assert "owner_name" not in serialized
     assert len(client.feature_queries) == 0
+
+
+def test_out_of_scope_address_returns_unsupported_area_without_query(monkeypatch):
+    monkeypatch.setattr("app.address_parcel_resolver.build_verified_address_field_map", lambda schema_name="automap": address_field_map())
+    monkeypatch.setattr(
+        "app.address_parcel_resolver.find_tax_parcel_layer",
+        lambda layer_catalog=None, schema_name="automap": None,
+    )
+    client = ProgressiveAddressClient(counts=[1], features=[point_feature("123 MAIN ST")])
+
+    result = resolve_verified_address("123 Main St, Charlotte NC", client=client)
+
+    assert result["match_status"] == "unsupported_area"
+    assert result["supported_area"] == "Cabarrus County, NC"
+    assert "Cabarrus County records" in " ".join(result["warnings"])
+    assert client.count_queries == []
+    assert client.feature_queries == []

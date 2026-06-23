@@ -139,7 +139,7 @@ def test_composer_address_proximity_unmatched_says_address_not_parcel(monkeypatc
             "target_type": "nearest_fire_station",
             "candidate_matches": [],
             "warnings": [
-                "Address not matched. Address not found in verified public address/parcel fields. Try adding city, ZIP, or a directional suffix such as SW."
+                "Address not found in Cabarrus County records. AutoMap's live address lookup currently supports Cabarrus County, NC only. Try a Cabarrus County address, parcel/PIN, or planning request."
             ],
             "published": False,
         },
