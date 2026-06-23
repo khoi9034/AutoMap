@@ -323,11 +323,23 @@ function visibleFeatureCount(response: ComposerResponse): number | null {
   return rows.reduce((sum, row) => sum + (typeof row.feature_count === "number" ? row.feature_count : 0), 0);
 }
 
+function aoiSummary(response: ComposerResponse): string | null {
+  const aoi = response.preview_config?.aoi;
+  if (!aoi || typeof aoi !== "object") return null;
+  if (typeof aoi.summary === "string" && aoi.summary.trim()) return aoi.summary;
+  const geography = typeof aoi.geography_name === "string" ? aoi.geography_name : null;
+  const buffer = aoi.buffer_distance && typeof aoi.buffer_distance === "object" && !Array.isArray(aoi.buffer_distance) ? aoi.buffer_distance : null;
+  const bufferValue = typeof buffer?.value === "number" ? buffer.value : null;
+  if (!geography) return null;
+  return bufferValue && bufferValue > 0 ? `${geography} + ${bufferValue} mile buffer` : geography;
+}
+
 function WhyThisMapPanel({ response }: { response: ComposerResponse }) {
   const plan = planFromResponse(response);
   const params = planParameters(response);
   const totalFeatures = visibleFeatureCount(response);
   const fallbackUsed = Boolean(response.preview_config?.visible_map_qa?.fallback_used);
+  const aoi = aoiSummary(response);
   return (
     <div className="definition-box why-this-map-panel">
       <strong>Why this map?</strong>
@@ -340,6 +352,12 @@ function WhyThisMapPanel({ response }: { response: ComposerResponse }) {
           <dt>Area</dt>
           <dd>{valueList(params.geography)}</dd>
         </div>
+        {aoi ? (
+          <div>
+            <dt>AOI</dt>
+            <dd>{aoi}</dd>
+          </div>
+        ) : null}
         <div>
           <dt>Main layer</dt>
           <dd>{valueList(params.feature_type)}</dd>
@@ -469,6 +487,8 @@ function PreviewNotesPanel({ response }: { response: ComposerResponse }) {
 function PreviewDiagnosticsPanel({ response }: { response: ComposerResponse }) {
   const qaRows = response.visible_feature_summary || response.preview_config?.visible_feature_summary || [];
   const qaWarnings = (response.preview_config?.visible_map_qa?.warnings as string[] | undefined) || [];
+  const complexity = response.preview_config?.display_complexity || response.preview_config?.visible_map_qa?.display_complexity;
+  const complexityRecord = complexity && typeof complexity === "object" && !Array.isArray(complexity) ? complexity : null;
   return (
     <section className="composer-preview-diagnostics">
       <div className="result-strip compact-result-strip">
@@ -484,7 +504,20 @@ function PreviewDiagnosticsPanel({ response }: { response: ComposerResponse }) {
           <span>Visible features</span>
           <strong>{visibleFeatureCount(response) ?? "n/a"}</strong>
         </div>
+        <div>
+          <span>AOI</span>
+          <strong>{aoiSummary(response) || "n/a"}</strong>
+        </div>
       </div>
+      {complexityRecord ? (
+        <div className="definition-box">
+          <strong>Display complexity</strong>
+          <p>
+            {String(complexityRecord.status || "checked")} · {String(complexityRecord.visible_layer_count ?? "n/a")} visible layers
+            {complexityRecord.simplified ? " · simplified for readability" : ""}
+          </p>
+        </div>
+      ) : null}
       {qaRows.length ? (
         <div className="definition-box">
           <strong>Visible map QA</strong>
@@ -494,7 +527,9 @@ function PreviewDiagnosticsPanel({ response }: { response: ComposerResponse }) {
                 <strong>{String(row.layer_title || row.layer_id || "Layer")}</strong>
                 <span>
                   {String(row.expected_role || "context")} · {row.visible === false ? "hidden" : `${String(row.feature_count ?? "unchecked")} features`}
+                  {row.clipped_to_aoi ? " · clipped to AOI" : ""}
                   {row.fallback_used ? " · fallback used" : ""}
+                  {row.simplification_applied ? " · simplified" : ""}
                 </span>
               </li>
             ))}

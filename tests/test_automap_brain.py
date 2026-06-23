@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 
 from app.automap_brain.domain_ontology import DOMAIN_ONTOLOGY
+from app.automap_brain.aoi_planner import apply_aoi_to_preview_config, build_aoi_plan, visual_complexity_score
 from app.automap_brain.layer_ranker import rank_candidate_layers
 from app.automap_brain.normalizer import normalize_prompt
 from app.automap_brain.request_parser import build_brain_plan
@@ -125,6 +126,84 @@ def test_recipe_uses_brain_v2_metadata_and_visible_roles():
     assert recipe["automap_brain"]["field_value_resolution"]["filter_plan"]
     assert "commercial zoning" in recipe["request_plan"]["parameters"]["subtype_filter"]
     assert "transportation" in {layer["category"] for layer in recipe["selected_layers"]}
+
+
+def test_aoi_planner_detects_concord_around_buffer():
+    recipe = build_recipe("show commercial zoning around Concord with nearby major roads", sample_catalog(), persist_data_gaps=False)
+
+    aoi = build_aoi_plan(recipe)
+
+    assert aoi["type"] == "municipality"
+    assert aoi["geography_name"] == "Concord"
+    assert aoi["buffer_distance"]["value"] == 2.0
+    assert aoi["summary"] == "Concord boundary + 2 mile buffer"
+    assert aoi["extent"]["xmin"] < -80.72
+    assert aoi["extent"]["xmax"] > -80.46
+
+
+def test_aoi_application_clips_local_zoning_layers_and_hides_extra_context():
+    recipe = build_recipe("show commercial zoning around Concord with nearby major roads", sample_catalog(), persist_data_gaps=False)
+    preview = {
+        "operational_layers": [
+            {"layer_key": "zoning", "title": "Cabarrus County Zoning", "category": "zoning", "definition_expression": "ZONE = 'GC'", "visibility": True},
+            {"layer_key": "municipal_zoning", "title": "Zoning context", "category": "zoning", "visibility": True},
+            {"layer_key": "roads", "title": "Road Centerlines", "category": "transportation", "visibility": True},
+            {"layer_key": "tax_parcels", "title": "Tax Parcels", "category": "parcel", "visibility": True},
+        ]
+    }
+
+    bounded = apply_aoi_to_preview_config(preview, recipe)
+    layers = bounded["operational_layers"]
+    zoning = next(layer for layer in layers if layer["layer_key"] == "zoning")
+    zoning_context = next(layer for layer in layers if layer["layer_key"] == "municipal_zoning")
+    roads = next(layer for layer in layers if layer["layer_key"] == "roads")
+    parcels = next(layer for layer in layers if layer["layer_key"] == "tax_parcels")
+
+    assert bounded["focus_extent"] == bounded["aoi"]["extent"]
+    assert zoning["clipped_to_aoi"] is True
+    assert zoning_context["visibility"] is False
+    assert zoning_context["diagnostics_only"] is True
+    assert zoning_context["simplification_applied"] is True
+    assert roads["clipped_to_aoi"] is True
+    assert roads["legend_label"] == "Road context"
+    assert "Major-road classification unavailable" in " ".join(roads["review_warnings"])
+    assert parcels["visibility"] is False
+    assert parcels["diagnostics_only"] is True
+
+
+def test_aoi_application_filters_major_roads_when_route_fields_exist():
+    recipe = build_recipe("show commercial zoning around Concord with nearby major roads", sample_catalog(), persist_data_gaps=False)
+    recipe["filter_plan"]["roads"] = {"candidate_fields": ["NameID", "ROUTE_NAME", "FUNC_CLASS"], "selected_field": "ROUTE_NAME"}
+    preview = {
+        "operational_layers": [
+            {"layer_key": "roads", "title": "Road Centerlines", "category": "transportation", "visibility": True}
+        ]
+    }
+
+    bounded = apply_aoi_to_preview_config(preview, recipe)
+    roads = bounded["operational_layers"][0]
+
+    assert roads["major_road_filter_applied"] is True
+    assert roads["legend_label"] == "Major roads"
+    assert roads["cartography_role"] == "major_roads"
+    assert "UPPER(ROUTE_NAME)" in roads["definition_expression"]
+    assert "NameID" not in roads["definition_expression"]
+
+
+def test_visual_complexity_score_tracks_visible_layer_stack():
+    aoi = {"type": "municipality", "summary": "Concord boundary + 2 mile buffer"}
+    layers = [
+        {"map_role": "primary_polygon_highlight", "visibility": True, "opacity": 0.48, "clipped_to_aoi": True},
+        {"map_role": "road_context", "visibility": True, "clipped_to_aoi": True},
+        {"map_role": "parcel_outline", "visibility": False, "clipped_to_aoi": True},
+    ]
+
+    score = visual_complexity_score(layers, aoi)
+
+    assert score["visible_layer_count"] == 2
+    assert score["polygon_layer_count"] == 1
+    assert score["line_layer_count"] == 1
+    assert score["status"] in {"simple", "moderate"}
 
 
 def test_out_of_scope_place_returns_unsupported_area_without_geocoder():

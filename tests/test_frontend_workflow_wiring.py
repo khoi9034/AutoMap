@@ -405,6 +405,9 @@ def test_map_composer_is_primary_simple_workflow():
     assert "Diagnostics" in preview_step
     assert "Why this map?" in preview_step
     assert "Interpreted request" in preview_step
+    assert "AOI" in preview_step
+    assert "Display complexity" in preview_step
+    assert "clipped to AOI" in preview_step
     assert "Visible map QA" in preview_step
     assert "visible_feature_summary" in preview_step
     assert "composer-preview-tab-list" in preview_step

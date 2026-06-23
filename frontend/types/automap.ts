@@ -965,6 +965,13 @@ export type PreviewLayer = {
   drawing_info?: Record<string, JsonValue> | null;
   legend_label?: string;
   cartography_role?: string;
+  map_role?: string;
+  clipped_to_aoi?: boolean;
+  aoi_filter_applied?: boolean;
+  aoi_summary?: string;
+  max_feature_count?: number | null;
+  simplification_applied?: boolean;
+  diagnostics_only?: boolean;
   fallback_used?: boolean;
   review_warnings?: string[];
   derived_local_analysis?: boolean;
@@ -1020,6 +1027,8 @@ export type PreviewConfig = {
   derived_overlays?: DerivedOverlay[];
   proximity_result?: ProximityResult | Record<string, JsonValue>;
   focus_extent?: Record<string, JsonValue>;
+  aoi?: Record<string, JsonValue>;
+  display_complexity?: Record<string, JsonValue>;
   origin_summary?: Record<string, JsonValue>;
   target_summary?: Record<string, JsonValue>;
   distance_summary?: Record<string, JsonValue>;

@@ -56,3 +56,43 @@ def test_brain_visible_map_qa_flags_empty_preview():
     assert qa["qa_status"] == "no_visible_features"
     assert qa["visible_feature_total"] == 0
     assert any("filter returned no visible features" in warning for warning in qa["warnings"])
+
+
+def test_brain_visible_map_qa_preserves_aoi_clipping_metadata():
+    class FakeClient:
+        def query_count(self, *_args, **_kwargs):
+            return {"count": 8}
+
+        def query_extent(self, *_args, **_kwargs):
+            return {"extent": {"xmin": -80.61, "ymin": 35.36, "xmax": -80.55, "ymax": 35.42, "spatialReference": {"wkid": 4326}}}
+
+    recipe = {"user_intent": "show commercial zoning around Concord with nearby major roads", "request_plan": {"request_type": "zoning_context", "parameters": {"geography": "Concord"}}}
+    preview = {
+        "aoi": {
+            "type": "municipality",
+            "geography_name": "Concord",
+            "summary": "Concord boundary + 2 mile buffer",
+            "extent": {"xmin": -80.75, "ymin": 35.27, "xmax": -80.43, "ymax": 35.52, "spatialReference": {"wkid": 4326}},
+        },
+        "context_layers": [
+            {
+                "layer_key": "roads",
+                "title": "Road context",
+                "category": "transportation",
+                "url": "https://example.test/roads/0",
+                "visibility": True,
+                "clipped_to_aoi": True,
+                "aoi_filter_applied": True,
+                "aoi_summary": "Concord boundary + 2 mile buffer",
+                "map_role": "road_context",
+            }
+        ],
+    }
+
+    qa = run_visible_map_qa(preview, recipe, query_client=FakeClient())
+
+    row = qa["visible_feature_summary"][0]
+    assert row["clipped_to_aoi"] is True
+    assert row["aoi_filter_applied"] is True
+    assert row["aoi_summary"] == "Concord boundary + 2 mile buffer"
+    assert row["map_role"] == "road_context"

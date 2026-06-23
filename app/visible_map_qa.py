@@ -119,8 +119,10 @@ def _zoning_fallback_warning(recipe: dict[str, Any]) -> str:
     return f"Commercial zoning values were not confidently identified; showing zoning context around {geography}."
 
 
-def _road_fallback_warning() -> str:
-    return "Major-road classification was unavailable; showing road context."
+def _road_fallback_warning(preview_config: dict[str, Any] | None = None) -> str:
+    aoi = (preview_config or {}).get("aoi") if isinstance(preview_config, dict) else {}
+    geography = (aoi or {}).get("geography_name") or "the requested area"
+    return f"Major-road classification unavailable; showing road context clipped to {geography}."
 
 
 def _is_route_or_derived(layer: dict[str, Any]) -> bool:
@@ -143,13 +145,18 @@ def visible_map_qa(
             "fallback_used": False,
         }
     client = query_client or SpatialQueryClient(max_features=250, timeout=DEFAULT_QA_TIMEOUT_SECONDS)
-    request_extent = _extent(preview_config.get("focus_extent") or preview_config.get("initial_extent")) or CONCORD_FALLBACK_EXTENT
+    aoi = preview_config.get("aoi") if isinstance(preview_config.get("aoi"), dict) else {}
+    request_extent = _extent((aoi or {}).get("extent") or preview_config.get("focus_extent") or preview_config.get("initial_extent")) or CONCORD_FALLBACK_EXTENT
     layers = deepcopy(preview_config.get("context_layers") or preview_config.get("operational_layers") or [])
     commercial_context = _is_commercial_zoning_context(recipe)
     summary: list[dict[str, Any]] = []
     warnings: list[str] = []
     extents: list[dict[str, Any]] = []
     fallback_used = False
+    local_aoi = bool(aoi and aoi.get("type") not in {"county", "unknown"})
+    display_complexity = preview_config.get("display_complexity") if isinstance(preview_config.get("display_complexity"), dict) else {}
+    if display_complexity.get("status") == "complex":
+        warnings.append("Visible layer stack was complex; low-priority layers should be hidden or muted.")
 
     for layer in layers:
         layer_key = str(layer.get("layer_key") or layer.get("id") or layer.get("title") or "layer")
@@ -158,20 +165,32 @@ def visible_map_qa(
         expected_role = _expected_role(layer)
         where = _definition(layer)
         url = _layer_url(layer)
+        clipped_to_aoi = bool(layer.get("clipped_to_aoi"))
+        aoi_filter_applied = bool(layer.get("aoi_filter_applied"))
         row: dict[str, Any] = {
             "layer_id": layer_key,
             "layer_title": layer_title,
             "expected_role": expected_role,
+            "map_role": layer.get("map_role") or layer.get("cartography_role") or layer.get("role"),
             "feature_count": None,
             "visible": visible,
+            "visible_by_default": layer.get("visible_by_default", visible),
             "opacity": layer.get("opacity"),
             "fallback_used": False,
             "warning": None,
             "where": where,
+            "clipped_to_aoi": clipped_to_aoi,
+            "aoi_filter_applied": aoi_filter_applied,
+            "aoi_summary": (aoi or {}).get("summary"),
+            "max_feature_count": layer.get("max_feature_count"),
+            "simplification_applied": bool(layer.get("simplification_applied")),
         }
         if not visible:
             summary.append(row)
             continue
+        if local_aoi and not clipped_to_aoi:
+            row["warning"] = "Visible local layer is not marked as clipped to the requested AOI."
+            warnings.append(row["warning"])
         if _is_route_or_derived(layer):
             row["feature_count"] = 1
             summary.append(row)
@@ -220,9 +239,16 @@ def visible_map_qa(
                     fallback_used = True
             elif expected_role == "roads" and "major" in str(recipe.get("user_intent") or "").lower():
                 row["fallback_used"] = True
-                row["warning"] = _road_fallback_warning()
+                row["warning"] = _road_fallback_warning(preview_config)
                 warnings.append(row["warning"])
                 fallback_used = True
+            if layer.get("max_feature_count") and row.get("feature_count") is not None:
+                try:
+                    if int(row["feature_count"]) > int(layer["max_feature_count"]):
+                        row["warning"] = row.get("warning") or "Feature count is high for this local map; AutoMap should simplify or hide context."
+                        warnings.append(row["warning"])
+                except (TypeError, ValueError):
+                    pass
         except Exception as exc:
             row["warning"] = f"Feature count check unavailable for {layer_title}: {exc}"
             warnings.append(row["warning"])

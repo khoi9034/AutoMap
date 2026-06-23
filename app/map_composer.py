@@ -20,6 +20,7 @@ from app.automap_brain.cartography_engine import (
     context_draw_rank as brain_context_draw_rank,
     style_context_layer as brain_style_context_layer,
 )
+from app.automap_brain.aoi_planner import apply_aoi_to_preview_config
 from app.automap_brain.explain_plan import build_brain_explanation
 from app.automap_brain.visible_map_qa import run_visible_map_qa
 from app.composer_state_models import (
@@ -773,6 +774,7 @@ def _augment_preview_config(preview_config: dict[str, Any] | None, recipe: dict[
             if isinstance(target_geometry, dict) and target_geometry:
                 config["initial_extent"] = target_geometry
                 config["focus_extent"] = target_geometry
+    config = apply_aoi_to_preview_config(config, recipe)
     qa = visible_map_qa(config, recipe)
     config = brain_apply_visible_qa_fallbacks(config, qa, recipe)
     config["visible_feature_summary"] = qa.get("visible_feature_summary") or []
@@ -782,6 +784,8 @@ def _augment_preview_config(preview_config: dict[str, Any] | None, recipe: dict[
         "qa_status": qa.get("qa_status"),
         "fallback_used": bool(qa.get("fallback_used")),
         "warnings": qa.get("warnings") or [],
+        "aoi_summary": (config.get("aoi") or {}).get("summary"),
+        "display_complexity": config.get("display_complexity"),
     }
     if isinstance(qa.get("visible_extent"), dict) and qa["visible_extent"]:
         config["initial_extent"] = qa["visible_extent"]

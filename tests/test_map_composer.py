@@ -525,6 +525,8 @@ def test_composer_commercial_zoning_preview_carries_visible_qa(monkeypatch, tmp_
     assert result["visible_feature_summary"][0]["opacity"] == 0.48
     assert result["preview_config"]["visible_feature_total"] == 59
     assert result["preview_config"]["focus_extent"]["xmin"] == -80.7
+    assert result["preview_config"]["aoi"]["type"] == "municipality"
+    assert result["preview_config"]["aoi"]["summary"] == "Concord boundary + 2 mile buffer"
     context_layers = result["preview_config"]["context_layers"]
     zoning_layer = next(layer for layer in context_layers if layer["layer_key"] == "zoning")
     roads_layer = next(layer for layer in context_layers if layer["layer_key"] == "roads")
@@ -533,11 +535,15 @@ def test_composer_commercial_zoning_preview_carries_visible_qa(monkeypatch, tmp_
     assert zoning_layer["legend_label"] == "Commercial zoning"
     assert zoning_layer["cartography_role"] == "commercial_zoning"
     assert zoning_layer["opacity"] == 0.48
-    assert roads_layer["legend_label"] == "Major roads"
-    assert roads_layer["cartography_role"] == "major_roads"
+    assert zoning_layer["clipped_to_aoi"] is True
+    assert roads_layer["legend_label"] == "Road context"
+    assert roads_layer["cartography_role"] == "roads"
+    assert roads_layer["map_role"] == "road_context"
+    assert roads_layer["clipped_to_aoi"] is True
     assert roads_layer["opacity"] == 0.92
     assert roads_layer["draw_order"] > zoning_layer["draw_order"]
     assert parcel_layer["visibility"] is False
+    assert parcel_layer["diagnostics_only"] is True
     assert "Major-road classification was unavailable" in " ".join(result["warnings"])
 
 
