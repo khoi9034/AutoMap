@@ -11,35 +11,55 @@ import type { WorkflowToast } from "@/types/workflow";
 type RequestStepProps = {
   elapsedSeconds?: number;
   error?: string | null;
+  liveResultReady?: boolean;
   loading?: boolean;
+  onCancelRequest?: () => void;
   onGenerate: () => void;
+  onKeepWaiting?: () => void;
+  onSwitchToLiveResult?: () => void;
   onUseStaticDemo?: () => void;
   progressMessage?: string | null;
   prompt: string;
   setPrompt: (prompt: string) => void;
-  showStaticDemoFallback?: boolean;
+  showStaticDemoOffer?: boolean;
+  showStaticDemoPanel?: boolean;
+  staticDemoReason?: "manual" | "failed" | "timeout" | "canceled" | "still_running" | null;
   staticDemoResponse?: ComposerResponse | null;
   toast?: WorkflowToast | null;
 };
 
 function slowProgressCopy(elapsedSeconds: number, progressMessage?: string | null): string {
   if (progressMessage) return progressMessage;
-  if (elapsedSeconds >= 45) return "Live demo is temporarily unavailable. View static fallback if you need a quick walkthrough.";
-  if (elapsedSeconds >= 15) return "Still working on the live result...";
-  if (elapsedSeconds >= 5) return "Calculating road route...";
-  return "Starting live demo...";
+  if (elapsedSeconds >= 60) return "Still working on the live route. You can keep waiting or view the static demo.";
+  if (elapsedSeconds >= 30) return "Calculating road-following route. This may take a moment on the live demo.";
+  if (elapsedSeconds >= 10) return "Matching address and selecting nearby fire stations...";
+  return "Starting live request...";
+}
+
+function staticFallbackContext(reason?: RequestStepProps["staticDemoReason"]): string {
+  if (reason === "still_running") return "Static demo fallback - live request still running or unavailable.";
+  if (reason === "timeout") return "Static demo fallback - live request timed out.";
+  if (reason === "failed") return "Static demo fallback - live request did not finish.";
+  if (reason === "canceled") return "Static demo fallback - live request was canceled.";
+  return "Static demo fallback";
 }
 
 export function RequestStep({
   elapsedSeconds = 0,
   error,
+  liveResultReady = false,
   loading = false,
+  onCancelRequest,
   onGenerate,
+  onKeepWaiting,
+  onSwitchToLiveResult,
   onUseStaticDemo,
   progressMessage,
   prompt,
   setPrompt,
-  showStaticDemoFallback = false,
+  showStaticDemoOffer = false,
+  showStaticDemoPanel = false,
+  staticDemoReason = null,
   staticDemoResponse,
   toast,
 }: RequestStepProps) {
@@ -63,31 +83,70 @@ export function RequestStep({
         {loading ? (
           <div className="notice notice-info compact-notice">
             <strong>{slowProgressCopy(elapsedSeconds, progressMessage)}</strong>
-            <p>Publishing remains disabled. Static fallback appears only if the live request stalls.</p>
+            <p>Live generation stays primary. Publishing remains disabled.</p>
           </div>
         ) : null}
         {error ? <p className="error-text">{error}</p> : null}
-        {showStaticDemoFallback ? (
+        {showStaticDemoOffer && !showStaticDemoPanel ? (
+          <div className="notice notice-warning compact-notice">
+            <strong>{loading ? "Live request is still running." : "Static fallback is available."}</strong>
+            <p>
+              {loading
+                ? "You can keep waiting for the live road-route result or open a compact static demo without stopping the page."
+                : "The live result did not finish. Retry the live demo or open the static fallback."}
+            </p>
+            <div className="button-row">
+              {loading ? (
+                <button className="button button-secondary button-small" type="button" onClick={onKeepWaiting}>
+                  Keep waiting
+                </button>
+              ) : (
+                <button className="button button-secondary button-small" type="button" onClick={onGenerate}>
+                  Retry live request
+                </button>
+              )}
+              <button className="button button-secondary button-small" type="button" onClick={onUseStaticDemo}>
+                View static demo
+              </button>
+              {loading ? (
+                <button className="button button-secondary button-small" type="button" onClick={onCancelRequest}>
+                  Cancel request
+                </button>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
+        {showStaticDemoPanel ? (
           <div className="static-demo-card">
             <div>
-              <p className="eyebrow">Static fallback demo</p>
+              <p className="eyebrow">{staticFallbackContext(staticDemoReason)}</p>
               <h3>{staticDemoResponse?.map_title || "Nearest Fire Station from 793 Bartram Ave"}</h3>
               <p className="muted">
-                Demo uses a Cabarrus County address. This prototype is county-scoped, not a nationwide address search tool.
-                No ArcGIS item is published and no owner data is shown.
+                Live demo is unavailable or still warming up. This fallback uses a Cabarrus County example and does not publish anything.
               </p>
             </div>
-            <ul className="check-list">
-              {staticDemoHighlights.map((highlight) => (
-                <li key={highlight}>{highlight}</li>
-              ))}
-            </ul>
+            {liveResultReady ? (
+              <div className="notice notice-success compact-notice">
+                <strong>Live result is ready.</strong>
+                <p>You can switch from the static fallback to the completed live map preview.</p>
+              </div>
+            ) : null}
+            <details>
+              <summary>Demo details</summary>
+              <ul className="check-list">
+                {staticDemoHighlights.map((highlight) => (
+                  <li key={highlight}>{highlight}</li>
+                ))}
+              </ul>
+            </details>
             <div className="button-row">
-              <button className="button" type="button" onClick={onGenerate} disabled={loading}>
-                Retry Live Demo
-              </button>
-              <button className="button button-secondary" type="button" onClick={onUseStaticDemo} disabled={loading}>
-                View Static Demo
+              {liveResultReady ? (
+                <button className="button" type="button" onClick={onSwitchToLiveResult}>
+                  Switch to live result
+                </button>
+              ) : null}
+              <button className="button button-secondary" type="button" onClick={onGenerate} disabled={loading}>
+                Retry live request
               </button>
               <Link className="button button-secondary" href="/methodology">
                 Open Project Summary

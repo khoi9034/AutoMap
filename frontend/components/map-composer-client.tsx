@@ -1,7 +1,7 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { AdjustStep } from "@/components/map-composer/adjust-step";
 import { ExportStep } from "@/components/map-composer/export-step";
@@ -31,6 +31,10 @@ import {
 import type { WorkflowToast } from "@/types/workflow";
 
 type ComposerLoadingState = "generate" | "adjust" | "export" | "exhibit" | "route-refine" | null;
+type StaticDemoReason = "manual" | "failed" | "timeout" | "canceled" | "still_running" | null;
+
+const FALLBACK_OFFER_DELAY_SECONDS = 45;
+const PUBLIC_DEMO_TIMEOUT_MS = 150000;
 
 const defaultReportConfig: ReportSectionConfig = {
   include_map_summary: true,
@@ -49,7 +53,7 @@ const defaultReportConfig: ReportSectionConfig = {
 
 function timeoutComposerRequest(): Promise<never> {
   return new Promise((_, reject) => {
-    setTimeout(() => reject(new Error("public_demo_timeout")), 90000);
+    setTimeout(() => reject(new Error("public_demo_timeout")), PUBLIC_DEMO_TIMEOUT_MS);
   });
 }
 
@@ -85,9 +89,21 @@ export function MapComposerClient() {
   const [loading, setLoading] = useState<ComposerLoadingState>(null);
   const [error, setError] = useState<string | null>(null);
   const [generateElapsedSeconds, setGenerateElapsedSeconds] = useState(0);
-  const [showStaticDemoFallback, setShowStaticDemoFallback] = useState(false);
+  const [showStaticDemoOffer, setShowStaticDemoOffer] = useState(false);
+  const [showStaticDemoPanel, setShowStaticDemoPanel] = useState(false);
+  const [staticDemoReason, setStaticDemoReason] = useState<StaticDemoReason>(null);
+  const [pendingLiveResponse, setPendingLiveResponse] = useState<ComposerResponse | null>(null);
   const [composerProgressMessage, setComposerProgressMessage] = useState<string | null>(null);
   const [toast, setToast] = useState<WorkflowToast | null>(null);
+  const generationRunIdRef = useRef(0);
+  const staticDemoPanelRef = useRef(false);
+  const generationTimingRef = useRef<{
+    request_started_at?: string;
+    fallback_offer_shown_at?: string;
+    request_finished_at?: string;
+    total_duration_ms?: number;
+    result_source?: "live" | "static_fallback" | "canceled";
+  }>({});
 
   const previewPacketId = useMemo(() => packetIdForPreview(response), [response]);
   const previewReady = Boolean(response?.can_preview && previewPacketId);
@@ -105,13 +121,26 @@ export function MapComposerClient() {
       return;
     }
     const startedAt = Date.now();
+    let fallbackOfferRecorded = false;
     const timer = setInterval(() => {
       const elapsed = Math.floor((Date.now() - startedAt) / 1000);
       setGenerateElapsedSeconds(elapsed);
-      if (elapsed >= 45) setShowStaticDemoFallback(true);
+      if (elapsed >= FALLBACK_OFFER_DELAY_SECONDS) {
+        setShowStaticDemoOffer(true);
+        if (!fallbackOfferRecorded) {
+          fallbackOfferRecorded = true;
+          generationTimingRef.current.fallback_offer_shown_at = new Date().toISOString();
+        }
+      }
     }, 1000);
     return () => clearInterval(timer);
   }, [loading]);
+
+  function setStaticDemoPanelVisible(nextVisible: boolean, reason: StaticDemoReason = null) {
+    staticDemoPanelRef.current = nextVisible;
+    setShowStaticDemoPanel(nextVisible);
+    setStaticDemoReason(nextVisible ? reason : null);
+  }
 
   function resetAdjustments(nextResponse = response) {
     if (!nextResponse) return;
@@ -156,19 +185,56 @@ export function MapComposerClient() {
     setActiveStep(step);
   }
 
+  function applyComposerResult(result: ComposerResponse) {
+    setResponse(result);
+    setExhibitPackage(null);
+    setLayers(layerEditsFromResponse(result));
+    setMapTitle(composerDisplayTitle(result));
+    setMapSubtitle(composerDisplaySubtitle(result));
+    setNotes("");
+    setActiveMapViewState(null);
+    const nextPrintOptions = backendExportOptionsToPrintOptions(
+      result.composer_map_state?.export_options,
+      result.composer_map_state?.report_section_config || defaultReportConfig,
+    );
+    setPrintOptions(nextPrintOptions);
+    setActiveStep("preview");
+    mergeWorkflowState({
+      rawPrompt: prompt,
+      recipe: result.recipe,
+      reviewPacket: result.packet_path ? { packet_path: result.packet_path, packet_id: result.packet_id } : undefined,
+      selectedPacketPath: result.packet_path || undefined,
+      selectedPacketId: result.packet_id || undefined,
+      warnings: result.warnings || [],
+      missingData: result.missing_data || [],
+      activeStep: result.can_preview ? "preview" : "recipe",
+    });
+    setToast({
+      tone: result.can_preview ? "success" : "warning",
+      message: result.can_preview
+        ? "Draft map and preview are ready."
+        : "Draft created, but preview is blocked until the address or parcel matches.",
+    });
+  }
+
   async function generateDraft() {
+    const runId = generationRunIdRef.current + 1;
+    generationRunIdRef.current = runId;
     setLoading("generate");
     setError(null);
-    setShowStaticDemoFallback(false);
-    setComposerProgressMessage("Starting live demo...");
+    setShowStaticDemoOffer(false);
+    setStaticDemoPanelVisible(false);
+    setPendingLiveResponse(null);
+    setComposerProgressMessage(null);
+    generationTimingRef.current = { request_started_at: new Date().toISOString() };
     try {
       try {
         await getApiHealth();
       } catch {
-        setComposerProgressMessage("Live backend is warming up.");
+        setComposerProgressMessage("Live backend is warming up. Starting the live request through the Vercel proxy...");
       }
       const attemptGenerate = async () => {
-        setComposerProgressMessage("Matching address, finding nearby fire stations, and calculating road route...");
+        setComposerProgressMessage(null);
         return generateComposerDraft(prompt);
       };
       const liveRequest = async () => {
@@ -185,47 +251,45 @@ export function MapComposerClient() {
         }
       };
       const result = await Promise.race([liveRequest(), timeoutComposerRequest()]);
-      setResponse(result);
-      setExhibitPackage(null);
-      setLayers(layerEditsFromResponse(result));
-      setMapTitle(composerDisplayTitle(result));
-      setMapSubtitle(composerDisplaySubtitle(result));
-      setNotes("");
-      setActiveMapViewState(null);
-      const nextPrintOptions = backendExportOptionsToPrintOptions(
-        result.composer_map_state?.export_options,
-        result.composer_map_state?.report_section_config || defaultReportConfig,
-      );
-      setPrintOptions(nextPrintOptions);
-      setActiveStep("preview");
-      mergeWorkflowState({
-        rawPrompt: prompt,
-        recipe: result.recipe,
-        reviewPacket: result.packet_path ? { packet_path: result.packet_path, packet_id: result.packet_id } : undefined,
-        selectedPacketPath: result.packet_path || undefined,
-        selectedPacketId: result.packet_id || undefined,
-        warnings: result.warnings || [],
-        missingData: result.missing_data || [],
-        activeStep: result.can_preview ? "preview" : "recipe",
-      });
-      setToast({
-        tone: result.can_preview ? "success" : "warning",
-        message: result.can_preview
-          ? "Draft map and preview are ready."
-          : "Draft created, but preview is blocked until the address or parcel matches.",
-      });
-    } catch {
-      setShowStaticDemoFallback(true);
+      if (runId !== generationRunIdRef.current) return;
+      generationTimingRef.current.request_finished_at = new Date().toISOString();
+      generationTimingRef.current.total_duration_ms =
+        Date.parse(generationTimingRef.current.request_finished_at) -
+        Date.parse(generationTimingRef.current.request_started_at || generationTimingRef.current.request_finished_at);
+      generationTimingRef.current.result_source = "live";
+      console.info("AutoMap composer timing", generationTimingRef.current);
+      if (staticDemoPanelRef.current) {
+        setPendingLiveResponse(result);
+        setToast({ tone: "success", message: "Live result is ready. Switch to it when you are ready." });
+      } else {
+        setShowStaticDemoOffer(false);
+        applyComposerResult(result);
+      }
+    } catch (exc) {
+      if (runId !== generationRunIdRef.current) return;
+      const timedOut = exc instanceof Error && exc.message === "public_demo_timeout";
+      setShowStaticDemoOffer(true);
+      setStaticDemoPanelVisible(false);
       setError(
-        "The live backend is waking up or the composer request is taking too long. You can retry the live demo, view the static demo, or open the project summary.",
+        timedOut
+          ? "The live request timed out. You can retry the live demo or open the static fallback."
+          : "The live request could not finish. You can retry the live demo or open the static fallback.",
       );
+      setStaticDemoReason(timedOut ? "timeout" : "failed");
     } finally {
-      setLoading(null);
-      setComposerProgressMessage(null);
+      if (runId === generationRunIdRef.current) {
+        setLoading(null);
+        setComposerProgressMessage(null);
+      }
     }
   }
 
   function viewStaticDemoResult() {
+    generationTimingRef.current.result_source = "static_fallback";
+    if (!generationTimingRef.current.fallback_offer_shown_at) {
+      generationTimingRef.current.fallback_offer_shown_at = new Date().toISOString();
+    }
+    console.info("AutoMap composer timing", generationTimingRef.current);
     setResponse(staticDemoComposerResponse);
     setExhibitPackage(null);
     setLayers(layerEditsFromResponse(staticDemoComposerResponse));
@@ -234,9 +298,36 @@ export function MapComposerClient() {
     setNotes("Static demo fallback. Live backend unavailable.");
     setActiveMapViewState(null);
     setError(null);
-    setShowStaticDemoFallback(true);
+    setShowStaticDemoOffer(true);
+    setStaticDemoPanelVisible(true, loading === "generate" ? "still_running" : staticDemoReason || "manual");
     setActiveStep("request");
-    setToast({ tone: "warning", message: "Showing a static demo fallback. Retry the live request when the backend is awake." });
+    setToast({ tone: "warning", message: "Showing the compact static fallback. The live request remains primary when available." });
+  }
+
+  function keepWaitingForLiveResult() {
+    setToast({ tone: "default", message: "Live request is still primary. AutoMap will switch to Preview when it finishes." });
+  }
+
+  function cancelLiveRequest() {
+    generationRunIdRef.current += 1;
+    generationTimingRef.current.request_finished_at = new Date().toISOString();
+    generationTimingRef.current.result_source = "canceled";
+    setLoading(null);
+    setComposerProgressMessage(null);
+    setShowStaticDemoOffer(true);
+    setStaticDemoPanelVisible(false, "canceled");
+    setStaticDemoReason("canceled");
+    setError("Live request canceled. You can retry or open the static fallback.");
+  }
+
+  function switchToLiveResult() {
+    if (!pendingLiveResponse) return;
+    const liveResult = pendingLiveResponse;
+    setPendingLiveResponse(null);
+    setShowStaticDemoOffer(false);
+    setStaticDemoPanelVisible(false);
+    setError(null);
+    applyComposerResult(liveResult);
   }
 
   async function applyAdjustments() {
@@ -348,12 +439,18 @@ export function MapComposerClient() {
           elapsedSeconds={generateElapsedSeconds}
           error={error}
           loading={loading === "generate"}
+          liveResultReady={Boolean(pendingLiveResponse)}
+          onCancelRequest={cancelLiveRequest}
           onGenerate={generateDraft}
+          onKeepWaiting={keepWaitingForLiveResult}
+          onSwitchToLiveResult={switchToLiveResult}
           onUseStaticDemo={viewStaticDemoResult}
           progressMessage={composerProgressMessage}
           prompt={prompt}
           setPrompt={setPrompt}
-          showStaticDemoFallback={showStaticDemoFallback}
+          showStaticDemoOffer={showStaticDemoOffer}
+          showStaticDemoPanel={showStaticDemoPanel}
+          staticDemoReason={staticDemoReason}
           staticDemoResponse={response?.composer_session_id === staticDemoComposerResponse.composer_session_id ? staticDemoComposerResponse : null}
           toast={toast}
         />

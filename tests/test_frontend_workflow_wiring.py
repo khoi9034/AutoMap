@@ -261,7 +261,7 @@ def test_map_composer_is_primary_simple_workflow():
     assert "printOptions" in client
     assert "lockedMapState" in client
     assert "Try Road-Following Route" in preview_step
-    assert "Calculating road route" in request_step
+    assert "Calculating road-following route" in request_step
     assert "currentComposerPayload" in client
     assert "report_config: mapState.report_section_config" in composer_map_state_lib
     assert "priorState = response.composer_map_state" in composer_map_state_lib
@@ -1248,13 +1248,22 @@ def test_static_demo_fallback_is_available_for_slow_composer_requests():
 
     assert "staticDemoComposerResponse" in client
     assert "setTimeout(resolve, 10000)" in client
-    assert "setShowStaticDemoFallback(true)" in client
-    assert "elapsed >= 45" in client
+    assert "setShowStaticDemoOffer(true)" in client
+    assert "setStaticDemoPanelVisible(true" in client
+    assert "elapsed >= FALLBACK_OFFER_DELAY_SECONDS" in client
+    assert "PUBLIC_DEMO_TIMEOUT_MS = 150000" in client
+    assert "pendingLiveResponse" in client
+    assert "Switch to live result" in request_step
     assert "public_demo_timeout" in client
-    assert "Retry Live Demo" in request_step
-    assert "View Static Demo" in request_step
+    assert "Retry live request" in request_step
+    assert "View static demo" in request_step
+    assert "Keep waiting" in request_step
+    assert "Cancel request" in request_step
     assert "Open Project Summary" in request_step
-    assert "Static fallback demo" in request_step
+    assert "Static demo fallback" in request_step
+    assert "showStaticDemoOffer && !showStaticDemoPanel" in request_step
+    assert "showStaticDemoPanel" in request_step
+    assert "Live generation stays primary" in request_step
     assert "Live backend is warming up" in client
     assert "Nearest Fire Station from 793 Bartram Ave" in static_demo
     assert "Static demo fallback. Live backend unavailable or warming up." in static_demo
