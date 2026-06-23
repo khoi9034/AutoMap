@@ -69,40 +69,41 @@ function proximityItems(response: ComposerResponse | null, mapState?: ComposerMa
 }
 
 export function PrintDocumentPreview({ mapState, packetId, printOptions, response }: PrintDocumentPreviewProps) {
+  const isMapSheet = printOptions.exportMode === "map_sheet";
   return (
     <article className={`print-document-preview print-document-preview-${printOptions.exportMode}`}>
       <PrintMapPagePreview mapState={mapState} packetId={packetId} printOptions={printOptions} response={response} />
-      {printOptions.includeMapSummary ? <PrintSummarySection title="Map Summary" items={mapSummaryItems(response, mapState)} /> : null}
-      {printOptions.includeKeyFindings ? <PrintSummarySection title="Key Findings" items={keyFindingItems(response, mapState)} /> : null}
-      {printOptions.includeProximitySummary ? (
+      {!isMapSheet && printOptions.includeMapSummary ? <PrintSummarySection title="Map Summary" items={mapSummaryItems(response, mapState)} /> : null}
+      {!isMapSheet && printOptions.includeKeyFindings ? <PrintSummarySection title="Key Findings" items={keyFindingItems(response, mapState)} /> : null}
+      {!isMapSheet && printOptions.includeProximitySummary ? (
         <PrintSummarySection title="Proximity Summary" items={proximityItems(response, mapState)} />
       ) : null}
-      {printOptions.includeParcelSummary ? <PrintSummarySection title="Parcel Summary" items={parcelItems(response, mapState)} /> : null}
-      {printOptions.includeStatistics ? <PrintStatisticsSection mapState={mapState} response={response} /> : null}
-      {printOptions.includePermitSummary ? (
+      {!isMapSheet && printOptions.includeParcelSummary ? <PrintSummarySection title="Parcel Summary" items={parcelItems(response, mapState)} /> : null}
+      {!isMapSheet && printOptions.includeStatistics ? <PrintStatisticsSection mapState={mapState} response={response} /> : null}
+      {!isMapSheet && printOptions.includePermitSummary ? (
         <PrintSummarySection
           title="Permit Summary"
           note="Official current permit source remains unresolved."
           items={[{ label: "Status", value: "Unavailable - unresolved source" }]}
         />
       ) : null}
-      {printOptions.includePlanningSummary ? (
+      {!isMapSheet && printOptions.includePlanningSummary ? (
         <PrintSummarySection
           title="Planning Case Summary"
           note="Planning case coverage depends on verified geography-specific sources."
           items={[{ label: "Status", value: "Unavailable unless verified source covers the request" }]}
         />
       ) : null}
-      {printOptions.includeDevelopmentProxySummary ? (
+      {!isMapSheet && printOptions.includeDevelopmentProxySummary ? (
         <PrintSummarySection
           title="Development Proxy Summary"
           note="Proxy sources are context only and not official approvals."
           items={[{ label: "Status", value: "Unavailable unless proxy source was requested and bounded" }]}
         />
       ) : null}
-      {printOptions.includeLayerTable ? <PrintLayerTableSection mapState={mapState} response={response} /> : null}
-      {printOptions.includeWarnings ? <PrintWarningSection mapState={mapState} response={response} /> : null}
-      {printOptions.includeSourceNotes ? <PrintSourceNotesSection /> : null}
+      {!isMapSheet && printOptions.includeLayerTable ? <PrintLayerTableSection mapState={mapState} response={response} /> : null}
+      {!isMapSheet && printOptions.includeWarnings ? <PrintWarningSection mapState={mapState} response={response} /> : null}
+      {!isMapSheet && printOptions.includeSourceNotes ? <PrintSourceNotesSection /> : null}
     </article>
   );
 }

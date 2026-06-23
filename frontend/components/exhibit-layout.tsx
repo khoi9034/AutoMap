@@ -75,14 +75,15 @@ export function ExhibitLayout({ response, sessionId, map, actions }: ExhibitLayo
   const mapState = response.composer_map_state || {};
   const exportMode = mapState.export_mode || mapState.export_options?.export_mode || "map_exhibit_only";
   const reportConfig = mapState.report_section_config || {};
+  const isMapSheet = exportMode === "map_sheet" || exportMode === "map_exhibit_only";
   const isFullReport = exportMode === "full_report";
   const isMapSummary = exportMode === "map_plus_summary" || exportMode === "map_summary";
   const showKeyFindings = mapState.export_options?.include_key_findings !== false || isMapSummary || isFullReport;
   const showLayerTable = Boolean(reportConfig.include_layer_table || isFullReport);
   const showWarnings = Boolean(reportConfig.include_warnings || isFullReport);
-  const showSourceNotes = Boolean(reportConfig.include_source_notes && exportMode !== "map_exhibit_only") || isFullReport;
+  const showSourceNotes = Boolean(reportConfig.include_source_notes && !isMapSheet) || isFullReport;
   const warningItems = warningList(response);
-  const visibleWarnings = exportMode === "map_exhibit_only" ? warningItems.slice(0, 4) : warningItems;
+  const visibleWarnings = isMapSheet ? warningItems.slice(0, 4) : warningItems;
 
   return (
     <main className={`composer-print-page exhibit-layout exhibit-layout-${exportMode}`} data-export-mode={exportMode}>

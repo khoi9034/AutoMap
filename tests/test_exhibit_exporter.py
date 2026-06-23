@@ -150,7 +150,7 @@ def test_exhibit_data_json_contains_title_prompt_layers_and_warnings(monkeypatch
     assert data["map_state_json"]["map_title"] == "Nearest Fire Station from 793 Bartram Ave"
     assert data["report_sections"]["sections"]
     assert data["statistics_sections"]["proximity"]["distance"]["value"] == 1.22
-    assert data["export_mode"] == "map_exhibit_only"
+    assert data["export_mode"] == "map_sheet"
     assert data["included_sections"]
     assert data["locked_map_state_used"] is True
 
@@ -164,9 +164,12 @@ def test_default_exhibit_html_is_map_first_without_forced_layer_table(monkeypatc
 
     assert "Exhibit map frame" in html
     assert "Layer Source Table" not in html
-    assert manifest["exportMode"] == "map_exhibit_only"
+    assert manifest["exportMode"] == "map_sheet"
+    assert manifest["sheetSize"]["preset"] == "letter"
+    assert manifest["mapFurniture"]["legend"] is True
     assert manifest["lockedMapStateUsed"] is True
-    assert any(section["section_id"] == "key_findings" for section in manifest["includedSections"])
+    assert any(section["section_id"] == "map_sheet" for section in manifest["includedSections"])
+    assert any(section["section_id"] == "legend" for section in manifest["includedSections"])
 
 
 def test_full_report_exhibit_html_includes_appendix_table(monkeypatch, tmp_path):

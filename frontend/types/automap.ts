@@ -1153,7 +1153,7 @@ export type ReportSectionConfig = {
   include_table_export_summary?: boolean;
 };
 
-export type ExportMode = "map_exhibit_only" | "map_plus_summary" | "map_summary" | "full_report" | string;
+export type ExportMode = "map_sheet" | "map_exhibit_only" | "map_plus_summary" | "map_summary" | "full_report" | string;
 
 export type PrintExportOptions = {
   export_mode?: ExportMode;
@@ -1170,6 +1170,26 @@ export type PrintExportOptions = {
   include_development_proxy_summary?: boolean;
   include_appendix?: boolean;
   include_draft_disclaimer?: boolean;
+  sheet_size_preset?: string;
+  sheet_width?: number;
+  sheet_height?: number;
+  sheet_units?: "inches" | string;
+  sheet_orientation?: "portrait" | "landscape" | string;
+  sheet_dpi?: 150 | 300 | number;
+  sheet_margin?: "none" | "narrow" | "standard" | string;
+  map_frame_fill?: "fit_width" | "fit_page" | "fixed_scale" | string;
+  scale_mode?: "fit_extent" | "fixed_scale" | string;
+  fixed_scale?: string;
+  custom_scale?: number;
+  include_title?: boolean;
+  include_subtitle?: boolean;
+  include_legend?: boolean;
+  include_scale_bar?: boolean;
+  include_north_arrow?: boolean;
+  include_source_note?: boolean;
+  include_draft_watermark?: boolean;
+  include_scope_note?: boolean;
+  include_real_publish_note?: boolean;
   preserve_extent?: boolean;
   preserve_layer_state?: boolean;
   wysiwyg?: boolean;

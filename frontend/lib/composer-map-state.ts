@@ -9,6 +9,7 @@ import type {
 import type { ComposerLayerEdit } from "@/components/map-composer/types";
 import {
   DEFAULT_LIVE_PRINT_OPTIONS,
+  normalizeExportMode,
   printOptionsForMode,
   printOptionsToBackendExportOptions,
   printOptionsToReportConfig,
@@ -30,9 +31,10 @@ type BuildComposerMapStateSnapshotArgs = {
 export const defaultPrintExportOptions: PrintExportOptions = printOptionsToBackendExportOptions(DEFAULT_LIVE_PRINT_OPTIONS);
 
 export function reportConfigForExportMode(exportMode: ExportMode, current?: ReportSectionConfig): ReportSectionConfig {
-  const defaults = printOptionsToReportConfig(printOptionsForMode(exportMode));
+  const normalizedMode = normalizeExportMode(exportMode);
+  const defaults = printOptionsToReportConfig(printOptionsForMode(normalizedMode));
   const merged = { ...defaults, ...(current || {}) };
-  if (exportMode === "map_exhibit_only") {
+  if (normalizedMode === "map_sheet") {
     return {
       ...merged,
       include_layer_table: false,
@@ -66,6 +68,7 @@ export function buildComposerMapStateSnapshot({
   const previewConfig = response.preview_config || priorState.preview_config || {};
   const normalizedPrintOptions = printOptionsForMode(exportMode, printOptions);
   const exportOptions = printOptionsToBackendExportOptions(normalizedPrintOptions);
+  const normalizedExportMode = normalizedPrintOptions.exportMode;
   const normalizedReportConfig = {
     ...printOptionsToReportConfig(normalizedPrintOptions),
     include_table_preview: reportConfig.include_table_preview || false,
@@ -120,7 +123,7 @@ export function buildComposerMapStateSnapshot({
     missing_data: response.missing_data || priorState.missing_data || [],
     reviewer_notes: notes,
     adjusted_state_applied: Boolean(response.applied_adjustments || layers.length),
-    export_mode: exportMode,
+    export_mode: normalizedExportMode,
     export_options: exportOptions,
     print_export_options: exportOptions,
     report_section_config: normalizedReportConfig,
@@ -129,7 +132,7 @@ export function buildComposerMapStateSnapshot({
 }
 
 export function buildComposerExportPayload(args: BuildComposerMapStateSnapshotArgs): ComposerAdjustPayload | null {
-  const { response, layers, mapTitle, mapSubtitle, notes, exportMode } = args;
+  const { response, layers, mapTitle, mapSubtitle, notes } = args;
   if (!response.composer_session_id) return null;
   const mapState = buildComposerMapStateSnapshot(args);
   return {
@@ -141,7 +144,7 @@ export function buildComposerExportPayload(args: BuildComposerMapStateSnapshotAr
     layers,
     active_map_extent: (mapState.map_extent || undefined) as ComposerAdjustPayload["active_map_extent"],
     report_config: mapState.report_section_config,
-    export_mode: exportMode,
+    export_mode: mapState.export_mode,
     export_options: mapState.export_options,
     map_state: mapState,
   };

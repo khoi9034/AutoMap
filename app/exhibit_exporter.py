@@ -343,8 +343,11 @@ def _render_key_findings(findings: list[dict[str, str]]) -> str:
 def _render_html(data: dict[str, Any], layer_rows: list[dict[str, str]], warnings: list[str]) -> str:
     title = data["title_block"]
     findings = data.get("key_findings") or []
-    export_options = normalize_print_options(data.get("export_options") if isinstance(data.get("export_options"), dict) else {})
-    export_mode = str(data.get("export_mode") or export_options.get("export_mode") or "map_exhibit_only")
+    export_options_payload = data.get("export_options") if isinstance(data.get("export_options"), dict) else {}
+    if data.get("export_mode"):
+        export_options_payload = {**export_options_payload, "export_mode": data.get("export_mode")}
+    export_options = normalize_print_options(export_options_payload)
+    export_mode = str(export_options.get("export_mode") or "map_sheet")
     include_appendix = bool(export_options.get("include_appendix") or export_mode == "full_report")
     include_layer_table = include_appendix or export_mode == "full_report"
     warning_items = warnings if include_appendix else warnings[:4]
@@ -491,8 +494,11 @@ def generate_exhibit_package_from_session(session: dict[str, Any], *, mode: str 
     layer_rows = build_layer_source_rows(session)
     warning_summary = build_warning_summary(session)
     map_state = _map_state(session)
-    export_options = normalize_print_options(map_state.get("export_options") if isinstance(map_state.get("export_options"), dict) else {})
-    export_mode = str(map_state.get("export_mode") or export_options.get("export_mode") or "map_exhibit_only")
+    export_options_payload = map_state.get("export_options") if isinstance(map_state.get("export_options"), dict) else {}
+    if map_state.get("export_mode"):
+        export_options_payload = {**export_options_payload, "export_mode": map_state.get("export_mode")}
+    export_options = normalize_print_options(export_options_payload)
+    export_mode = str(export_options.get("export_mode") or "map_sheet")
     statistics = build_report_statistics(map_state or session)
     report_sections = build_report_sections(map_state or session, statistics, (map_state or {}).get("report_section_config"))
     data = _sanitize(

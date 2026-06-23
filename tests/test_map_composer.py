@@ -5,6 +5,7 @@ from types import SimpleNamespace
 from fastapi.testclient import TestClient
 
 from app.map_composer import apply_composer_adjustments, export_composer_session, generate_composer_draft
+from app.print_options_models import export_manifest_metadata, normalize_print_options
 from app.report_statistics_builder import build_report_statistics
 from app.recipe_engine import build_recipe
 from app.web_ui import create_app
@@ -662,7 +663,7 @@ def test_composer_map_state_saves_after_generate(monkeypatch, tmp_path):
     assert result["composer_map_state"]["composer_session_id"] == result["composer_session_id"]
     assert captured[result["composer_session_id"]]["map_title"] == result["map_title"]
     assert result["composer_map_state_persisted"] is True
-    assert result["composer_map_state"]["export_mode"] == "map_exhibit_only"
+    assert result["composer_map_state"]["export_mode"] == "map_sheet"
     assert result["composer_map_state"]["report_section_config"]["include_layer_table"] is False
     assert result["composer_map_state"]["report_section_config"]["include_statistics"] is False
 
@@ -752,6 +753,39 @@ def test_full_report_export_mode_enables_appendix_sections(monkeypatch, tmp_path
     assert state["current_center"]["longitude"] == -80.55
     assert state["current_zoom"] == 14
     assert state["current_scale"] == 9028.4
+
+
+def test_map_sheet_export_options_preserve_dimensions_and_furniture():
+    options = normalize_print_options(
+        {
+            "export_mode": "map_sheet",
+            "sheet_size_preset": "custom",
+            "sheet_width": 17,
+            "sheet_height": 11,
+            "sheet_orientation": "landscape",
+            "sheet_dpi": 300,
+            "sheet_margin": "narrow",
+            "scale_mode": "fixed_scale",
+            "fixed_scale": "12000",
+            "include_legend": False,
+            "include_north_arrow": True,
+            "include_layer_table": True,
+        }
+    )
+    manifest = export_manifest_metadata(options, locked_map_state_used=True)
+
+    assert options["export_mode"] == "map_sheet"
+    assert options["include_layer_table"] is True
+    assert options["sheet_width"] == 17
+    assert options["sheet_height"] == 11
+    assert manifest["exportMode"] == "map_sheet"
+    assert manifest["sheetSize"]["preset"] == "custom"
+    assert manifest["sheetSize"]["width"] == 17
+    assert manifest["mapScale"]["scaleMode"] == "fixed_scale"
+    assert manifest["mapScale"]["fixedScale"] == "12000"
+    assert manifest["mapFurniture"]["legend"] is False
+    assert manifest["mapFurniture"]["northArrow"] is True
+    assert manifest["lockedMapStateUsed"] is True
 
 
 def test_save_map_state_api_returns_exact_state(monkeypatch):

@@ -428,15 +428,30 @@ def test_map_composer_is_primary_simple_workflow():
     assert "Open Browser Print" in print_export_step
     assert "Generate Exhibit Package" in print_export_step
     assert "Map only" in print_export_step
+    assert "Map Sheet" in print_export_step
+    assert "Map Sheet Size" in print_export_step
+    assert "Letter 8.5 x 11 in" in print_options
+    assert "Tabloid 11 x 17 in" in print_options
+    assert "ARCH D 24 x 36 in" in print_options
+    assert "ARCH E 36 x 48 in" in print_options
+    assert "Custom" in print_options
+    assert "Fit locked extent to sheet" in print_export_step
+    assert "Fixed map scale" in print_export_step
+    assert "voting precinct maps" in print_export_step
     assert "Map + summary" in print_export_step
     assert "Full report" in print_export_step
     assert "MapStateCapture" in print_export_step
     assert "PrintPreviewPanel" in print_export_step
     assert "Unlock and Edit Map" in print_export_step
+    assert "Export Map Sheet PDF" in print_export_step
+    assert "Export Map Sheet PNG" in print_export_step
     assert "Generate Review Report" in print_export_step
     assert "Export Layer Source CSV" in print_export_step
     assert "Export Warning Summary" in print_export_step
     assert "Export WebMap JSON" in print_export_step
+    assert "Map furniture" in print_export_step
+    assert "North arrow" in print_export_step
+    assert "Scale bar" in print_export_step
     assert "Statistics" in print_export_step
     assert "Permit section" in print_export_step
     assert "reportConfig" not in print_export_step
@@ -453,14 +468,21 @@ def test_map_composer_is_primary_simple_workflow():
     assert "data-locked-map-state" in print_map_page_preview
     assert 'mode="print_locked"' in print_map_page_preview
     assert "Exact composer state" in map_state_capture
+    assert "Standalone map sheet" in map_state_capture
     assert "Map exhibit first" in map_state_capture
     assert "buildComposerMapStateSnapshot" in composer_map_state_lib
-    assert "map_exhibit_only" in composer_map_state_lib
+    assert "map_sheet" in composer_map_state_lib
+    assert "map_sheet" in print_options
     assert "map_plus_summary" in print_options
     assert "full_report" in print_options
     assert "include_layer_table: false" in composer_map_state_lib
     assert "DEFAULT_LIVE_PRINT_OPTIONS" in print_options
     assert "includeLayerTable: false" in print_options
+    assert "sheetWidth" in print_options
+    assert "includeLegend" in print_options
+    assert "isMapSheet" in print_document_preview
+    assert "print-sheet-mode-${printOptions.exportMode}" in print_map_page_preview
+    assert "effectiveSheetDimensions" in print_map_page_preview
     assert "System Snapshot" not in client
     assert "System Snapshot" not in request_step
     assert "Request to preview to print" not in client

@@ -14,7 +14,7 @@ export function MapStateCapture({ response, exportMode }: MapStateCaptureProps) 
   return (
     <div className="map-state-capture">
       <strong>Exact composer state</strong>
-      <span>{exportMode === "full_report" ? "Full report appendix enabled" : "Map exhibit first"}</span>
+      <span>{exportMode === "full_report" ? "Full report appendix enabled" : exportMode === "map_sheet" ? "Standalone map sheet" : "Map exhibit first"}</span>
       <span>{layerCount} visible layer{layerCount === 1 ? "" : "s"}</span>
       <span>{extentReady ? "Extent saved" : "Extent pending"}</span>
     </div>

@@ -9,6 +9,7 @@ from app.print_options_models import (
     DEFAULT_PRINT_EXPORT_OPTIONS,
     MAP_EXHIBIT_EXPORT_MODE,
     MAP_PLUS_SUMMARY_EXPORT_MODE,
+    MAP_SHEET_EXPORT_MODE,
     normalize_print_options,
     report_config_from_print_options,
 )
@@ -68,7 +69,7 @@ def normalize_export_options(options: dict[str, Any] | None = None) -> dict[str,
 def report_config_for_export_mode(config: dict[str, Any] | None, export_options: dict[str, Any] | None) -> dict[str, bool]:
     """Apply export-mode defaults while preserving explicit frontend section choices."""
     merged = report_config_from_print_options(export_options, config)
-    if normalize_export_options(export_options).get("export_mode") == MAP_EXHIBIT_EXPORT_MODE:
+    if normalize_export_options(export_options).get("export_mode") in {MAP_SHEET_EXPORT_MODE, MAP_EXHIBIT_EXPORT_MODE}:
         merged["include_table_preview"] = False
         merged["include_table_export_summary"] = False
     return merged
