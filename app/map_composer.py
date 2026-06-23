@@ -428,6 +428,183 @@ def _proximity_context_layers(layers: list[dict[str, Any]], result: dict[str, An
     return cleaned
 
 
+def _preview_simple_fill_renderer(fill: list[int], outline: list[int], width: float = 1.0) -> dict[str, Any]:
+    return {
+        "type": "simple",
+        "symbol": {
+            "type": "esriSFS",
+            "style": "esriSFSSolid",
+            "color": fill,
+            "outline": {
+                "type": "esriSLS",
+                "style": "esriSLSSolid",
+                "color": outline,
+                "width": width,
+            },
+        },
+    }
+
+
+def _preview_simple_line_renderer(color: list[int], width: float = 1.8) -> dict[str, Any]:
+    return {
+        "type": "simple",
+        "symbol": {
+            "type": "esriSLS",
+            "style": "esriSLSSolid",
+            "color": color,
+            "width": width,
+        },
+    }
+
+
+def _preview_layer_text(layer: dict[str, Any]) -> str:
+    return " ".join(
+        str(value or "").lower()
+        for value in [
+            layer.get("title"),
+            layer.get("layer_key"),
+            layer.get("layer_name"),
+            layer.get("role"),
+            layer.get("category"),
+        ]
+    )
+
+
+def _is_commercial_zoning_recipe(recipe: dict[str, Any]) -> bool:
+    plan = recipe.get("request_plan") or {}
+    parsed = recipe.get("parsed_request") or {}
+    return (
+        plan.get("request_type") == "zoning_context"
+        and (
+            plan.get("zoning_category") == "commercial"
+            or "commercial" in (parsed.get("topic_details", {}).get("zoning_modifiers") or [])
+        )
+    )
+
+
+def _preview_context_role(layer: dict[str, Any]) -> str:
+    blob = _preview_layer_text(layer)
+    if "road" in blob or "street" in blob or "centerline" in blob:
+        return "roads"
+    if "zoning" in blob:
+        return "zoning"
+    if "flood" in blob:
+        return "flood"
+    if "municipal" in blob or "district" in blob or "boundary" in blob:
+        return "boundary"
+    if "parcel" in blob:
+        return "parcel_context"
+    return str(layer.get("role") or layer.get("category") or "context")
+
+
+def _context_draw_rank(layer: dict[str, Any]) -> int:
+    role = str(layer.get("cartography_role") or _preview_context_role(layer))
+    if role == "boundary":
+        return 10
+    if role in {"commercial_zoning", "zoning", "flood"}:
+        return 20
+    if role == "parcel_context":
+        return 30
+    if role in {"major_roads", "roads"}:
+        return 40
+    return 25
+
+
+def _style_context_layer(layer: dict[str, Any], recipe: dict[str, Any]) -> dict[str, Any]:
+    item = deepcopy(layer)
+    role = _preview_context_role(item)
+    commercial_context = _is_commercial_zoning_recipe(recipe)
+    definition_expression = item.get("definition_expression")
+    if role == "zoning":
+        if commercial_context and definition_expression:
+            item["title"] = "Commercial zoning"
+            item["legend_label"] = "Commercial zoning"
+            item["cartography_role"] = "commercial_zoning"
+            item["opacity"] = 0.48
+            item["drawing_info"] = {
+                "renderer": _preview_simple_fill_renderer([37, 99, 235, 92], [30, 64, 175, 235], 1.35)
+            }
+        else:
+            item["title"] = "Zoning context"
+            item["legend_label"] = "Zoning context"
+            item["cartography_role"] = "zoning"
+            item["opacity"] = 0.22
+            item["drawing_info"] = {
+                "renderer": _preview_simple_fill_renderer([100, 116, 139, 34], [71, 85, 105, 155], 0.7)
+            }
+    elif role == "roads":
+        major_requested = "major" in str(recipe.get("user_intent") or "").lower()
+        item["title"] = "Major roads" if major_requested else "Road context"
+        item["legend_label"] = item["title"]
+        item["cartography_role"] = "major_roads" if major_requested else "roads"
+        item["opacity"] = 0.92
+        item["drawing_info"] = {
+            "renderer": _preview_simple_line_renderer([31, 41, 55, 238], 2.4 if major_requested else 1.7)
+        }
+    elif role == "boundary":
+        item["title"] = "Concord boundary" if "concord" in str(recipe.get("user_intent") or "").lower() else "Boundary"
+        item["legend_label"] = item["title"]
+        item["cartography_role"] = "boundary"
+        item["opacity"] = 0.88
+        item["drawing_info"] = {
+            "renderer": _preview_simple_fill_renderer([255, 255, 255, 0], [17, 24, 39, 210], 1.8)
+        }
+    elif role == "flood":
+        item["title"] = "100-year floodplain"
+        item["legend_label"] = "100-year floodplain"
+        item["cartography_role"] = "flood"
+        item["opacity"] = 0.34
+    elif role == "parcel_context":
+        item["legend_label"] = "Parcels"
+        item["cartography_role"] = "parcel_context"
+        item["opacity"] = min(float(item.get("opacity") or 0.4), 0.34)
+    else:
+        item["legend_label"] = item.get("title") or "Context layer"
+        item["cartography_role"] = role
+    item["draw_order"] = _context_draw_rank(item)
+    return item
+
+
+def _apply_visible_qa_fallbacks(config: dict[str, Any], qa: dict[str, Any], recipe: dict[str, Any]) -> dict[str, Any]:
+    """Make safe QA fallbacks visible in the actual preview, not just in metadata."""
+    if not qa.get("fallback_used"):
+        return config
+    by_id = {
+        str(row.get("layer_id")): row
+        for row in qa.get("visible_feature_summary") or []
+        if isinstance(row, dict) and row.get("fallback_used")
+    }
+    if not by_id:
+        return config
+    patched = deepcopy(config)
+    next_layers: list[dict[str, Any]] = []
+    for layer in patched.get("context_layers") or []:
+        if not isinstance(layer, dict):
+            next_layers.append(layer)
+            continue
+        key = str(layer.get("layer_key") or layer.get("id") or layer.get("title") or "")
+        row = by_id.get(key)
+        if row and row.get("expected_role") == "zoning":
+            layer = deepcopy(layer)
+            layer.pop("definition_expression", None)
+            layer["title"] = "Zoning context"
+            layer["legend_label"] = "Zoning context"
+            layer["cartography_role"] = "zoning"
+            layer["opacity"] = 0.22
+            layer["fallback_used"] = True
+            layer["drawing_info"] = {
+                "renderer": _preview_simple_fill_renderer([100, 116, 139, 34], [71, 85, 105, 155], 0.7)
+            }
+            warnings = list(layer.get("review_warnings") or [])
+            warning = row.get("warning")
+            if warning and warning not in warnings:
+                warnings.append(str(warning))
+            layer["review_warnings"] = warnings
+        next_layers.append(layer)
+    patched["context_layers"] = sorted(next_layers, key=lambda item: _context_draw_rank(item) if isinstance(item, dict) else 99)
+    return patched
+
+
 def _composer_context_layers(layers: list[dict[str, Any]], recipe: dict[str, Any]) -> list[dict[str, Any]]:
     """Reduce non-proximity preview clutter while preserving metadata."""
     request_type = str((recipe.get("request_plan") or {}).get("request_type") or recipe.get("request_type") or "")
@@ -459,8 +636,8 @@ def _composer_context_layers(layers: list[dict[str, Any]], recipe: dict[str, Any
         else:
             item["default_visible"] = item.get("visibility", True)
         item["is_context_layer"] = True
-        cleaned.append(item)
-    return cleaned
+        cleaned.append(_style_context_layer(item, recipe))
+    return sorted(cleaned, key=_context_draw_rank)
 
 
 def _apply_proximity_result_to_recipe(recipe: dict[str, Any], prompt: str, result: dict[str, Any]) -> None:
@@ -590,6 +767,7 @@ def _augment_preview_config(preview_config: dict[str, Any] | None, recipe: dict[
                 config["initial_extent"] = target_geometry
                 config["focus_extent"] = target_geometry
     qa = visible_map_qa(config, recipe)
+    config = _apply_visible_qa_fallbacks(config, qa, recipe)
     config["visible_feature_summary"] = qa.get("visible_feature_summary") or []
     config["visible_feature_total"] = qa.get("visible_feature_total")
     config["visible_map_qa"] = {

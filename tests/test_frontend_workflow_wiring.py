@@ -288,6 +288,10 @@ def test_map_composer_is_primary_simple_workflow():
     assert "composer-map-grid" not in composer_preview
     assert "arcgisSymbolForOverlay" in composer_preview
     assert "MapLegend" in composer_preview
+    assert "Commercial zoning" in map_legend
+    assert "Zoning context" in map_legend
+    assert "Major roads" in map_legend
+    assert "Road context" in map_legend
     assert "NorthArrow" in composer_preview
     assert "MapScaleBar" in composer_preview
     assert "MapFrame" in composer_preview
@@ -299,6 +303,8 @@ def test_map_composer_is_primary_simple_workflow():
     assert "Locked preview" in composer_preview
     assert "Locked for print" in composer_preview
     assert "components: locked ? [\"attribution\"] : [\"attribution\", \"zoom\"]" in composer_preview
+    assert "if ((!derivedOverlays.length && !contextLayers.length)" in composer_preview
+    assert "if (!derivedOverlays.length && !contextLayers.length && packetId)" in composer_preview
     assert "mouseWheelZoomEnabled: false" in composer_preview
     assert "browserTouchPanEnabled: false" in composer_preview
     assert "onViewStateChange" in composer_preview
@@ -307,6 +313,7 @@ def test_map_composer_is_primary_simple_workflow():
     assert "data-testid=\"map-frame-title\"" in map_frame_title
     assert "<MapScaleBar scale={viewScale} mapWidth={viewWidth}" in composer_preview
     assert "<MapLegend overlays={derivedOverlays} contextLayers={contextLayers} />" in composer_preview
+    assert "contextDrawRank" in composer_preview
     frame_index = composer_preview.index("<MapFrame")
     legend_index = composer_preview.index("<MapLegend overlays={derivedOverlays} contextLayers={contextLayers} />")
     assert frame_index < legend_index

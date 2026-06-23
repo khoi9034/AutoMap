@@ -963,6 +963,9 @@ export type PreviewLayer = {
   opacity?: number;
   definition_expression?: string | null;
   drawing_info?: Record<string, JsonValue> | null;
+  legend_label?: string;
+  cartography_role?: string;
+  fallback_used?: boolean;
   review_warnings?: string[];
   derived_local_analysis?: boolean;
   local_output?: boolean;

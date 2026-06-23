@@ -164,6 +164,7 @@ def visible_map_qa(
             "expected_role": expected_role,
             "feature_count": None,
             "visible": visible,
+            "opacity": layer.get("opacity"),
             "fallback_used": False,
             "warning": None,
             "where": where,

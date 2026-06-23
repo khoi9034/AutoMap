@@ -22,11 +22,20 @@ function overlayLabel(overlay: DerivedOverlay): string {
 }
 
 function contextLabel(layer: PreviewLayer): string {
+  if (layer.legend_label) return layer.legend_label;
+  const role = layer.cartography_role || "";
+  if (role === "commercial_zoning") return "Commercial zoning";
+  if (role === "zoning") return "Zoning context";
+  if (role === "boundary") return "Concord boundary";
+  if (role === "major_roads") return "Major roads";
+  if (role === "roads") return "Road context";
+  if (role === "flood") return "100-year floodplain";
+  if (role === "parcel_context") return "Parcels";
   return layer.title || layer.layer_key || "Context layer";
 }
 
 function contextKind(layer: PreviewLayer): string {
-  const blob = `${layer.role || ""} ${layer.layer_key || ""} ${layer.title || ""}`.toLowerCase();
+  const blob = `${layer.cartography_role || ""} ${layer.role || ""} ${layer.layer_key || ""} ${layer.title || ""}`.toLowerCase();
   if (blob.includes("road") || blob.includes("street") || blob.includes("centerline")) return "line";
   if (blob.includes("flood")) return "flood";
   if (blob.includes("zoning")) return "zoning";

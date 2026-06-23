@@ -180,6 +180,7 @@ def test_visible_map_qa_summarizes_counts_extent_and_fallbacks():
                 "url": "https://example.test/zoning/0",
                 "definition_expression": "ZONING_GEN IN ('COMMERCIAL', 'OFFICE')",
                 "visibility": True,
+                "opacity": 0.48,
             },
             {
                 "layer_key": "roads",
@@ -187,6 +188,7 @@ def test_visible_map_qa_summarizes_counts_extent_and_fallbacks():
                 "category": "transportation",
                 "url": "https://example.test/roads/0",
                 "visibility": True,
+                "opacity": 0.92,
             },
         ],
     }
@@ -196,7 +198,9 @@ def test_visible_map_qa_summarizes_counts_extent_and_fallbacks():
     assert qa["visible_feature_total"] == 56
     assert qa["visible_extent"]["xmin"] < -80.62
     assert qa["visible_feature_summary"][0]["expected_role"] == "zoning"
+    assert qa["visible_feature_summary"][0]["opacity"] == 0.48
     assert qa["visible_feature_summary"][1]["expected_role"] == "roads"
+    assert qa["visible_feature_summary"][1]["opacity"] == 0.92
 
 
 def test_visible_map_qa_broadens_empty_commercial_filter():

@@ -39,7 +39,8 @@ type ArcView = {
   rotation?: number;
   width?: number;
   watch?: (property: string, callback: (value: unknown) => void) => { remove?: () => void };
-  ui?: { add?: (item: unknown, position: string) => void };
+  ui?: { add?: (item: unknown, position: string) => void; components?: string[] };
+  navigation?: Record<string, unknown>;
 };
 
 type ArcConstructor<T = unknown> = new (props?: Record<string, unknown>) => T;
@@ -267,9 +268,11 @@ function addDerivedOverlayLayers(map: ArcMap, items: LoadedOverlay[], modules: A
 
 function contextDrawRank(layer: PreviewLayer): number {
   const blob = `${layer.role || ""} ${layer.layer_key || ""} ${layer.title || ""} ${layer.category || ""}`.toLowerCase();
-  if (blob.includes("zoning") || blob.includes("flood") || blob.includes("school") || blob.includes("district")) return 10;
-  if (blob.includes("road") || blob.includes("street") || blob.includes("centerline")) return 20;
-  return 15;
+  if (blob.includes("boundary") || blob.includes("municipal") || blob.includes("district")) return 10;
+  if (blob.includes("zoning") || blob.includes("flood") || blob.includes("school")) return 20;
+  if (blob.includes("parcel")) return 30;
+  if (blob.includes("road") || blob.includes("street") || blob.includes("centerline")) return 40;
+  return 25;
 }
 
 function addContextLayers(map: ArcMap, contextLayers: PreviewLayer[], modules: ArcModules): void {
@@ -403,6 +406,8 @@ export function ComposerMapPreview({
   useEffect(() => {
     if (!derivedOverlays.length) {
       setLoaded([]);
+      setLoading(false);
+      setLoadError(null);
       return;
     }
     let cancelled = false;
@@ -432,7 +437,7 @@ export function ComposerMapPreview({
   }, [derivedOverlays]);
 
   useEffect(() => {
-    if (!derivedOverlays.length || loading || loadError || !containerRef.current) return;
+    if ((!derivedOverlays.length && !contextLayers.length) || loading || loadError || !containerRef.current) return;
     let cancelled = false;
     let view: ArcView | undefined;
     let scaleHandle: { remove?: () => void } | undefined;
@@ -534,7 +539,7 @@ export function ComposerMapPreview({
   ]);
 
   useEffect(() => {
-    if (!viewCommand || !viewRef.current || !modulesRef.current || !loaded.length) return;
+    if (!viewCommand || !viewRef.current || !modulesRef.current) return;
     const modules = modulesRef.current;
     const configuredExtent = numericExtent(response.preview_config?.focus_extent || response.preview_config?.initial_extent);
     const boundsForKind = (kind: ReturnType<typeof overlayKind>) =>
@@ -554,7 +559,7 @@ export function ComposerMapPreview({
     });
   }, [loaded, onViewStateChange, response.preview_config?.focus_extent, response.preview_config?.initial_extent, viewCommand]);
 
-  if (!derivedOverlays.length && packetId) {
+  if (!derivedOverlays.length && !contextLayers.length && packetId) {
     return <ArcGISMapPreview packetId={packetId} />;
   }
 
