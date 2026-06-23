@@ -329,13 +329,72 @@ def test_road_following_output_is_preferred_over_straight_line(monkeypatch, tmp_
     output_folder = tmp_path / "outputs" / "proximity" / "test_road_route"
     assert (output_folder / "route_line.geojson").exists()
     assert (output_folder / "straight_line.geojson").exists()
-    assert result["route_mode"] == "road_following_draft"
+    assert result["route_mode"] == "road_network"
+    assert result["nearest_facility_method"] == "road_distance"
     assert result["line_geojson_path"] == result["route_line_geojson_path"]
     assert result["route_geojson_path"] == result["route_line_geojson_path"]
     assert result["straight_line_visible_default"] is False
     route_overlay = next(overlay for overlay in result["derived_overlays"] if overlay["role"] == "route_line")
     assert route_overlay["id"] == "road_following_route_draft"
     assert route_overlay["symbol_key"] == "route_road_following"
+
+
+def test_nearest_facility_can_be_selected_by_road_distance(monkeypatch, tmp_path):
+    monkeypatch.setattr("app.proximity_engine.repo_root", lambda: tmp_path)
+    monkeypatch.setattr("app.local_output_server.repo_root", lambda: tmp_path)
+    monkeypatch.setattr("app.proximity_engine._safe_output_folder", lambda prompt: Path("outputs/proximity/test_road_selection"))
+    monkeypatch.setattr(
+        "app.proximity_engine.resolve_origin",
+        lambda origin_input, **kwargs: {
+            "status": "matched",
+            "origin_type": "address",
+            "property_match_status": "not_resolved",
+            "origin_feature": point_feature("Origin", -80, 35),
+            "warnings": [],
+        },
+    )
+
+    near_straight = point_feature("Fire Station Straight Near", -80.01, 35.0)
+    better_road = point_feature("Fire Station Road Near", -80.04, 35.0)
+
+    def fake_road_route(origin, target, **kwargs):
+        target_name = target["properties"]["Name"]
+        route_distance = 8.0 if "Straight" in target_name else 1.25
+        return RouteDraftResult(
+            route_mode="road_network",
+            route_label="Road-following draft route",
+            route_warning="Draft route based on public road centerlines. Not official navigation.",
+            route_geojson={
+                "type": "FeatureCollection",
+                "features": [
+                    line_feature(target_name, [[-80.0, 35.0], target["geometry"]["coordinates"]])
+                    | {"properties": {"automap_line_type": "road_following_draft", "route_mode": "road_network"}}
+                ],
+            },
+            straight_line_geojson={"type": "FeatureCollection", "features": []},
+            route_distance_miles=route_distance,
+            road_feature_count=4,
+        )
+
+    monkeypatch.setattr("app.proximity_engine.build_road_following_draft", fake_road_route)
+    client = MockSpatialClient(counts=[2], features=[near_straight, better_road])
+
+    result = run_nearest_facility(
+        "793 bartram ave",
+        target_type="nearest_fire_station",
+        layer_catalog=proximity_catalog(),
+        client=client,
+        persist=False,
+        allow_route_draft=True,
+        resolve_property=False,
+    )
+
+    assert result["target_name"] == "Fire Station Road Near"
+    assert result["route_mode"] == "road_network"
+    assert result["nearest_facility_method"] == "road_distance"
+    assert result["distance_value"] == 1.25
+    assert result["route_distance_miles"] == 1.25
+    assert result["straight_line_distance_miles"] > 1.25
 
 
 def test_fast_proximity_cache_prefers_saved_road_following_result(monkeypatch):
@@ -366,11 +425,11 @@ def test_fast_proximity_cache_prefers_saved_road_following_result(monkeypatch):
 
     try:
         result = run_proximity_request(prompt, persist=True, allow_route_draft=False, resolve_property=False)
-        assert result["route_mode"] == "road_following_draft"
+        assert result["route_mode"] == "road_network"
         assert result["route_geojson_path"] == road_result["route_line_geojson_path"]
         assert result["straight_line_visible_default"] is False
         assert result["route_refinement_status"] == "succeeded"
-        assert _PROXIMITY_CACHE[cache_key]["route_mode"] == "road_following_draft"
+        assert _PROXIMITY_CACHE[cache_key]["route_mode"] == "road_network"
     finally:
         _PROXIMITY_CACHE.clear()
 
@@ -393,8 +452,9 @@ def test_road_following_draft_succeeds_on_mocked_centerline_graph():
         client=client,
     )
 
-    assert result.route_mode == "road_following_draft"
+    assert result.route_mode == "road_network"
     assert result.route_geojson["features"][0]["properties"]["automap_line_type"] == "road_following_draft"
+    assert result.route_geojson["features"][0]["properties"]["route_mode"] == "road_network"
     assert result.road_feature_count == 2
     assert client.count_queries[0]["layer_url"] == "https://example.test/Streets/0"
 
@@ -413,9 +473,9 @@ def test_road_following_draft_falls_back_when_no_centerline_layer():
         client=MockSpatialClient(counts=[]),
     )
 
-    assert result.route_mode == "straight_line_reference"
+    assert result.route_mode == "straight_line_fallback"
     assert result.route_geojson is None
-    assert result.straight_line_geojson["features"][0]["properties"]["route_mode"] == "straight_line_reference"
+    assert result.straight_line_geojson["features"][0]["properties"]["route_mode"] == "straight_line_fallback"
 
 
 def test_address_point_to_parcel_spatial_lookup_is_bounded(monkeypatch):
@@ -546,20 +606,20 @@ def test_route_draft_without_network_service_warns(monkeypatch):
     monkeypatch.setattr(
         "app.proximity_engine.build_road_following_draft",
         lambda *args, **kwargs: RouteDraftResult(
-            route_mode="straight_line_reference",
-            route_label="Straight-line reference",
-            route_warning="Straight-line reference only. This is not a driving route.",
+            route_mode="straight_line_fallback",
+            route_label="Straight-line fallback",
+            route_warning="Road route unavailable; showing straight-line reference only.",
             straight_line_geojson={"type": "FeatureCollection", "features": []},
-            warnings=["Straight-line reference only. This is not a driving route."],
+            warnings=["Road route unavailable; showing straight-line reference only."],
         ),
     )
 
     result = run_route_draft("65 Church St S", "123 Main St", persist=False)
 
     assert result["status"] == "ok"
-    assert result["route_status"] == "straight_line_reference"
-    assert result["route_mode"] == "straight_line_reference"
-    assert "Road-network routing requires" in " ".join(result["warnings"])
+    assert result["route_status"] == "straight_line_fallback"
+    assert result["route_mode"] == "straight_line_fallback"
+    assert "Road route unavailable" in " ".join(result["warnings"])
     assert result["published"] is False
 
 

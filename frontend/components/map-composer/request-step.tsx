@@ -24,10 +24,10 @@ type RequestStepProps = {
 
 function slowProgressCopy(elapsedSeconds: number, progressMessage?: string | null): string {
   if (progressMessage) return progressMessage;
-  if (elapsedSeconds >= 45) return "Still working. You can keep waiting, retry, or view the static demo result.";
-  if (elapsedSeconds >= 15) return "Still working. Render may be warming up while AutoMap prepares the draft.";
-  if (elapsedSeconds >= 5) return "Matching address and nearest facility...";
-  return "Checking backend readiness...";
+  if (elapsedSeconds >= 45) return "Live demo is temporarily unavailable. View static fallback if you need a quick walkthrough.";
+  if (elapsedSeconds >= 15) return "Still working on the live result...";
+  if (elapsedSeconds >= 5) return "Calculating road route...";
+  return "Starting live demo...";
 }
 
 export function RequestStep({
@@ -49,9 +49,6 @@ export function RequestStep({
         <div>
           <p className="eyebrow">Request</p>
           <h3>Tell AutoMap what map you need.</h3>
-          <p className="muted">
-            AutoMap will parse the request, choose verified layers, create a draft preview, and keep publishing disabled.
-          </p>
           <p className="scope-note">Live address and parcel workflows currently support {STATIC_DEMO_SCOPE} only.</p>
         </div>
         <textarea
@@ -66,7 +63,7 @@ export function RequestStep({
         {loading ? (
           <div className="notice notice-info compact-notice">
             <strong>{slowProgressCopy(elapsedSeconds, progressMessage)}</strong>
-            <p>Live generation can take 30-90 seconds on the free deployment tier. Publishing remains disabled.</p>
+            <p>Publishing remains disabled. Static fallback appears only if the live request stalls.</p>
           </div>
         ) : null}
         {error ? <p className="error-text">{error}</p> : null}
@@ -104,19 +101,11 @@ export function RequestStep({
       <aside className="panel composer-request-explainer">
         <p className="eyebrow">Sample prompts</p>
         <div className="sample-grid composer-request-samples">
-          {samplePrompts.slice(0, 8).map((sample) => (
+          {samplePrompts.slice(0, 5).map((sample) => (
             <button className="sample-button" key={sample} type="button" onClick={() => setPrompt(sample)}>
               {sample}
             </button>
           ))}
-        </div>
-        <div className="definition-box">
-          <strong>Cabarrus County scope</strong>
-          <p>Address search is limited to Cabarrus County, NC. Out-of-county addresses are not supported in this prototype.</p>
-        </div>
-        <div className="definition-box">
-          <strong>What happens next</strong>
-          <p>Preview opens only after AutoMap can safely focus the map. Analysis, publishing, and ArcGIS login are not automatic.</p>
         </div>
       </aside>
     </section>

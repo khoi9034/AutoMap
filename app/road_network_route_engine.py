@@ -190,7 +190,7 @@ def _route_feature(
         "geometry": {"type": "LineString", "coordinates": [[lon, lat] for lon, lat in coordinates]},
         "properties": {
             "automap_line_type": "road_following_draft",
-            "route_mode": "road_following_draft",
+            "route_mode": "road_network",
             "target_type": target_type,
             "target_layer_key": target_layer_key,
             "distance_miles": round(distance_miles, 3),
@@ -218,8 +218,8 @@ def build_road_following_draft(
         properties={
             "target_type": target_type,
             "target_layer_key": target_layer_key,
-            "label": "Straight-line reference",
-            "route_mode": "straight_line_reference",
+            "label": "Straight-line fallback",
+            "route_mode": "straight_line_fallback",
         },
     )
     try:
@@ -266,7 +266,7 @@ def build_road_following_draft(
             target_layer_key=target_layer_key,
         )
         return RouteDraftResult(
-            route_mode="road_following_draft",
+            route_mode="road_network",
             route_label="Road-following draft route",
             route_warning=ROAD_FOLLOWING_DRAFT_WARNING,
             route_geojson={"type": "FeatureCollection", "features": [route]},
@@ -284,11 +284,10 @@ def build_road_following_draft(
     except Exception as exc:
         warning = f"{STRAIGHT_LINE_FALLBACK_WARNING} Road-following draft unavailable: {exc}"
         return RouteDraftResult(
-            route_mode="straight_line_reference",
-            route_label="Straight-line reference",
+            route_mode="straight_line_fallback",
+            route_label="Straight-line fallback",
             route_warning=warning,
             straight_line_geojson={"type": "FeatureCollection", "features": [straight_line]},
             warnings=[warning],
             metadata={"fallback_reason": str(exc)},
         )
-

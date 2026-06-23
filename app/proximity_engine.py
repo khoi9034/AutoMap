@@ -59,6 +59,10 @@ INITIAL_PROPERTY_RESOLUTION_SKIPPED_WARNING = (
 )
 LOGGER = logging.getLogger(__name__)
 _PROXIMITY_CACHE: dict[tuple[str, bool, bool], dict[str, Any]] = {}
+ROAD_ROUTE_MODES = {"road_network", "road_network_route", "road_following_draft"}
+STRAIGHT_LINE_ROUTE_MODES = {"straight_line_fallback", "straight_line_reference"}
+MAX_ROAD_DISTANCE_CANDIDATES = 3
+ROUTE_SELECTION_BUDGET_SECONDS = 15.0
 
 
 def _elapsed_ms(start: float) -> int:
@@ -70,6 +74,9 @@ def _empty_proximity_timing(start: float | None = None) -> dict[str, Any]:
         "address_match_ms": 0,
         "parcel_resolve_ms": 0,
         "nearest_facility_ms": 0,
+        "facility_query_ms": 0,
+        "road_query_ms": 0,
+        "route_solve_ms": 0,
         "route_generation_ms": 0,
         "geojson_write_ms": 0,
         "total_ms": _elapsed_ms(start) if start else 0,
@@ -93,16 +100,24 @@ def _normalize_route_result_metadata(result: dict[str, Any]) -> dict[str, Any]:
     straight_line_path = result.get("straight_line_geojson_path")
     preferred_prefix = "route_line" if route_line_path else "straight_line" if straight_line_path else "line"
     if preferred_prefix == "route_line":
-        result["route_mode"] = result.get("route_mode") or "road_following_draft"
-        result["route_status"] = result.get("route_status") or "road_following_draft"
+        result["route_mode"] = _canonical_route_mode(result.get("route_mode") or "road_network")
+        result["route_status"] = result.get("route_status") or result["route_mode"]
         result["route_label"] = result.get("route_label") or "Road-following draft route"
+        result["route_warning"] = result.get("route_warning") or ROAD_FOLLOWING_DRAFT_WARNING
+        result["nearest_facility_method"] = result.get("nearest_facility_method") or "road_distance"
+        result["route_geometry"] = result.get("route_geometry") or "route_line"
+        result["route_confidence"] = result.get("route_confidence") or "draft_road_centerline"
         result["route_refinement_available"] = False
         result["route_refinement_status"] = "succeeded"
         result["straight_line_visible_default"] = False
     elif preferred_prefix == "straight_line":
-        result["route_mode"] = result.get("route_mode") or "straight_line_reference"
-        result["route_status"] = result.get("route_status") or "straight_line_reference"
-        result["route_label"] = result.get("route_label") or "Straight-line reference"
+        result["route_mode"] = _canonical_route_mode(result.get("route_mode") or "straight_line_fallback")
+        result["route_status"] = result.get("route_status") or result["route_mode"]
+        result["route_label"] = result.get("route_label") or "Straight-line fallback"
+        result["route_warning"] = result.get("route_warning") or STRAIGHT_LINE_FALLBACK_WARNING
+        result["nearest_facility_method"] = result.get("nearest_facility_method") or "straight_line_distance"
+        result["route_geometry"] = result.get("route_geometry") or "straight_line"
+        result["route_confidence"] = result.get("route_confidence") or "fallback_reference"
         result.setdefault("straight_line_visible_default", True)
     else:
         result.setdefault("straight_line_visible_default", True)
@@ -113,6 +128,21 @@ def _normalize_route_result_metadata(result: dict[str, Any]) -> dict[str, Any]:
             result[f"line_geojson_{suffix}" if suffix != "path" else "line_geojson_path"] = value
             result[f"route_geojson_{suffix}" if suffix != "path" else "route_geojson_path"] = value
     return result
+
+
+def _canonical_route_mode(route_mode: Any) -> str:
+    value = str(route_mode or "").strip().lower()
+    if value in ROAD_ROUTE_MODES:
+        return "road_network"
+    if value in STRAIGHT_LINE_ROUTE_MODES:
+        return "straight_line_fallback"
+    if value in {"route_unavailable", "unavailable"}:
+        return "unavailable"
+    return value or "unavailable"
+
+
+def _is_road_route_mode(route_mode: Any) -> bool:
+    return _canonical_route_mode(route_mode) == "road_network"
 
 
 def _with_proximity_timing(result: dict[str, Any], timing: dict[str, Any], start: float) -> dict[str, Any]:
@@ -325,7 +355,7 @@ def _cached_successful_result_for_prompt(prompt: str, schema_name: str = "automa
                     WHERE result_json->>'raw_prompt' = :prompt
                       AND result_json->>'status' = 'ok'
                     ORDER BY
-                        CASE WHEN result_json->>'route_mode' = 'road_following_draft' THEN 0 ELSE 1 END,
+                        CASE WHEN result_json->>'route_mode' IN ('road_network', 'road_network_route', 'road_following_draft') THEN 0 ELSE 1 END,
                         created_at DESC
                     LIMIT 10;
                     """
@@ -392,7 +422,7 @@ def _cache_proximity_result(prompt: str, result: dict[str, Any], *, allow_route_
     prompt_key = prompt.strip().lower()
     normalized = _normalize_route_result_metadata(deepcopy(result))
     _PROXIMITY_CACHE[(prompt_key, bool(allow_route_draft), bool(resolve_property))] = deepcopy(normalized)
-    if normalized.get("route_mode") == "road_following_draft":
+    if _is_road_route_mode(normalized.get("route_mode")):
         # The fast composer path intentionally skips road graph work. Once a
         # bounded road-following draft exists, prefer it for the same prompt.
         _PROXIMITY_CACHE[(prompt_key, False, bool(resolve_property))] = deepcopy(normalized)
@@ -458,7 +488,7 @@ def classify_proximity_request(prompt: str, target: str | None = None) -> dict[s
 
     return {
         "target_type": request_type,
-        "route_mode": "road_following_draft" if route_mode else "straight_line_nearest",
+        "route_mode": "road_network" if route_mode else "straight_line_nearest",
         "straight_line_supported": True,
         "road_route_supported": False,
     }
@@ -1148,6 +1178,136 @@ def _query_target_candidates(
     return {"status": "needs_review", "features": [], "warnings": warnings or ["No target candidates found in bounded search rings."]}
 
 
+def _rank_candidates_by_straight_line(origin_feature: dict[str, Any], features: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    ranked: list[dict[str, Any]] = []
+    for feature in features:
+        try:
+            nearest = compute_nearest_feature(origin_feature, [feature], unit="miles")
+        except Exception:
+            nearest = None
+        if not nearest:
+            continue
+        ranked.append(
+            {
+                "feature": feature,
+                "distance": float(nearest.get("distance") or 0.0),
+                "distance_unit": nearest.get("distance_unit") or "miles",
+            }
+        )
+    return sorted(ranked, key=lambda item: item["distance"])
+
+
+def _route_warning_once(warnings: list[str], warning: str | None) -> None:
+    if warning and warning not in warnings:
+        warnings.append(warning)
+
+
+def _select_nearest_facility_route(
+    origin_feature: dict[str, Any],
+    features: list[dict[str, Any]],
+    *,
+    target_type: str,
+    target_layer: dict[str, Any],
+    query_client: SpatialQueryClient,
+    layer_catalog: list[dict[str, Any]] | None,
+    schema_name: str,
+    allow_route_draft: bool,
+    timing: dict[str, Any],
+    warnings: list[str],
+) -> dict[str, Any]:
+    """Prefer bounded road-network distance across a small candidate set."""
+    ranked = _rank_candidates_by_straight_line(origin_feature, features)
+    if not ranked:
+        raise GeometrySafetyError("Unable to compute nearest feature from bounded candidates.")
+
+    fallback = ranked[0]
+    selection: dict[str, Any] = {
+        "nearest": {
+            "feature": fallback["feature"],
+            "distance": fallback["distance"],
+            "distance_unit": fallback["distance_unit"],
+            "straight_line_distance": fallback["distance"],
+        },
+        "route_draft": None,
+        "line_type": "straight-line",
+        "nearest_facility_method": "straight_line_distance",
+        "route_refinement_available": not target_type.startswith("containing_"),
+        "road_route_failed": False,
+    }
+
+    if target_type.startswith("containing_"):
+        selection["nearest"] = {"feature": features[0], "distance": 0.0, "distance_unit": "miles", "straight_line_distance": 0.0}
+        selection["line_type"] = "containment"
+        selection["route_refinement_available"] = False
+        return selection
+
+    if not allow_route_draft:
+        _route_warning_once(warnings, ROUTE_REFINEMENT_AVAILABLE_WARNING)
+        return selection
+
+    route_started = time.perf_counter()
+    deadline = route_started + ROUTE_SELECTION_BUDGET_SECONDS
+    road_candidates: list[dict[str, Any]] = []
+    fallback_warnings: list[str] = []
+    for candidate in ranked[:MAX_ROAD_DISTANCE_CANDIDATES]:
+        if time.perf_counter() > deadline:
+            fallback_warnings.append("Road-route candidate scoring exceeded the bounded route budget.")
+            break
+        candidate_started = time.perf_counter()
+        draft = build_road_following_draft(
+            origin_feature,
+            candidate["feature"],
+            target_type=target_type,
+            target_layer_key=target_layer.get("layer_key"),
+            client=query_client,
+            layer_catalog=layer_catalog,
+            schema_name=schema_name,
+        )
+        timing["route_solve_ms"] += _elapsed_ms(candidate_started)
+        timing["road_query_ms"] = max(timing.get("road_query_ms") or 0, timing["route_solve_ms"])
+        if _is_road_route_mode(draft.route_mode) and draft.route_geojson:
+            route_distance = float(draft.route_distance_miles if draft.route_distance_miles is not None else candidate["distance"])
+            if draft.route_distance_miles is None:
+                draft.route_distance_miles = route_distance
+            road_candidates.append(
+                {
+                    "feature": candidate["feature"],
+                    "straight_line_distance": candidate["distance"],
+                    "route_distance_miles": route_distance,
+                    "route_draft": draft,
+                }
+            )
+        else:
+            fallback_warnings.extend(draft.warnings)
+
+    timing["route_generation_ms"] = _elapsed_ms(route_started)
+    if road_candidates:
+        best = min(road_candidates, key=lambda item: item["route_distance_miles"])
+        draft = best["route_draft"]
+        for warning in draft.warnings:
+            _route_warning_once(warnings, warning)
+        return {
+            "nearest": {
+                "feature": best["feature"],
+                "distance": best["route_distance_miles"],
+                "distance_unit": "miles",
+                "straight_line_distance": best["straight_line_distance"],
+            },
+            "route_draft": draft,
+            "line_type": "road-network",
+            "nearest_facility_method": "road_distance",
+            "route_refinement_available": False,
+            "road_route_failed": False,
+        }
+
+    selection["road_route_failed"] = True
+    selection["route_refinement_available"] = True
+    _route_warning_once(warnings, STRAIGHT_LINE_FALLBACK_WARNING)
+    for warning in fallback_warnings[:3]:
+        _route_warning_once(warnings, warning)
+    return selection
+
+
 def _safe_output_folder(prompt: str) -> Path:
     timestamp = datetime.now(UTC).strftime("%Y%m%d%H%M%S")
     return Path(PROXIMITY_OUTPUT_ROOT) / f"{timestamp}_{slugify(prompt)[:72]}"
@@ -1272,9 +1432,10 @@ def _target_symbol_key(result: dict[str, Any]) -> str:
 
 def _build_derived_overlays(result: dict[str, Any]) -> list[dict[str, Any]]:
     route_prefix = "route_line" if result.get("route_line_geojson_url") else "straight_line" if result.get("straight_line_geojson_url") else "line"
-    route_mode = result.get("route_mode") or ("road_following_draft" if route_prefix == "route_line" else "straight_line_reference")
-    route_label = result.get("route_label") or ("Road-following Route Draft" if route_mode == "road_following_draft" else "Straight-Line Reference")
-    route_warning = result.get("route_warning") or (ROAD_FOLLOWING_DRAFT_WARNING if route_mode == "road_following_draft" else STRAIGHT_LINE_FALLBACK_WARNING)
+    route_mode = _canonical_route_mode(result.get("route_mode") or ("road_network" if route_prefix == "route_line" else "straight_line_fallback"))
+    road_route = _is_road_route_mode(route_mode)
+    route_label = result.get("route_label") or ("Road-following draft route" if road_route else "Straight-line fallback")
+    route_warning = result.get("route_warning") or (ROAD_FOLLOWING_DRAFT_WARNING if road_route else STRAIGHT_LINE_FALLBACK_WARNING)
     overlays = [
         _proximity_overlay(
             result,
@@ -1306,16 +1467,16 @@ def _build_derived_overlays(result: dict[str, Any]) -> list[dict[str, Any]]:
         _proximity_overlay(
             result,
             key_prefix=route_prefix,
-            overlay_id="road_following_route_draft" if route_mode == "road_following_draft" else "straight_line_reference",
+            overlay_id="road_following_route_draft" if road_route else "straight_line_fallback",
             title=route_label,
-            role="route_line" if route_mode == "road_following_draft" else "distance_line",
+            role="route_line" if road_route else "distance_line",
             geometry_type="line",
-            symbol_key="route_road_following" if route_mode == "road_following_draft" else "route_straight_line",
+            symbol_key="route_road_following" if road_route else "route_straight_line",
             geometry_role="route_line",
             route_mode=route_mode,
             route_label=route_label,
             route_warning=route_warning,
-            symbol={"style": "solid" if route_mode == "road_following_draft" else "dash", "color": "#2563eb", "width": 5},
+            symbol={"style": "solid" if road_route else "dash", "color": "#2563eb", "width": 5 if road_route else 3},
         ),
     ]
     selected_parcel = _proximity_overlay(
@@ -1398,7 +1559,7 @@ def build_proximity_context(prompt: str, *, target: str | None = None) -> dict[s
         questions.append({"question": "Which school level: elementary, middle, high, or any school?", "reason": "School level changes the target layer/context."})
     if "fire" in lowered and "station" not in lowered and "district" not in lowered:
         questions.append({"question": "Do you mean nearest fire station or fire district?", "reason": "Station proximity and district containment are different GIS operations."})
-    if classification["route_mode"] == "road_following_draft":
+    if _is_road_route_mode(classification["route_mode"]):
         questions.append({"question": "For route, do you need a road-network driving route or is a straight-line reference acceptable?", "reason": ROUTE_WARNING})
     return {
         "proximity_detected": classification["target_type"] != "unsupported_proximity_request",
@@ -1408,7 +1569,7 @@ def build_proximity_context(prompt: str, *, target: str | None = None) -> dict[s
         "straight_line_supported": True,
         "road_route_supported": False,
         "clarifying_questions": questions,
-        "warnings": [] if classification["route_mode"] != "road_following_draft" else [ROUTE_WARNING],
+        "warnings": [] if not _is_road_route_mode(classification["route_mode"]) else [ROUTE_WARNING],
     }
 
 
@@ -1498,6 +1659,7 @@ def run_nearest_facility(
     target_type = classification.get("target_type") or target_type
     warnings.extend(classification.get("warnings") or [])
     timing["nearest_facility_ms"] = _elapsed_ms(nearest_started)
+    timing["facility_query_ms"] = timing["nearest_facility_ms"]
     if not features:
         result = {
             "proximity_result_id": f"prox_result_{uuid4().hex[:12]}",
@@ -1521,48 +1683,42 @@ def run_nearest_facility(
         result = _with_proximity_timing(result, timing, started_at)
         return _record_result(result, schema_name) if persist else result
 
-    if target_type.startswith("containing_"):
-        nearest = {"feature": features[0], "distance": 0.0, "distance_unit": "miles"}
-        line_type = "containment"
-    else:
-        nearest = compute_nearest_feature(origin["origin_feature"], features, unit="miles")
-        line_type = "straight-line"
-    if nearest is None:
-        raise GeometrySafetyError("Unable to compute nearest feature from bounded candidates.")
+    route_selection = _select_nearest_facility_route(
+        origin["origin_feature"],
+        features,
+        target_type=target_type,
+        target_layer=target_layer,
+        query_client=query_client,
+        layer_catalog=layer_catalog,
+        schema_name=schema_name,
+        allow_route_draft=allow_route_draft,
+        timing=timing,
+        warnings=warnings,
+    )
+    nearest = route_selection["nearest"]
+    line_type = route_selection["line_type"]
+    route_draft = route_selection.get("route_draft")
+    nearest_facility_method = route_selection.get("nearest_facility_method") or "straight_line_distance"
+    route_refinement_available = bool(route_selection.get("route_refinement_available"))
+    road_route_succeeded = bool(route_draft and _is_road_route_mode(route_draft.route_mode))
+    road_route_failed = bool(route_selection.get("road_route_failed"))
+    straight_line_distance = nearest.get("straight_line_distance", nearest.get("distance"))
     line_feature = build_straight_line_geojson(
         origin["origin_feature"],
         nearest["feature"],
         properties={
             "target_type": target_type,
             "target_layer_key": target_layer.get("layer_key"),
-            "distance_miles": nearest["distance"],
-            "label": "Straight-line distance",
-            "route_mode": "straight_line_reference",
+            "distance_miles": straight_line_distance,
+            "label": "Straight-line fallback",
+            "route_mode": "straight_line_fallback",
         },
     )
-    route_draft = None
-    route_generation_started = time.perf_counter()
-    route_refinement_available = False
-    if not target_type.startswith("containing_") and allow_route_draft:
-        route_draft = build_road_following_draft(
-            origin["origin_feature"],
-            nearest["feature"],
-            target_type=target_type,
-            target_layer_key=target_layer.get("layer_key"),
-            client=query_client,
-            layer_catalog=layer_catalog,
-            schema_name=schema_name,
-        )
-        warnings.extend(warning for warning in route_draft.warnings if warning not in warnings)
-    elif not target_type.startswith("containing_"):
-        route_refinement_available = True
-        if ROUTE_REFINEMENT_AVAILABLE_WARNING not in warnings:
-            warnings.append(ROUTE_REFINEMENT_AVAILABLE_WARNING)
-    timing["route_generation_ms"] = _elapsed_ms(route_generation_started)
-    road_route_succeeded = bool(route_draft and route_draft.route_mode == "road_following_draft")
-    road_route_failed = bool(route_draft and route_draft.route_mode == "straight_line_reference" and allow_route_draft)
-    if road_route_failed:
-        route_refinement_available = True
+    active_route_mode = _canonical_route_mode(route_draft.route_mode if route_draft else "straight_line_fallback")
+    active_route_label = route_draft.route_label if route_draft else "Straight-line fallback"
+    active_route_warning = route_draft.route_warning if route_draft else STRAIGHT_LINE_FALLBACK_WARNING
+    route_distance_miles = route_draft.route_distance_miles if road_route_succeeded else None
+    active_distance = route_distance_miles if route_distance_miles is not None else nearest["distance"]
     result_geojson = build_proximity_result_geojson(origin["origin_feature"], nearest["feature"], line_feature)
     output_folder = _safe_output_folder(prompt)
     output_path = repo_root() / output_folder
@@ -1585,13 +1741,19 @@ def run_nearest_facility(
         "target_name": _target_name(nearest["feature"]),
         "target_feature": nearest["feature"],
         "origin_feature": origin["origin_feature"],
-        "distance_value": nearest["distance"],
+        "distance_value": active_distance,
         "distance_unit": "miles",
         "line_type": line_type,
-        "route_mode": route_draft.route_mode if route_draft else "straight_line_reference",
-        "route_status": route_draft.route_mode if route_draft else "straight_line_supported",
-        "route_label": route_draft.route_label if route_draft else "Straight-line reference",
-        "route_warning": route_draft.route_warning if route_draft else STRAIGHT_LINE_FALLBACK_WARNING,
+        "route_mode": active_route_mode,
+        "nearest_facility_method": nearest_facility_method,
+        "route_status": active_route_mode,
+        "route_label": active_route_label,
+        "route_warning": active_route_warning,
+        "route_distance_miles": route_distance_miles,
+        "route_travel_time_minutes": None,
+        "route_geometry": "route_line" if road_route_succeeded else "straight_line",
+        "route_confidence": "draft_road_centerline" if road_route_succeeded else "fallback_reference",
+        "straight_line_distance_miles": straight_line_distance,
         "route_refinement_available": route_refinement_available,
         "route_refinement_status": (
             "succeeded"
@@ -1613,7 +1775,7 @@ def run_nearest_facility(
         },
         "derived_layer": {
             "layer_key": f"derived_proximity_line_{request.proximity_request_id}",
-            "layer_name": route_draft.route_label if route_draft else "Straight-line distance",
+            "layer_name": active_route_label,
             "layer_type": "GeoJSON",
             "derived_local_proximity_result": True,
             "not_published": True,
@@ -1647,9 +1809,9 @@ def run_proximity_request(
     cache_key = (prompt.strip().lower(), bool(allow_route_draft), bool(resolve_property))
     if client is None and layer_catalog is None and cache_key in _PROXIMITY_CACHE:
         cached = _cacheable_copy(_PROXIMITY_CACHE[cache_key])
-        if persist and not allow_route_draft and cached.get("route_mode") != "road_following_draft":
+        if persist and not allow_route_draft and not _is_road_route_mode(cached.get("route_mode")):
             preferred_cached = _cached_successful_result_for_prompt(prompt, schema_name=schema_name)
-            if preferred_cached and preferred_cached.get("route_mode") == "road_following_draft":
+            if preferred_cached and _is_road_route_mode(preferred_cached.get("route_mode")):
                 preferred_cached = _normalize_route_result_metadata(preferred_cached)
                 _PROXIMITY_CACHE[cache_key] = deepcopy(preferred_cached)
                 return preferred_cached
@@ -1730,8 +1892,8 @@ def run_route_draft(
             "destination_input": destination_input,
             "target_type": "route_to_address",
             "status": "needs_review",
-            "route_mode": "route_unavailable",
-            "route_status": "route_unavailable",
+            "route_mode": "unavailable",
+            "route_status": "unavailable",
             "route_label": "Route unavailable",
             "origin_feature": origin.get("origin_feature"),
             "target_feature": destination.get("origin_feature"),
@@ -1753,8 +1915,8 @@ def run_route_draft(
         properties={
             "target_type": "route_to_address",
             "distance_miles": distance["distance"] if distance else None,
-            "label": "Straight-line reference, not driving route",
-            "route_mode": "straight_line_reference",
+            "label": "Straight-line fallback, not driving route",
+            "route_mode": "straight_line_fallback",
         },
     )
     route_draft = build_road_following_draft(
@@ -1766,6 +1928,9 @@ def run_route_draft(
         schema_name=schema_name,
     )
     warnings.extend(warning for warning in route_draft.warnings if warning not in warnings)
+    active_route_mode = _canonical_route_mode(route_draft.route_mode)
+    road_route_succeeded = _is_road_route_mode(active_route_mode)
+    route_distance_miles = route_draft.route_distance_miles if road_route_succeeded else None
     output_folder = _safe_output_folder(prompt)
     result = {
         "proximity_result_id": f"prox_result_{uuid4().hex[:12]}",
@@ -1779,15 +1944,18 @@ def run_route_draft(
         "parcel_set": origin.get("parcel_set"),
         "selected_parcel_feature": origin.get("selected_parcel_feature"),
         "status": "ok",
-        "route_mode": route_draft.route_mode,
-        "route_status": route_draft.route_mode,
+        "route_mode": active_route_mode,
+        "route_status": active_route_mode,
         "route_label": route_draft.route_label,
         "route_warning": route_draft.route_warning,
+        "route_distance_miles": route_distance_miles,
+        "route_geometry": "route_line" if road_route_succeeded else "straight_line",
+        "route_confidence": "draft_road_centerline" if road_route_succeeded else "fallback_reference",
         "road_feature_count": route_draft.road_feature_count,
         "route_metadata": route_draft.metadata,
         "origin_feature": origin["origin_feature"],
         "target_feature": destination["origin_feature"],
-        "distance_value": distance["distance"] if distance else None,
+        "distance_value": route_distance_miles if route_distance_miles is not None else distance["distance"] if distance else None,
         "distance_unit": "miles",
         "line_type": route_draft.route_label,
         "warnings": warnings,

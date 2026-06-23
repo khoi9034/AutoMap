@@ -1,7 +1,7 @@
 "use client";
 
 import type { DerivedOverlay, PreviewLayer } from "@/types/automap";
-import { symbolDefinition, svgDataUrl } from "@/lib/map-symbols";
+import { isRoadRouteMode, symbolDefinition, svgDataUrl } from "@/lib/map-symbols";
 
 function isVisible(value: { visible?: boolean; visibility?: boolean; default_visible?: boolean }): boolean {
   return value.default_visible ?? value.visible ?? value.visibility ?? true;
@@ -64,7 +64,7 @@ export function MapLegend({
           return (
             <span className="map-legend-item" key={`${definition.key}-${label}`}>
               {isRoute ? (
-                <i className={`map-legend-line ${overlay.route_mode === "road_following_draft" ? "map-legend-line-solid" : "map-legend-line-dashed"}`} aria-hidden="true" />
+                <i className={`map-legend-line ${isRoadRouteMode(overlay.route_mode) ? "map-legend-line-solid" : "map-legend-line-dashed"}`} aria-hidden="true" />
               ) : isParcel ? (
                 <i className="map-legend-parcel" aria-hidden="true" />
               ) : (

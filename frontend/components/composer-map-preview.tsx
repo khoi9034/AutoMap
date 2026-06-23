@@ -12,7 +12,7 @@ import { MapScaleBar } from "@/components/map-scale-bar";
 import { NorthArrow } from "@/components/north-arrow";
 import { StatusChip } from "@/components/status-chip";
 import { API_BASE_URL } from "@/lib/api";
-import { arcgisSymbolForOverlay } from "@/lib/map-symbols";
+import { arcgisSymbolForOverlay, isRoadRouteMode } from "@/lib/map-symbols";
 import type { ComposerMapState, ComposerResponse, DerivedOverlay, JsonValue, PreviewLayer } from "@/types/automap";
 
 type LoadedOverlay = {
@@ -157,8 +157,9 @@ function mapLayout(response: ComposerResponse) {
 function routeLabel(response: ComposerResponse): string {
   const result = response.proximity_result;
   if (result?.route_label) return result.route_label;
-  if (result?.route_mode === "road_following_draft") return "Road-following draft route";
-  return "Straight-line reference";
+  if (isRoadRouteMode(result?.route_mode)) return "Road-following draft route";
+  if (result?.route_mode === "unavailable") return "Route unavailable";
+  return "Straight-line fallback";
 }
 
 function contextLayerUrl(layer: PreviewLayer): string {
@@ -556,15 +557,16 @@ export function ComposerMapPreview({
 
   const distance = distanceText(response);
   const lineLabel = routeLabel(response);
-  const routeMode = response.proximity_result?.route_mode || "straight_line_reference";
+  const routeMode = response.proximity_result?.route_mode || "straight_line_fallback";
+  const roadRoute = isRoadRouteMode(routeMode);
   const layout = mapLayout(response);
   const layoutTitle = layout?.title || response.map_title || panelTitle(response);
   const layoutSubtitle =
     layout?.subtitle ||
-    (routeMode === "road_following_draft" ? "Road-following draft route, not official navigation." : "Straight-line reference only, not a driving route.");
+    (roadRoute ? "Road-following draft route. Not official navigation." : "Straight-line fallback. Road route unavailable.");
   const frameMode = frameModeForInteraction(interactionMode);
   const frameSizing = frameSizingForInteraction(interactionMode);
-  const routeWarning = routeMode !== "road_following_draft" ||
+  const routeWarning = !roadRoute ||
     Boolean(response.proximity_result?.route_warning) ||
     (response.proximity_result?.warnings || []).some((warning) => warning.toLowerCase().includes("not a driving route"));
   const propertyNotResolved = response.proximity_result?.property_match_status === "not_resolved";
@@ -584,7 +586,7 @@ export function ComposerMapPreview({
             <StatusChip tone="success">Real basemap</StatusChip>
             <StatusChip tone="success">Home marker</StatusChip>
             <StatusChip tone="success">Facility marker</StatusChip>
-            <StatusChip tone={routeMode === "road_following_draft" ? "success" : "warning"}>{lineLabel}</StatusChip>
+            <StatusChip tone={roadRoute ? "success" : "warning"}>{lineLabel}</StatusChip>
           </div>
         </div>
 
@@ -600,7 +602,7 @@ export function ComposerMapPreview({
         ) : null}
         {routeWarning ? (
           <div className="inline-warning" role="status">
-            {response.proximity_result?.route_warning || "Straight-line reference only. This is not a driving route."}
+            {response.proximity_result?.route_warning || "Straight-line fallback. Road route unavailable."}
           </div>
         ) : null}
         {clutterWarning ? (

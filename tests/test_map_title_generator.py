@@ -31,5 +31,5 @@ def test_prompt_titles_for_common_composer_maps():
 
 
 def test_layout_subtitle_stays_short():
-    assert map_layout_subtitle({"route_mode": "road_following_draft"}) == "Road-following draft route."
-    assert map_layout_subtitle({"route_mode": "straight_line_reference"}) == "Straight-line reference only."
+    assert map_layout_subtitle({"route_mode": "road_network"}) == "Road-following draft route. Not official navigation."
+    assert map_layout_subtitle({"route_mode": "straight_line_fallback"}) == "Straight-line fallback. Road route unavailable."

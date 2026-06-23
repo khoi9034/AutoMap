@@ -65,24 +65,24 @@ def target_display_label(result: dict[str, Any]) -> str:
 
 
 def route_mode_label(result: dict[str, Any]) -> str:
-    route_mode = result.get("route_mode") or ("straight_line_reference" if result.get("line_geojson_path") else None)
-    if route_mode == "road_following_draft":
+    route_mode = str(result.get("route_mode") or ("straight_line_fallback" if result.get("line_geojson_path") else "")).lower()
+    if route_mode in {"road_network", "road_network_route", "road_following_draft"}:
         return "Road-following draft route"
-    if route_mode == "straight_line_reference":
-        return "Straight-line reference"
-    if route_mode == "road_network_route":
-        return "Road-network route"
+    if route_mode in {"straight_line_fallback", "straight_line_reference"}:
+        return "Straight-line fallback"
+    if route_mode in {"unavailable", "route_unavailable"}:
+        return "Route unavailable"
     return "Route draft"
 
 
 def map_layout_subtitle(result: dict[str, Any] | None) -> str:
     if not result:
         return "Draft preview only."
-    route_mode = result.get("route_mode") or ("straight_line_reference" if result.get("line_geojson_path") else None)
-    if route_mode == "road_following_draft":
-        return "Road-following draft route."
-    if route_mode == "straight_line_reference":
-        return "Straight-line reference only."
+    route_mode = str(result.get("route_mode") or ("straight_line_fallback" if result.get("line_geojson_path") else "")).lower()
+    if route_mode in {"road_network", "road_network_route", "road_following_draft"}:
+        return "Road-following draft route. Not official navigation."
+    if route_mode in {"straight_line_fallback", "straight_line_reference"}:
+        return "Straight-line fallback. Road route unavailable."
     return "Draft preview only."
 
 

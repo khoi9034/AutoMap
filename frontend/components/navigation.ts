@@ -14,16 +14,11 @@ export const navigationItems = [
 ];
 
 export const samplePrompts = [
-  "Make a map of my address 793 Bartram Ave and include nearest line to the nearest fire station.",
-  "Show parcels in Concord that are in the 100-year floodplain.",
-  "Show commercial zoning around Concord.",
-  "Show school districts for parcels in Harrisburg.",
-  "Show 2014 parcels and zoning in Cabarrus County.",
-  "Give me a table of parcels in Concord.",
-  "Map recent permits and planning cases near Kannapolis.",
-  "Map commercial growth opportunities near Cabarrus County high traffic roads but avoid floodplain.",
-  "Make a map of parcel 5528-12-3456 and show zoning, floodplain, and nearby roads.",
-  "Make a table of parcels in Cabarrus County.",
+  "make a map of my address 793 bartram ave and include nearest line to the nearest fire station",
+  "show parcels in Concord that are in the 100-year floodplain",
+  "show commercial zoning around Concord",
+  "map recent permits and planning cases near Kannapolis",
+  "give me a table of parcels in Cabarrus County",
 ];
 
 export const workflowSteps = [

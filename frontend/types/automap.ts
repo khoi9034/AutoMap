@@ -563,8 +563,14 @@ export type ProximityResult = {
   status?: string;
   route_status?: string;
   route_mode?: string;
+  nearest_facility_method?: string | null;
   route_label?: string | null;
   route_warning?: string | null;
+  route_distance_miles?: number | null;
+  route_travel_time_minutes?: number | null;
+  route_geometry?: string | null;
+  route_confidence?: string | null;
+  straight_line_distance_miles?: number | null;
   route_refinement_available?: boolean;
   route_refinement_status?: string | null;
   road_feature_count?: number | null;

@@ -4,6 +4,7 @@ import Link from "next/link";
 
 import { SharedMapRenderer } from "@/components/map-renderer/shared-map-renderer";
 import { StatusChip } from "@/components/status-chip";
+import { isRoadRouteMode } from "@/lib/map-symbols";
 import type { ComposerResponse, ProximityResult } from "@/types/automap";
 
 import { actionLabel, composerDisplayTitle, identifierText, isAddressFocused } from "./utils";
@@ -120,8 +121,10 @@ export function ProximityResultSummary({
   const targetLabel = result.target_name || targetKind || "Proximity result";
   const distance = typeof result.distance_value === "number" ? `${result.distance_value.toFixed(2)} ${result.distance_unit || "miles"}` : "Needs review";
   const lineReady = Boolean(result.line_geojson_path || result.line_geojson_url);
-  const routeLabel = result.route_label || (result.route_mode === "road_following_draft" ? "Road-following draft" : "Straight-line reference");
-  const routeWarning = result.route_warning || (result.route_mode === "road_following_draft" ? "Not official driving directions." : "This is not a driving route.");
+  const roadRoute = isRoadRouteMode(result.route_mode);
+  const routeLabel = result.route_label || (roadRoute ? "Road-following draft route" : "Straight-line fallback");
+  const routeWarning = result.route_warning || (roadRoute ? "Not official navigation." : "Road route unavailable.");
+  const distanceMethod = result.nearest_facility_method === "road_distance" ? "road distance" : "straight-line fallback";
   return (
     <section className="panel proximity-summary-panel">
       <div className="panel-title-row">
@@ -153,6 +156,10 @@ export function ProximityResultSummary({
           <span>Route mode</span>
           <strong>{lineReady ? routeLabel : "Needs review"}</strong>
         </div>
+        <div>
+          <span>Nearest method</span>
+          <strong>{distanceMethod}</strong>
+        </div>
       </div>
       {result.property_match_status === "not_resolved" ? (
         <p className="muted">Address matched, but related parcel was not resolved from verified fields.</p>
@@ -160,7 +167,7 @@ export function ProximityResultSummary({
       {result.route_refinement_available ? (
         <div className="definition-box">
           <strong>Road-following route refinement available</strong>
-          <p>The draft returned quickly with a straight-line reference. AutoMap can try a bounded road-following draft separately.</p>
+          <p>The live result is using a straight-line fallback. AutoMap can try a bounded road-following draft separately.</p>
           {onRouteRefine ? (
             <button className="button button-secondary" type="button" onClick={onRouteRefine} disabled={routeRefineLoading}>
               {routeRefineLoading ? "Trying Road-Following Route..." : "Try Road-Following Route"}

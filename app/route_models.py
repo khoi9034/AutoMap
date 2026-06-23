@@ -7,6 +7,9 @@ from typing import Any, Literal
 
 
 RouteMode = Literal[
+    "road_network",
+    "straight_line_fallback",
+    "unavailable",
     "road_network_route",
     "road_following_draft",
     "straight_line_reference",
@@ -20,10 +23,10 @@ MAX_ROUTE_EXTENT_WIDTH_DEGREES = 0.35
 MAX_ROUTE_EXTENT_HEIGHT_DEGREES = 0.35
 
 ROAD_FOLLOWING_DRAFT_WARNING = (
-    "Road-following draft route, not official driving directions or turn-by-turn navigation."
+    "Draft route based on public road centerlines. Not official navigation."
 )
 STRAIGHT_LINE_FALLBACK_WARNING = (
-    "Straight-line reference only. This is not a driving route."
+    "Road route unavailable; showing straight-line reference only."
 )
 ADDRESS_LAYER_HIDDEN_WARNING = "Full address layer hidden to reduce clutter."
 
@@ -45,4 +48,3 @@ class RouteDraftResult:
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
-

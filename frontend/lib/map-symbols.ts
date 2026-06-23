@@ -20,7 +20,7 @@ const SYMBOLS: Record<string, SymbolDefinition> = {
   target_polling_place: { key: "target_polling_place", label: "Polling place", color: "#7c3aed", glyph: "vote" },
   target_facility: { key: "target_facility", label: "Facility", color: "#334155", glyph: "facility" },
   route_road_following: { key: "route_road_following", label: "Road-following draft", color: "#1d4ed8", glyph: "route" },
-  route_straight_line: { key: "route_straight_line", label: "Straight-line reference", color: "#2563eb", glyph: "route" },
+  route_straight_line: { key: "route_straight_line", label: "Straight-line fallback", color: "#2563eb", glyph: "route" },
   selected_parcel: { key: "selected_parcel", label: "Selected parcel", color: "#f59e0b", glyph: "parcel" },
 };
 
@@ -61,6 +61,10 @@ export function svgDataUrl(definition: SymbolDefinition): string {
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 }
 
+export function isRoadRouteMode(routeMode?: string | null): boolean {
+  return ["road_network", "road_network_route", "road_following_draft"].includes((routeMode || "").toLowerCase());
+}
+
 export function arcgisSymbolForOverlay(
   overlay: DerivedOverlay,
   geometryType: string,
@@ -80,12 +84,13 @@ export function arcgisSymbolForOverlay(
     };
   }
   if (geometryType === "line") {
+    const roadRoute = isRoadRouteMode(routeMode);
     if (options.casing) {
       return {
         type: "simple-line",
         color: [255, 255, 255, 0.92],
-        width: routeMode === "road_following_draft" ? 6 : 4.5,
-        style: routeMode === "road_following_draft" ? "solid" : "dash",
+        width: roadRoute ? 6 : 4.5,
+        style: roadRoute ? "solid" : "dash",
         cap: "round",
         join: "round",
       };
@@ -93,8 +98,8 @@ export function arcgisSymbolForOverlay(
     return {
       type: "simple-line",
       color: definition.color,
-      width: routeMode === "road_following_draft" ? 3.2 : 2.4,
-      style: routeMode === "road_following_draft" ? "solid" : "dash",
+      width: roadRoute ? 3.2 : 2.4,
+      style: roadRoute ? "solid" : "dash",
       cap: "round",
       join: "round",
     };

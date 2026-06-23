@@ -1,6 +1,7 @@
 "use client";
 
 import { API_BASE_URL } from "@/lib/api";
+import { isRoadRouteMode } from "@/lib/map-symbols";
 import { packetIdFromPath } from "@/lib/workflow-store";
 import type { ComposerResponse, DerivedOverlay, PreviewLayer } from "@/types/automap";
 
@@ -56,7 +57,7 @@ export function identifierText(value: unknown): string {
 function derivedRouteStyle(overlay: DerivedOverlay): Pick<ComposerLayerEdit, "line_style" | "line_thickness"> {
   const blob = `${overlay.role || ""} ${overlay.geometry_role || ""} ${overlay.symbol_key || ""} ${overlay.route_mode || ""}`.toLowerCase();
   if (!blob.includes("route") && !blob.includes("distance") && !blob.includes("line")) return {};
-  const dashed = blob.includes("straight") || overlay.route_mode === "straight_line_reference";
+  const dashed = !isRoadRouteMode(overlay.route_mode) && (blob.includes("straight") || blob.includes("fallback") || overlay.route_mode === "straight_line_reference");
   return {
     line_style: dashed ? "dashed" : "solid",
     line_thickness: dashed ? 2.4 : 3.2,

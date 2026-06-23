@@ -1,4 +1,5 @@
 import { StatusChip } from "@/components/status-chip";
+import { isRoadRouteMode } from "@/lib/map-symbols";
 import type { ProximityResult } from "@/types/automap";
 
 type ProximityResultCardProps = {
@@ -19,6 +20,7 @@ export function ProximityResultCard({ result }: ProximityResultCardProps) {
     result.distance_value === null || result.distance_value === undefined
       ? "Not available"
       : `${result.distance_value} ${result.distance_unit || "miles"}`;
+  const roadRoute = isRoadRouteMode(result.route_mode);
 
   return (
     <section className="panel">
@@ -44,7 +46,11 @@ export function ProximityResultCard({ result }: ProximityResultCardProps) {
         </div>
         <div>
           <span className="field-label">Route status</span>
-          <strong>{result.route_status || "straight_line_supported"}</strong>
+          <strong>{result.route_status || (roadRoute ? "road_network" : "straight_line_fallback")}</strong>
+        </div>
+        <div>
+          <span className="field-label">Nearest method</span>
+          <strong>{result.nearest_facility_method === "road_distance" ? "road distance" : "straight-line fallback"}</strong>
         </div>
       </div>
       {result.line_geojson_path ? (

@@ -1,41 +1,33 @@
 import Link from "next/link";
 
-import { ProductionHealthCard } from "@/components/production-health-card";
 import { StatusChip } from "@/components/status-chip";
-import { STATIC_DEMO_PROMPT, STATIC_DEMO_SCOPE } from "@/lib/static-demo";
+import { STATIC_DEMO_PROMPT } from "@/lib/static-demo";
 
-const projectHighlights = [
-  "Plain-English map requests become draft GIS previews.",
-  "Address, parcel, proximity, table, report, and exhibit workflows share one safety model.",
-  "Vercel frontend proxies safely to Render FastAPI and Supabase PostGIS.",
-  "Real ArcGIS publishing stays disabled in the public demo.",
-];
-
-const walkthroughSteps = [
-  "Request: enter a map or table prompt.",
-  "Preview: view a locked draft map with title, legend, scale, and north arrow.",
-  "Adjust: pan/zoom only in the adjustment workspace, then lock the final map.",
-  "Print / Export: use the locked map state for local draft exhibits and report sections.",
+const cards = [
+  {
+    title: "Natural-language map requests",
+    body: "Turn plain-language planning and proximity prompts into draft GIS map previews.",
+  },
+  {
+    title: "Cabarrus County data scope",
+    body: "Live address and parcel workflows currently support Cabarrus County, NC only.",
+  },
+  {
+    title: "Live demo with safe fallback",
+    body: "AutoMap tries the live workflow first, with a static demo available only if the backend is warming up.",
+  },
 ];
 
 export default function LandingPage() {
-  const demoHref = `/map-composer?prompt=${encodeURIComponent(STATIC_DEMO_PROMPT)}`;
+  const demoHref = `/map-composer?prompt=${encodeURIComponent(STATIC_DEMO_PROMPT)}&demo=1`;
 
   return (
     <div className="page-stack landing-page">
-      <section className="landing-hero">
+      <section className="landing-hero landing-hero-compact">
         <div>
-          <p className="eyebrow">AutoMap portfolio demo</p>
-          <h1>County GIS map composer with safe production fallbacks.</h1>
-          <p>
-            AutoMap turns planning-style prompts into draft map previews, proximity exhibits, reports, and bounded data
-            exports. This county GIS request engine supports a Cabarrus County, NC live demo and stays professional even
-            while the free Render backend is waking up.
-          </p>
-          <p className="scope-note">
-            Live address and parcel workflows currently support Cabarrus County, NC only. Try a Cabarrus County address,
-            parcel/PIN, or county planning request; out-of-county addresses are not supported in this prototype.
-          </p>
+          <p className="eyebrow">AutoMap</p>
+          <h1>County GIS Request Engine</h1>
+          <p>Turn plain-language county GIS requests into draft maps, tables, and review-ready outputs.</p>
           <div className="button-row">
             <Link className="button" href="/map-composer">
               Open Live Map Composer
@@ -44,63 +36,24 @@ export default function LandingPage() {
               View Static Demo
             </Link>
             <Link className="button button-secondary" href="/system-status">
-              View Methodology / Project Summary
+              View System Status
             </Link>
           </div>
           <div className="chip-row">
-            <StatusChip tone="success">Live demo supports {STATIC_DEMO_SCOPE}</StatusChip>
-            <StatusChip tone="success">Draft-only public demo</StatusChip>
+            <StatusChip tone="success">Scope: Cabarrus County, NC</StatusChip>
+            <StatusChip tone="success">Live-first workflow</StatusChip>
             <StatusChip tone="success">Real publish disabled</StatusChip>
-            <StatusChip tone="success">Static fallback available</StatusChip>
           </div>
         </div>
-        <ProductionHealthCard />
       </section>
 
-      <section className="landing-grid">
-        <article className="panel">
-          <p className="eyebrow">What AutoMap does</p>
-          <h3>GIS request intake to exhibit-ready draft</h3>
-          <ul className="check-list">
-            {projectHighlights.map((item) => (
-              <li key={item}>{item}</li>
-            ))}
-          </ul>
-        </article>
-        <article className="panel">
-          <p className="eyebrow">Demo prompt</p>
-          <h3>Nearest Fire Station from 793 Bartram Ave</h3>
-          <p className="muted">
-            The live workflow matches the address, finds a nearest facility, draws the route/reference line, and prepares
-            a draft map layout for {STATIC_DEMO_SCOPE}. If the backend is cold, the static demo explains the same
-            workflow without showing a broken page. This demo uses a Cabarrus County address and is not a nationwide
-            address search tool.
-          </p>
-          <Link className="text-link" href={demoHref}>
-            Open the demo prompt in Map Composer
-          </Link>
-        </article>
-      </section>
-
-      <section className="panel">
-        <div className="panel-title-row">
-          <div>
-            <p className="eyebrow">Workflow walkthrough</p>
-            <h3>Designed to look stable during portfolio review</h3>
-          </div>
-          <StatusChip tone="success">Recruiter-safe</StatusChip>
-        </div>
-        <div className="simple-step-list landing-step-list">
-          {walkthroughSteps.map((step, index) => (
-            <div className="simple-step" key={step}>
-              <span>{index + 1}</span>
-              <div>
-                <strong>{step.split(":")[0]}</strong>
-                <small>{step.split(":").slice(1).join(":").trim()}</small>
-              </div>
-            </div>
-          ))}
-        </div>
+      <section className="landing-grid landing-card-grid">
+        {cards.map((card) => (
+          <article className="panel" key={card.title}>
+            <h3>{card.title}</h3>
+            <p className="muted">{card.body}</p>
+          </article>
+        ))}
       </section>
     </div>
   );

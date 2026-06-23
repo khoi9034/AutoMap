@@ -160,22 +160,22 @@ export function MapComposerClient() {
     setLoading("generate");
     setError(null);
     setShowStaticDemoFallback(false);
-    setComposerProgressMessage("Checking whether the live Render backend is awake...");
+    setComposerProgressMessage("Starting live demo...");
     try {
       try {
         await getApiHealth();
       } catch {
-        setComposerProgressMessage("The backend is waking up. This can take up to a minute on the free deployment tier.");
+        setComposerProgressMessage("Live backend is warming up.");
       }
       const attemptGenerate = async () => {
-        setComposerProgressMessage("Generating the live draft map. Address matching and nearest facility lookup can take a moment.");
+        setComposerProgressMessage("Matching address, finding nearby fire stations, and calculating road route...");
         return generateComposerDraft(prompt);
       };
       const liveRequest = async () => {
         try {
           return await attemptGenerate();
         } catch (firstError) {
-          setComposerProgressMessage("The backend may still be warming up. Retrying the live request once...");
+          setComposerProgressMessage("Still working on the live result. Retrying once...");
           await new Promise((resolve) => setTimeout(resolve, 10000));
           try {
             return await attemptGenerate();

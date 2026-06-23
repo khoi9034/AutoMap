@@ -195,6 +195,9 @@ def test_composer_address_proximity_matched_adds_line_output(monkeypatch, tmp_pa
             "target_name": "Fire Station 1",
             "distance_value": 1.25,
             "distance_unit": "miles",
+            "route_mode": "straight_line_fallback",
+            "route_label": "Straight-line fallback",
+            "route_warning": "Road route unavailable; showing straight-line reference only.",
             "line_geojson_path": str(line_path),
             "proximity_result_id": "prox_result_test",
             "target_layer": {
@@ -216,9 +219,9 @@ def test_composer_address_proximity_matched_adds_line_output(monkeypatch, tmp_pa
     assert result["origin_type"] == "address"
     assert result["map_title"] == "Nearest Fire Station from 793 Bartram Ave"
     assert result["proximity_result"]["target_type"] == "nearest_fire_station"
-    assert result["webmap_json"]["operationalLayers"][-1]["title"] == "Straight-line reference"
+    assert result["webmap_json"]["operationalLayers"][-1]["title"] == "Straight-line fallback"
     assert result["map_layout"]["title"] == "Nearest Fire Station from 793 Bartram Ave"
-    assert result["map_layout"]["subtitle"] == "Straight-line reference only."
+    assert result["map_layout"]["subtitle"] == "Straight-line fallback. Road route unavailable."
     assert result["map_layout"]["scale_bar_enabled"] is True
     assert result["map_layout"]["scale_bar_position"] == "bottom_center"
     assert result["map_layout"]["scale_bar_width_percent"] == 64
@@ -234,7 +237,7 @@ def test_composer_address_proximity_matched_adds_line_output(monkeypatch, tmp_pa
     assert result["report_statistics"]["proximity"]["distance"]["value"] == 1.25
 
 
-def test_composer_address_proximity_uses_fast_initial_route_mode(monkeypatch, tmp_path):
+def test_composer_address_proximity_attempts_initial_route_mode(monkeypatch, tmp_path):
     prompt = "make a map of my address 793 bartram ave and include nearest line to the nearest fire station"
     captured_kwargs = {}
     line_path = tmp_path / "proximity_line.geojson"
@@ -284,7 +287,7 @@ def test_composer_address_proximity_uses_fast_initial_route_mode(monkeypatch, tm
                 "layer_url": "https://example.test/Fire/0",
             },
             "derived_layer": {"layer_key": "derived_proximity_line_test"},
-            "route_mode": "straight_line_reference",
+            "route_mode": "straight_line_fallback",
             "route_refinement_available": True,
             "route_refinement_status": "available",
             "proximity_timing": {
@@ -302,7 +305,7 @@ def test_composer_address_proximity_uses_fast_initial_route_mode(monkeypatch, tm
 
     result = generate_composer_draft(prompt)
 
-    assert captured_kwargs["allow_route_draft"] is False
+    assert captured_kwargs["allow_route_draft"] is True
     assert captured_kwargs["resolve_property"] is False
     assert result["can_preview"] is True
     assert result["proximity_result"]["route_refinement_available"] is True
@@ -344,6 +347,9 @@ def test_composer_proximity_preview_config_includes_derived_overlays(monkeypatch
             "target_name": "Fire Station 1",
             "distance_value": 1.11,
             "distance_unit": "miles",
+            "route_mode": "straight_line_fallback",
+            "route_label": "Straight-line fallback",
+            "route_warning": "Road route unavailable; showing straight-line reference only.",
             "line_geojson_path": "outputs/proximity/test/proximity_line.geojson",
             "line_geojson_url": "/api/local-outputs/geojson/proximity/line-id",
             "proximity_result_id": "prox_result_test",
@@ -357,7 +363,7 @@ def test_composer_proximity_preview_config_includes_derived_overlays(monkeypatch
             "derived_overlays": [
                 {"id": "origin_address_point", "title": "Origin Address", "role": "origin", "symbol_key": "origin_home", "url": "/api/local-outputs/geojson/proximity/origin-id"},
                 {"id": "nearest_fire_station", "title": "Nearest Fire Station", "role": "target", "symbol_key": "target_fire_station", "url": "/api/local-outputs/geojson/proximity/target-id"},
-                {"id": "straight_line_reference", "title": "Straight-Line Reference", "role": "distance_line", "symbol_key": "route_straight_line", "route_mode": "straight_line_reference", "url": "/api/local-outputs/geojson/proximity/line-id"},
+                {"id": "straight_line_fallback", "title": "Straight-line fallback", "role": "distance_line", "symbol_key": "route_straight_line", "route_mode": "straight_line_fallback", "url": "/api/local-outputs/geojson/proximity/line-id"},
             ],
             "warnings": [],
             "published": False,
@@ -370,12 +376,12 @@ def test_composer_proximity_preview_config_includes_derived_overlays(monkeypatch
     assert result["map_title"] == "Nearest Fire Station from 793 Bartram Ave"
     assert result["preview_config"]["basemap"] == "streets-vector"
     assert result["preview_config"]["map_layout"]["title"] == "Nearest Fire Station from 793 Bartram Ave"
-    assert result["preview_config"]["map_layout"]["subtitle"] == "Straight-line reference only."
+    assert result["preview_config"]["map_layout"]["subtitle"] == "Straight-line fallback. Road route unavailable."
     assert result["preview_config"]["map_layout"]["legend_items"]
     assert result["preview_config"]["map_layout"]["print_ready"] is True
     assert "context_layers" in result["preview_config"]
     assert result["preview_config"]["derived_overlays"][0]["id"] == "origin_address_point"
-    assert result["preview_config"]["derived_overlays"][2]["id"] == "straight_line_reference"
+    assert result["preview_config"]["derived_overlays"][2]["id"] == "straight_line_fallback"
     assert result["preview_config"]["derived_overlays"][0]["symbol_key"] == "origin_home"
     assert result["preview_config"]["derived_overlays"][1]["symbol_key"] == "target_fire_station"
     assert result["preview_config"]["derived_overlays"][2]["symbol_key"] == "route_straight_line"
@@ -676,7 +682,7 @@ def test_report_statistics_marks_missing_data_unavailable_without_fake_counts():
             "derived_overlays": [{"id": "route_line", "local_output": True}],
             "warnings": ["Draft only"],
             "missing_data": ["current_permits"],
-            "proximity_summary": {"distance_value": 1.11, "distance_unit": "miles", "route_mode": "straight_line_reference"},
+            "proximity_summary": {"distance_value": 1.11, "distance_unit": "miles", "route_mode": "straight_line_fallback"},
         }
     )
 

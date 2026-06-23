@@ -437,7 +437,7 @@ def _apply_proximity_result_to_recipe(recipe: dict[str, Any], prompt: str, resul
     recipe["proximity_context"] = {
         "proximity_requested": True,
         "target_type": result.get("target_type"),
-        "route_mode": result.get("route_mode") or "straight_line_reference",
+        "route_mode": result.get("route_mode") or "straight_line_fallback",
         "road_route_supported": False,
         "straight_line_supported": True,
         "route_status": result.get("route_status"),
@@ -461,7 +461,7 @@ def _apply_proximity_result_to_recipe(recipe: dict[str, Any], prompt: str, resul
                     "type": "proximity_line_geojson",
                     "path": line_path,
                     "url": result.get("line_geojson_url") or output_file_url(line_path),
-                    "title": result.get("route_label") or "Straight-line reference",
+                    "title": result.get("route_label") or "Straight-line fallback",
                     "layer_key": (result.get("derived_layer") or {}).get("layer_key") or f"derived_proximity_{result.get('proximity_result_id')}",
                     "derived_layer": result.get("derived_layer") or {},
                     "analysis_run_id": result.get("proximity_result_id"),
@@ -474,8 +474,8 @@ def _apply_proximity_result_to_recipe(recipe: dict[str, Any], prompt: str, resul
         recipe["focus_mode"] = "proximity"
         if result.get("route_warning"):
             _append_unique_warning(recipe, str(result["route_warning"]))
-        if result.get("route_mode") == "straight_line_reference":
-            _append_unique_warning(recipe, "Straight-line reference, not a driving route.")
+        if result.get("route_mode") in {"straight_line_fallback", "straight_line_reference"}:
+            _append_unique_warning(recipe, "Straight-line fallback. Road route unavailable.")
         _append_unique_warning(recipe, "Full address layer hidden to reduce clutter.")
         if recipe["origin_context"].get("property_match_status") == "not_resolved":
             _append_unique_warning(recipe, "Address matched, but related parcel was not resolved from verified fields.")
@@ -1006,7 +1006,7 @@ def generate_composer_draft(prompt: str) -> dict[str, Any]:
             proximity_started = time.perf_counter()
             proximity_result = run_proximity_request(
                 prompt,
-                allow_route_draft=False,
+                allow_route_draft=True,
                 resolve_property=False,
             )
             timing["nearest_facility_ms"] = _elapsed_ms(proximity_started)

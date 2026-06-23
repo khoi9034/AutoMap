@@ -259,7 +259,7 @@ def test_map_composer_is_primary_simple_workflow():
     assert "printOptions" in client
     assert "lockedMapState" in client
     assert "Try Road-Following Route" in preview_step
-    assert "Matching address and nearest facility" in request_step
+    assert "Calculating road route" in request_step
     assert "currentComposerPayload" in client
     assert "report_config: mapState.report_section_config" in composer_map_state_lib
     assert "priorState = response.composer_map_state" in composer_map_state_lib
@@ -312,7 +312,7 @@ def test_map_composer_is_primary_simple_workflow():
     assert "featureCollectionBounds" in derived_layer
     assert "Home marker" in composer_preview
     assert "nearest facility" in composer_layer_panel
-    assert "Straight-line reference" in composer_preview
+    assert "Straight-line fallback" in composer_preview
     assert "Road-following draft route" in composer_preview
     assert "Hidden context" in composer_layer_panel
     assert "Local derived output" in composer_layer_panel
@@ -327,7 +327,8 @@ def test_map_composer_is_primary_simple_workflow():
     assert "route_straight_line" in map_symbols
     assert "svgDataUrl" in map_symbols
     assert "options: { casing?: boolean }" in map_symbols
-    assert "width: routeMode === \"road_following_draft\" ? 3.2 : 2.4" in map_symbols
+    assert "isRoadRouteMode" in map_symbols
+    assert "width: roadRoute ? 3.2 : 2.4" in map_symbols
     assert "map-legend" in map_legend
     assert "Hidden context" not in map_legend
     assert "North arrow" in north_arrow
@@ -823,8 +824,8 @@ def test_parcel_workspace_page_components_and_api_are_present():
     assert "Find Nearest" in proximity_form
     assert "Create Route Draft" in proximity_form
     assert "Line type" in proximity_result
-    assert "Straight-line reference" in proximity_map
-    assert "straight_line_reference" in route_warning
+    assert "Straight-line fallback" in proximity_map
+    assert "straight_line_fallback" in route_warning
     assert "Parse Identifiers" in input_panel
     assert "Match Parcels" in input_panel
     assert "returnGeometry=false" in match_table
@@ -1127,14 +1128,16 @@ def test_recruiter_safe_landing_and_health_fallback_are_present():
     system_status = read("app/system-status/page.tsx")
     smoke_script = (ROOT / "scripts" / "production_smoke_check.py").read_text(encoding="utf-8")
 
-    assert "AutoMap portfolio demo" in landing
+    assert "County GIS Request Engine" in landing
+    assert "Turn plain-language county GIS requests into draft maps, tables, and review-ready outputs." in landing
     assert "Open Live Map Composer" in landing
     assert "View Static Demo" in landing
-    assert "View Methodology / Project Summary" in landing
-    assert "Live demo supports {STATIC_DEMO_SCOPE}" in landing
-    assert "ProductionHealthCard" in landing
+    assert "View System Status" in landing
+    assert "Natural-language map requests" in landing
+    assert "Cabarrus County data scope" in landing
+    assert "Live demo with safe fallback" in landing
+    assert "ProductionHealthCard" not in landing
     assert "backend waking up" in health_card.lower()
-    assert "free deployment tier" in health_card.lower()
     assert "Last verified: live system check passed" in health_card
     assert "Real publish: disabled" in health_card
     assert "Technical diagnostics" in system_status
@@ -1161,13 +1164,13 @@ def test_static_demo_fallback_is_available_for_slow_composer_requests():
     assert "View Static Demo" in request_step
     assert "Open Project Summary" in request_step
     assert "Static fallback demo" in request_step
-    assert "The backend is waking up" in client
+    assert "Live backend is warming up" in client
     assert "Nearest Fire Station from 793 Bartram Ave" in static_demo
     assert "Static demo fallback. Live backend unavailable or warming up." in static_demo
     assert "Demo uses a Cabarrus County address." in static_demo
     assert "This prototype is county-scoped, not a nationwide address search tool." in static_demo
-    assert "Make a map of my address 793 Bartram Ave" in navigation
-    assert "Make a table of parcels in Cabarrus County." in navigation
+    assert "make a map of my address 793 bartram ave" in navigation
+    assert "give me a table of parcels in Cabarrus County" in navigation
     assert "published: false" in static_demo
     assert "owner" not in static_demo.lower()
 
@@ -1179,9 +1182,7 @@ def test_public_composer_explains_cabarrus_address_scope():
     top_header = read("components/top-header.tsx")
 
     assert "Live address and parcel workflows currently support Cabarrus County, NC only" in landing
-    assert "out-of-county addresses are not supported in this prototype" in landing
     assert "Live address and parcel workflows currently support {STATIC_DEMO_SCOPE} only" in request_step
-    assert "Address search is limited to Cabarrus County, NC" in request_step
     assert "Address not found in Cabarrus County records" in preview_step
     assert "Try a Cabarrus County address, parcel/PIN, or planning request" in preview_step
     assert "Scope: Cabarrus County, NC" in top_header

@@ -9,6 +9,7 @@ import { RouteWarningPanel } from "@/components/route-warning-panel";
 import { SectionHeader } from "@/components/section-header";
 import { ToastMessage } from "@/components/toast";
 import { listProximityResults, runNearestFacility, runProximity, runRouteDraft } from "@/lib/api";
+import { isRoadRouteMode } from "@/lib/map-symbols";
 import type { ProximityResult } from "@/types/automap";
 import type { WorkflowToast } from "@/types/workflow";
 
@@ -73,7 +74,7 @@ export default function ProximityPage() {
             onPrompt={(prompt) => runAction(() => runProximity(prompt))}
           />
           <ProximityResultCard result={result} />
-          {result && (result.route_mode !== "road_following_draft" || result.target_type === "route_to_address") ? (
+          {result && (!isRoadRouteMode(result.route_mode) || result.target_type === "route_to_address") ? (
             <RouteWarningPanel routeStatus={result?.route_status} warnings={result?.warnings || []} />
           ) : null}
           <ProximityMapPanel result={result} />
