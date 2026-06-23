@@ -1,0 +1,100 @@
+[
+  {
+    "id": "nearest-fire-station-route",
+    "title": "Nearest Fire Station Route",
+    "prompt": "make a map of my address 793 bartram ave and include nearest line to the nearest fire station",
+    "expected_request_type": "proximity",
+    "expected_intent": "nearest_fire_station",
+    "expected_output_mode": "map_preview",
+    "expected_layers_or_domains": ["address", "fire", "roads"],
+    "expected_safety_notes": [
+      "Cabarrus County, NC only",
+      "road-following draft is not official navigation",
+      "real publish disabled"
+    ]
+  },
+  {
+    "id": "floodplain-parcel-screening",
+    "title": "Floodplain Parcel Screening",
+    "prompt": "show parcels in Concord that are in the 100-year floodplain",
+    "expected_request_type": "map",
+    "expected_intent": "flood_exposure",
+    "expected_output_mode": "map_preview",
+    "expected_layers_or_domains": ["parcel", "flood", "jurisdiction"],
+    "expected_safety_notes": [
+      "Cabarrus County, NC only",
+      "bounded public records only",
+      "real publish disabled"
+    ]
+  },
+  {
+    "id": "commercial-zoning-context",
+    "title": "Commercial Zoning Context",
+    "prompt": "show commercial zoning around Concord with nearby major roads",
+    "expected_request_type": "map",
+    "expected_intent": "zoning_review",
+    "expected_output_mode": "map_preview",
+    "expected_layers_or_domains": ["zoning", "transportation", "jurisdiction"],
+    "expected_safety_notes": [
+      "Cabarrus County, NC only",
+      "commercial zoning filters require verified fields",
+      "real publish disabled"
+    ]
+  },
+  {
+    "id": "parcel-table-request",
+    "title": "Parcel Table Request",
+    "prompt": "give me a table of parcels in Cabarrus County with parcel ID, acreage, municipality, and zoning",
+    "expected_request_type": "table_request",
+    "expected_intent": "parcel_table",
+    "expected_output_mode": "table_recipe",
+    "expected_layers_or_domains": ["parcel", "zoning"],
+    "expected_safety_notes": [
+      "Cabarrus County, NC only",
+      "count-first bounded export",
+      "real publish disabled"
+    ]
+  },
+  {
+    "id": "recent-development-activity",
+    "title": "Recent Development Activity",
+    "prompt": "map recent permits and planning cases near Kannapolis",
+    "expected_request_type": "map",
+    "expected_intent": "development_activity",
+    "expected_output_mode": "map_or_missing_data",
+    "expected_layers_or_domains": ["permits", "planning cases", "jurisdiction"],
+    "expected_safety_notes": [
+      "Cabarrus County, NC only",
+      "unresolved permit/planning sources stay explicit",
+      "real publish disabled"
+    ]
+  },
+  {
+    "id": "commercial-growth-opportunity",
+    "title": "Commercial Growth Opportunity",
+    "prompt": "map commercial growth opportunities near high traffic roads but avoid floodplain",
+    "expected_request_type": "scenario",
+    "expected_intent": "growth_suitability",
+    "expected_output_mode": "scenario_recipe",
+    "expected_layers_or_domains": ["transportation", "flood", "zoning"],
+    "expected_safety_notes": [
+      "Cabarrus County, NC only",
+      "draft suitability is for review only",
+      "real publish disabled"
+    ]
+  },
+  {
+    "id": "historical-parcel-zoning-lookup",
+    "title": "Historical Parcel/Zoning Lookup",
+    "prompt": "show 2014 parcels and zoning in Cabarrus County",
+    "expected_request_type": "historical_comparison",
+    "expected_intent": "historical_comparison",
+    "expected_output_mode": "historical_map_or_table",
+    "expected_layers_or_domains": ["parcel", "zoning", "historical"],
+    "expected_safety_notes": [
+      "Cabarrus County, NC only",
+      "historical layers must be verified",
+      "real publish disabled"
+    ]
+  }
+]

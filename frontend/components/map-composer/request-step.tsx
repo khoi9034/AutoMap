@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 
-import { samplePrompts } from "@/components/navigation";
 import { ToastMessage } from "@/components/toast";
+import { automapPresets } from "@/lib/automap-presets";
 import { STATIC_DEMO_SCOPE, staticDemoHighlights } from "@/lib/static-demo";
 import type { ComposerResponse } from "@/types/automap";
 import type { WorkflowToast } from "@/types/workflow";
@@ -99,12 +99,22 @@ export function RequestStep({
       </div>
 
       <aside className="panel composer-request-explainer">
-        <p className="eyebrow">Sample prompts</p>
-        <div className="sample-grid composer-request-samples">
-          {samplePrompts.slice(0, 5).map((sample) => (
-            <button className="sample-button" key={sample} type="button" onClick={() => setPrompt(sample)}>
-              {sample}
-            </button>
+        <div>
+          <p className="eyebrow">Try a preset</p>
+          <p className="muted">Choose a Cabarrus County preset to see what AutoMap can do. Clicking a preset fills the request box.</p>
+        </div>
+        <div className="preset-gallery composer-request-presets">
+          {automapPresets.map((preset) => (
+            <article className="preset-card" key={preset.id}>
+              <div>
+                <span className="preset-tag">{preset.capability_type}</span>
+                <h4>{preset.title}</h4>
+                <p>{preset.short_description}</p>
+              </div>
+              <button className="button button-secondary button-small" type="button" onClick={() => setPrompt(preset.prompt)}>
+                Use preset
+              </button>
+            </article>
           ))}
         </div>
       </aside>

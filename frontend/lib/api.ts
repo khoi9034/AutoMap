@@ -44,6 +44,7 @@ import type {
   WorkflowRunResponse,
   AddressResolveResponse,
 } from "@/types/automap";
+import { presetForPrompt } from "@/lib/automap-presets";
 
 const LOCAL_DEV_API_BASE_URL = "http://127.0.0.1:8010";
 const DEFAULT_PRODUCTION_API_BASE_URL = "https://automap-api.onrender.com";
@@ -837,10 +838,20 @@ export async function runWorkflow(prompt: string): Promise<WorkflowRunResponse> 
 }
 
 export async function generateComposerDraft(prompt: string): Promise<ComposerResponse> {
+  const preset = presetForPrompt(prompt);
+  const presetMetadata = preset
+    ? {
+        preset_id: preset.id,
+        preset_title: preset.title,
+        capability_type: preset.capability_type,
+        expected_request_type: preset.expected_request_type,
+      }
+    : {};
+
   return apiFetch<ComposerResponse>("/api/composer/generate", {
     method: "POST",
     timeoutMs: 180000,
-    body: JSON.stringify({ prompt }),
+    body: JSON.stringify({ prompt, ...presetMetadata }),
   });
 }
 

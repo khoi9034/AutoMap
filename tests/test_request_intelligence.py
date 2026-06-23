@@ -3,12 +3,15 @@ from pathlib import Path
 
 from app.intent_classifier import classify_intents
 from app.prompt_parser import parse_prompt
+from app.proximity_engine import classify_proximity_request
 from app.recipe_engine import build_recipe
 from app.request_intelligence import build_request_intelligence
 from app.spatial_intent_planner import plan_spatial_intent
+from app.table_request_classifier import classify_table_request
 
 
 FIXTURE_PATH = Path(__file__).parent / "fixtures" / "request_intelligence_prompts.json"
+PRESET_FIXTURE_PATH = Path(__file__).parent / "fixtures" / "automap_presets.json"
 
 
 def catalog_record(
@@ -157,3 +160,72 @@ def test_no_invented_layers_or_disallowed_references_in_recipe_output():
     assert "confirm-publish" not in serialized
     assert "publish-draft-webmap" not in serialized
     assert "arcgis_password" not in serialized
+
+
+def test_automap_preset_fixture_is_distinct_safe_and_cabarrus_scoped():
+    presets = json.loads(PRESET_FIXTURE_PATH.read_text(encoding="utf-8"))
+    serialized = json.dumps(presets).lower()
+
+    assert len(presets) >= 7
+    assert len({item["id"] for item in presets}) == len(presets)
+    assert len({item["prompt"] for item in presets}) == len(presets)
+    assert {item["expected_request_type"] for item in presets}.issuperset(
+        {"proximity", "map", "table_request", "scenario", "historical_comparison"}
+    )
+    assert all("Cabarrus County, NC only" in item["expected_safety_notes"] for item in presets)
+    assert "mecklenburg" not in serialized
+    assert "wake county" not in serialized
+    assert "database_url" not in serialized
+    assert "service" + "_role" not in serialized
+    assert "cfs_dev" not in serialized
+
+
+def test_automap_presets_classify_to_expected_workflow_types():
+    presets = json.loads(PRESET_FIXTURE_PATH.read_text(encoding="utf-8"))
+    catalog = sample_catalog()
+
+    for item in presets:
+        prompt = item["prompt"]
+        expected_type = item["expected_request_type"]
+        expected_intent = item["expected_intent"]
+
+        if expected_type == "proximity":
+            proximity = classify_proximity_request(prompt)
+            assert proximity["target_type"] == "nearest_fire_station"
+            assert proximity["route_mode"] == "road_network"
+            assert proximity["straight_line_supported"] is True
+            continue
+
+        if expected_type == "table_request":
+            table = classify_table_request(prompt)
+            assert table["table_requested"] is True
+            assert expected_intent in table["intents"] or table["primary_intent"] == expected_intent
+            assert table["primary_intent"] == "parcel_table"
+            continue
+
+        parsed = parse_prompt(prompt)
+        intelligence = build_request_intelligence(prompt, parsed)["request_intelligence"]
+        detected = set(intelligence["detected_intents"])
+        recipe = build_recipe(prompt, catalog, persist_data_gaps=False)
+        selected_categories = {layer["category"] for layer in recipe["selected_layers"]}
+
+        assert expected_intent in detected, prompt
+
+        if expected_type == "historical_comparison":
+            assert parsed["historical_year"] == 2014
+            assert recipe["request_intelligence"]["primary_intent"] == "historical_comparison"
+            selected_keys = {layer["layer_key"] for layer in recipe["selected_layers"]}
+            assert "legacy_parcels_2014" in selected_keys
+            assert selected_categories.issuperset({"parcel", "zoning"})
+        elif expected_type == "scenario":
+            assert "growth_suitability" in detected
+            assert {"transportation", "flood", "zoning"}.issubset(selected_categories)
+        elif expected_intent == "development_activity":
+            assert "permits" in recipe["missing_data_needed"]
+            assert "planning cases" in recipe["missing_data_needed"]
+            assert "jurisdiction" in selected_categories
+        else:
+            for domain in item["expected_layers_or_domains"]:
+                if domain in {"address", "fire", "roads", "historical", "permits", "planning cases"}:
+                    continue
+                assert domain in selected_categories, prompt

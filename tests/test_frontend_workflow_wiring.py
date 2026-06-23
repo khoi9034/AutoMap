@@ -219,6 +219,7 @@ def test_map_composer_is_primary_simple_workflow():
     exhibit_reports_page = read("app/reports/exhibits/page.tsx")
     exhibit_reports_client = read("components/exhibit-report-center-client.tsx")
     api = read("lib/api.ts")
+    automap_presets = read("lib/automap-presets.ts")
     types = read("types/automap.ts")
 
     assert 'href: "/map-composer"' in navigation
@@ -343,7 +344,27 @@ def test_map_composer_is_primary_simple_workflow():
     assert "approx." not in scale_bar
     assert "map-symbol-legend" in symbol_legend
     assert "Generate Draft Map" in request_step
-    assert "samplePrompts" in request_step
+    assert "automapPresets" in request_step
+    assert "Try a preset" in request_step
+    assert "Use preset" in request_step
+    assert "Clicking a preset fills the request box" in request_step
+    assert "samplePrompts" not in request_step
+    assert "automapPresets" in automap_presets
+    assert "presetPrompts" in navigation
+    assert "presetForPrompt" in automap_presets
+    assert automap_presets.count('id: "') >= 7
+    assert "Nearest Fire Station Route" in automap_presets
+    assert "Floodplain Parcel Screening" in automap_presets
+    assert "Commercial Zoning Context" in automap_presets
+    assert "Parcel Table Request" in automap_presets
+    assert "Recent Development Activity" in automap_presets
+    assert "Commercial Growth Opportunity" in automap_presets
+    assert "Historical Parcel/Zoning Lookup" in automap_presets
+    assert "is_cabarrus_scoped: true" in automap_presets
+    assert "Mecklenburg" not in automap_presets
+    assert "Wake County" not in automap_presets
+    preset_aside = request_step.lower().split("try a preset", maxsplit=1)[1].split("</aside>", maxsplit=1)[0]
+    assert "static fallback" not in preset_aside
     assert "No map preview" not in request_step
     assert "Continue to Adjust" in preview_step
     assert "Regenerate Draft" in preview_step
@@ -454,6 +475,10 @@ def test_map_composer_is_primary_simple_workflow():
     assert "getExhibits" in exhibit_reports_client
     assert "Open HTML" in exhibit_reports_client
     assert "generateComposerDraft" in api
+    assert "presetForPrompt(prompt)" in api
+    assert "preset_id" in api
+    assert "preset_title" in api
+    assert "expected_request_type" in api
     assert "exportComposerExhibit" in api
     assert "saveComposerMapState" in api
     assert '"/api/exhibits/generate"' in api
@@ -1154,6 +1179,7 @@ def test_static_demo_fallback_is_available_for_slow_composer_requests():
     request_step = read("components/map-composer/request-step.tsx")
     static_demo = read("lib/static-demo.ts")
     navigation = read("components/navigation.ts")
+    automap_presets = read("lib/automap-presets.ts")
 
     assert "staticDemoComposerResponse" in client
     assert "setTimeout(resolve, 10000)" in client
@@ -1169,8 +1195,9 @@ def test_static_demo_fallback_is_available_for_slow_composer_requests():
     assert "Static demo fallback. Live backend unavailable or warming up." in static_demo
     assert "Demo uses a Cabarrus County address." in static_demo
     assert "This prototype is county-scoped, not a nationwide address search tool." in static_demo
-    assert "make a map of my address 793 bartram ave" in navigation
-    assert "give me a table of parcels in Cabarrus County" in navigation
+    assert "presetPrompts" in navigation
+    assert "make a map of my address 793 bartram ave" in automap_presets
+    assert "give me a table of parcels in Cabarrus County" in automap_presets
     assert "published: false" in static_demo
     assert "owner" not in static_demo.lower()
 

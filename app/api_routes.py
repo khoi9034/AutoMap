@@ -156,6 +156,10 @@ class PromptRequest(BaseModel):
     """Prompt payload from the frontend."""
 
     prompt: str
+    preset_id: str | None = None
+    preset_title: str | None = None
+    capability_type: str | None = None
+    expected_request_type: str | None = None
 
 
 class TableRecipePayload(BaseModel):
@@ -476,6 +480,29 @@ def _record_history_safely(**kwargs: Any) -> None:
         record_request_history(**kwargs)
     except Exception:
         return
+
+
+def _composer_preset_notes(payload: PromptRequest, result: dict[str, Any]) -> dict[str, Any]:
+    """Return safe metadata for preset-driven composer requests."""
+    if not payload.preset_id:
+        return {}
+
+    can_preview = bool(result.get("can_preview"))
+    preview_blockers = result.get("preview_blockers") or []
+    error_category = result.get("error_category")
+    if not error_category and preview_blockers:
+        error_category = "preview_blocked"
+
+    return {
+        "preset_id": payload.preset_id,
+        "preset_title": payload.preset_title,
+        "capability_type": payload.capability_type,
+        "expected_request_type": payload.expected_request_type,
+        "request_type": result.get("request_type"),
+        "live_or_fallback": "fallback" if result.get("static_demo") else "live",
+        "success_or_failure": "success" if can_preview else "needs_review",
+        "error_category": error_category,
+    }
 
 
 def _packet_file_links(packet_path: str | Path, file_names: list[str]) -> list[dict[str, str]]:
@@ -1476,6 +1503,9 @@ def api_composer_generate(payload: PromptRequest) -> Any:
         result = generate_composer_draft(payload.prompt)
     except ValueError as exc:
         raise _handle_value_error(exc) from exc
+    preset_notes = _composer_preset_notes(payload, result)
+    if preset_notes:
+        result["preset"] = preset_notes
     _record_history_safely(
         raw_prompt=payload.prompt,
         workflow_step="map_composer",
@@ -1486,6 +1516,7 @@ def api_composer_generate(payload: PromptRequest) -> Any:
             "composer_session_id": result.get("composer_session_id"),
             "can_preview": result.get("can_preview"),
             "preview_blockers": result.get("preview_blockers"),
+            **preset_notes,
         },
     )
     return _json_response(result)
