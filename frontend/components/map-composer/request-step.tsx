@@ -89,7 +89,7 @@ export function RequestStep({
               <button className="button button-secondary" type="button" onClick={onUseStaticDemo} disabled={loading}>
                 View Static Demo
               </button>
-              <Link className="button button-secondary" href="/system-status">
+              <Link className="button button-secondary" href="/methodology">
                 Open Project Summary
               </Link>
             </div>
@@ -98,7 +98,7 @@ export function RequestStep({
         <ToastMessage toast={toast || null} />
       </div>
 
-      <aside className="panel composer-request-explainer">
+      <aside className="panel composer-request-explainer" id="presets">
         <div>
           <p className="eyebrow">Try a preset</p>
           <p className="muted">Choose a Cabarrus County preset to see what AutoMap can do. Clicking a preset fills the request box.</p>
@@ -110,6 +110,12 @@ export function RequestStep({
                 <span className="preset-tag">{preset.capability_type}</span>
                 <h4>{preset.title}</h4>
                 <p>{preset.short_description}</p>
+                <div className="preset-meta-row">
+                  <span className={`preset-status preset-status-${preset.status.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`}>
+                    {preset.status}
+                  </span>
+                  <span className="preset-output-type">{preset.expected_output_type}</span>
+                </div>
               </div>
               <button className="button button-secondary button-small" type="button" onClick={() => setPrompt(preset.prompt)}>
                 Use preset

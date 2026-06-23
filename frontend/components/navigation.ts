@@ -12,6 +12,7 @@ export const navigationItems = [
   { href: "/data-gaps", label: "Data Gaps", group: "Support" },
   { href: "/external-sources", label: "External Sources", group: "Support" },
   { href: "/history", label: "History", group: "Support" },
+  { href: "/methodology", label: "Methodology", group: "Support" },
   { href: "/system-status", label: "System Status", group: "Support" },
 ];
 

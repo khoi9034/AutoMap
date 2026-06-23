@@ -96,7 +96,10 @@ def test_composer_table_prompt_hands_off_to_table_center(monkeypatch, tmp_path):
     assert result["can_preview"] is False
     assert result["next_action"] == "open_table_center"
     assert result["table_context"]["table_recipe"]["query_options"]["returnGeometry"] is False
-    assert "Open Table Center" in result["preview_blockers"][0]
+    assert result["table_context"]["preview_status"] == "table_preview_live"
+    assert result["table_context"]["export_status"] == "export_ready"
+    assert result["table_context"]["preview_rows"] == [{"PIN14": "preview_1"}]
+    assert result["preview_blockers"] == []
     assert result["webmap_json"] is None
 
 

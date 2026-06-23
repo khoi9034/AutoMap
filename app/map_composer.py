@@ -966,9 +966,15 @@ def generate_composer_draft(prompt: str) -> dict[str, Any]:
             "table_requested": True,
             "table_recipe": table_recipe,
             "preview_rows": preview.get("preview_rows") or [],
-            "export_status": "export_ready" if table_recipe.get("export_ready") else "needs_refinement",
+            "preview_status": "table_preview_live",
+            "export_status": "export_ready" if table_recipe.get("export_ready") else "csv_export_draft_needs_refinement",
             "export_links": [],
             "warnings": table_recipe.get("warnings") or [],
+            "status_message": (
+                "Table preview live. CSV export ready."
+                if table_recipe.get("export_ready")
+                else "Table preview live. CSV export needs refinement before download."
+            ),
         }
         if not table_classification.get("map_and_table"):
             response = {
@@ -987,7 +993,7 @@ def generate_composer_draft(prompt: str) -> dict[str, Any]:
                 "can_preview": False,
                 "can_analyze": False,
                 "can_report": False,
-                "preview_blockers": ["This looks like a table/data request. Open Table Center to preview or export rows."],
+                "preview_blockers": [],
                 "next_action": "open_table_center",
                 "table_context": table_context,
                 "draft_only": True,

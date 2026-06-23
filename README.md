@@ -4,6 +4,23 @@ AutoMap converts plain-English county GIS map requests into structured map recip
 
 Version: `4.9.0`
 
+## Portfolio Summary
+
+AutoMap is a county GIS request engine that converts plain-language planning questions into draft maps, tables, and review-ready outputs. The live demo is scoped to Cabarrus County, NC and supports county-specific address, parcel, zoning, floodplain, historical, table, and proximity workflows.
+
+- **Live demo:** https://auto-map-cyan.vercel.app
+- **Backend API:** https://automap-api.onrender.com
+- **Database:** Supabase PostGIS with an `automap` schema
+- **Stack:** Next.js, TypeScript, FastAPI, Python, PostGIS, ArcGIS REST, Vercel, Render
+- **Safety:** draft-only outputs, real ArcGIS publishing disabled, no paid geocoding, no owner/name search by default
+- **What I built:** prompt classification, verified layer matching, road-following proximity routes, table request planning, map composer UX, print/export layouts, deployment proxying, and recruiter-safe production fallback behavior
+
+The production path is:
+
+```text
+Vercel frontend -> Vercel same-origin API proxy -> Render FastAPI -> Supabase PostGIS
+```
+
 ## Current Phase
 
 v4.9 Locked Map Navigation Outside Adjust Step and Map Frame Titles on top of live Print / Export preview, WYSIWYG print export, table requests, exact composer map state preservation, enterprise UI layout cleanup, step-specific Map Composer layouts, enterprise centered scale bar and final map layout polish, county exhibit and staff report map layouts, enterprise cartography, road-following route drafts, semantic Map Composer symbols, real map composer preview rendering, derived GeoJSON overlays, the four-step composer, address-to-parcel resolver, proximity, real parcel lookup, parcel workspace, scenario workbench, planning scenario and suitability intelligence, development/transportation source intelligence, real source verification, data gap resolution, analysis summary reporting, and user-guided safe spatial analysis refinement.
@@ -47,7 +64,7 @@ AutoMap helps GIS and planning staff turn plain-English county map requests into
 - simple Map Composer workflow for prompt, preview, adjustment, and print/export
 - parcel-focused preview blocking until a parcel is matched
 - address-focused prompts resolved through progressive verified address/parcel field matching, normalized variants, bounded candidates, and no owner-name lookup by default
-- nearest-facility address prompts routed to straight-line proximity drafts when safe
+- nearest-facility address prompts routed to bounded road-network drafts when safe, with straight-line fallback only when routing is unavailable
 - clean composer blocked states that hide adjust/export controls until preview is ready
 - composer preview rendering with a real ArcGIS basemap, REST context layers, and local derived GeoJSON overlays for origin points, selected parcels, nearest facilities, and straight-line distance lines
 - conservative fire/EMS targeting that warns when a verified source cannot prove a fire-only facility filter

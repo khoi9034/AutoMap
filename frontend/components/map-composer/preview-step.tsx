@@ -220,15 +220,71 @@ function TableContextPanel({ response }: { response: ComposerResponse }) {
   const tableContext = response.table_context;
   const recipe = tableContext?.table_recipe;
   if (!tableContext?.table_requested) return null;
+  const previewRows = tableContext.preview_rows || recipe?.preview_rows || [];
+  const fieldNames = (recipe?.selected_fields || [])
+    .map((field) => field.alias || field.name)
+    .filter(Boolean)
+    .slice(0, 8) as string[];
+  const exportDraft = tableContext.export_status !== "export_ready";
   return (
-    <section className="panel">
+    <section className="panel table-preview-summary">
       <p className="eyebrow">Table/data request</p>
       <h3>{recipe?.table_title || "This looks like a table request"}</h3>
       <p className="muted">
-        AutoMap planned a returnGeometry=false table workflow with {recipe?.selected_fields?.length || 0} fields and estimated{" "}
-        {recipe?.estimated_count ?? "unknown"} rows.
+        Table preview live. AutoMap planned a returnGeometry=false workflow with {recipe?.selected_fields?.length || 0} selected fields and
+        an estimated {recipe?.estimated_count ?? "unknown"} rows.
       </p>
-      {tableContext.preview_rows?.length ? <p className="muted">Preview rows are available in Table Center.</p> : null}
+      <div className="result-strip">
+        <div>
+          <span>Output</span>
+          <strong>Table preview</strong>
+        </div>
+        <div>
+          <span>Safety</span>
+          <strong>{recipe?.safety_status || "needs_review"}</strong>
+        </div>
+        <div>
+          <span>CSV export</span>
+          <strong>{exportDraft ? "Draft/refine" : "Ready"}</strong>
+        </div>
+      </div>
+      <h4>Selected columns</h4>
+      <p className="muted">{fieldNames.length ? fieldNames.join(", ") : "No verified fields selected yet."}</p>
+      {previewRows.length ? (
+        <div className="table-scroll compact-table-preview">
+          <table className="data-table">
+            <thead>
+              <tr>
+                {Object.keys(previewRows[0])
+                  .slice(0, 6)
+                  .map((field) => (
+                    <th key={field}>{field}</th>
+                  ))}
+              </tr>
+            </thead>
+            <tbody>
+              {previewRows.slice(0, 5).map((row, index) => (
+                <tr key={`composer-table-row-${index}`}>
+                  {Object.keys(previewRows[0])
+                    .slice(0, 6)
+                    .map((field) => (
+                      <td key={field}>{String(row[field] ?? "")}</td>
+                    ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <p className="muted">No preview rows yet. Field selection and safety limits are still visible without downloading geometry.</p>
+      )}
+      {recipe?.warnings?.length ? (
+        <ul className="compact-list">
+          {recipe.warnings.slice(0, 3).map((warning) => (
+            <li key={warning}>{warning}</li>
+          ))}
+        </ul>
+      ) : null}
       <div className="button-row">
         <Link className="button button-secondary" href={`/tables?prompt=${encodeURIComponent(response.raw_prompt || response.prompt || "")}`}>
           Open Table Center
@@ -259,6 +315,9 @@ export function PreviewStep({
   }
 
   const previewReady = Boolean(response.can_preview && previewPacketId);
+  const tableRequest = Boolean(response.table_context?.table_requested);
+  const statusLabel = previewReady ? "Ready" : tableRequest ? "Table draft" : "Blocked";
+  const statusTone = previewReady || tableRequest ? "success" : "danger";
   return (
     <section className="composer-preview-layout">
       <div className="composer-preview-main">
@@ -266,7 +325,7 @@ export function PreviewStep({
           <span className="eyebrow">Original request</span>
           <p>{response.raw_prompt || response.prompt}</p>
         </div>
-        <PreviewBlocker response={response} onGoToRequest={onGoToRequest} />
+        {tableRequest && !previewReady ? <TableContextPanel response={response} /> : <PreviewBlocker response={response} onGoToRequest={onGoToRequest} />}
         {previewReady ? (
           <SharedMapRenderer
             mode="preview_locked"
@@ -286,7 +345,7 @@ export function PreviewStep({
               <h3>{composerDisplayTitle(response)}</h3>
               {response.map_layout?.subtitle ? <p className="muted">{response.map_layout.subtitle}</p> : null}
             </div>
-            <StatusChip tone={previewReady ? "success" : "danger"}>{previewReady ? "Ready" : "Blocked"}</StatusChip>
+            <StatusChip tone={statusTone}>{statusLabel}</StatusChip>
           </div>
           <div className="result-strip">
             <div>
@@ -315,7 +374,7 @@ export function PreviewStep({
           </div>
         </section>
         <ProximityResultSummary result={response.proximity_result} onRouteRefine={onRouteRefine} routeRefineLoading={routeRefineLoading} />
-        <TableContextPanel response={response} />
+        {tableRequest && !previewReady ? null : <TableContextPanel response={response} />}
         <SelectedLayersAndWarnings response={response} />
       </aside>
     </section>

@@ -242,6 +242,7 @@ def test_map_composer_is_primary_simple_workflow():
     assert 'href: "/data-gaps"' in navigation
     assert 'href: "/external-sources"' in navigation
     assert 'href: "/history"' in navigation
+    assert 'href: "/methodology"' in navigation
     assert 'href: "/system-status"' in navigation
     assert "nav-section-label" in sidebar
     assert '"Support"' in sidebar
@@ -357,6 +358,11 @@ def test_map_composer_is_primary_simple_workflow():
     assert "Floodplain Parcel Screening" in automap_presets
     assert "Commercial Zoning Context" in automap_presets
     assert "Parcel Table Request" in automap_presets
+    assert "Live working" in automap_presets
+    assert "Partial / draft" in automap_presets
+    assert "Data limited" in automap_presets
+    assert "expected_output_type" in automap_presets
+    assert "preset-status" in request_step
     assert "Recent Development Activity" in automap_presets
     assert "Commercial Growth Opportunity" in automap_presets
     assert "Historical Parcel/Zoning Lookup" in automap_presets
@@ -797,6 +803,10 @@ def test_table_center_page_components_and_api_are_present():
     assert "Export needs review" in safety_warning
     assert "Table recipe" in recipe_card
     assert "Open Table Center" in composer_preview
+    assert "Table preview live" in composer_preview
+    assert "Table draft" in composer_preview
+    assert "CSV export" in composer_preview
+    assert "compact-table-preview" in composer_preview
     assert "planTableRequest" in api
     assert '"/api/tables/plan"' in api
     assert '"/api/tables/export"' in api
@@ -1151,17 +1161,27 @@ def test_recruiter_safe_landing_and_health_fallback_are_present():
     landing = read("app/page.tsx")
     health_card = read("components/production-health-card.tsx")
     system_status = read("app/system-status/page.tsx")
+    methodology = read("app/methodology/page.tsx")
     smoke_script = (ROOT / "scripts" / "production_smoke_check.py").read_text(encoding="utf-8")
 
     assert "County GIS Request Engine" in landing
     assert "Turn plain-language county GIS requests into draft maps, tables, and review-ready outputs." in landing
-    assert "Open Live Map Composer" in landing
+    assert "Open Live Demo" in landing
+    assert "View Presets" in landing
+    assert "View Methodology" in landing
     assert "View Static Demo" in landing
     assert "View System Status" in landing
-    assert "Natural-language map requests" in landing
-    assert "Cabarrus County data scope" in landing
-    assert "Live demo with safe fallback" in landing
+    assert "What it does" in landing
+    assert "Live demo scope" in landing
+    assert "Example capabilities" in landing
+    assert "Tech stack" in landing
+    assert "Safety notes" in landing
     assert "ProductionHealthCard" not in landing
+    assert "System architecture" in methodology
+    assert "Vercel API proxy" in methodology
+    assert "Render FastAPI" in methodology
+    assert "Supabase PostGIS" in methodology
+    assert "Real ArcGIS publishing is disabled" in methodology
     assert "backend waking up" in health_card.lower()
     assert "Last verified: live system check passed" in health_card
     assert "Real publish: disabled" in health_card
@@ -1170,8 +1190,11 @@ def test_recruiter_safe_landing_and_health_fallback_are_present():
     assert "Database unavailable" in system_status
     assert "production_smoke_check" not in smoke_script.lower()
     assert "https://auto-map-cyan.vercel.app" in smoke_script
-    assert "DATABASE_URL" not in smoke_script
-    assert "service_role" not in smoke_script.lower()
+    assert "DATABASE" + "_URL" not in smoke_script
+    assert "service" + "_role" not in smoke_script.lower()
+    assert "nearest fire station preset" in smoke_script
+    assert "floodplain parcel preset" in smoke_script
+    assert "parcel table preset" in smoke_script
 
 
 def test_static_demo_fallback_is_available_for_slow_composer_requests():
@@ -1208,7 +1231,7 @@ def test_public_composer_explains_cabarrus_address_scope():
     preview_step = read("components/map-composer/preview-step.tsx")
     top_header = read("components/top-header.tsx")
 
-    assert "Live address and parcel workflows currently support Cabarrus County, NC only" in landing
+    assert "Cabarrus County, NC" in landing
     assert "Live address and parcel workflows currently support {STATIC_DEMO_SCOPE} only" in request_step
     assert "Address not found in Cabarrus County records" in preview_step
     assert "Try a Cabarrus County address, parcel/PIN, or planning request" in preview_step
