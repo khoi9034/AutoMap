@@ -2,18 +2,45 @@
 
 import { samplePrompts } from "@/components/navigation";
 import { ToastMessage } from "@/components/toast";
+import { staticDemoHighlights } from "@/lib/static-demo";
+import type { ComposerResponse } from "@/types/automap";
 import type { WorkflowToast } from "@/types/workflow";
 
 type RequestStepProps = {
+  elapsedSeconds?: number;
   error?: string | null;
   loading?: boolean;
   onGenerate: () => void;
+  onUseStaticDemo?: () => void;
+  progressMessage?: string | null;
   prompt: string;
   setPrompt: (prompt: string) => void;
+  showStaticDemoFallback?: boolean;
+  staticDemoResponse?: ComposerResponse | null;
   toast?: WorkflowToast | null;
 };
 
-export function RequestStep({ error, loading = false, onGenerate, prompt, setPrompt, toast }: RequestStepProps) {
+function slowProgressCopy(elapsedSeconds: number, progressMessage?: string | null): string {
+  if (progressMessage) return progressMessage;
+  if (elapsedSeconds >= 45) return "Still working. You can keep waiting, retry, or view the static demo result.";
+  if (elapsedSeconds >= 15) return "Still working. Render may be warming up while AutoMap prepares the draft.";
+  if (elapsedSeconds >= 5) return "Matching address and nearest facility...";
+  return "Checking backend readiness...";
+}
+
+export function RequestStep({
+  elapsedSeconds = 0,
+  error,
+  loading = false,
+  onGenerate,
+  onUseStaticDemo,
+  progressMessage,
+  prompt,
+  setPrompt,
+  showStaticDemoFallback = false,
+  staticDemoResponse,
+  toast,
+}: RequestStepProps) {
   return (
     <section className="composer-request-layout">
       <div className="panel composer-request-card">
@@ -33,8 +60,37 @@ export function RequestStep({ error, loading = false, onGenerate, prompt, setPro
         <button className="button composer-generate-button" type="button" onClick={onGenerate} disabled={loading || !prompt.trim()}>
           {loading ? "Generating Draft Map..." : "Generate Draft Map"}
         </button>
-        {loading ? <p className="muted">Matching address and nearest facility, then preparing the fastest safe draft preview...</p> : null}
+        {loading ? (
+          <div className="notice notice-info compact-notice">
+            <strong>{slowProgressCopy(elapsedSeconds, progressMessage)}</strong>
+            <p>Live generation can take 30-90 seconds on the free deployment tier. Publishing remains disabled.</p>
+          </div>
+        ) : null}
         {error ? <p className="error-text">{error}</p> : null}
+        {showStaticDemoFallback ? (
+          <div className="static-demo-card">
+            <div>
+              <p className="eyebrow">Static fallback demo</p>
+              <h3>{staticDemoResponse?.map_title || "Nearest Fire Station from 793 Bartram Ave"}</h3>
+              <p className="muted">
+                Static demo fallback. Live backend unavailable or slow. No ArcGIS item is published and no owner data is shown.
+              </p>
+            </div>
+            <ul className="check-list">
+              {staticDemoHighlights.map((highlight) => (
+                <li key={highlight}>{highlight}</li>
+              ))}
+            </ul>
+            <div className="button-row">
+              <button className="button" type="button" onClick={onGenerate} disabled={loading}>
+                Retry Live Request
+              </button>
+              <button className="button button-secondary" type="button" onClick={onUseStaticDemo} disabled={loading}>
+                View Static Demo Result
+              </button>
+            </div>
+          </div>
+        ) : null}
         <ToastMessage toast={toast || null} />
       </div>
 

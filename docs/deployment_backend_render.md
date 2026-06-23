@@ -72,6 +72,18 @@ https://YOUR-RENDER-BACKEND/api/status
 
 No real ArcGIS publish is enabled by this deployment.
 
+## Free-Tier Cold Starts
+
+Render free-tier services may sleep and then take 30-90 seconds to wake. The Vercel frontend is designed to remain portfolio-safe during that window:
+
+- `/api/health` is the fastest no-database readiness endpoint.
+- `/api/db-health` performs a lightweight Supabase/PostGIS check.
+- `/api/status?mode=quick` should return a safe partial status quickly.
+- The public frontend shows "backend waking up" copy rather than a broken error.
+- Composer can offer a static demo fallback while the live backend warms up.
+
+For recruiter demos, upgrade the Render instance or use an uptime monitor. Keep `AUTOMAP_ALLOW_REAL_PUBLISH=false` and `AUTOMAP_PUBLISH_DRY_RUN=true` in production.
+
 ## Dashboard Flow
 
 If a Render API token is not configured locally:

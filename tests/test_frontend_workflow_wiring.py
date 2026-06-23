@@ -1115,3 +1115,41 @@ def test_v28_scenario_workbench_components_and_api_are_present():
     assert "ScenarioToRecipeResult" in types
     assert "confirm-publish" not in client.lower()
     assert "publish-draft-webmap" not in client.lower()
+
+
+def test_recruiter_safe_landing_and_health_fallback_are_present():
+    landing = read("app/page.tsx")
+    health_card = read("components/production-health-card.tsx")
+    smoke_script = (ROOT / "scripts" / "production_smoke_check.py").read_text(encoding="utf-8")
+
+    assert "AutoMap portfolio demo" in landing
+    assert "Open Map Composer" in landing
+    assert "View Demo Walkthrough" in landing
+    assert "View Project Summary" in landing
+    assert "ProductionHealthCard" in landing
+    assert "backend waking up" in health_card.lower()
+    assert "free deployment tier" in health_card.lower()
+    assert "Real publish: disabled" in health_card
+    assert "production_smoke_check" not in smoke_script.lower()
+    assert "https://auto-map-cyan.vercel.app" in smoke_script
+    assert "DATABASE_URL" not in smoke_script
+    assert "service_role" not in smoke_script.lower()
+
+
+def test_static_demo_fallback_is_available_for_slow_composer_requests():
+    client = read("components/map-composer-client.tsx")
+    request_step = read("components/map-composer/request-step.tsx")
+    static_demo = read("lib/static-demo.ts")
+
+    assert "staticDemoComposerResponse" in client
+    assert "setTimeout(resolve, 10000)" in client
+    assert "setShowStaticDemoFallback(true)" in client
+    assert "elapsed >= 45" in client
+    assert "Retry Live Request" in request_step
+    assert "View Static Demo Result" in request_step
+    assert "Static fallback demo" in request_step
+    assert "The backend is waking up" in client
+    assert "Nearest Fire Station from 793 Bartram Ave" in static_demo
+    assert "Static demo fallback. Live backend unavailable." in static_demo
+    assert "published: false" in static_demo
+    assert "owner" not in static_demo.lower()

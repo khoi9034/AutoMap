@@ -1,7 +1,7 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { AdjustStep } from "@/components/map-composer/adjust-step";
 import { ExportStep } from "@/components/map-composer/export-step";
@@ -16,8 +16,9 @@ import {
   layerEditsFromResponse,
   packetIdForPreview,
 } from "@/components/map-composer/utils";
-import { adjustComposerDraft, exportComposerDraft, exportComposerExhibit, generateComposerDraft, refineComposerRoute, saveComposerMapState } from "@/lib/api";
+import { adjustComposerDraft, exportComposerDraft, exportComposerExhibit, generateComposerDraft, getApiHealth, refineComposerRoute, saveComposerMapState } from "@/lib/api";
 import { buildComposerExportPayload } from "@/lib/composer-map-state";
+import { staticDemoComposerResponse } from "@/lib/static-demo";
 import { mergeWorkflowState } from "@/lib/workflow-store";
 import type { ComposerAdjustPayload, ComposerMapState, ComposerResponse, ExhibitPackage, ReportSectionConfig } from "@/types/automap";
 import {
@@ -77,6 +78,9 @@ export function MapComposerClient() {
   const [activeStep, setActiveStep] = useState<ComposerStepId>("request");
   const [loading, setLoading] = useState<ComposerLoadingState>(null);
   const [error, setError] = useState<string | null>(null);
+  const [generateElapsedSeconds, setGenerateElapsedSeconds] = useState(0);
+  const [showStaticDemoFallback, setShowStaticDemoFallback] = useState(false);
+  const [composerProgressMessage, setComposerProgressMessage] = useState<string | null>(null);
   const [toast, setToast] = useState<WorkflowToast | null>(null);
 
   const previewPacketId = useMemo(() => packetIdForPreview(response), [response]);
@@ -88,6 +92,20 @@ export function MapComposerClient() {
     adjust: !previewReady,
     export: !previewReady,
   };
+
+  useEffect(() => {
+    if (loading !== "generate") {
+      setGenerateElapsedSeconds(0);
+      return;
+    }
+    const startedAt = Date.now();
+    const timer = setInterval(() => {
+      const elapsed = Math.floor((Date.now() - startedAt) / 1000);
+      setGenerateElapsedSeconds(elapsed);
+      if (elapsed >= 45) setShowStaticDemoFallback(true);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [loading]);
 
   function resetAdjustments(nextResponse = response) {
     if (!nextResponse) return;
@@ -135,8 +153,30 @@ export function MapComposerClient() {
   async function generateDraft() {
     setLoading("generate");
     setError(null);
+    setShowStaticDemoFallback(false);
+    setComposerProgressMessage("Checking whether the live Render backend is awake...");
     try {
-      const result = await generateComposerDraft(prompt);
+      try {
+        await getApiHealth();
+      } catch {
+        setComposerProgressMessage("The backend is waking up. This can take up to a minute on the free deployment tier.");
+      }
+      const attemptGenerate = async () => {
+        setComposerProgressMessage("Generating the live draft map. Address matching and nearest facility lookup can take a moment.");
+        return generateComposerDraft(prompt);
+      };
+      let result: ComposerResponse;
+      try {
+        result = await attemptGenerate();
+      } catch (firstError) {
+        setComposerProgressMessage("The backend may still be warming up. Retrying the live request once...");
+        await new Promise((resolve) => setTimeout(resolve, 10000));
+        try {
+          result = await attemptGenerate();
+        } catch {
+          throw firstError;
+        }
+      }
       setResponse(result);
       setExhibitPackage(null);
       setLayers(layerEditsFromResponse(result));
@@ -167,10 +207,31 @@ export function MapComposerClient() {
           : "Draft created, but preview is blocked until the address or parcel matches.",
       });
     } catch (exc) {
-      setError(exc instanceof Error ? exc.message : "Composer draft generation failed.");
+      setShowStaticDemoFallback(true);
+      const rawMessage = exc instanceof Error ? exc.message : "Composer draft generation failed.";
+      setError(
+        rawMessage.toLowerCase().includes("timeout") || rawMessage.toLowerCase().includes("unreachable")
+          ? "The backend is waking up or the live request is slow. Try again in about 30-60 seconds, or view the static demo result now."
+          : `Live composer request failed safely. You can retry the live request or view the static demo result.\n${rawMessage}`,
+      );
     } finally {
       setLoading(null);
+      setComposerProgressMessage(null);
     }
+  }
+
+  function viewStaticDemoResult() {
+    setResponse(staticDemoComposerResponse);
+    setExhibitPackage(null);
+    setLayers(layerEditsFromResponse(staticDemoComposerResponse));
+    setMapTitle(composerDisplayTitle(staticDemoComposerResponse));
+    setMapSubtitle(composerDisplaySubtitle(staticDemoComposerResponse));
+    setNotes("Static demo fallback. Live backend unavailable.");
+    setActiveMapViewState(null);
+    setError(null);
+    setShowStaticDemoFallback(true);
+    setActiveStep("request");
+    setToast({ tone: "warning", message: "Showing a static demo fallback. Retry the live request when the backend is awake." });
   }
 
   async function applyAdjustments() {
@@ -278,7 +339,19 @@ export function MapComposerClient() {
   return (
     <MapComposerShell activeStep={activeStep} disabled={disabled} onStepChange={changeStep} statuses={statuses}>
       {activeStep === "request" ? (
-        <RequestStep error={error} loading={loading === "generate"} onGenerate={generateDraft} prompt={prompt} setPrompt={setPrompt} toast={toast} />
+        <RequestStep
+          elapsedSeconds={generateElapsedSeconds}
+          error={error}
+          loading={loading === "generate"}
+          onGenerate={generateDraft}
+          onUseStaticDemo={viewStaticDemoResult}
+          progressMessage={composerProgressMessage}
+          prompt={prompt}
+          setPrompt={setPrompt}
+          showStaticDemoFallback={showStaticDemoFallback}
+          staticDemoResponse={response?.composer_session_id === staticDemoComposerResponse.composer_session_id ? staticDemoComposerResponse : null}
+          toast={toast}
+        />
       ) : null}
       {activeStep === "preview" ? (
         <PreviewStep

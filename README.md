@@ -858,6 +858,32 @@ Prompt -> Parser -> Layer Matcher -> Recipe Engine
 
 The trusted source for layer selection is `automap.layer_catalog`. Generated artifacts live under `outputs/`, which is ignored by Git.
 
+## Production Portfolio Demo
+
+The public frontend is deployed at:
+
+```text
+https://auto-map-cyan.vercel.app
+```
+
+The Vercel app is the stable recruiter-facing layer. Browser requests go through the same-origin `/api/automap/*` proxy to the Render FastAPI backend, which connects to Supabase PostGIS through the Session Pooler. If Render is asleep or slow on the free tier, the landing page and Map Composer show friendly "backend waking up" messages instead of scary raw errors.
+
+Recruiter-safe behavior:
+
+- `/` is a professional project overview with live readiness status.
+- `/map-composer` remains usable while the backend wakes.
+- The known demo prompt has a static fallback result for portfolio review.
+- Static fallback content is clearly labeled and does not claim to be a live GIS output.
+- ArcGIS publishing is disabled in the public demo.
+
+Production smoke check:
+
+```bash
+python scripts/production_smoke_check.py
+```
+
+For resume/interview demos, consider upgrading Render or using uptime monitoring to avoid cold starts. Keep real ArcGIS publishing disabled unless running a deliberately controlled private workflow.
+
 See:
 
 - `docs/v1_demo_workflow.md`

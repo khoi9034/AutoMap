@@ -289,6 +289,85 @@ button {
   font-size: 17px;
 }
 
+.landing-page {
+  gap: 20px;
+}
+
+.landing-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 420px);
+  gap: 24px;
+  align-items: stretch;
+  border: 1px solid #cfe0ef;
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(232, 242, 252, 0.95), rgba(255, 255, 255, 0.97)),
+    #ffffff;
+  padding: 30px;
+  box-shadow: var(--shadow);
+}
+
+.landing-hero h1 {
+  max-width: 850px;
+  margin: 0;
+  color: #122844;
+  font-size: clamp(36px, 5vw, 64px);
+  line-height: 1.02;
+}
+
+.landing-hero p {
+  max-width: 760px;
+  margin: 14px 0 18px;
+  color: #465b73;
+  font-size: 17px;
+}
+
+.landing-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 0.75fr);
+  gap: 18px;
+}
+
+.landing-step-list {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.production-health-card {
+  display: grid;
+  align-content: start;
+  gap: 14px;
+  border: 1px solid #d7e6f5;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.88);
+  padding: 18px;
+  box-shadow: var(--shadow);
+}
+
+.production-health-card h3 {
+  margin: 0;
+}
+
+.production-health-card-compact {
+  box-shadow: none;
+}
+
+.production-health-grid {
+  display: grid;
+  gap: 8px;
+}
+
+.production-health-grid span {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f8fafc;
+  color: #344054;
+  font-size: 13px;
+  font-weight: 800;
+  padding: 8px 10px;
+}
+
 .hero-health-panel {
   display: grid;
   align-content: start;
@@ -1166,6 +1245,24 @@ button {
 
 .composer-generate-button {
   justify-self: start;
+}
+
+.static-demo-card {
+  display: grid;
+  gap: 12px;
+  border: 1px solid #ffd69a;
+  border-radius: 8px;
+  background: #fff8ed;
+  color: #573306;
+  padding: 14px;
+}
+
+.static-demo-card h3 {
+  margin: 0;
+}
+
+.static-demo-card .muted {
+  color: #7a4a05;
 }
 
 .composer-request-explainer {
@@ -2988,6 +3085,8 @@ th {
   }
 
   .dashboard-hero,
+  .landing-hero,
+  .landing-grid,
   .dashboard-grid,
   .map-preview-shell,
   .workflow-page-grid,
@@ -3021,6 +3120,14 @@ th {
 
   .dashboard-hero h1 {
     font-size: 36px;
+  }
+
+  .landing-hero h1 {
+    font-size: 36px;
+  }
+
+  .landing-step-list {
+    grid-template-columns: 1fr;
   }
 
   .draft-banner,

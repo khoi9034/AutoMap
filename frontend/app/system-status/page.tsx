@@ -1,4 +1,5 @@
 import { JsonPanel } from "@/components/json-panel";
+import { ProductionHealthCard } from "@/components/production-health-card";
 import { SectionHeader } from "@/components/section-header";
 import { StatCard } from "@/components/stat-card";
 import { StatusChip } from "@/components/status-chip";
@@ -10,13 +11,17 @@ export default async function SystemStatusPage() {
   return (
     <div className="page-stack">
       <SectionHeader
-        eyebrow="Developer / GIS Analyst Tools"
-        title="Backend health and publish safety"
-        description="Sanitized status from the FastAPI backend. Secrets, database URLs, and credentials are never displayed."
+        eyebrow="Production readiness"
+        title="AutoMap system status"
+        description="Recruiter-safe health summary for the Vercel frontend, Render API, Supabase PostGIS, and publish safety."
       />
+      <ProductionHealthCard compact />
       <section className="stats-grid">
         <StatCard label="AutoMap version" value={status.version} />
-        <StatCard label="DB connected" value={status.database_connected ? "true" : "false"} />
+        <StatCard label="Frontend" value="Vercel online" />
+        <StatCard label="API" value={status.errors?.length ? "checking" : "Render online"} />
+        <StatCard label="Database" value={status.database_connected ? "Supabase online" : "checking"} />
+        <StatCard label="Demo fallback" value="available" />
         <StatCard label="Catalog records" value={status.catalog?.layer_count} />
         <StatCard label="Verified layers" value={status.catalog?.verified_layer_count} />
         <StatCard label="Field profiles" value={status.profiles?.field_profile_count} />
@@ -33,14 +38,13 @@ export default async function SystemStatusPage() {
         <StatCard label="Scenario comparisons" value={status.scenario_comparison_count} />
         <StatCard label="Parcel sets" value={status.parcel_set_count} />
         <StatCard label="Parcel contexts" value={status.parcel_context_session_count} />
-        <StatCard label="Frontend port" value={status.ports?.frontend || 3010} />
-        <StatCard label="Backend/API port" value={status.ports?.backend_api || 8010} />
       </section>
       <section className="panel">
-        <h3>Port separation</h3>
+        <h3>Deployment separation</h3>
         <div className="chip-row">
-          <StatusChip tone="success">AutoMap frontend: {status.ports?.frontend || 3010}</StatusChip>
-          <StatusChip tone="success">AutoMap backend/API: {status.ports?.backend_api || 8010}</StatusChip>
+          <StatusChip tone="success">Frontend: Vercel</StatusChip>
+          <StatusChip tone="success">API: Render</StatusChip>
+          <StatusChip tone={status.database_connected ? "success" : "warning"}>Database: Supabase PostGIS</StatusChip>
           <StatusChip tone="warning">CFS reserved: {(status.ports?.reserved || [3000, 8000]).join(" / ")}</StatusChip>
         </div>
       </section>
