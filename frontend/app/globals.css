@@ -1513,25 +1513,29 @@ button {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-.composer-quick-facts dl {
+.composer-quick-facts dl,
+.why-this-map-panel dl {
   display: grid;
   gap: 8px;
   margin: 10px 0 0;
 }
 
-.composer-quick-facts dl div {
+.composer-quick-facts dl div,
+.why-this-map-panel dl div {
   display: grid;
   gap: 3px;
 }
 
-.composer-quick-facts dt {
+.composer-quick-facts dt,
+.why-this-map-panel dt {
   color: var(--muted);
   font-size: 11px;
   font-weight: 900;
   text-transform: uppercase;
 }
 
-.composer-quick-facts dd {
+.composer-quick-facts dd,
+.why-this-map-panel dd {
   margin: 0;
   color: var(--ink);
   font-weight: 800;

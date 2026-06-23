@@ -288,6 +288,7 @@ function addContextLayers(map: ArcMap, contextLayers: PreviewLayer[], modules: A
             ? 0.58
             : 0.62;
     const definitionExpression = layer.definition_expression || undefined;
+    const renderer = layer.drawing_info?.renderer;
     try {
       if (layer.service_url && typeof layer.layer_id === "number" && /MapServer/i.test(layer.service_url)) {
         map.add(
@@ -302,6 +303,7 @@ function addContextLayers(map: ArcMap, contextLayers: PreviewLayer[], modules: A
                 title,
                 visible,
                 definitionExpression,
+                renderer,
               },
             ],
           }),
@@ -315,6 +317,7 @@ function addContextLayers(map: ArcMap, contextLayers: PreviewLayer[], modules: A
           opacity,
           visible,
           definitionExpression,
+          renderer,
           outFields: ["*"],
         }),
       );

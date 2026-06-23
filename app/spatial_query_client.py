@@ -240,6 +240,40 @@ class SpatialQueryClient:
             **request_metadata,
         }
 
+    def query_extent(
+        self,
+        layer_url: str,
+        *,
+        where: str | None = None,
+        geometry: dict[str, Any] | None = None,
+        geometry_type: str | None = None,
+        spatial_rel: str | None = None,
+    ) -> dict[str, Any]:
+        """Run an extent-only query without returning feature geometry."""
+        geometry, geometry_type = _normalize_geometry(geometry, geometry_type)
+        params = {
+            "f": "pjson",
+            "where": where or "1=1",
+            "returnExtentOnly": "true",
+            "returnGeometry": "false",
+            "geometry": geometry,
+            "geometryType": geometry_type,
+            "inSR": 4326 if geometry else None,
+            "outSR": 4326,
+            "spatialRel": spatial_rel,
+        }
+        data, request_metadata = _fetch_layer_query(layer_url, params, timeout=self.timeout)
+        extent = data.get("extent")
+        if not isinstance(extent, dict):
+            extent = None
+        return {
+            "extent": extent,
+            "where": where or "1=1",
+            "geometry_used": bool(geometry),
+            "return_geometry": False,
+            **request_metadata,
+        }
+
     def query_object_ids(
         self,
         layer_url: str,

@@ -480,6 +480,54 @@ def test_geography_prompt_uses_focused_review_extent(monkeypatch, tmp_path):
     assert extent["xmax"] == -80.46
 
 
+def test_composer_commercial_zoning_preview_carries_visible_qa(monkeypatch, tmp_path):
+    monkeypatch.setattr("app.map_composer._session_root", lambda: tmp_path / "composer_sessions")
+    monkeypatch.setattr(
+        "app.map_composer.build_recipe",
+        lambda prompt: build_recipe(prompt, sample_catalog(), persist_data_gaps=False),
+    )
+    packet_path = tmp_path / "review_packets" / "packet"
+    packet_path.mkdir(parents=True)
+    monkeypatch.setattr("app.map_composer.save_review_packet", lambda prompt, recipe, webmap: packet_path)
+    monkeypatch.setattr(
+        "app.map_composer._preview_config_for",
+        lambda path, can_preview: {
+            "initial_extent": {"xmin": -80.72, "ymin": 35.30, "xmax": -80.46, "ymax": 35.49, "spatialReference": {"wkid": 4326}},
+            "operational_layers": [
+                {"layer_key": "zoning", "title": "Cabarrus County Zoning", "category": "zoning", "role": "constraint_overlay", "url": "https://example.test/Zoning/0", "visibility": True},
+                {"layer_key": "roads", "title": "Road Centerlines", "category": "transportation", "role": "transportation_layer", "url": "https://example.test/Roads/0", "visibility": True},
+                {"layer_key": "tax_parcels", "title": "Tax Parcels", "category": "parcel", "role": "base_layer", "url": "https://example.test/Parcels/0", "visibility": True},
+            ],
+        },
+    )
+    monkeypatch.setattr(
+        "app.map_composer.visible_map_qa",
+        lambda config, recipe: {
+            "visible_feature_summary": [
+                {"layer_id": "zoning", "layer_title": "Cabarrus County Zoning", "expected_role": "zoning", "feature_count": 18, "visible": True, "fallback_used": False, "warning": None},
+                {"layer_id": "roads", "layer_title": "Road Centerlines", "expected_role": "roads", "feature_count": 41, "visible": True, "fallback_used": True, "warning": "Major-road classification was unavailable; showing road context."},
+                {"layer_id": "tax_parcels", "layer_title": "Tax Parcels", "expected_role": "parcel_context", "feature_count": None, "visible": False, "fallback_used": False, "warning": None},
+            ],
+            "visible_feature_total": 59,
+            "visible_extent": {"xmin": -80.7, "ymin": 35.31, "xmax": -80.47, "ymax": 35.48, "spatialReference": {"wkid": 4326}},
+            "warnings": ["Major-road classification was unavailable; showing road context."],
+            "fallback_used": True,
+        },
+    )
+
+    result = generate_composer_draft("show commercial zoning around Concord with nearby major roads")
+
+    assert result["request_type"] == "zoning_context"
+    assert result["request_plan"]["parameters"]["geography"] == "Concord"
+    assert result["can_preview"] is True
+    assert result["visible_feature_summary"][0]["feature_count"] == 18
+    assert result["preview_config"]["visible_feature_total"] == 59
+    assert result["preview_config"]["focus_extent"]["xmin"] == -80.7
+    parcel_layer = next(layer for layer in result["preview_config"]["context_layers"] if layer["layer_key"] == "tax_parcels")
+    assert parcel_layer["visibility"] is False
+    assert "Major-road classification was unavailable" in " ".join(result["warnings"])
+
+
 def test_composer_adjust_changes_title_visibility_opacity_and_order(monkeypatch, tmp_path):
     session_root = tmp_path / "composer_sessions"
     packet_path = tmp_path / "review_packets" / "packet"

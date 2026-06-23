@@ -378,6 +378,7 @@ def build_operational_layer(
             "popupInfo": build_popup_info(selected_layer),
             "showLegend": True,
             "autoMapRole": selected_layer.get("role"),
+            "autoMapCategory": selected_layer.get("category"),
             "autoMapLayerKey": layer_key,
             "autoMapConfidence": selected_layer.get("confidence_score"),
             "autoMapNeedsReview": bool(review_warnings),

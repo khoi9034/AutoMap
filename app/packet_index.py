@@ -266,6 +266,12 @@ def _definition_expression(layer: dict[str, Any]) -> str | None:
     return None
 
 
+def _drawing_info(layer: dict[str, Any]) -> dict[str, Any] | None:
+    layer_definition = layer.get("layerDefinition") or {}
+    drawing_info = layer_definition.get("drawingInfo") if isinstance(layer_definition, dict) else None
+    return drawing_info if isinstance(drawing_info, dict) else None
+
+
 def _parent_service_url(url: str | None) -> str | None:
     if not url:
         return None
@@ -316,6 +322,7 @@ def _preview_layers(webmap_json: dict[str, Any]) -> list[dict[str, Any]]:
                 "title": layer.get("title") or layer.get("autoMapLayerKey") or f"Layer {index + 1}",
                 "layer_key": layer.get("autoMapLayerKey"),
                 "role": layer.get("autoMapRole"),
+                "category": layer.get("autoMapCategory"),
                 "source_status": layer.get("autoMapSourceStatus"),
                 "source_priority": layer.get("autoMapSourcePriority"),
                 "confidence_score": layer.get("autoMapConfidence"),
@@ -328,6 +335,7 @@ def _preview_layers(webmap_json: dict[str, Any]) -> list[dict[str, Any]]:
                 "opacity": layer.get("opacity", 1),
                 "show_legend": bool(layer.get("showLegend", True)),
                 "definition_expression": _definition_expression(layer),
+                "drawing_info": _drawing_info(layer),
                 "review_warnings": [str(item) for item in layer.get("autoMapReviewWarnings") or []],
                 "derived_local_analysis": bool(layer.get("autoMapDerivedAnalysis") or preview_type == "local_geojson"),
                 "analysis_run_id": layer.get("autoMapAnalysisRunId"),

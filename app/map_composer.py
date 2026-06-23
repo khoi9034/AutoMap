@@ -47,6 +47,7 @@ from app.review_packet_builder import (
 from app.ui_models import output_file_url, repo_root
 from app.webmap_builder import build_webmap_json
 from app.proximity_engine import build_proximity_context, run_proximity_request
+from app.visible_map_qa import visible_map_qa
 
 
 COMPOSER_ROOT = Path("outputs/composer_sessions")
@@ -427,6 +428,41 @@ def _proximity_context_layers(layers: list[dict[str, Any]], result: dict[str, An
     return cleaned
 
 
+def _composer_context_layers(layers: list[dict[str, Any]], recipe: dict[str, Any]) -> list[dict[str, Any]]:
+    """Reduce non-proximity preview clutter while preserving metadata."""
+    request_type = str((recipe.get("request_plan") or {}).get("request_type") or recipe.get("request_type") or "")
+    parsed_topics = set((recipe.get("parsed_request") or {}).get("topics") or [])
+    cleaned: list[dict[str, Any]] = []
+    for layer in layers:
+        item = deepcopy(layer)
+        blob = " ".join(
+            str(value).lower()
+            for value in [
+                item.get("title"),
+                item.get("layer_key"),
+                item.get("layer_name"),
+                item.get("role"),
+                item.get("category"),
+            ]
+            if value
+        )
+        hide_reason = None
+        if request_type == "zoning_context" and (item.get("category") == "parcel" or "parcel" in blob) and "parcel" not in parsed_topics:
+            hide_reason = "Full parcel layer hidden because this request is a zoning/road context map."
+        if hide_reason:
+            item["visibility"] = False
+            item["default_visible"] = False
+            warnings = list(item.get("review_warnings") or [])
+            if hide_reason not in warnings:
+                warnings.append(hide_reason)
+            item["review_warnings"] = warnings
+        else:
+            item["default_visible"] = item.get("visibility", True)
+        item["is_context_layer"] = True
+        cleaned.append(item)
+    return cleaned
+
+
 def _apply_proximity_result_to_recipe(recipe: dict[str, Any], prompt: str, result: dict[str, Any]) -> None:
     """Attach proximity metadata/output to a recipe without publishing anything."""
     recipe["request_type"] = "proximity"
@@ -507,7 +543,7 @@ def _augment_preview_config(preview_config: dict[str, Any] | None, recipe: dict[
     config = deepcopy(preview_config)
     config["basemap"] = config.get("basemap") or "streets-vector"
     config["map_title"] = recipe.get("map_title") or webmap_json.get("title") or config.get("map_title")
-    config["context_layers"] = config.get("operational_layers") or []
+    config["context_layers"] = _composer_context_layers(config.get("operational_layers") or [], recipe)
     config["warnings"] = _review_warnings(recipe, recipe.get("parcel_context") or {})
     overlays = recipe.get("derived_overlays") or (recipe.get("proximity_result") or {}).get("derived_overlays") or []
     if overlays:
@@ -553,6 +589,17 @@ def _augment_preview_config(preview_config: dict[str, Any] | None, recipe: dict[
             if isinstance(target_geometry, dict) and target_geometry:
                 config["initial_extent"] = target_geometry
                 config["focus_extent"] = target_geometry
+    qa = visible_map_qa(config, recipe)
+    config["visible_feature_summary"] = qa.get("visible_feature_summary") or []
+    config["visible_feature_total"] = qa.get("visible_feature_total")
+    config["visible_map_qa"] = {
+        "fallback_used": bool(qa.get("fallback_used")),
+        "warnings": qa.get("warnings") or [],
+    }
+    if isinstance(qa.get("visible_extent"), dict) and qa["visible_extent"]:
+        config["initial_extent"] = qa["visible_extent"]
+        config["focus_extent"] = qa["visible_extent"]
+    config["warnings"] = sorted({*[str(item) for item in config.get("warnings") or []], *[str(item) for item in qa.get("warnings") or []]})
     config["map_layout"] = _build_map_layout(recipe, config)
     return config
 
@@ -875,14 +922,21 @@ def _base_session_response(
         "origin_candidates": origin_context.get("candidate_matches") or parcel_context.get("candidate_matches") or [],
         "related_parcel": origin_context.get("related_parcel"),
         "proximity_result": proximity_result,
+        "request_plan": recipe.get("request_plan"),
         "route_refinement_available": bool((proximity_result or {}).get("route_refinement_available")),
         "route_refinement_status": (proximity_result or {}).get("route_refinement_status"),
         "recipe": recipe,
         "webmap_json": webmap_json,
         "preview_config": preview_config,
         "map_layout": (preview_config or {}).get("map_layout") if isinstance(preview_config, dict) else None,
+        "visible_feature_summary": (preview_config or {}).get("visible_feature_summary") if isinstance(preview_config, dict) else [],
         "selected_layers": _selected_layers(recipe),
-        "warnings": _review_warnings(recipe, parcel_context),
+        "warnings": sorted(
+            {
+                *[str(item) for item in _review_warnings(recipe, parcel_context)],
+                *[str(item) for item in ((preview_config or {}).get("visible_map_qa") or {}).get("warnings") or []],
+            }
+        ),
         "missing_data": recipe.get("missing_data_needed") or [],
         "parcel_context": parcel_context,
         "can_preview": can_preview,

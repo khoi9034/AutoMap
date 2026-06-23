@@ -284,6 +284,7 @@ function PreviewSummaryPanel({
           </dl>
         </div>
       ) : null}
+      <WhyThisMapPanel response={response} />
       <div className="button-row composer-preview-actions">
         <button className="button" type="button" onClick={onGoToAdjust} disabled={!previewReady}>
           Continue to Adjust
@@ -296,6 +297,69 @@ function PreviewSummaryPanel({
         </button>
       </div>
     </section>
+  );
+}
+
+function planFromResponse(response: ComposerResponse): Record<string, unknown> {
+  return (response.request_plan || response.recipe?.request_plan || {}) as Record<string, unknown>;
+}
+
+function planParameters(response: ComposerResponse): Record<string, unknown> {
+  const parameters = planFromResponse(response).parameters;
+  return parameters && typeof parameters === "object" && !Array.isArray(parameters) ? (parameters as Record<string, unknown>) : {};
+}
+
+function valueList(value: unknown): string {
+  if (Array.isArray(value)) return value.map((item) => String(item)).filter(Boolean).join(", ");
+  if (value === null || value === undefined || value === "") return "Not specified";
+  return String(value);
+}
+
+function visibleFeatureCount(response: ComposerResponse): number | null {
+  const total = response.preview_config?.visible_feature_total;
+  if (typeof total === "number") return total;
+  const rows = response.visible_feature_summary || response.preview_config?.visible_feature_summary || [];
+  if (!rows.length) return null;
+  return rows.reduce((sum, row) => sum + (typeof row.feature_count === "number" ? row.feature_count : 0), 0);
+}
+
+function WhyThisMapPanel({ response }: { response: ComposerResponse }) {
+  const plan = planFromResponse(response);
+  const params = planParameters(response);
+  const totalFeatures = visibleFeatureCount(response);
+  const fallbackUsed = Boolean(response.preview_config?.visible_map_qa?.fallback_used);
+  return (
+    <div className="definition-box why-this-map-panel">
+      <strong>Why this map?</strong>
+      <dl>
+        <div>
+          <dt>Interpreted request</dt>
+          <dd>{String(plan.request_type || response.request_type || "General map").replaceAll("_", " ")}</dd>
+        </div>
+        <div>
+          <dt>Area</dt>
+          <dd>{valueList(params.geography)}</dd>
+        </div>
+        <div>
+          <dt>Main layer</dt>
+          <dd>{valueList(params.feature_type)}</dd>
+        </div>
+        <div>
+          <dt>Filter</dt>
+          <dd>{valueList(params.subtype_filter)}</dd>
+        </div>
+        <div>
+          <dt>Status</dt>
+          <dd>{fallbackUsed ? "Live result with fallback" : "Live result"}</dd>
+        </div>
+        {totalFeatures !== null ? (
+          <div>
+            <dt>Visible features</dt>
+            <dd>{totalFeatures}</dd>
+          </div>
+        ) : null}
+      </dl>
+    </div>
   );
 }
 
@@ -403,6 +467,8 @@ function PreviewNotesPanel({ response }: { response: ComposerResponse }) {
 }
 
 function PreviewDiagnosticsPanel({ response }: { response: ComposerResponse }) {
+  const qaRows = response.visible_feature_summary || response.preview_config?.visible_feature_summary || [];
+  const qaWarnings = (response.preview_config?.visible_map_qa?.warnings as string[] | undefined) || [];
   return (
     <section className="composer-preview-diagnostics">
       <div className="result-strip compact-result-strip">
@@ -414,7 +480,37 @@ function PreviewDiagnosticsPanel({ response }: { response: ComposerResponse }) {
           <span>Blockers</span>
           <strong>{response.preview_blockers?.length || 0}</strong>
         </div>
+        <div>
+          <span>Visible features</span>
+          <strong>{visibleFeatureCount(response) ?? "n/a"}</strong>
+        </div>
       </div>
+      {qaRows.length ? (
+        <div className="definition-box">
+          <strong>Visible map QA</strong>
+          <ul className="compact-list">
+            {qaRows.slice(0, 8).map((row, index) => (
+              <li key={`${String(row.layer_id || row.layer_title || "layer")}-${index}`}>
+                <strong>{String(row.layer_title || row.layer_id || "Layer")}</strong>
+                <span>
+                  {String(row.expected_role || "context")} · {row.visible === false ? "hidden" : `${String(row.feature_count ?? "unchecked")} features`}
+                  {row.fallback_used ? " · fallback used" : ""}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+      {qaWarnings.length ? (
+        <div className="definition-box">
+          <strong>QA notes</strong>
+          <ul className="compact-list">
+            {qaWarnings.slice(0, 5).map((warning) => (
+              <li key={warning}>{warning}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
       {response.preview_blockers?.length ? (
         <div className="definition-box">
           <strong>Preview blockers</strong>

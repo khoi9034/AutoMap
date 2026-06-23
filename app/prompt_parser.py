@@ -5,6 +5,8 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from app.request_brain import normalize_request_text
+
 
 GEOGRAPHY_PATTERNS = [
     ("Cabarrus County", "county", [r"\bcabarrus county\b"]),
@@ -39,7 +41,7 @@ TOPIC_PATTERNS = [
             "these parcels",
         ],
     ),
-    ("zoning", ["zoning", "zone districts", "zoning districts", "commercial zoning", "allowed use", "land use regulation"]),
+    ("zoning", ["zoning", "zone", "zones", "zone districts", "zoning districts", "commercial zoning", "business zoning", "commercial zones", "allowed use", "land use regulation"]),
     ("flood", ["floodplain", "flood plain", "floodway", "flood way", "flood hazard", "flood zone", "flood zones", "fema", "flood"]),
     ("schools", ["school districts", "school district", "school zones", "attendance zones", "schools", "elementary", "middle school", "high school"]),
     ("transportation", ["roads", "road", "streets", "street", "centerlines", "centerline", "corridors", "corridor", "road access", "highway", "highways", "major roads"]),
@@ -123,9 +125,9 @@ def _extract_topics(text: str) -> tuple[list[str], dict[str, Any]]:
             details["development_terms"].append("construction_activity")
 
     if "zoning" in topics:
-        for modifier in ["commercial", "industrial", "residential"]:
+        for modifier in ["commercial", "business", "industrial", "residential"]:
             if re.search(rf"\b{modifier}\b", text):
-                details["zoning_modifiers"].append(modifier)
+                details["zoning_modifiers"].append("commercial" if modifier == "business" else modifier)
 
     return topics, details
 
@@ -167,14 +169,17 @@ def _analysis_intent(text: str) -> str:
 
 def parse_prompt(prompt: str) -> dict[str, Any]:
     """Parse a GIS map request into rule-based request metadata."""
-    normalized = prompt.lower()
+    normalization = normalize_request_text(prompt)
+    normalized = normalization["normalized_text"]
     topics, topic_details = _extract_topics(normalized)
     time_references, historical_year = _extract_time(normalized)
 
     return {
         "raw_prompt": prompt,
+        "original_normalized_prompt": prompt.lower(),
         "normalized_prompt": normalized,
-        "terms": _terms(prompt),
+        "normalization": normalization,
+        "terms": _terms(normalized),
         "geography_terms": _extract_geographies(normalized),
         "topics": topics,
         "topic_details": topic_details,

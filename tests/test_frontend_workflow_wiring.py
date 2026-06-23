@@ -395,6 +395,10 @@ def test_map_composer_is_primary_simple_workflow():
     assert "Route / Analysis" in preview_step
     assert "Notes" in preview_step
     assert "Diagnostics" in preview_step
+    assert "Why this map?" in preview_step
+    assert "Interpreted request" in preview_step
+    assert "Visible map QA" in preview_step
+    assert "visible_feature_summary" in preview_step
     assert "composer-preview-tab-list" in preview_step
     assert "composer-adjust-layout" in adjust_step
     assert "composer-adjust-controls-panel" in adjust_step
@@ -585,6 +589,7 @@ def test_map_composer_uses_enterprise_workbench_scroll_model():
     ]
     assert "PreviewDetailsPanel" in preview_step
     assert "role=\"tablist\"" in preview_step
+    assert ".why-this-map-panel" in css
     assert ".composer-adjust-layout" in css and "height: 100%" in css[css.index(".composer-adjust-layout") : css.index(".composer-adjust-map-column", css.index(".composer-adjust-layout"))]
     assert ".composer-adjust-map-column" in css and "overflow: hidden" in css[
         css.index(".composer-adjust-map-column {") : css.index(".composer-adjust-controls-panel {")

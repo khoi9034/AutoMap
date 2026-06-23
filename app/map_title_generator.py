@@ -130,7 +130,15 @@ def generate_map_title(
     if proximity_result and proximity_result.get("status") == "ok":
         return generate_proximity_title(proximity_result)
 
-    prompt_title = _prompt_title(raw_prompt)
+    parsed = (recipe or {}).get("parsed_request") or {}
+    request_plan = (recipe or {}).get("request_plan") or {}
+    effective_prompt = str(parsed.get("normalized_prompt") or raw_prompt or "")
+    plan_params = request_plan.get("parameters") if isinstance(request_plan, dict) else {}
+    plan_geography = (plan_params or {}).get("geography") if isinstance(plan_params, dict) else None
+    if request_plan.get("request_type") == "zoning_context" and request_plan.get("zoning_category") == "commercial":
+        return _limit_title(f"Commercial Zoning Around {plan_geography}" if plan_geography else "Commercial Zoning Context")
+
+    prompt_title = _prompt_title(effective_prompt)
     if prompt_title:
         return prompt_title
 

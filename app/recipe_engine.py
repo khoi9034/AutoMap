@@ -18,6 +18,7 @@ from app.parcel_input_parser import parse_parcel_input
 from app.prompt_parser import parse_prompt
 from app.proximity_engine import build_proximity_context
 from app.recipe_models import rejected_layer_from_match, selected_layer_from_match
+from app.request_brain import build_request_plan
 from app.request_intelligence import build_request_intelligence
 from app.source_usage_intelligence import build_source_coverage, enrich_selected_layers_with_source_usage
 from app.ui_models import output_file_url, repo_root
@@ -433,6 +434,7 @@ def build_recipe(
     stage_start = perf_counter()
     initial_intelligence = build_request_intelligence(prompt, parsed_request)
     timing["intelligence_ms"] += _elapsed_ms(stage_start)
+    request_plan = build_request_plan(prompt, parsed_request)
 
     stage_start = perf_counter()
     matching = match_layers(parsed_request, layer_catalog, request_intelligence=initial_intelligence)
@@ -465,8 +467,10 @@ def build_recipe(
 
     recipe = {
         "map_title": _title_from_prompt(parsed_request),
+        "request_type": request_plan["request_type"],
         "user_intent": parsed_request["raw_prompt"],
         "parsed_request": parsed_request,
+        "request_plan": request_plan,
         "request_intelligence": request_intelligence,
         "analysis_plan": analysis_plan,
         "learned_context": learned_context,

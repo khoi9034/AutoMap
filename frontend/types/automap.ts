@@ -369,11 +369,14 @@ export type MapRecipe = {
   user_intent?: string;
   parsed_request?: {
     raw_prompt?: string;
+    normalized_prompt?: string;
+    normalization?: Record<string, JsonValue>;
     geography_terms?: Array<{ name?: string; type?: string } | string>;
     topics?: string[];
     time_references?: string[];
     historical_year?: number | null;
   };
+  request_plan?: Record<string, JsonValue>;
   request_intelligence?: RequestIntelligence;
   analysis_plan?: AnalysisPlan;
   learned_context?: LearnedContext;
@@ -959,6 +962,7 @@ export type PreviewLayer = {
   is_context_layer?: boolean;
   opacity?: number;
   definition_expression?: string | null;
+  drawing_info?: Record<string, JsonValue> | null;
   review_warnings?: string[];
   derived_local_analysis?: boolean;
   local_output?: boolean;
@@ -1018,6 +1022,9 @@ export type PreviewConfig = {
   distance_summary?: Record<string, JsonValue>;
   parcel_resolution_summary?: Record<string, JsonValue>;
   map_layout?: MapLayout;
+  visible_feature_summary?: Array<Record<string, JsonValue>>;
+  visible_feature_total?: number | null;
+  visible_map_qa?: Record<string, JsonValue>;
   preview_only?: boolean;
 };
 
@@ -1296,6 +1303,8 @@ export type ComposerResponse = {
   webmap_json?: Record<string, JsonValue>;
   preview_config?: PreviewConfig | null;
   map_layout?: MapLayout | null;
+  request_plan?: Record<string, JsonValue> | null;
+  visible_feature_summary?: Array<Record<string, JsonValue>>;
   composer_map_state?: ComposerMapState | null;
   composer_map_state_persisted?: boolean;
   selected_layers?: SelectedLayer[];

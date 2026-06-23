@@ -5,9 +5,11 @@ from app.intent_classifier import classify_intents
 from app.prompt_parser import parse_prompt
 from app.proximity_engine import classify_proximity_request
 from app.recipe_engine import build_recipe
+from app.request_brain import build_request_plan, normalize_request_text
 from app.request_intelligence import build_request_intelligence
 from app.spatial_intent_planner import plan_spatial_intent
 from app.table_request_classifier import classify_table_request
+from app.visible_map_qa import visible_map_qa
 
 
 FIXTURE_PATH = Path(__file__).parent / "fixtures" / "request_intelligence_prompts.json"
@@ -116,6 +118,117 @@ def test_recipe_includes_request_intelligence_and_analysis_plan():
     assert {"parcel", "flood", "jurisdiction"}.issubset(set(recipe["analysis_plan"]["required_layers"]))
     assert any(layer["why_selected"] for layer in recipe["selected_layers"])
     assert any(layer["why_not_legacy"] for layer in recipe["selected_layers"])
+
+
+def test_request_brain_normalizes_typos_and_extracts_zoning_parameters():
+    prompt = "show commercial zonign aorund concord with bearny major roads"
+    normalized = normalize_request_text(prompt)
+    parsed = parse_prompt(prompt)
+    plan = build_request_plan(prompt, parsed)
+
+    assert normalized["normalized_text"] == "show commercial zoning around concord with nearby major roads"
+    assert {"zoning", "transportation"}.issubset(set(parsed["topics"]))
+    assert parsed["geography_terms"][0]["name"] == "Concord"
+    assert plan["request_type"] == "zoning_context"
+    assert plan["parameters"]["geography"] == "Concord"
+    assert "commercial zoning" in plan["parameters"]["subtype_filter"]
+    assert "roads" in plan["context_layers"]
+    recipe = build_recipe(prompt, sample_catalog(), persist_data_gaps=False)
+    assert recipe["request_plan"]["request_type"] == "zoning_context"
+
+
+def test_commercial_zoning_variants_do_not_depend_on_exact_preset_wording():
+    prompts = [
+        "map commercial zoning near Concord roads",
+        "show business zoning in Concord near major roads",
+        "show commercial zoning around Concord",
+        "show zoning and major roads in Concord",
+        "show commercial zones near major roads in Cabarrus County",
+    ]
+    for prompt in prompts:
+        parsed = parse_prompt(prompt)
+        plan = build_request_plan(prompt, parsed)
+        recipe = build_recipe(prompt, sample_catalog(), persist_data_gaps=False)
+        selected_categories = {layer["category"] for layer in recipe["selected_layers"]}
+
+        assert plan["request_type"] == "zoning_context", prompt
+        assert "zoning" in selected_categories, prompt
+        if "road" in prompt:
+            assert "transportation" in selected_categories, prompt
+
+
+def test_visible_map_qa_summarizes_counts_extent_and_fallbacks():
+    class FakeClient:
+        def query_count(self, layer_url, **kwargs):
+            if "zoning" in layer_url and kwargs.get("where"):
+                return {"count": 12}
+            if "roads" in layer_url:
+                return {"count": 44}
+            return {"count": 5}
+
+        def query_extent(self, layer_url, **kwargs):
+            return {"extent": {"xmin": -80.62, "ymin": 35.35, "xmax": -80.52, "ymax": 35.44, "spatialReference": {"wkid": 4326}}}
+
+    recipe = build_recipe("show commercial zoning around Concord with nearby major roads", sample_catalog(), persist_data_gaps=False)
+    preview = {
+        "initial_extent": {"xmin": -80.72, "ymin": 35.30, "xmax": -80.46, "ymax": 35.49, "spatialReference": {"wkid": 4326}},
+        "context_layers": [
+            {
+                "layer_key": "county_zoning",
+                "title": "Cabarrus County Zoning",
+                "category": "zoning",
+                "url": "https://example.test/zoning/0",
+                "definition_expression": "ZONING_GEN IN ('COMMERCIAL', 'OFFICE')",
+                "visibility": True,
+            },
+            {
+                "layer_key": "roads",
+                "title": "Road Centerlines",
+                "category": "transportation",
+                "url": "https://example.test/roads/0",
+                "visibility": True,
+            },
+        ],
+    }
+
+    qa = visible_map_qa(preview, recipe, query_client=FakeClient())
+
+    assert qa["visible_feature_total"] == 56
+    assert qa["visible_extent"]["xmin"] < -80.62
+    assert qa["visible_feature_summary"][0]["expected_role"] == "zoning"
+    assert qa["visible_feature_summary"][1]["expected_role"] == "roads"
+
+
+def test_visible_map_qa_broadens_empty_commercial_filter():
+    class FakeClient:
+        def query_count(self, layer_url, **kwargs):
+            if kwargs.get("where"):
+                return {"count": 0}
+            return {"count": 27}
+
+        def query_extent(self, layer_url, **kwargs):
+            return {"extent": None}
+
+    recipe = build_recipe("show commercial zoning around Concord", sample_catalog(), persist_data_gaps=False)
+    preview = {
+        "initial_extent": {"xmin": -80.72, "ymin": 35.30, "xmax": -80.46, "ymax": 35.49, "spatialReference": {"wkid": 4326}},
+        "context_layers": [
+            {
+                "layer_key": "county_zoning",
+                "title": "Cabarrus County Zoning",
+                "category": "zoning",
+                "url": "https://example.test/zoning/0",
+                "definition_expression": "ZONING_GEN = 'COMMERCIAL'",
+                "visibility": True,
+            }
+        ],
+    }
+
+    qa = visible_map_qa(preview, recipe, query_client=FakeClient())
+
+    assert qa["visible_feature_total"] == 27
+    assert qa["fallback_used"] is True
+    assert "Commercial zoning values were not confidently identified" in qa["warnings"][0]
 
 
 def test_current_new_layers_preferred_over_legacy_with_explanations():

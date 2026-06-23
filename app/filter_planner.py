@@ -12,7 +12,22 @@ from app.field_profiler import (
 from app.layer_catalog_store import load_catalog_records
 
 
-COMMERCIAL_TERMS = ["commercial", "office", "business", "retail", "industrial", "c-"]
+COMMERCIAL_TERMS = [
+    "commercial",
+    "general commercial",
+    "highway commercial",
+    "neighborhood commercial",
+    "office",
+    "business",
+    "retail",
+    "mixed use",
+    "c-",
+    "gc",
+    "hc",
+    "lc",
+    "cc",
+    "oi",
+]
 
 
 def _field_names(fields: list[dict[str, Any]]) -> list[str]:
