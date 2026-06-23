@@ -20,6 +20,7 @@ type SharedMapRendererProps = {
   showMapFurniture?: boolean;
   viewCommand?: MapViewCommand | null;
   onViewStateChange?: (state: Partial<ComposerMapState>) => void;
+  onSnapshotReady?: (dataUrl: string) => void;
 };
 
 function responseFromMapState(response: ComposerResponse | null | undefined, mapState: ComposerMapState | null | undefined): ComposerResponse | null {
@@ -54,6 +55,7 @@ export function SharedMapRenderer({
   showLayerPanel,
   viewCommand,
   onViewStateChange,
+  onSnapshotReady,
 }: SharedMapRendererProps) {
   const rendererResponse = responseFromMapState(response, mapState);
   if (!rendererResponse) {
@@ -68,6 +70,7 @@ export function SharedMapRenderer({
     <div className={`shared-map-renderer shared-map-renderer-${mode}`}>
       <ComposerMapPreview
         interactionMode={mode}
+        onSnapshotReady={onSnapshotReady}
         onViewStateChange={onViewStateChange}
         packetId={packetId}
         response={rendererResponse}

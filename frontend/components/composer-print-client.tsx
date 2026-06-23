@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-import { PrintDocumentPreview } from "@/components/print-preview/print-document-preview";
+import { MapSheetDocument } from "@/components/print-preview/map-sheet-document";
 import { API_BASE_URL, getComposerSession } from "@/lib/api";
 import type { ComposerResponse } from "@/types/automap";
 import { backendExportOptionsToPrintOptions } from "@/types/print-options";
@@ -22,6 +22,8 @@ function warningList(response: ComposerResponse | null): string[] {
 export function ComposerPrintClient({ sessionId }: { sessionId: string }) {
   const [response, setResponse] = useState<ComposerResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [printWarning, setPrintWarning] = useState<string | null>(null);
+  const [snapshotReady, setSnapshotReady] = useState(false);
 
   useEffect(() => {
     getComposerSession(sessionId)
@@ -30,6 +32,7 @@ export function ComposerPrintClient({ sessionId }: { sessionId: string }) {
   }, [sessionId]);
 
   const packetId = response?.adjusted_packet_id || response?.packet_id || response?.review_packet_id || undefined;
+  const lockedMapState = response?.composer_map_state || null;
 
   if (error) {
     return (
@@ -53,9 +56,23 @@ export function ComposerPrintClient({ sessionId }: { sessionId: string }) {
     );
   }
 
+  async function openBrowserPrint() {
+    if (!lockedMapState) {
+      setPrintWarning("Lock final map before printing.");
+      return;
+    }
+    if (!snapshotReady) {
+      setPrintWarning("Print snapshot could not be created yet; browser print may vary.");
+    } else {
+      setPrintWarning(null);
+    }
+    await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+    window.print();
+  }
+
   const actions = (
     <div className="button-row print-route-actions no-print">
-      <button className="button" type="button" onClick={() => window.print()}>
+      <button className="button" type="button" onClick={openBrowserPrint} disabled={!lockedMapState}>
         Open Browser Print
       </button>
       {response.webmap_path ? (
@@ -70,8 +87,15 @@ export function ComposerPrintClient({ sessionId }: { sessionId: string }) {
   return (
     <main className="composer-print-route">
       {actions}
+      {printWarning ? <div className="inline-warning no-print">{printWarning}</div> : null}
       {response.can_preview ? (
-        <PrintDocumentPreview mapState={response.composer_map_state} packetId={packetId} printOptions={printOptions} response={response} />
+        <MapSheetDocument
+          mapState={lockedMapState}
+          onSnapshotReady={() => setSnapshotReady(true)}
+          packetId={packetId}
+          printOptions={printOptions}
+          response={response}
+        />
       ) : (
         <div className="preview-error">
           <strong>Preview is not ready.</strong>

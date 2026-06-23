@@ -132,6 +132,7 @@ export function PrintExportStep({
   const warningFile = files.find((file) => file.name === "warnings.json");
   const includedSections = includedPrintSections(printOptions);
   const isMapSheet = printOptions.exportMode === "map_sheet";
+  const canOpenPrint = Boolean(lockedMapState);
   const sheetDimensions = effectiveSheetDimensions(printOptions);
   const customSizeWarning =
     printOptions.sheetSizePreset === "custom" &&
@@ -357,10 +358,10 @@ export function PrintExportStep({
         </section>
 
         <div className="button-row composer-export-buttons">
-          <button className="button" type="button" onClick={onOpenPrintLayout} disabled={loadingReport}>
+          <button className="button" type="button" onClick={onOpenPrintLayout} disabled={loadingReport || !canOpenPrint}>
             Open Browser Print
           </button>
-          <button className="button button-secondary" type="button" onClick={onOpenPrintLayout} disabled={loadingReport || !isMapSheet}>
+          <button className="button button-secondary" type="button" onClick={onOpenPrintLayout} disabled={loadingReport || !isMapSheet || !canOpenPrint}>
             Export Map Sheet PDF
           </button>
           <button className="button button-secondary" type="button" disabled title="PNG export draft">
@@ -392,7 +393,9 @@ export function PrintExportStep({
 
         <div className="definition-box">
           <strong>Export status</strong>
-          <p>Print/export files are local draft artifacts. No ArcGIS item is created and no ArcGIS login is required.</p>
+          <p>
+            {canOpenPrint ? "Print/export files are local draft artifacts." : "Lock final map before printing."} No ArcGIS item is created and no ArcGIS login is required.
+          </p>
         </div>
 
         {files.length ? (

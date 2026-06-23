@@ -32,6 +32,7 @@ type ArcView = {
   when: (callback?: () => unknown) => Promise<unknown>;
   goTo: (target: unknown, options?: Record<string, unknown>) => Promise<unknown>;
   destroy: () => void;
+  takeScreenshot?: (options?: Record<string, unknown>) => Promise<{ dataUrl?: string; data?: string }>;
   center?: unknown;
   extent?: unknown;
   zoom?: number;
@@ -371,6 +372,7 @@ async function loadArcModules(): Promise<ArcModules> {
 
 export function ComposerMapPreview({
   interactionMode = "preview_locked",
+  onSnapshotReady,
   onViewStateChange,
   response,
   packetId,
@@ -378,6 +380,7 @@ export function ComposerMapPreview({
   viewCommand,
 }: {
   interactionMode?: SharedMapRendererMode;
+  onSnapshotReady?: (dataUrl: string) => void;
   onViewStateChange?: (state: Partial<ComposerMapState>) => void;
   response: ComposerResponse;
   packetId?: string;
@@ -501,7 +504,23 @@ export function ComposerMapPreview({
           extentHandle = nextView.watch?.("extent", emitState);
           centerHandle = nextView.watch?.("center", emitState);
           zoomHandle = nextView.watch?.("zoom", emitState);
-          return nextView.goTo(extent, { animate: false }).finally(emitState);
+          return nextView.goTo(extent, { animate: false }).finally(() => {
+            emitState();
+            if ((interactionMode === "print_locked" || interactionMode === "exhibit_locked") && typeof nextView.takeScreenshot === "function") {
+              window.setTimeout(() => {
+                if (cancelled) return;
+                nextView
+                  .takeScreenshot?.({ format: "png" })
+                  .then((snapshot) => {
+                    const dataUrl = snapshot?.dataUrl || snapshot?.data;
+                    if (!cancelled && dataUrl) onSnapshotReady?.(dataUrl);
+                  })
+                  .catch(() => {
+                    // Browser print can still use the locked live map if ArcGIS screenshot capture is unavailable.
+                  });
+              }, 450);
+            }
+          });
         });
       })
       .catch((exc) => {
@@ -533,6 +552,7 @@ export function ComposerMapPreview({
     loading,
     locked,
     onViewStateChange,
+    onSnapshotReady,
     response.preview_config?.basemap,
     response.preview_config?.focus_extent,
     response.preview_config?.initial_extent,

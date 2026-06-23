@@ -10,6 +10,7 @@ import { PrintWarningSection } from "./print-warning-section";
 
 type PrintDocumentPreviewProps = {
   mapState?: ComposerMapState | null;
+  onSnapshotReady?: (dataUrl: string) => void;
   packetId?: string;
   printOptions: LivePrintOptions;
   response: ComposerResponse | null;
@@ -68,11 +69,11 @@ function proximityItems(response: ComposerResponse | null, mapState?: ComposerMa
   ];
 }
 
-export function PrintDocumentPreview({ mapState, packetId, printOptions, response }: PrintDocumentPreviewProps) {
+export function PrintDocumentPreview({ mapState, onSnapshotReady, packetId, printOptions, response }: PrintDocumentPreviewProps) {
   const isMapSheet = printOptions.exportMode === "map_sheet";
   return (
     <article className={`print-document-preview print-document-preview-${printOptions.exportMode}`}>
-      <PrintMapPagePreview mapState={mapState} packetId={packetId} printOptions={printOptions} response={response} />
+      <PrintMapPagePreview mapState={mapState} onSnapshotReady={onSnapshotReady} packetId={packetId} printOptions={printOptions} response={response} />
       {!isMapSheet && printOptions.includeMapSummary ? <PrintSummarySection title="Map Summary" items={mapSummaryItems(response, mapState)} /> : null}
       {!isMapSheet && printOptions.includeKeyFindings ? <PrintSummarySection title="Key Findings" items={keyFindingItems(response, mapState)} /> : null}
       {!isMapSheet && printOptions.includeProximitySummary ? (

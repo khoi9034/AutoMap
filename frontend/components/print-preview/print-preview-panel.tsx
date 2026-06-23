@@ -1,7 +1,7 @@
 import type { ComposerMapState, ComposerResponse } from "@/types/automap";
 import type { LivePrintOptions } from "@/types/print-options";
 
-import { PrintDocumentPreview } from "./print-document-preview";
+import { MapSheetDocument } from "./map-sheet-document";
 
 type PrintPreviewPanelProps = {
   mapState?: ComposerMapState | null;
@@ -21,7 +21,7 @@ export function PrintPreviewPanel({ mapState, packetId, printOptions, response }
         <span>Updates live</span>
       </div>
       <div className="print-preview-scroll">
-        <PrintDocumentPreview mapState={mapState} packetId={packetId} printOptions={printOptions} response={response} />
+        <MapSheetDocument mapState={mapState} packetId={packetId} printOptions={printOptions} response={response} />
       </div>
     </section>
   );

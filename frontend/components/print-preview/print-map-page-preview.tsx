@@ -1,10 +1,15 @@
+"use client";
+
+/* eslint-disable @next/next/no-img-element */
+
 import { SharedMapRenderer } from "@/components/map-renderer/shared-map-renderer";
 import type { ComposerMapState, ComposerResponse } from "@/types/automap";
 import { effectiveSheetDimensions, type LivePrintOptions } from "@/types/print-options";
-import type { CSSProperties } from "react";
+import { useState, type CSSProperties } from "react";
 
 type PrintMapPagePreviewProps = {
   mapState?: ComposerMapState | null;
+  onSnapshotReady?: (dataUrl: string) => void;
   packetId?: string;
   printOptions: LivePrintOptions;
   response: ComposerResponse | null;
@@ -20,7 +25,8 @@ function routeSummary(response: ComposerResponse | null, mapState?: ComposerMapS
   return `${proximity.route_label || proximity.route_mode || "Route draft"} - ${distance}`;
 }
 
-export function PrintMapPagePreview({ mapState, packetId, printOptions, response }: PrintMapPagePreviewProps) {
+export function PrintMapPagePreview({ mapState, onSnapshotReady, packetId, printOptions, response }: PrintMapPagePreviewProps) {
+  const [snapshotUrl, setSnapshotUrl] = useState<string | null>(null);
   const title = mapState?.map_title || response?.map_title || "AutoMap Draft Exhibit";
   const subtitle = mapState?.map_subtitle || response?.map_layout?.subtitle || response?.preview_config?.map_layout?.subtitle || "Draft preview only.";
   const sheetDimensions = effectiveSheetDimensions(printOptions);
@@ -34,6 +40,8 @@ export function PrintMapPagePreview({ mapState, packetId, printOptions, response
   const sheetStyle = {
     "--sheet-aspect-ratio": `${sheetDimensions.width} / ${sheetDimensions.height}`,
     "--sheet-margin-preview": sheetMargin,
+    "--print-width": `${sheetDimensions.width}in`,
+    "--print-height": `${sheetDimensions.height}in`,
   } as CSSProperties;
   const classes = [
     "print-preview-sheet",
@@ -51,6 +59,10 @@ export function PrintMapPagePreview({ mapState, packetId, printOptions, response
   ]
     .filter(Boolean)
     .join(" ");
+  const handleSnapshotReady = (dataUrl: string) => {
+    setSnapshotUrl(dataUrl);
+    onSnapshotReady?.(dataUrl);
+  };
   return (
     <section className={classes} data-locked-map-state="true" style={sheetStyle}>
       {(printOptions.includeTitle || printOptions.includeSubtitle || printOptions.includeDraftDisclaimer) ? (
@@ -65,7 +77,17 @@ export function PrintMapPagePreview({ mapState, packetId, printOptions, response
       ) : null}
       <div className="print-preview-map-frame">
         {printOptions.includeDraftWatermark ? <span className="print-preview-watermark">DRAFT</span> : null}
-        <SharedMapRenderer mode="print_locked" mapState={mapState} response={response} packetId={packetId} showLayerPanel={false} />
+        {snapshotUrl ? (
+          <img className="print-map-snapshot" alt="Locked map snapshot for browser print" src={snapshotUrl} data-print-snapshot="true" />
+        ) : null}
+        <SharedMapRenderer
+          mode="print_locked"
+          mapState={mapState}
+          onSnapshotReady={handleSnapshotReady}
+          response={response}
+          packetId={packetId}
+          showLayerPanel={false}
+        />
       </div>
       <footer className="print-preview-map-notes">
         {printOptions.includeSourceNote ? <span>{routeSummary(response, mapState)}</span> : null}

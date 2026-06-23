@@ -188,6 +188,7 @@ def test_map_composer_is_primary_simple_workflow():
     composer_map_state_lib = read("lib/composer-map-state.ts")
     print_options = read("types/print-options.ts")
     print_preview_panel = read("components/print-preview/print-preview-panel.tsx")
+    map_sheet_document = read("components/print-preview/map-sheet-document.tsx")
     print_document_preview = read("components/print-preview/print-document-preview.tsx")
     print_map_page_preview = read("components/print-preview/print-map-page-preview.tsx")
     print_statistics = read("components/print-preview/print-statistics-section.tsx")
@@ -457,7 +458,10 @@ def test_map_composer_is_primary_simple_workflow():
     assert "reportConfig" not in print_export_step
     assert "Live Print Preview" in print_preview_panel
     assert "Final printout" in print_preview_panel
-    assert "PrintDocumentPreview" in print_preview_panel
+    assert "MapSheetDocument" in print_preview_panel
+    assert 'id="automap-print-root"' in map_sheet_document
+    assert "PrintDocumentPreview" in map_sheet_document
+    assert "onSnapshotReady" in map_sheet_document
     assert "PrintMapPagePreview" in print_document_preview
     assert "PrintStatisticsSection" in print_document_preview
     assert "PrintLayerTableSection" in print_document_preview
@@ -483,6 +487,13 @@ def test_map_composer_is_primary_simple_workflow():
     assert "isMapSheet" in print_document_preview
     assert "print-sheet-mode-${printOptions.exportMode}" in print_map_page_preview
     assert "effectiveSheetDimensions" in print_map_page_preview
+    assert "print-map-snapshot" in print_map_page_preview
+    assert "data-print-snapshot" in print_map_page_preview
+    assert "onSnapshotReady" in shared_renderer
+    assert "takeScreenshot" in composer_preview
+    assert "Print snapshot could not be created yet" in print_client
+    assert "Lock final map before printing" in print_client
+    assert "disabled={!lockedMapState}" in print_client
     assert "System Snapshot" not in client
     assert "System Snapshot" not in request_step
     assert "Request to preview to print" not in client
@@ -495,7 +506,7 @@ def test_map_composer_is_primary_simple_workflow():
     assert "publish-draft-webmap" not in normal_composer_sources.lower()
     assert "ComposerPrintClient" in print_page
     assert "ComposerPrintClient" in print_alias
-    assert "PrintDocumentPreview" in print_client
+    assert "MapSheetDocument" in print_client
     assert "SharedMapRenderer" in print_map_page_preview
     assert "ComposerMapPreview" in shared_renderer
     assert "mapState" in shared_renderer
@@ -640,8 +651,18 @@ def test_map_composer_uses_enterprise_workbench_scroll_model():
     ]
     assert ".print-preview-panel" in css
     assert ".print-preview-scroll" in css and "overflow-y: auto" in css[css.index(".print-preview-scroll") : css.index(".print-document-preview")]
+    assert "#automap-print-root" in css
+    assert "body * {\n    visibility: hidden;" in css
+    assert "#automap-print-root,\n  #automap-print-root *" in css
+    assert ".automap-print-document" in css
+    assert ".print-map-snapshot" in css
+    assert ".print-preview-map-frame:has(.print-map-snapshot) .shared-map-renderer" in css
+    assert "width: min(var(--print-width, 100vw), 100vw)" in css
+    assert "height: min(var(--print-height, 100vh), 100vh)" in css
+    assert "size: auto" in css[css.index("@page") :]
     assert "PrintPreviewPanel" in print_export_step
     assert "lockedMapState" in print_export_step
+    assert "!canOpenPrint" in print_export_step
     assert "samplePrompts" not in adjust_step
 
 
