@@ -870,8 +870,10 @@ button {
 
 .preset-card {
   display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
   gap: 10px;
   align-content: start;
+  min-height: 172px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #ffffff;
@@ -1198,8 +1200,10 @@ button {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   gap: 10px;
-  height: 100%;
+  height: calc(100vh - 116px);
+  max-height: calc(100vh - 116px);
   min-height: 0;
+  overflow: hidden;
 }
 
 .content-grid:has(.map-composer-shell) {
@@ -1315,7 +1319,7 @@ button {
 
 .composer-step-body-request,
 .composer-step-body-export {
-  overflow-y: auto;
+  overflow: hidden;
   padding-right: 2px;
 }
 
@@ -1326,12 +1330,14 @@ button {
 
 .composer-request-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 320px;
+  grid-template-columns: minmax(360px, 0.42fr) minmax(0, 0.58fr);
   gap: 16px;
-  align-items: start;
-  max-width: 1120px;
+  align-items: stretch;
+  height: 100%;
+  min-height: 0;
+  max-width: 1280px;
   margin: 0 auto;
-  padding: 10px 0 18px;
+  padding: 8px 0 0;
 }
 
 .composer-request-card,
@@ -1348,6 +1354,10 @@ button {
 .composer-request-card {
   display: grid;
   gap: 14px;
+  align-content: start;
+  height: 100%;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .composer-request-textarea {
@@ -1378,10 +1388,12 @@ button {
 }
 
 .composer-request-explainer {
-  position: sticky;
-  top: 96px;
   display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
   gap: 12px;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .composer-request-samples {
@@ -1389,12 +1401,15 @@ button {
 }
 
 .composer-request-presets {
-  grid-template-columns: 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 2px;
 }
 
 .composer-preview-layout {
   display: grid;
-  grid-template-columns: minmax(0, 7fr) minmax(310px, 3fr);
+  grid-template-columns: minmax(0, 1fr) minmax(330px, 360px);
   gap: 16px;
   align-items: stretch;
   height: 100%;
@@ -1414,9 +1429,8 @@ button {
 }
 
 .composer-preview-sidebar {
-  align-content: start;
-  overflow-y: auto;
-  padding-right: 2px;
+  align-content: stretch;
+  overflow: hidden;
 }
 
 .composer-compact-request {
@@ -1434,6 +1448,103 @@ button {
   margin: 0;
   color: var(--muted);
   font-weight: 700;
+}
+
+.composer-preview-details-panel {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  padding: 0;
+}
+
+.composer-preview-tab-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  border-bottom: 1px solid var(--line);
+  background: #f8fafc;
+  padding: 10px;
+}
+
+.composer-preview-tab {
+  min-height: 32px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: #475467;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 900;
+  padding: 6px 8px;
+  text-align: left;
+}
+
+.composer-preview-tab-active {
+  border-color: #b9d4ec;
+  background: #ffffff;
+  color: #174a7c;
+  box-shadow: 0 6px 16px rgba(16, 35, 59, 0.08);
+}
+
+.composer-preview-tab-panel {
+  min-height: 0;
+  overflow-y: auto;
+  padding: 12px;
+}
+
+.composer-preview-tab-panel > .panel,
+.composer-preview-tab-panel > section {
+  border: 0;
+  box-shadow: none;
+  padding: 0;
+}
+
+.composer-preview-summary-card,
+.composer-preview-notes,
+.composer-preview-diagnostics,
+.table-preview-summary {
+  display: grid;
+  gap: 12px;
+}
+
+.compact-result-strip {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.composer-quick-facts dl {
+  display: grid;
+  gap: 8px;
+  margin: 10px 0 0;
+}
+
+.composer-quick-facts dl div {
+  display: grid;
+  gap: 3px;
+}
+
+.composer-quick-facts dt {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.composer-quick-facts dd {
+  margin: 0;
+  color: var(--ink);
+  font-weight: 800;
+}
+
+.composer-preview-actions {
+  display: grid;
+  grid-template-columns: 1fr;
+}
+
+.compact-table-preview {
+  max-height: 220px;
+  overflow: auto;
 }
 
 .composer-adjust-layout {
@@ -1499,7 +1610,7 @@ button {
   position: static;
   height: 100%;
   min-height: 0;
-  overflow: hidden;
+  overflow-y: auto;
   padding: 14px;
 }
 
@@ -3210,6 +3321,7 @@ th {
   .map-composer-grid,
   .composer-step-tabs,
   .composer-request-layout,
+  .composer-request-presets,
   .composer-preview-layout,
   .composer-adjust-layout,
   .composer-export-layout,

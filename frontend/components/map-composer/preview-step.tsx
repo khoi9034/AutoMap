@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 
 import { SharedMapRenderer } from "@/components/map-renderer/shared-map-renderer";
 import { StatusChip } from "@/components/status-chip";
@@ -20,6 +21,16 @@ type PreviewStepProps = {
   response: ComposerResponse | null;
   routeRefineLoading?: boolean;
 };
+
+type PreviewDetailsTab = "summary" | "layers" | "route" | "notes" | "diagnostics";
+
+const PREVIEW_DETAIL_TABS: Array<{ id: PreviewDetailsTab; label: string }> = [
+  { id: "summary", label: "Summary" },
+  { id: "layers", label: "Layers" },
+  { id: "route", label: "Route / Analysis" },
+  { id: "notes", label: "Notes" },
+  { id: "diagnostics", label: "Diagnostics" },
+];
 
 export function PreviewBlocker({ response, onGoToRequest }: { response: ComposerResponse; onGoToRequest: () => void }) {
   const context = response.parcel_context;
@@ -216,6 +227,78 @@ export function SelectedLayersAndWarnings({ response }: { response: ComposerResp
   );
 }
 
+function PreviewSummaryPanel({
+  loading,
+  onGoToAdjust,
+  onGoToExport,
+  onRegenerate,
+  previewReady,
+  response,
+  statusLabel,
+  statusTone,
+}: {
+  loading?: boolean;
+  onGoToAdjust: () => void;
+  onGoToExport: () => void;
+  onRegenerate: () => void;
+  previewReady: boolean;
+  response: ComposerResponse;
+  statusLabel: string;
+  statusTone: "success" | "danger";
+}) {
+  const proximity = response.proximity_result;
+  const target = proximity?.target_name || "Needs review";
+  return (
+    <section className="composer-preview-summary-card">
+      <div className="panel-title-row">
+        <div>
+          <p className="eyebrow">Preview</p>
+          <h3>{composerDisplayTitle(response)}</h3>
+          {response.map_layout?.subtitle ? <p className="muted">{response.map_layout.subtitle}</p> : null}
+        </div>
+        <StatusChip tone={statusTone}>{statusLabel}</StatusChip>
+      </div>
+      <div className="result-strip compact-result-strip">
+        <div>
+          <span>Layers</span>
+          <strong>{response.selected_layers?.length || 0}</strong>
+        </div>
+        <div>
+          <span>Next</span>
+          <strong>{actionLabel(response.next_action)}</strong>
+        </div>
+      </div>
+      {proximity ? (
+        <div className="definition-box composer-quick-facts">
+          <strong>Nearest facility</strong>
+          <p>{target}</p>
+          <dl>
+            <div>
+              <dt>Route mode</dt>
+              <dd>{proximity.route_label || proximity.route_mode || "Needs review"}</dd>
+            </div>
+            <div>
+              <dt>Method</dt>
+              <dd>{proximity.nearest_facility_method === "road_distance" ? "Road distance" : "Straight-line fallback"}</dd>
+            </div>
+          </dl>
+        </div>
+      ) : null}
+      <div className="button-row composer-preview-actions">
+        <button className="button" type="button" onClick={onGoToAdjust} disabled={!previewReady}>
+          Continue to Adjust
+        </button>
+        <button className="button button-secondary" type="button" onClick={onRegenerate} disabled={loading}>
+          Regenerate Draft
+        </button>
+        <button className="button button-secondary" type="button" onClick={onGoToExport} disabled={!previewReady}>
+          Print / Export
+        </button>
+      </div>
+    </section>
+  );
+}
+
 function TableContextPanel({ response }: { response: ComposerResponse }) {
   const tableContext = response.table_context;
   const recipe = tableContext?.table_recipe;
@@ -294,6 +377,129 @@ function TableContextPanel({ response }: { response: ComposerResponse }) {
   );
 }
 
+function PreviewNotesPanel({ response }: { response: ComposerResponse }) {
+  return (
+    <section className="composer-preview-notes">
+      <div className="definition-box">
+        <strong>Cabarrus County scope</strong>
+        <p>Live address and parcel workflows support Cabarrus County, NC only.</p>
+      </div>
+      <div className="definition-box">
+        <strong>Draft safety</strong>
+        <p>Real ArcGIS publishing is disabled. Outputs are draft review artifacts, not official county maps.</p>
+      </div>
+      {response.warnings?.length ? (
+        <div className="definition-box">
+          <strong>Key limitations</strong>
+          <ul className="compact-list">
+            {response.warnings.slice(0, 5).map((warning) => (
+              <li key={warning}>{warning}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function PreviewDiagnosticsPanel({ response }: { response: ComposerResponse }) {
+  return (
+    <section className="composer-preview-diagnostics">
+      <div className="result-strip compact-result-strip">
+        <div>
+          <span>Missing data</span>
+          <strong>{response.missing_data?.length || 0}</strong>
+        </div>
+        <div>
+          <span>Blockers</span>
+          <strong>{response.preview_blockers?.length || 0}</strong>
+        </div>
+      </div>
+      {response.preview_blockers?.length ? (
+        <div className="definition-box">
+          <strong>Preview blockers</strong>
+          <ul className="compact-list">
+            {response.preview_blockers.slice(0, 5).map((blocker) => (
+              <li key={blocker}>{blocker}</li>
+            ))}
+          </ul>
+        </div>
+      ) : (
+        <p className="muted">No technical blockers for this draft.</p>
+      )}
+    </section>
+  );
+}
+
+function PreviewDetailsPanel({
+  loading,
+  onGoToAdjust,
+  onGoToExport,
+  onRegenerate,
+  onRouteRefine,
+  previewReady,
+  response,
+  routeRefineLoading,
+  statusLabel,
+  statusTone,
+}: {
+  loading?: boolean;
+  onGoToAdjust: () => void;
+  onGoToExport: () => void;
+  onRegenerate: () => void;
+  onRouteRefine?: () => void;
+  previewReady: boolean;
+  response: ComposerResponse;
+  routeRefineLoading?: boolean;
+  statusLabel: string;
+  statusTone: "success" | "danger";
+}) {
+  const [activeTab, setActiveTab] = useState<PreviewDetailsTab>("summary");
+  const tableRequest = Boolean(response.table_context?.table_requested);
+  return (
+    <section className="panel composer-preview-details-panel">
+      <div className="composer-preview-tab-list" role="tablist" aria-label="Preview details">
+        {PREVIEW_DETAIL_TABS.map((tab) => (
+          <button
+            aria-selected={activeTab === tab.id}
+            className={activeTab === tab.id ? "composer-preview-tab composer-preview-tab-active" : "composer-preview-tab"}
+            key={tab.id}
+            role="tab"
+            type="button"
+            onClick={() => setActiveTab(tab.id)}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+      <div className="composer-preview-tab-panel" role="tabpanel">
+        {activeTab === "summary" ? (
+          <PreviewSummaryPanel
+            loading={loading}
+            onGoToAdjust={onGoToAdjust}
+            onGoToExport={onGoToExport}
+            onRegenerate={onRegenerate}
+            previewReady={previewReady}
+            response={response}
+            statusLabel={statusLabel}
+            statusTone={statusTone}
+          />
+        ) : null}
+        {activeTab === "layers" ? <SelectedLayersAndWarnings response={response} /> : null}
+        {activeTab === "route" ? (
+          <>
+            <ProximityResultSummary result={response.proximity_result} onRouteRefine={onRouteRefine} routeRefineLoading={routeRefineLoading} />
+            {tableRequest ? <TableContextPanel response={response} /> : null}
+            {!response.proximity_result && !tableRequest ? <p className="muted">No route or table analysis is attached to this draft.</p> : null}
+          </>
+        ) : null}
+        {activeTab === "notes" ? <PreviewNotesPanel response={response} /> : null}
+        {activeTab === "diagnostics" ? <PreviewDiagnosticsPanel response={response} /> : null}
+      </div>
+    </section>
+  );
+}
+
 export function PreviewStep({
   loading,
   onGoToAdjust,
@@ -338,44 +544,18 @@ export function PreviewStep({
       </div>
 
       <aside className="composer-preview-sidebar">
-        <section className="panel">
-          <div className="panel-title-row">
-            <div>
-              <p className="eyebrow">Preview</p>
-              <h3>{composerDisplayTitle(response)}</h3>
-              {response.map_layout?.subtitle ? <p className="muted">{response.map_layout.subtitle}</p> : null}
-            </div>
-            <StatusChip tone={statusTone}>{statusLabel}</StatusChip>
-          </div>
-          <div className="result-strip">
-            <div>
-              <span>Layers</span>
-              <strong>{response.selected_layers?.length || 0}</strong>
-            </div>
-            <div>
-              <span>Missing data</span>
-              <strong>{response.missing_data?.length || 0}</strong>
-            </div>
-            <div>
-              <span>Next</span>
-              <strong>{actionLabel(response.next_action)}</strong>
-            </div>
-          </div>
-          <div className="button-row">
-            <button className="button" type="button" onClick={onGoToAdjust} disabled={!previewReady}>
-              Continue to Adjust
-            </button>
-            <button className="button button-secondary" type="button" onClick={onRegenerate} disabled={loading}>
-              Regenerate Draft
-            </button>
-            <button className="button button-secondary" type="button" onClick={onGoToExport} disabled={!previewReady}>
-              Print / Export
-            </button>
-          </div>
-        </section>
-        <ProximityResultSummary result={response.proximity_result} onRouteRefine={onRouteRefine} routeRefineLoading={routeRefineLoading} />
-        {tableRequest && !previewReady ? null : <TableContextPanel response={response} />}
-        <SelectedLayersAndWarnings response={response} />
+        <PreviewDetailsPanel
+          loading={loading}
+          onGoToAdjust={onGoToAdjust}
+          onGoToExport={onGoToExport}
+          onRegenerate={onRegenerate}
+          onRouteRefine={onRouteRefine}
+          previewReady={previewReady}
+          response={response}
+          routeRefineLoading={routeRefineLoading}
+          statusLabel={statusLabel}
+          statusTone={statusTone}
+        />
       </aside>
     </section>
   );

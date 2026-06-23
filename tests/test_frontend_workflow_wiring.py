@@ -266,6 +266,7 @@ def test_map_composer_is_primary_simple_workflow():
     assert "report_config: mapState.report_section_config" in composer_map_state_lib
     assert "priorState = response.composer_map_state" in composer_map_state_lib
     assert "ComposerStepTabs" in shell
+    assert "composer-workbench-shell" in shell
     assert "composer-step-body" in shell
     assert "ComposerStepId" in step_types
     assert "ComposerStepDisabled" in step_types
@@ -349,6 +350,7 @@ def test_map_composer_is_primary_simple_workflow():
     assert "Try a preset" in request_step
     assert "Use preset" in request_step
     assert "Clicking a preset fills the request box" in request_step
+    assert 'id="presets"' in request_step
     assert "samplePrompts" not in request_step
     assert "automapPresets" in automap_presets
     assert "presetPrompts" in navigation
@@ -363,6 +365,7 @@ def test_map_composer_is_primary_simple_workflow():
     assert "Data limited" in automap_presets
     assert "expected_output_type" in automap_presets
     assert "preset-status" in request_step
+    assert "preset-output-type" in request_step
     assert "Recent Development Activity" in automap_presets
     assert "Commercial Growth Opportunity" in automap_presets
     assert "Historical Parcel/Zoning Lookup" in automap_presets
@@ -385,6 +388,14 @@ def test_map_composer_is_primary_simple_workflow():
     assert "Nearest facility draft" in preview_step
     assert "nearest fire/EMS station" in preview_step
     assert "Route mode" in preview_step
+    assert "PreviewDetailsPanel" in preview_step
+    assert "PREVIEW_DETAIL_TABS" in preview_step
+    assert "Summary" in preview_step
+    assert "Layers" in preview_step
+    assert "Route / Analysis" in preview_step
+    assert "Notes" in preview_step
+    assert "Diagnostics" in preview_step
+    assert "composer-preview-tab-list" in preview_step
     assert "composer-adjust-layout" in adjust_step
     assert "composer-adjust-controls-panel" in adjust_step
     assert "SharedMapRenderer" in adjust_step
@@ -543,7 +554,18 @@ def test_map_composer_uses_enterprise_workbench_scroll_model():
     assert ".content-grid:has(.map-composer-shell)" in css
     assert ".content-grid:has(.map-composer-shell) .right-rail" in css
     assert ".content-grid:has(.map-composer-shell) + .footer" in css
+    assert ".map-composer-shell" in css
+    shell_block = css[css.index(".map-composer-shell {") : css.index(".content-grid:has(.map-composer-shell)")]
+    assert "height: calc(100vh - 116px)" in shell_block
+    assert "overflow: hidden" in shell_block
     assert ".composer-step-body-adjust" in css
+    assert ".composer-step-body-request,\n.composer-step-body-export" in css
+    assert "overflow: hidden" in css[css.index(".composer-step-body-request,\n.composer-step-body-export") : css.index(".composer-request-layout")]
+    assert ".composer-request-presets" in css
+    request_presets_block = css[css.index(".composer-request-presets {") : css.index(".composer-preview-layout")]
+    assert "repeat(2, minmax(0, 1fr))" in request_presets_block
+    assert "overflow-y: auto" in request_presets_block
+    assert ".preset-card" in css and "min-height: 172px" in css[css.index(".preset-card {") : css.index(".preset-card h4")]
     assert ".composer-preview-layout .shared-map-renderer-preview_locked" in css
     assert "min-height: clamp(560px, 68vh, 760px)" in css
     assert ".composer-preview-layout .map-frame-preview" in css
@@ -551,6 +573,18 @@ def test_map_composer_uses_enterprise_workbench_scroll_model():
     assert "data-map-frame-mode" in map_frame
     assert "map-frame-preview" in css
     assert ".composer-preview-layout" in css and "height: 100%" in css[css.index(".composer-preview-layout") : css.index(".composer-preview-main", css.index(".composer-preview-layout"))]
+    assert ".composer-preview-sidebar" in css and "overflow: hidden" in css[
+        css.index(".composer-preview-sidebar {") : css.index(".composer-compact-request")
+    ]
+    assert ".composer-preview-details-panel" in css
+    details_block = css[css.index(".composer-preview-details-panel {") : css.index(".composer-preview-tab-list")]
+    assert "grid-template-rows: auto minmax(0, 1fr)" in details_block
+    assert "overflow: hidden" in details_block
+    assert ".composer-preview-tab-panel" in css and "overflow-y: auto" in css[
+        css.index(".composer-preview-tab-panel {") : css.index(".composer-preview-tab-panel > .panel")
+    ]
+    assert "PreviewDetailsPanel" in preview_step
+    assert "role=\"tablist\"" in preview_step
     assert ".composer-adjust-layout" in css and "height: 100%" in css[css.index(".composer-adjust-layout") : css.index(".composer-adjust-map-column", css.index(".composer-adjust-layout"))]
     assert ".composer-adjust-map-column" in css and "overflow: hidden" in css[
         css.index(".composer-adjust-map-column {") : css.index(".composer-adjust-controls-panel {")
@@ -567,6 +601,9 @@ def test_map_composer_uses_enterprise_workbench_scroll_model():
     assert "SharedMapRenderer" in print_map_page_preview
     assert 'mode="print_locked"' in print_map_page_preview
     assert ".composer-step-body-export" in css and "overflow: hidden" in css[css.index(".composer-step-body-export") : css.index(".composer-request-layout")]
+    assert ".composer-export-panel" in css and "overflow-y: auto" in css[
+        css.index(".composer-export-panel {") : css.index(".composer-export-buttons")
+    ]
     assert ".print-preview-panel" in css
     assert ".print-preview-scroll" in css and "overflow-y: auto" in css[css.index(".print-preview-scroll") : css.index(".print-document-preview")]
     assert "PrintPreviewPanel" in print_export_step

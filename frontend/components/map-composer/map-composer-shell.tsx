@@ -15,7 +15,7 @@ type MapComposerShellProps = {
 
 export function MapComposerShell({ activeStep, children, disabled, onStepChange, statuses }: MapComposerShellProps) {
   return (
-    <div className="map-composer-shell">
+    <div className="map-composer-shell composer-workbench-shell">
       <ComposerStepTabs activeStep={activeStep} disabled={disabled} onStepChange={onStepChange} statuses={statuses} />
       <div className={`composer-step-body composer-step-body-${activeStep}`}>{children}</div>
     </div>
