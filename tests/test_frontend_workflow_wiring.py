@@ -719,7 +719,11 @@ def test_production_status_badges_are_render_aware():
     assert "getApiRuntimeInfo" in top_header
     assert "FE {frontendLabel}" in top_header
     assert "API {apiLabel}" in top_header
-    assert "DB {dbLabel}" in top_header
+    assert "Scope Cabarrus County, NC" in top_header
+    assert "Demo Mode" in top_header
+    assert "Waking" in top_header
+    assert "DB {dbLabel}" not in top_header
+    assert "database_connected" not in top_header
     assert "FE 3010" not in top_header
     assert "API 8010" not in top_header
     assert "getApiRuntimeInfo" in status_panel
@@ -1120,16 +1124,22 @@ def test_v28_scenario_workbench_components_and_api_are_present():
 def test_recruiter_safe_landing_and_health_fallback_are_present():
     landing = read("app/page.tsx")
     health_card = read("components/production-health-card.tsx")
+    system_status = read("app/system-status/page.tsx")
     smoke_script = (ROOT / "scripts" / "production_smoke_check.py").read_text(encoding="utf-8")
 
     assert "AutoMap portfolio demo" in landing
-    assert "Open Map Composer" in landing
-    assert "View Demo Walkthrough" in landing
-    assert "View Project Summary" in landing
+    assert "Open Live Map Composer" in landing
+    assert "View Static Demo" in landing
+    assert "View Methodology / Project Summary" in landing
+    assert "Live demo supports {STATIC_DEMO_SCOPE}" in landing
     assert "ProductionHealthCard" in landing
     assert "backend waking up" in health_card.lower()
     assert "free deployment tier" in health_card.lower()
+    assert "Last verified: live system check passed" in health_card
     assert "Real publish: disabled" in health_card
+    assert "Technical diagnostics" in system_status
+    assert "Technical status for project owner/reviewers" in system_status
+    assert "Database unavailable" in system_status
     assert "production_smoke_check" not in smoke_script.lower()
     assert "https://auto-map-cyan.vercel.app" in smoke_script
     assert "DATABASE_URL" not in smoke_script
@@ -1145,11 +1155,14 @@ def test_static_demo_fallback_is_available_for_slow_composer_requests():
     assert "setTimeout(resolve, 10000)" in client
     assert "setShowStaticDemoFallback(true)" in client
     assert "elapsed >= 45" in client
-    assert "Retry Live Request" in request_step
-    assert "View Static Demo Result" in request_step
+    assert "public_demo_timeout" in client
+    assert "Retry Live Demo" in request_step
+    assert "View Static Demo" in request_step
+    assert "Open Project Summary" in request_step
     assert "Static fallback demo" in request_step
     assert "The backend is waking up" in client
     assert "Nearest Fire Station from 793 Bartram Ave" in static_demo
-    assert "Static demo fallback. Live backend unavailable." in static_demo
+    assert "Static demo fallback. Live backend unavailable or warming up." in static_demo
+    assert "Scope: Cabarrus County, NC." in static_demo
     assert "published: false" in static_demo
     assert "owner" not in static_demo.lower()

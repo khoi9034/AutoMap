@@ -11,16 +11,16 @@ export default async function SystemStatusPage() {
   return (
     <div className="page-stack">
       <SectionHeader
-        eyebrow="Production readiness"
+        eyebrow="Technical diagnostics"
         title="AutoMap system status"
-        description="Recruiter-safe health summary for the Vercel frontend, Render API, Supabase PostGIS, and publish safety."
+        description="Technical status for project owner/reviewers. Secrets, database URLs, and credentials are never displayed."
       />
       <ProductionHealthCard compact />
       <section className="stats-grid">
         <StatCard label="AutoMap version" value={status.version} />
         <StatCard label="Frontend" value="Vercel online" />
         <StatCard label="API" value={status.errors?.length ? "checking" : "Render online"} />
-        <StatCard label="Database" value={status.database_connected ? "Supabase online" : "checking"} />
+        <StatCard label="Database" value={status.database_connected ? "Supabase online" : "Database unavailable"} />
         <StatCard label="Demo fallback" value="available" />
         <StatCard label="Catalog records" value={status.catalog?.layer_count} />
         <StatCard label="Verified layers" value={status.catalog?.verified_layer_count} />

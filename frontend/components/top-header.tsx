@@ -25,7 +25,7 @@ export function TopHeader({ status }: TopHeaderProps) {
           if (!cancelled) {
             setLiveStatus(nextStatus);
             setStatusChecked(true);
-            if (!nextStatus.database_connected) {
+            if (nextStatus.errors?.length) {
               retryTimer = setTimeout(refreshStatus, 15000);
             }
           }
@@ -46,15 +46,22 @@ export function TopHeader({ status }: TopHeaderProps) {
   }, []);
 
   const frontendLabel = isProduction ? "Vercel" : liveStatus.ports?.frontend || 3010;
-  const apiLabel = isProduction ? apiInfo.label : liveStatus.ports?.backend_api || 8010;
-  const statusDelay = Boolean(
-    liveStatus.errors?.some((error) => error.toLowerCase().includes("database status check timed out")),
+  const backendUnavailable = Boolean(
+    liveStatus.errors?.some((error) => error.toLowerCase().includes("backend api is not reachable")),
   );
-  const dbLabel = liveStatus.database_connected
-    ? "online"
-    : !statusChecked || statusDelay
-      ? "checking"
-      : "unavailable";
+  const publicStatusDelay = Boolean(liveStatus.errors?.length);
+  const apiLabel = isProduction
+    ? backendUnavailable
+      ? "Demo Mode"
+      : !statusChecked || publicStatusDelay
+        ? "Waking"
+        : "Live"
+    : liveStatus.ports?.backend_api || 8010;
+  const apiChipClass = isProduction
+    ? backendUnavailable || !statusChecked || publicStatusDelay
+      ? "chip chip-warning"
+      : "chip chip-success"
+    : "chip";
 
   return (
     <header className="top-header">
@@ -67,12 +74,10 @@ export function TopHeader({ status }: TopHeaderProps) {
       </div>
       <div className="header-actions">
         <span className="chip">FE {frontendLabel}</span>
-        <span className="chip" title={apiInfo.apiBaseUrl}>
+        <span className={apiChipClass} title={apiInfo.apiBaseUrl}>
           API {apiLabel}
         </span>
-        <span className={liveStatus.database_connected ? "chip chip-success" : "chip chip-warning"}>
-          DB {dbLabel}
-        </span>
+        <span className="chip chip-success">Scope Cabarrus County, NC</span>
         <span className={liveStatus.real_publish_enabled ? "chip chip-warning" : "chip chip-success"}>
           Real publish {liveStatus.real_publish_enabled ? "enabled" : "disabled"}
         </span>

@@ -2,7 +2,7 @@ import Link from "next/link";
 
 import { ProductionHealthCard } from "@/components/production-health-card";
 import { StatusChip } from "@/components/status-chip";
-import { STATIC_DEMO_PROMPT } from "@/lib/static-demo";
+import { STATIC_DEMO_PROMPT, STATIC_DEMO_SCOPE } from "@/lib/static-demo";
 
 const projectHighlights = [
   "Plain-English map requests become draft GIS previews.",
@@ -29,20 +29,22 @@ export default function LandingPage() {
           <h1>County GIS map composer with safe production fallbacks.</h1>
           <p>
             AutoMap turns planning-style prompts into draft map previews, proximity exhibits, reports, and bounded data
-            exports. The public demo stays professional even while the free Render backend is waking up.
+            exports. This county GIS request engine supports a Cabarrus County, NC live demo and stays professional even
+            while the free Render backend is waking up.
           </p>
           <div className="button-row">
             <Link className="button" href="/map-composer">
-              Open Map Composer
+              Open Live Map Composer
             </Link>
             <Link className="button button-secondary" href={demoHref}>
-              View Demo Walkthrough
+              View Static Demo
             </Link>
             <Link className="button button-secondary" href="/system-status">
-              View Project Summary
+              View Methodology / Project Summary
             </Link>
           </div>
           <div className="chip-row">
+            <StatusChip tone="success">Live demo supports {STATIC_DEMO_SCOPE}</StatusChip>
             <StatusChip tone="success">Draft-only public demo</StatusChip>
             <StatusChip tone="success">Real publish disabled</StatusChip>
             <StatusChip tone="success">Static fallback available</StatusChip>
@@ -66,8 +68,8 @@ export default function LandingPage() {
           <h3>Nearest Fire Station from 793 Bartram Ave</h3>
           <p className="muted">
             The live workflow matches the address, finds a nearest facility, draws the route/reference line, and prepares
-            a draft map layout. If the backend is cold, the static demo explains the same workflow without showing a
-            broken page.
+            a draft map layout for {STATIC_DEMO_SCOPE}. If the backend is cold, the static demo explains the same
+            workflow without showing a broken page.
           </p>
           <Link className="text-link" href={demoHref}>
             Open the demo prompt in Map Composer

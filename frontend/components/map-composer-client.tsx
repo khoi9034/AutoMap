@@ -47,6 +47,12 @@ const defaultReportConfig: ReportSectionConfig = {
   include_table_export_summary: false,
 };
 
+function timeoutComposerRequest(): Promise<never> {
+  return new Promise((_, reject) => {
+    setTimeout(() => reject(new Error("public_demo_timeout")), 90000);
+  });
+}
+
 function composerStepStatuses(
   activeStep: ComposerStepId,
   response: ComposerResponse | null,
@@ -165,18 +171,20 @@ export function MapComposerClient() {
         setComposerProgressMessage("Generating the live draft map. Address matching and nearest facility lookup can take a moment.");
         return generateComposerDraft(prompt);
       };
-      let result: ComposerResponse;
-      try {
-        result = await attemptGenerate();
-      } catch (firstError) {
-        setComposerProgressMessage("The backend may still be warming up. Retrying the live request once...");
-        await new Promise((resolve) => setTimeout(resolve, 10000));
+      const liveRequest = async () => {
         try {
-          result = await attemptGenerate();
-        } catch {
-          throw firstError;
+          return await attemptGenerate();
+        } catch (firstError) {
+          setComposerProgressMessage("The backend may still be warming up. Retrying the live request once...");
+          await new Promise((resolve) => setTimeout(resolve, 10000));
+          try {
+            return await attemptGenerate();
+          } catch {
+            throw firstError;
+          }
         }
-      }
+      };
+      const result = await Promise.race([liveRequest(), timeoutComposerRequest()]);
       setResponse(result);
       setExhibitPackage(null);
       setLayers(layerEditsFromResponse(result));
@@ -206,13 +214,10 @@ export function MapComposerClient() {
           ? "Draft map and preview are ready."
           : "Draft created, but preview is blocked until the address or parcel matches.",
       });
-    } catch (exc) {
+    } catch {
       setShowStaticDemoFallback(true);
-      const rawMessage = exc instanceof Error ? exc.message : "Composer draft generation failed.";
       setError(
-        rawMessage.toLowerCase().includes("timeout") || rawMessage.toLowerCase().includes("unreachable")
-          ? "The backend is waking up or the live request is slow. Try again in about 30-60 seconds, or view the static demo result now."
-          : `Live composer request failed safely. You can retry the live request or view the static demo result.\n${rawMessage}`,
+        "The live backend is waking up or the composer request is taking too long. You can retry the live demo, view the static demo, or open the project summary.",
       );
     } finally {
       setLoading(null);

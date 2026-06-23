@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import { samplePrompts } from "@/components/navigation";
 import { ToastMessage } from "@/components/toast";
 import { staticDemoHighlights } from "@/lib/static-demo";
@@ -83,11 +85,14 @@ export function RequestStep({
             </ul>
             <div className="button-row">
               <button className="button" type="button" onClick={onGenerate} disabled={loading}>
-                Retry Live Request
+                Retry Live Demo
               </button>
               <button className="button button-secondary" type="button" onClick={onUseStaticDemo} disabled={loading}>
-                View Static Demo Result
+                View Static Demo
               </button>
+              <Link className="button button-secondary" href="/system-status">
+                Open Project Summary
+              </Link>
             </div>
           </div>
         ) : null}

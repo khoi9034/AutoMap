@@ -34,7 +34,7 @@ function statusCopy(state: HealthState): { label: string; detail: string; tone: 
   }
   return {
     label: "Checking live demo",
-    detail: "Testing the Vercel proxy, Render API, and Supabase database status.",
+    detail: "Testing the Vercel proxy, Render API, and live services.",
     tone: "default",
   };
 }
@@ -94,6 +94,7 @@ export function ProductionHealthCard({ compact = false }: ProductionHealthCardPr
         <span>API: Render</span>
         <span>Database: Supabase PostGIS</span>
         <span>Real publish: disabled</span>
+        <span>{state === "online" ? "Last verified: live system check passed" : "Last verified: static fallback ready"}</span>
       </div>
       {state !== "online" ? (
         <p className="muted">Health check attempt {attempt}/9. Static portfolio content stays available while the backend wakes.</p>
