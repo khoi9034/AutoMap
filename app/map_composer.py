@@ -15,6 +15,13 @@ from uuid import uuid4
 from app.adjustment_engine import apply_adjustments_to_recipe, apply_adjustments_to_webmap, write_adjusted_packet
 from app.adjustment_models import normalize_adjustments
 from app.address_parcel_resolver import ADDRESS_NOT_MATCHED_WARNING, resolve_address_or_parcel_origin
+from app.automap_brain.cartography_engine import (
+    apply_visible_qa_fallbacks as brain_apply_visible_qa_fallbacks,
+    context_draw_rank as brain_context_draw_rank,
+    style_context_layer as brain_style_context_layer,
+)
+from app.automap_brain.explain_plan import build_brain_explanation
+from app.automap_brain.visible_map_qa import run_visible_map_qa
 from app.composer_state_models import (
     default_north_arrow_config,
     default_scale_bar_config,
@@ -47,11 +54,11 @@ from app.review_packet_builder import (
 from app.ui_models import output_file_url, repo_root
 from app.webmap_builder import build_webmap_json
 from app.proximity_engine import build_proximity_context, run_proximity_request
-from app.visible_map_qa import visible_map_qa
 
 
 COMPOSER_ROOT = Path("outputs/composer_sessions")
 LOGGER = logging.getLogger(__name__)
+visible_map_qa = run_visible_map_qa
 
 COMPOSER_TIMING_KEYS = [
     "parse_ms",
@@ -636,8 +643,8 @@ def _composer_context_layers(layers: list[dict[str, Any]], recipe: dict[str, Any
         else:
             item["default_visible"] = item.get("visibility", True)
         item["is_context_layer"] = True
-        cleaned.append(_style_context_layer(item, recipe))
-    return sorted(cleaned, key=_context_draw_rank)
+        cleaned.append(brain_style_context_layer(item, recipe))
+    return sorted(cleaned, key=brain_context_draw_rank)
 
 
 def _apply_proximity_result_to_recipe(recipe: dict[str, Any], prompt: str, result: dict[str, Any]) -> None:
@@ -767,10 +774,12 @@ def _augment_preview_config(preview_config: dict[str, Any] | None, recipe: dict[
                 config["initial_extent"] = target_geometry
                 config["focus_extent"] = target_geometry
     qa = visible_map_qa(config, recipe)
-    config = _apply_visible_qa_fallbacks(config, qa, recipe)
+    config = brain_apply_visible_qa_fallbacks(config, qa, recipe)
     config["visible_feature_summary"] = qa.get("visible_feature_summary") or []
     config["visible_feature_total"] = qa.get("visible_feature_total")
     config["visible_map_qa"] = {
+        "brain_version": qa.get("brain_version"),
+        "qa_status": qa.get("qa_status"),
         "fallback_used": bool(qa.get("fallback_used")),
         "warnings": qa.get("warnings") or [],
     }
@@ -778,6 +787,7 @@ def _augment_preview_config(preview_config: dict[str, Any] | None, recipe: dict[
         config["initial_extent"] = qa["visible_extent"]
         config["focus_extent"] = qa["visible_extent"]
     config["warnings"] = sorted({*[str(item) for item in config.get("warnings") or []], *[str(item) for item in qa.get("warnings") or []]})
+    config["brain_explanation"] = build_brain_explanation(recipe, config)
     config["map_layout"] = _build_map_layout(recipe, config)
     return config
 
@@ -1101,6 +1111,8 @@ def _base_session_response(
         "related_parcel": origin_context.get("related_parcel"),
         "proximity_result": proximity_result,
         "request_plan": recipe.get("request_plan"),
+        "automap_brain": recipe.get("automap_brain"),
+        "brain_explanation": (preview_config or {}).get("brain_explanation") if isinstance(preview_config, dict) else None,
         "route_refinement_available": bool((proximity_result or {}).get("route_refinement_available")),
         "route_refinement_status": (proximity_result or {}).get("route_refinement_status"),
         "recipe": recipe,

@@ -13,12 +13,13 @@ from app.default_suggester import build_learned_context
 from app.filter_planner import build_filter_plan, validate_filter_plan
 from app.geometry_utils import buffer_extent, geojson_extent
 from app.layer_matcher import match_layers
+from app.automap_brain.map_recipe_builder import attach_brain_recipe_metadata
+from app.automap_brain.request_parser import build_request_plan
 from app.parcel_context_engine import create_parcel_set, fetch_selected_parcels
 from app.parcel_input_parser import parse_parcel_input
 from app.prompt_parser import parse_prompt
 from app.proximity_engine import build_proximity_context
 from app.recipe_models import rejected_layer_from_match, selected_layer_from_match
-from app.request_brain import build_request_plan
 from app.request_intelligence import build_request_intelligence
 from app.source_usage_intelligence import build_source_coverage, enrich_selected_layers_with_source_usage
 from app.ui_models import output_file_url, repo_root
@@ -526,6 +527,10 @@ def build_recipe(
             recipe["review_reasons"] = sorted(set([*recipe["review_reasons"], *validation["warnings"]]))
             recipe["needs_review"] = True
         timing["field_filter_ms"] = _elapsed_ms(stage_start)
+
+    brain_start = perf_counter()
+    recipe = attach_brain_recipe_metadata(recipe, layer_catalog)
+    timing["brain_v2_ms"] = _elapsed_ms(brain_start)
 
     try:
         from app.analysis_executor import analysis_execution_for_recipe

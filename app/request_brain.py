@@ -12,13 +12,18 @@ TYPO_REPLACEMENTS = {
     "bearny": "nearby",
     "commerical": "commercial",
     "parcles": "parcels",
+    "parcle": "parcel",
     "conord": "concord",
     "kannaplis": "kannapolis",
+    "harrisburgh": "harrisburg",
 }
 
 PHRASE_REPLACEMENTS = {
     "flood plane": "floodplain",
+    "flood planes": "floodplains",
     "flood plains": "floodplains",
+    "business zones": "commercial zones",
+    "business zoning": "commercial zoning",
 }
 
 COMMERCIAL_ZONING_LABELS = [

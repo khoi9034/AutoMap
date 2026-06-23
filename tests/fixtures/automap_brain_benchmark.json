@@ -1,0 +1,422 @@
+[
+  {
+    "prompt": "make a map of my address 793 bartram ave and include nearest line to the nearest fire station",
+    "expected_request_type": "proximity",
+    "expected_domains": ["address_proximity", "transportation"],
+    "expected_geography": null,
+    "expected_output_mode": "route",
+    "must_have_layer_roles": ["route_line", "origin_marker", "target_marker"],
+    "allowed_fallbacks": ["straight_line_fallback"],
+    "must_not_do": ["paid_geocoder", "owner_name_search", "real_publish"]
+  },
+  {
+    "prompt": "show parcels in Concord that are in the 100-year floodplain",
+    "expected_request_type": "floodplain_screening",
+    "expected_domains": ["parcels", "floodplain"],
+    "expected_geography": "Concord",
+    "expected_output_mode": "map",
+    "must_have_layer_roles": ["parcel_outline", "floodplain_overlay"],
+    "allowed_fallbacks": ["flood_context"],
+    "must_not_do": ["owner_name_search", "real_publish"]
+  },
+  {
+    "prompt": "show commercial zoning around Concord with nearby major roads",
+    "expected_request_type": "zoning_context",
+    "expected_domains": ["zoning", "transportation"],
+    "expected_geography": "Concord",
+    "expected_output_mode": "map",
+    "must_have_layer_roles": ["primary_polygon_highlight", "major_road"],
+    "allowed_fallbacks": ["zoning_context", "road_context"],
+    "must_not_do": ["empty_preview", "real_publish"]
+  },
+  {
+    "prompt": "give me a table of parcels in Cabarrus County with parcel ID, acreage, municipality, and zoning",
+    "expected_request_type": "table_request",
+    "expected_domains": ["parcels", "table_requests"],
+    "expected_geography": "Cabarrus County",
+    "expected_output_mode": "table",
+    "must_have_layer_roles": ["table_only"],
+    "allowed_fallbacks": ["preview_only"],
+    "must_not_do": ["returnGeometry_true", "real_publish"]
+  },
+  {
+    "prompt": "map recent permits and planning cases near Kannapolis",
+    "expected_request_type": "development_activity",
+    "expected_domains": ["development_activity"],
+    "expected_geography": "Kannapolis",
+    "expected_output_mode": "map",
+    "must_have_layer_roles": ["point_facility"],
+    "allowed_fallbacks": ["data_limited"],
+    "must_not_do": ["fake_permits", "real_publish"]
+  },
+  {
+    "prompt": "show 2014 parcels and zoning in Cabarrus County",
+    "expected_request_type": "historical_lookup",
+    "expected_domains": ["parcels", "zoning", "historical_layers"],
+    "expected_geography": "Cabarrus County",
+    "expected_output_mode": "map",
+    "must_have_layer_roles": ["historical_layer"],
+    "allowed_fallbacks": ["historical_data_limited"],
+    "must_not_do": ["current_as_historical", "real_publish"]
+  },
+  {
+    "prompt": "find parcels near high traffic roads but outside floodplain",
+    "expected_request_type": "floodplain_screening",
+    "expected_domains": ["parcels", "transportation", "floodplain"],
+    "expected_geography": null,
+    "expected_output_mode": "map",
+    "must_have_layer_roles": ["parcel_outline", "road_context", "floodplain_overlay"],
+    "allowed_fallbacks": ["traffic_context"],
+    "must_not_do": ["official_recommendation", "real_publish"]
+  },
+  {
+    "prompt": "show commercial zonign aorund concord with bearny major roads",
+    "expected_request_type": "zoning_context",
+    "expected_domains": ["zoning", "transportation"],
+    "expected_geography": "Concord",
+    "expected_output_mode": "map",
+    "must_have_layer_roles": ["primary_polygon_highlight", "major_road"],
+    "allowed_fallbacks": ["zoning_context", "road_context"],
+    "must_not_do": ["empty_preview", "real_publish"]
+  },
+  {
+    "prompt": "map commercial zones near major roads in Concord",
+    "expected_request_type": "zoning_context",
+    "expected_domains": ["zoning", "transportation"],
+    "expected_geography": "Concord",
+    "expected_output_mode": "map",
+    "must_have_layer_roles": ["primary_polygon_highlight", "major_road"],
+    "allowed_fallbacks": ["zoning_context"],
+    "must_not_do": ["empty_preview", "real_publish"]
+  },
+  {
+    "prompt": "show commercial zoning aorund concord with bearny major roads",
+    "expected_request_type": "zoning_context",
+    "expected_domains": ["zoning", "transportation"],
+    "expected_geography": "Concord",
+    "expected_output_mode": "map",
+    "must_have_layer_roles": ["primary_polygon_highlight", "major_road"],
+    "allowed_fallbacks": ["zoning_context"],
+    "must_not_do": ["empty_preview", "real_publish"]
+  },
+  {
+    "prompt": "map commerical zoning near conord roads",
+    "expected_request_type": "zoning_context",
+    "expected_domains": ["zoning", "transportation"],
+    "expected_geography": "Concord",
+    "expected_output_mode": "map",
+    "must_have_layer_roles": ["primary_polygon_highlight", "road_context"],
+    "allowed_fallbacks": ["zoning_context"],
+    "must_not_do": ["empty_preview", "real_publish"]
+  },
+  {
+    "prompt": "show parcles in conord in the flood plane",
+    "expected_request_type": "floodplain_screening",
+    "expected_domains": ["parcels", "floodplain"],
+    "expected_geography": "Concord",
+    "expected_output_mode": "map",
+    "must_have_layer_roles": ["parcel_outline", "floodplain_overlay"],
+    "allowed_fallbacks": ["flood_context"],
+    "must_not_do": ["owner_name_search", "real_publish"]
+  },
+  {
+    "prompt": "show development near kannaplis",
+    "expected_request_type": "development_activity",
+    "expected_domains": ["development_activity"],
+    "expected_geography": "Kannapolis",
+    "expected_output_mode": "map",
+    "must_have_layer_roles": ["point_facility"],
+    "allowed_fallbacks": ["data_limited"],
+    "must_not_do": ["fake_permits", "real_publish"]
+  },
+  {
+    "prompt": "show retail zoning around Concord",
+    "expected_request_type": "zoning_context",
+    "expected_domains": ["zoning"],
+    "expected_geography": "Concord",
+    "expected_output_mode": "map",
+    "must_have_layer_roles": ["primary_polygon_highlight"],
+    "allowed_fallbacks": ["zoning_context"],
+    "must_not_do": ["empty_preview", "real_publish"]
+  },
+  {
+    "prompt": "show business zoning in Concord near major roads",
+    "expected_request_type": "zoning_context",
+    "expected_domains": ["zoning", "transportation"],
+    "expected_geography": "Concord",
+    "expected_output_mode": "map",
+    "must_have_layer_roles": ["primary_polygon_highlight", "major_road"],
+    "allowed_fallbacks": ["zoning_context", "road_context"],
+    "must_not_do": ["empty_preview", "real_publish"]
+  },
+  {
+    "prompt": "show zoning and major roads in Concord",
+    "expected_request_type": "zoning_context",
+    "expected_domains": ["zoning", "transportation"],
+    "expected_geography": "Concord",
+    "expected_output_mode": "map",
+    "must_have_layer_roles": ["context_polygon_muted", "major_road"],
+    "allowed_fallbacks": ["zoning_context"],
+    "must_not_do": ["empty_preview", "real_publish"]
+  },
+  {
+    "prompt": "show commercial zones near major roads in Cabarrus County",
+    "expected_request_type": "zoning_context",
+    "expected_domains": ["zoning", "transportation"],
+    "expected_geography": "Cabarrus County",
+    "expected_output_mode": "map",
+    "must_have_layer_roles": ["primary_polygon_highlight", "major_road"],
+    "allowed_fallbacks": ["zoning_context"],
+    "must_not_do": ["empty_preview", "real_publish"]
+  },
+  {
+    "prompt": "map general commercial zoning near highways in Concord",
+    "expected_request_type": "zoning_context",
+    "expected_domains": ["zoning", "transportation"],
+    "expected_geography": "Concord",
+    "expected_output_mode": "map",
+    "must_have_layer_roles": ["primary_polygon_highlight", "major_road"],
+    "allowed_fallbacks": ["road_context"],
+    "must_not_do": ["empty_preview", "real_publish"]
+  },
+  {
+    "prompt": "show parcels in Harrisburg inside the 100 year floodplain",
+    "expected_request_type": "floodplain_screening",
+    "expected_domains": ["parcels", "floodplain"],
+    "expected_geography": "Harrisburg",
+    "expected_output_mode": "map",
+    "must_have_layer_roles": ["parcel_outline", "floodplain_overlay"],
+    "allowed_fallbacks": ["flood_context"],
+    "must_not_do": ["owner_name_search", "real_publish"]
+  },
+  {
+    "prompt": "map flood risk parcels around Kannapolis",
+    "expected_request_type": "floodplain_screening",
+    "expected_domains": ["parcels", "floodplain"],
+    "expected_geography": "Kannapolis",
+    "expected_output_mode": "map",
+    "must_have_layer_roles": ["parcel_outline", "floodplain_overlay"],
+    "allowed_fallbacks": ["flood_context"],
+    "must_not_do": ["owner_name_search", "real_publish"]
+  },
+  {
+    "prompt": "find Cabarrus parcels within FEMA flood zones",
+    "expected_request_type": "floodplain_screening",
+    "expected_domains": ["parcels", "floodplain"],
+    "expected_geography": null,
+    "expected_output_mode": "map",
+    "must_have_layer_roles": ["parcel_outline", "floodplain_overlay"],
+    "allowed_fallbacks": ["flood_context"],
+    "must_not_do": ["owner_name_search", "real_publish"]
+  },
+  {
+    "prompt": "show properties outside floodplain but near high traffic roads",
+    "expected_request_type": "floodplain_screening",
+    "expected_domains": ["parcels", "floodplain", "transportation"],
+    "expected_geography": null,
+    "expected_output_mode": "map",
+    "must_have_layer_roles": ["parcel_outline", "road_context"],
+    "allowed_fallbacks": ["traffic_context"],
+    "must_not_do": ["official_recommendation", "real_publish"]
+  },
+  {
+    "prompt": "map parcels in the floodway near Concord",
+    "expected_request_type": "floodplain_screening",
+    "expected_domains": ["parcels", "floodplain"],
+    "expected_geography": "Concord",
+    "expected_output_mode": "map",
+    "must_have_layer_roles": ["parcel_outline", "floodplain_overlay"],
+    "allowed_fallbacks": ["flood_context"],
+    "must_not_do": ["owner_name_search", "real_publish"]
+  },
+  {
+    "prompt": "give me a parcel list for Concord",
+    "expected_request_type": "table_request",
+    "expected_domains": ["parcels", "table_requests"],
+    "expected_geography": "Concord",
+    "expected_output_mode": "table",
+    "must_have_layer_roles": ["table_only"],
+    "allowed_fallbacks": ["preview_only"],
+    "must_not_do": ["returnGeometry_true", "real_publish"]
+  },
+  {
+    "prompt": "export parcels in the 100-year floodplain",
+    "expected_request_type": "table_request",
+    "expected_domains": ["parcels", "floodplain", "table_requests"],
+    "expected_geography": null,
+    "expected_output_mode": "table",
+    "must_have_layer_roles": ["table_only"],
+    "allowed_fallbacks": ["preview_only"],
+    "must_not_do": ["returnGeometry_true", "real_publish"]
+  },
+  {
+    "prompt": "create a spreadsheet of zoning records around Concord",
+    "expected_request_type": "table_request",
+    "expected_domains": ["zoning", "table_requests"],
+    "expected_geography": "Concord",
+    "expected_output_mode": "table",
+    "must_have_layer_roles": ["table_only"],
+    "allowed_fallbacks": ["preview_only"],
+    "must_not_do": ["returnGeometry_true", "real_publish"]
+  },
+  {
+    "prompt": "give planning a parcel list with zoning flood and school district context",
+    "expected_request_type": "table_request",
+    "expected_domains": ["parcels", "zoning", "floodplain", "table_requests"],
+    "expected_geography": null,
+    "expected_output_mode": "table",
+    "must_have_layer_roles": ["table_only"],
+    "allowed_fallbacks": ["preview_only"],
+    "must_not_do": ["returnGeometry_true", "owner_name_search"]
+  },
+  {
+    "prompt": "show me an attribute table for commercial zoning in Concord",
+    "expected_request_type": "table_request",
+    "expected_domains": ["zoning", "table_requests"],
+    "expected_geography": "Concord",
+    "expected_output_mode": "table",
+    "must_have_layer_roles": ["table_only"],
+    "allowed_fallbacks": ["preview_only"],
+    "must_not_do": ["returnGeometry_true", "real_publish"]
+  },
+  {
+    "prompt": "find nearest fire station to 793 Bartram Ave",
+    "expected_request_type": "proximity",
+    "expected_domains": ["address_proximity"],
+    "expected_geography": null,
+    "expected_output_mode": "route",
+    "must_have_layer_roles": ["route_line", "origin_marker", "target_marker"],
+    "allowed_fallbacks": ["straight_line_fallback"],
+    "must_not_do": ["paid_geocoder", "real_publish"]
+  },
+  {
+    "prompt": "route from 793 bartram avenue to the closest fire station",
+    "expected_request_type": "proximity",
+    "expected_domains": ["address_proximity"],
+    "expected_geography": null,
+    "expected_output_mode": "route",
+    "must_have_layer_roles": ["route_line", "origin_marker", "target_marker"],
+    "allowed_fallbacks": ["straight_line_fallback"],
+    "must_not_do": ["paid_geocoder", "real_publish"]
+  },
+  {
+    "prompt": "map my address 793 Bartram Ave near public safety facilities",
+    "expected_request_type": "proximity",
+    "expected_domains": ["address_proximity"],
+    "expected_geography": null,
+    "expected_output_mode": "map",
+    "must_have_layer_roles": ["origin_marker", "point_facility"],
+    "allowed_fallbacks": ["nearest_facility_unavailable"],
+    "must_not_do": ["paid_geocoder", "owner_name_search"]
+  },
+  {
+    "prompt": "show nearest line from 793 bartram ave to fire station",
+    "expected_request_type": "proximity",
+    "expected_domains": ["address_proximity"],
+    "expected_geography": null,
+    "expected_output_mode": "route",
+    "must_have_layer_roles": ["route_line", "origin_marker", "target_marker"],
+    "allowed_fallbacks": ["straight_line_fallback"],
+    "must_not_do": ["paid_geocoder", "real_publish"]
+  },
+  {
+    "prompt": "make a proximity map for 793 bartram ave and nearest fire station",
+    "expected_request_type": "proximity",
+    "expected_domains": ["address_proximity"],
+    "expected_geography": null,
+    "expected_output_mode": "route",
+    "must_have_layer_roles": ["route_line", "origin_marker", "target_marker"],
+    "allowed_fallbacks": ["straight_line_fallback"],
+    "must_not_do": ["paid_geocoder", "real_publish"]
+  },
+  {
+    "prompt": "show recent permits and planning cases near Kannapolis",
+    "expected_request_type": "development_activity",
+    "expected_domains": ["development_activity"],
+    "expected_geography": "Kannapolis",
+    "expected_output_mode": "map",
+    "must_have_layer_roles": ["point_facility"],
+    "allowed_fallbacks": ["data_limited"],
+    "must_not_do": ["fake_permits", "real_publish"]
+  },
+  {
+    "prompt": "map commercial growth opportunities near major roads outside floodplain",
+    "expected_request_type": "floodplain_screening",
+    "expected_domains": ["suitability", "transportation", "floodplain"],
+    "expected_geography": null,
+    "expected_output_mode": "map",
+    "must_have_layer_roles": ["primary_polygon_highlight", "road_context"],
+    "allowed_fallbacks": ["scenario_context"],
+    "must_not_do": ["official_recommendation", "real_publish"]
+  },
+  {
+    "prompt": "show 2014 zoning in Concord",
+    "expected_request_type": "zoning_context",
+    "expected_domains": ["zoning", "historical_layers"],
+    "expected_geography": "Concord",
+    "expected_output_mode": "map",
+    "must_have_layer_roles": ["historical_layer"],
+    "allowed_fallbacks": ["historical_data_limited"],
+    "must_not_do": ["current_as_historical", "real_publish"]
+  },
+  {
+    "prompt": "show 2014 parcels and zoning in Cabarrus County",
+    "expected_request_type": "historical_lookup",
+    "expected_domains": ["parcels", "zoning", "historical_layers"],
+    "expected_geography": "Cabarrus County",
+    "expected_output_mode": "map",
+    "must_have_layer_roles": ["historical_layer"],
+    "allowed_fallbacks": ["historical_data_limited"],
+    "must_not_do": ["current_as_historical", "real_publish"]
+  },
+  {
+    "prompt": "show development pressure around Concord avoiding floodplain",
+    "expected_request_type": "floodplain_screening",
+    "expected_domains": ["suitability", "floodplain", "development_activity"],
+    "expected_geography": "Concord",
+    "expected_output_mode": "map",
+    "must_have_layer_roles": ["primary_polygon_highlight", "floodplain_overlay"],
+    "allowed_fallbacks": ["scenario_context", "data_limited"],
+    "must_not_do": ["official_recommendation", "real_publish"]
+  },
+  {
+    "prompt": "show permit history from 2014",
+    "expected_request_type": "development_activity",
+    "expected_domains": ["development_activity", "historical_layers"],
+    "expected_geography": null,
+    "expected_output_mode": "map",
+    "must_have_layer_roles": ["historical_layer"],
+    "allowed_fallbacks": ["historical_data_limited"],
+    "must_not_do": ["fake_permits", "real_publish"]
+  },
+  {
+    "prompt": "map parcels in Charlotte near flood zones",
+    "expected_request_type": "unsupported",
+    "expected_domains": ["parcels", "floodplain"],
+    "expected_geography": "Charlotte",
+    "expected_output_mode": "map",
+    "must_have_layer_roles": [],
+    "allowed_fallbacks": ["unsupported_area"],
+    "must_not_do": ["national_geocoder", "real_publish"]
+  },
+  {
+    "prompt": "find permits in Wake County",
+    "expected_request_type": "unsupported",
+    "expected_domains": ["development_activity"],
+    "expected_geography": "Wake County",
+    "expected_output_mode": "map",
+    "must_have_layer_roles": [],
+    "allowed_fallbacks": ["unsupported_area"],
+    "must_not_do": ["fake_permits", "real_publish"]
+  },
+  {
+    "prompt": "show my property by owner name John Smith",
+    "expected_request_type": "unsupported",
+    "expected_domains": ["parcels"],
+    "expected_geography": null,
+    "expected_output_mode": "map",
+    "must_have_layer_roles": [],
+    "allowed_fallbacks": ["unsupported_owner_search"],
+    "must_not_do": ["owner_name_search", "real_publish"]
+  }
+]
