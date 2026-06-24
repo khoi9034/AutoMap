@@ -6,6 +6,13 @@ type PrintWarningSectionProps = {
 };
 
 export function printWarningItems(mapState?: ComposerMapState | null, response?: ComposerResponse | null): string[] {
+  const routeMode = String(mapState?.proximity_summary?.route_mode || response?.proximity_result?.route_mode || "");
+  const roadNetworkRoute = routeMode === "road_network" || routeMode === "road_following_draft";
+  const staleStraightLineWarning = (warning: string) => {
+    const normalized = warning.toLowerCase();
+    return roadNetworkRoute && (normalized.includes("straight-line") || normalized.includes("straight line"));
+  };
+
   return Array.from(
     new Set(
       [
@@ -16,7 +23,7 @@ export function printWarningItems(mapState?: ComposerMapState | null, response?:
         ...(response?.missing_data || []).map((item) => `Missing data: ${item}`),
         "Draft only - not an official county map.",
         "No ArcGIS item was published.",
-      ].filter(Boolean),
+      ].filter((warning): warning is string => Boolean(warning) && !staleStraightLineWarning(String(warning))),
     ),
   );
 }

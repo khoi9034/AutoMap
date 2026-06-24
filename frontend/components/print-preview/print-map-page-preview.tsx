@@ -25,7 +25,7 @@ function routeSummary(response: ComposerResponse | null, mapState?: ComposerMapS
   return `${proximity.route_label || proximity.route_mode || "Route draft"} - ${distance}`;
 }
 
-export function PrintMapPagePreview({ mapState, onSnapshotReady, packetId, printOptions, response }: PrintMapPagePreviewProps) {
+export function LockedMapSheetPage({ mapState, onSnapshotReady, packetId, printOptions, response }: PrintMapPagePreviewProps) {
   const [snapshotUrl, setSnapshotUrl] = useState<string | null>(null);
   const title = mapState?.map_title || response?.map_title || "AutoMap Draft Exhibit";
   const subtitle = mapState?.map_subtitle || response?.map_layout?.subtitle || response?.preview_config?.map_layout?.subtitle || "Draft preview only.";
@@ -46,6 +46,8 @@ export function PrintMapPagePreview({ mapState, onSnapshotReady, packetId, print
   const classes = [
     "print-preview-sheet",
     "print-map-page-preview",
+    "locked-map-sheet-page",
+    "print-sheet-sized",
     `print-sheet-mode-${printOptions.exportMode}`,
     `print-sheet-margin-${printOptions.sheetMargin}`,
     `print-sheet-orientation-${printOptions.sheetOrientation}`,
@@ -82,6 +84,7 @@ export function PrintMapPagePreview({ mapState, onSnapshotReady, packetId, print
         ) : null}
         <SharedMapRenderer
           mode="print_locked"
+          mapOnly
           mapState={mapState}
           onSnapshotReady={handleSnapshotReady}
           response={response}
@@ -97,4 +100,8 @@ export function PrintMapPagePreview({ mapState, onSnapshotReady, packetId, print
       </footer>
     </section>
   );
+}
+
+export function PrintMapPagePreview(props: PrintMapPagePreviewProps) {
+  return <LockedMapSheetPage {...props} />;
 }

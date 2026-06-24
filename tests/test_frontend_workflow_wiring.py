@@ -446,6 +446,7 @@ def test_map_composer_is_primary_simple_workflow():
     assert "Full report" in print_export_step
     assert "MapStateCapture" in print_export_step
     assert "PrintPreviewPanel" in print_export_step
+    assert "Changing export mode adds pages after the locked map sheet" in print_export_step
     assert "Unlock and Edit Map" in print_export_step
     assert "Export Map Sheet PDF" in print_export_step
     assert "Export Map Sheet PNG" in print_export_step
@@ -465,7 +466,9 @@ def test_map_composer_is_primary_simple_workflow():
     assert 'id="automap-print-root"' in map_sheet_document
     assert "PrintDocumentPreview" in map_sheet_document
     assert "onSnapshotReady" in map_sheet_document
-    assert "PrintMapPagePreview" in print_document_preview
+    assert "LockedMapSheetPage" in print_document_preview
+    print_document_body = print_document_preview[print_document_preview.index("return (") :]
+    assert print_document_body.index("<LockedMapSheetPage") < print_document_body.index("{!isMapSheet")
     assert "PrintStatisticsSection" in print_document_preview
     assert "PrintLayerTableSection" in print_document_preview
     assert "Statistics" in print_statistics
@@ -474,6 +477,8 @@ def test_map_composer_is_primary_simple_workflow():
     assert "Source Notes" in print_sources
     assert "data-locked-map-state" in print_map_page_preview
     assert 'mode="print_locked"' in print_map_page_preview
+    assert "LockedMapSheetPage" in print_map_page_preview
+    assert "mapOnly" in print_map_page_preview
     assert "Exact composer state" in map_state_capture
     assert "Standalone map sheet" in map_state_capture
     assert "Map exhibit first" in map_state_capture
@@ -492,7 +497,14 @@ def test_map_composer_is_primary_simple_workflow():
     assert "effectiveSheetDimensions" in print_map_page_preview
     assert "print-map-snapshot" in print_map_page_preview
     assert "data-print-snapshot" in print_map_page_preview
+    assert "locked-map-sheet-page" in print_map_page_preview
     assert "onSnapshotReady" in shared_renderer
+    assert "mapOnly?: boolean" in shared_renderer
+    assert "mapOnly={mapOnly}" in shared_renderer
+    assert "composer-map-only" in composer_preview
+    assert "Draft route based on public road centerlines. Not official navigation." in composer_preview
+    assert "Straight-line fallback only. Road route unavailable." in composer_preview
+    assert "The map still shows the address point, nearest facility, and active route geometry." in composer_preview
     assert "takeScreenshot" in composer_preview
     assert "Print snapshot could not be created yet" in print_client
     assert "Lock final map before printing" in print_client
@@ -658,6 +670,11 @@ def test_map_composer_uses_enterprise_workbench_scroll_model():
     assert "body * {\n    visibility: hidden;" in css
     assert "#automap-print-root,\n  #automap-print-root *" in css
     assert ".automap-print-document" in css
+    assert ".locked-map-sheet-page" in css or "locked-map-sheet-page" in print_map_page_preview
+    assert "flex-shrink: 0" in css[css.index(".print-preview-sheet") : css.index(".print-preview-title-block")]
+    assert "page-break-inside: avoid" in css[css.index(".print-map-page-preview") : css.index(".print-preview-title-block")]
+    assert ".print-preview-section" in css and "break-before: page" in css[css.index(".print-preview-section") : css.index(".print-preview-section h2")]
+    assert ".composer-map-only" in css
     assert ".print-map-snapshot" in css
     assert ".print-preview-map-frame:has(.print-map-snapshot) .shared-map-renderer" in css
     assert "width: min(var(--print-width, 100vw), 100vw)" in css

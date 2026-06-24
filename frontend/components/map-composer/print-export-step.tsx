@@ -176,6 +176,7 @@ export function PrintExportStep({
               </label>
             ))}
           </div>
+          <p className="muted export-mode-note">Changing export mode adds pages after the locked map sheet. It does not change the map.</p>
         </section>
 
         <section className="definition-box sheet-size-panel">

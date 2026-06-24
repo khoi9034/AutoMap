@@ -2,7 +2,7 @@ import type { ComposerMapState, ComposerResponse } from "@/types/automap";
 import type { LivePrintOptions } from "@/types/print-options";
 
 import { PrintLayerTableSection } from "./print-layer-table-section";
-import { PrintMapPagePreview } from "./print-map-page-preview";
+import { LockedMapSheetPage } from "./print-map-page-preview";
 import { PrintSourceNotesSection } from "./print-source-notes-section";
 import { PrintStatisticsSection } from "./print-statistics-section";
 import { PrintSummarySection } from "./print-summary-section";
@@ -73,7 +73,7 @@ export function PrintDocumentPreview({ mapState, onSnapshotReady, packetId, prin
   const isMapSheet = printOptions.exportMode === "map_sheet";
   return (
     <article className={`print-document-preview print-document-preview-${printOptions.exportMode}`}>
-      <PrintMapPagePreview mapState={mapState} onSnapshotReady={onSnapshotReady} packetId={packetId} printOptions={printOptions} response={response} />
+      <LockedMapSheetPage mapState={mapState} onSnapshotReady={onSnapshotReady} packetId={packetId} printOptions={printOptions} response={response} />
       {!isMapSheet && printOptions.includeMapSummary ? <PrintSummarySection title="Map Summary" items={mapSummaryItems(response, mapState)} /> : null}
       {!isMapSheet && printOptions.includeKeyFindings ? <PrintSummarySection title="Key Findings" items={keyFindingItems(response, mapState)} /> : null}
       {!isMapSheet && printOptions.includeProximitySummary ? (

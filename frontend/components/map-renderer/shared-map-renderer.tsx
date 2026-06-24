@@ -15,6 +15,7 @@ type SharedMapRendererProps = {
   response?: ComposerResponse | null;
   packetId?: string;
   mode?: SharedMapRendererMode;
+  mapOnly?: boolean;
   showControls?: boolean;
   showLayerPanel?: boolean;
   showMapFurniture?: boolean;
@@ -51,6 +52,7 @@ export function SharedMapRenderer({
   response,
   packetId,
   mode = "preview_locked",
+  mapOnly = false,
   showControls = false,
   showLayerPanel,
   viewCommand,
@@ -70,6 +72,7 @@ export function SharedMapRenderer({
     <div className={`shared-map-renderer shared-map-renderer-${mode}`}>
       <ComposerMapPreview
         interactionMode={mode}
+        mapOnly={mapOnly}
         onSnapshotReady={onSnapshotReady}
         onViewStateChange={onViewStateChange}
         packetId={packetId}

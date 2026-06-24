@@ -372,6 +372,7 @@ async function loadArcModules(): Promise<ArcModules> {
 
 export function ComposerMapPreview({
   interactionMode = "preview_locked",
+  mapOnly = false,
   onSnapshotReady,
   onViewStateChange,
   response,
@@ -380,6 +381,7 @@ export function ComposerMapPreview({
   viewCommand,
 }: {
   interactionMode?: SharedMapRendererMode;
+  mapOnly?: boolean;
   onSnapshotReady?: (dataUrl: string) => void;
   onViewStateChange?: (state: Partial<ComposerMapState>) => void;
   response: ComposerResponse;
@@ -594,7 +596,11 @@ export function ComposerMapPreview({
     (roadRoute ? "Road-following draft route. Not official navigation." : "Straight-line fallback. Road route unavailable.");
   const frameMode = frameModeForInteraction(interactionMode);
   const frameSizing = frameSizingForInteraction(interactionMode);
-  const routeWarning = !roadRoute ||
+  const routeWarningText = roadRoute
+    ? "Draft route based on public road centerlines. Not official navigation."
+    : response.proximity_result?.route_warning || "Straight-line fallback only. Road route unavailable.";
+  const routeWarning =
+    !roadRoute ||
     Boolean(response.proximity_result?.route_warning) ||
     (response.proximity_result?.warnings || []).some((warning) => warning.toLowerCase().includes("not a driving route"));
   const propertyNotResolved = response.proximity_result?.property_match_status === "not_resolved";
@@ -602,38 +608,40 @@ export function ComposerMapPreview({
   const clutterWarning = (response.warnings || []).some((warning) => warning.toLowerCase().includes("address layer hidden"));
 
   return (
-    <div className="composer-derived-preview page-stack">
+    <div className={mapOnly ? "composer-derived-preview composer-map-only" : "composer-derived-preview page-stack"}>
       <section className="panel composer-derived-map-shell enterprise-map-shell">
-        <div className="panel-title-row">
-          <div>
-            <p className="eyebrow">Focused ArcGIS map</p>
-            <h3>Route and distance</h3>
-            <p className="muted">{routeSummary(response, lineLabel, distance)}</p>
-          </div>
-          <div className="chip-row">
-            <StatusChip tone="success">Real basemap</StatusChip>
-            <StatusChip tone="success">Home marker</StatusChip>
-            <StatusChip tone="success">Facility marker</StatusChip>
-            <StatusChip tone={roadRoute ? "success" : "warning"}>{lineLabel}</StatusChip>
-          </div>
-        </div>
-
-        {propertyNotResolved ? (
-          <div className="inline-warning" role="status">
-            Address matched, but related parcel was not resolved from verified fields. The preview shows the address point, nearest facility, and straight-line distance only.
+        {!mapOnly ? (
+          <div className="panel-title-row">
+            <div>
+              <p className="eyebrow">Focused ArcGIS map</p>
+              <h3>Route and distance</h3>
+              <p className="muted">{routeSummary(response, lineLabel, distance)}</p>
+            </div>
+            <div className="chip-row">
+              <StatusChip tone="success">Real basemap</StatusChip>
+              <StatusChip tone="success">Home marker</StatusChip>
+              <StatusChip tone="success">Facility marker</StatusChip>
+              <StatusChip tone={roadRoute ? "success" : "warning"}>{lineLabel}</StatusChip>
+            </div>
           </div>
         ) : null}
-        {fireEmsWarning ? (
+
+        {!mapOnly && propertyNotResolved ? (
+          <div className="inline-warning" role="status">
+            Address matched, but related parcel was not resolved from verified fields. The map still shows the address point, nearest facility, and active route geometry.
+          </div>
+        ) : null}
+        {!mapOnly && fireEmsWarning ? (
           <div className="inline-warning" role="status">
             The verified layer combines Fire and EMS stations; AutoMap could not confirm a fire-only filter.
           </div>
         ) : null}
-        {routeWarning ? (
+        {!mapOnly && routeWarning ? (
           <div className="inline-warning" role="status">
-            {response.proximity_result?.route_warning || "Straight-line fallback. Road route unavailable."}
+            {routeWarningText}
           </div>
         ) : null}
-        {clutterWarning ? (
+        {!mapOnly && clutterWarning ? (
           <div className="inline-warning" role="status">
             Full address layer hidden to reduce clutter. The origin address marker remains visible.
           </div>

@@ -1738,6 +1738,7 @@ button {
   gap: 20px;
   max-width: 1120px;
   margin: 0 auto;
+  align-items: start;
 }
 
 .automap-print-document {
@@ -1753,21 +1754,26 @@ button {
   border: 1px solid #c8d4e1;
   background: #ffffff;
   box-shadow: 0 20px 45px rgba(15, 23, 42, 0.18);
+  flex-shrink: 0;
+  page-break-inside: avoid;
+  break-inside: avoid;
 }
 
 .print-map-page-preview {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
-  min-height: 760px;
-  padding: 18px;
-  break-inside: avoid;
-}
-
-.print-map-page-preview.print-sheet-mode-map_sheet {
   width: 100%;
   aspect-ratio: var(--sheet-aspect-ratio, 11 / 8.5);
   min-height: 0;
   padding: var(--sheet-margin-preview, 18px);
+  box-sizing: border-box;
+  flex-shrink: 0;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
+.print-map-page-preview.print-sheet-mode-map_sheet {
+  max-width: 100%;
 }
 
 .print-map-page-preview.print-sheet-margin-none {
@@ -1822,6 +1828,8 @@ button {
   margin: 14px 0;
   border: 2px solid #203a56;
   overflow: hidden;
+  page-break-inside: avoid;
+  break-inside: avoid;
 }
 
 .print-preview-map-frame .map-preview-shell {
@@ -1844,6 +1852,7 @@ button {
 .print-preview-map-frame .enterprise-map-frame {
   height: 100%;
   min-height: 560px;
+  max-height: none;
 }
 
 .print-preview-map-frame .composer-real-map {
@@ -1860,8 +1869,26 @@ button {
   min-height: 0;
 }
 
-.print-map-page-preview.print-sheet-mode-map_sheet .print-preview-map-frame {
+.print-map-page-preview .print-preview-map-frame {
   margin: 10px 0;
+}
+
+.print-preview-map-frame .composer-map-only,
+.print-preview-map-frame .composer-map-only .composer-derived-map-shell,
+.print-preview-map-frame .composer-map-only .shared-map-renderer,
+.print-preview-map-frame .composer-map-only .enterprise-map-frame,
+.print-preview-map-frame .composer-map-only .composer-real-map {
+  height: 100%;
+  min-height: 0;
+  max-height: none;
+}
+
+.print-preview-map-frame .composer-map-only .composer-derived-map-shell {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
 }
 
 .print-map-snapshot {
@@ -1917,6 +1944,7 @@ button {
 
 .print-preview-section {
   padding: 20px;
+  break-before: page;
 }
 
 .print-preview-section h2 {
@@ -3643,21 +3671,21 @@ th {
   .print-map-page-preview {
     display: grid;
     grid-template-rows: auto minmax(0, 1fr) auto;
-    min-height: calc(100vh - 0.7in);
-    break-after: page;
-    box-sizing: border-box;
-    padding: 0;
-  }
-
-  .print-map-page-preview.print-sheet-mode-map_sheet {
     width: min(var(--print-width, 100vw), 100vw);
     height: min(var(--print-height, 100vh), 100vh);
     min-height: 0;
     max-height: 100vh;
     aspect-ratio: auto;
-    break-after: auto;
+    break-after: page;
+    box-sizing: border-box;
     margin: 0 auto;
     padding: var(--sheet-margin-preview, 0.18in);
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  .print-map-page-preview.print-sheet-mode-map_sheet {
+    break-after: auto;
   }
 
   .print-preview-section {
@@ -3702,6 +3730,14 @@ th {
     height: 100%;
     min-height: 0;
     max-height: none;
+  }
+
+  .print-preview-map-frame .composer-map-only .composer-derived-map-shell {
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    padding: 0;
   }
 
   .print-map-page-preview.print-sheet-mode-map_sheet .print-preview-map-frame .composer-derived-preview,
