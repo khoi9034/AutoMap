@@ -1,6 +1,6 @@
 import json
 
-from app.automap_brain.floodplain_screening import attach_floodplain_screening_result
+from app.automap_brain.floodplain_screening import attach_floodplain_screening_result, live_floodplain_screening_enabled
 from app.automap_brain.request_parser import build_brain_plan
 from app.map_composer import generate_composer_draft
 from app.recipe_engine import build_recipe
@@ -28,6 +28,14 @@ def test_floodplain_screening_typo_variant_normalizes_to_same_intent():
     assert plan["geography"] == "Concord"
     assert plan["floodplain_type"] == "100_year"
     assert plan["parameters"]["spatial_relationship"] == "intersects"
+
+
+def test_live_floodplain_screening_defaults_on_with_explicit_opt_out(monkeypatch):
+    monkeypatch.delenv("AUTOMAP_ENABLE_LIVE_FLOODPLAIN_SCREENING", raising=False)
+    assert live_floodplain_screening_enabled() is True
+
+    monkeypatch.setenv("AUTOMAP_ENABLE_LIVE_FLOODPLAIN_SCREENING", "false")
+    assert live_floodplain_screening_enabled() is False
 
 
 def test_floodplain_screening_attaches_affected_parcel_overlay(monkeypatch, tmp_path):
