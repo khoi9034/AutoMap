@@ -200,7 +200,7 @@ export function MapComposerClient() {
 
   function currentLockedMapState(): ComposerMapState | null {
     const sessionId = response?.composer_session_id;
-    return currentComposerPayload()?.map_state || response?.composer_map_state || (sessionId ? loadLockedMapState(sessionId) : null) || null;
+    return response?.composer_map_state || (sessionId ? loadLockedMapState(sessionId) : null) || currentComposerPayload()?.map_state || null;
   }
 
   const handleMapViewStateChange = useCallback((state: Partial<ComposerMapState>) => {

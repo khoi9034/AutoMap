@@ -40,13 +40,22 @@ def test_composer_sessions_and_print_snapshots_are_durable():
     store = read("lib/composer-session-store.ts")
     snapshot = read("lib/print-snapshot.ts")
     print_route = read("components/print/print-map-sheet-route.tsx")
+    shared_renderer = read("components/map-renderer/shared-map-renderer.tsx")
 
     assert "saveComposerSession" in client
     assert "loadMostRecentComposerSession" in client
     assert "saveLockedMapState" in client
     assert "validatePrintSnapshot" in client
+    assert "response?.composer_map_state || (sessionId ? loadLockedMapState(sessionId) : null) || currentComposerPayload()?.map_state" in client
     assert "window.localStorage.setItem(storageKey" in client
     assert "Print snapshot could not be created yet" in client
+    assert "SCHEMA_VERSION = 2" in store
+    assert "hasRenderableMapPayload" in store
+    assert "isUsableSession" in store
+    assert "session.schema_version === SCHEMA_VERSION" in store
+    assert "session.has_map_payload" in store
+    assert "session.has_layers" in store
+    assert "session.has_extent" in store
     assert "automap-composer-session:" in store
     assert "automap-locked-map-state:" in store
     assert "TTL_MS = 24 * 60 * 60 * 1000" in store
@@ -57,6 +66,7 @@ def test_composer_sessions_and_print_snapshots_are_durable():
     assert "window.localStorage.getItem(storageKey)" in print_route
     assert "disabled={!imageReady}" in print_route
     assert "Final map state expired" in print_route
+    assert "preview_config: response?.preview_config || mapState.preview_config" in shared_renderer
 
 
 def test_packet_picker_supports_resume_workflows():
