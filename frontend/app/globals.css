@@ -1896,7 +1896,28 @@ button {
   width: 100%;
   height: 100%;
   object-fit: contain;
+}
+
+.print-static-map-image {
+  display: block;
+  grid-area: 1 / 1;
+  min-height: 0;
   background: #ffffff;
+}
+
+.print-preview-map-frame:has(.print-static-map-image) .shared-map-renderer {
+  display: none;
+}
+
+.print-snapshot-missing {
+  display: grid;
+  place-items: center;
+  min-height: 360px;
+  background: #f8fafc;
+  color: #475467;
+  font-weight: 800;
+  text-align: center;
+  padding: 24px;
 }
 
 .print-map-page-preview.print-sheet-mode-map_sheet .enterprise-map-title-block {
@@ -1945,6 +1966,16 @@ button {
 .print-preview-section {
   padding: 20px;
   break-before: page;
+}
+
+.print-page {
+  break-after: page;
+  page-break-after: always;
+}
+
+.print-page:last-child {
+  break-after: auto;
+  page-break-after: auto;
 }
 
 .print-preview-section h2 {
@@ -2006,6 +2037,71 @@ button {
   min-height: 100vh;
   background: #dfe7ef;
   padding: 24px;
+}
+
+body:has(.print-only-route) {
+  overflow: auto;
+  background: #dfe7ef;
+}
+
+body:has(.print-only-route) .sidebar,
+body:has(.print-only-route) .top-header,
+body:has(.print-only-route) .right-rail,
+body:has(.print-only-route) .footer {
+  display: none;
+}
+
+body:has(.print-only-route) .app-shell,
+body:has(.print-only-route) .main-shell,
+body:has(.print-only-route) .content-grid,
+body:has(.print-only-route) .content-main {
+  display: block;
+  width: 100%;
+  max-width: none;
+  height: auto;
+  min-height: 100vh;
+  min-width: 0;
+  overflow: visible;
+  padding: 0;
+}
+
+.print-only-route {
+  min-height: 100vh;
+  background: #dfe7ef;
+  padding: 24px;
+}
+
+.print-only-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  max-width: 1120px;
+  margin: 0 auto 18px;
+  border: 1px solid #c8d4e1;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 14px 16px;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12);
+}
+
+.print-only-toolbar h1 {
+  margin: 0;
+  color: #10233b;
+  font-size: 22px;
+}
+
+.print-only-toolbar p {
+  margin: 4px 0 0;
+}
+
+.print-only-document {
+  margin: 0 auto;
+}
+
+.print-only-error {
+  max-width: 720px;
+  margin: 80px auto;
 }
 
 .print-route-actions {
@@ -3612,6 +3708,7 @@ th {
   .top-header,
   .footer,
   .right-rail,
+  .print-only-toolbar,
   .print-route-actions,
   .print-preview-panel-header,
   .print-export-controls,
@@ -3644,6 +3741,12 @@ th {
   }
 
   .composer-print-route {
+    min-height: 0;
+    background: #ffffff;
+    padding: 0;
+  }
+
+  .print-only-route {
     min-height: 0;
     background: #ffffff;
     padding: 0;
@@ -3755,6 +3858,10 @@ th {
     height: 100%;
     min-height: 0;
     object-fit: contain;
+  }
+
+  .print-static-map-image {
+    display: block;
   }
 
   .print-preview-map-frame:has(.print-map-snapshot) .shared-map-renderer {

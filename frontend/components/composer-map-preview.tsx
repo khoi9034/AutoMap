@@ -628,7 +628,7 @@ export function ComposerMapPreview({
 
         {!mapOnly && propertyNotResolved ? (
           <div className="inline-warning" role="status">
-            Address matched, but related parcel was not resolved from verified fields. The map still shows the address point, nearest facility, and active route geometry.
+            Address matched. Related parcel was not resolved from verified fields, so the origin marker is shown as an address point.
           </div>
         ) : null}
         {!mapOnly && fireEmsWarning ? (

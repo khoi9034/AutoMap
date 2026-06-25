@@ -12,6 +12,13 @@ export function printWarningItems(mapState?: ComposerMapState | null, response?:
     const normalized = warning.toLowerCase();
     return roadNetworkRoute && (normalized.includes("straight-line") || normalized.includes("straight line"));
   };
+  const normalizedWarningText = (warning: string) => {
+    const normalized = warning.toLowerCase();
+    if (normalized.includes("related parcel") && normalized.includes("not resolved")) {
+      return "Address matched. Related parcel was not resolved from verified fields, so the origin marker is shown as an address point.";
+    }
+    return warning;
+  };
 
   return Array.from(
     new Set(
@@ -23,7 +30,9 @@ export function printWarningItems(mapState?: ComposerMapState | null, response?:
         ...(response?.missing_data || []).map((item) => `Missing data: ${item}`),
         "Draft only - not an official county map.",
         "No ArcGIS item was published.",
-      ].filter((warning): warning is string => Boolean(warning) && !staleStraightLineWarning(String(warning))),
+      ]
+        .filter((warning): warning is string => Boolean(warning) && !staleStraightLineWarning(String(warning)))
+        .map((warning) => normalizedWarningText(String(warning))),
     ),
   );
 }

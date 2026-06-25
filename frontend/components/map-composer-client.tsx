@@ -21,6 +21,8 @@ import { buildComposerExportPayload } from "@/lib/composer-map-state";
 import { staticDemoComposerResponse } from "@/lib/static-demo";
 import { mergeWorkflowState } from "@/lib/workflow-store";
 import type { ComposerAdjustPayload, ComposerMapState, ComposerResponse, ExhibitPackage, ReportSectionConfig } from "@/types/automap";
+import type { PrintJobPayload } from "@/types/print-job";
+import { printJobStorageKey } from "@/types/print-job";
 import {
   DEFAULT_LIVE_PRINT_OPTIONS,
   backendExportOptionsToPrintOptions,
@@ -83,6 +85,7 @@ export function MapComposerClient() {
   const [notes, setNotes] = useState("");
   const [reportConfig, setReportConfig] = useState<ReportSectionConfig>(defaultReportConfig);
   const [printOptions, setPrintOptionsState] = useState<LivePrintOptions>(DEFAULT_LIVE_PRINT_OPTIONS);
+  const [printSnapshotDataUrl, setPrintSnapshotDataUrl] = useState<string | null>(null);
   const [activeMapViewState, setActiveMapViewState] = useState<Partial<ComposerMapState> | null>(null);
   const [exhibitPackage, setExhibitPackage] = useState<ExhibitPackage | null>(null);
   const [activeStep, setActiveStep] = useState<ComposerStepId>("request");
@@ -96,6 +99,7 @@ export function MapComposerClient() {
   const [composerProgressMessage, setComposerProgressMessage] = useState<string | null>(null);
   const [toast, setToast] = useState<WorkflowToast | null>(null);
   const generationRunIdRef = useRef(0);
+  const printSnapshotRef = useRef<string | null>(null);
   const staticDemoPanelRef = useRef(false);
   const generationTimingRef = useRef<{
     request_started_at?: string;
@@ -172,6 +176,13 @@ export function MapComposerClient() {
 
   const handleMapViewStateChange = useCallback((state: Partial<ComposerMapState>) => {
     setActiveMapViewState(state);
+    printSnapshotRef.current = null;
+    setPrintSnapshotDataUrl(null);
+  }, []);
+
+  const handlePrintSnapshotReady = useCallback((dataUrl: string) => {
+    printSnapshotRef.current = dataUrl;
+    setPrintSnapshotDataUrl(dataUrl);
   }, []);
 
   function setPrintOptions(nextOptions: LivePrintOptions) {
@@ -188,6 +199,8 @@ export function MapComposerClient() {
   function applyComposerResult(result: ComposerResponse) {
     setResponse(result);
     setExhibitPackage(null);
+    printSnapshotRef.current = null;
+    setPrintSnapshotDataUrl(null);
     setLayers(layerEditsFromResponse(result));
     setMapTitle(composerDisplayTitle(result));
     setMapSubtitle(composerDisplaySubtitle(result));
@@ -340,6 +353,8 @@ export function MapComposerClient() {
       const result = await adjustComposerDraft(payload);
       setResponse(result);
       setExhibitPackage(null);
+      printSnapshotRef.current = null;
+      setPrintSnapshotDataUrl(null);
       setLayers(layerEditsFromResponse(result));
       setMapTitle(composerDisplayTitle(result));
       setMapSubtitle(composerDisplaySubtitle(result));
@@ -367,6 +382,8 @@ export function MapComposerClient() {
     try {
       const result = await refineComposerRoute(response.composer_session_id);
       setResponse(result);
+      printSnapshotRef.current = null;
+      setPrintSnapshotDataUrl(null);
       setLayers(layerEditsFromResponse(result));
       setMapTitle(composerDisplayTitle(result));
       setMapSubtitle(composerDisplaySubtitle(result));
@@ -402,11 +419,37 @@ export function MapComposerClient() {
     try {
       const payload = currentComposerPayload();
       if (!payload) return;
+      const snapshot = printSnapshotRef.current || printSnapshotDataUrl;
+      if (!snapshot) {
+        setError("Print snapshot could not be created. Reopen Adjust, lock the map, and try again.");
+        return;
+      }
       const saved = await saveComposerMapState(payload);
-      setResponse({ ...response, composer_map_state: saved.composer_map_state || response.composer_map_state });
+      const lockedMapState = saved.composer_map_state || payload.map_state || response.composer_map_state;
+      if (!lockedMapState) {
+        setError("Lock final map before printing.");
+        return;
+      }
+      const responseForPrint = { ...response, composer_map_state: lockedMapState };
+      setResponse(responseForPrint);
       setExhibitPackage(null);
-      window.open(`/map-composer/${response.composer_session_id}/print`, "_blank", "noopener,noreferrer");
-      setToast({ tone: "success", message: "Current map state saved for the print layout." });
+      const printJobId = `print_${response.composer_session_id}_${Date.now()}`;
+      const printJob: PrintJobPayload = {
+        createdAt: new Date().toISOString(),
+        export_mode: printOptions.exportMode,
+        jobId: printJobId,
+        locked_map_state: lockedMapState,
+        map_snapshot_data_url: snapshot,
+        print_options: printOptions,
+        response: responseForPrint,
+      };
+      window.sessionStorage.setItem(printJobStorageKey(printJobId), JSON.stringify(printJob));
+      const opened = window.open(`/print/map-sheet?job=${encodeURIComponent(printJobId)}`, "_blank");
+      if (!opened) {
+        setError("The print-only route was blocked by the browser. Allow popups for this site and try again.");
+        return;
+      }
+      setToast({ tone: "success", message: "Print-only map sheet opened in a new tab." });
     } catch (exc) {
       setError(exc instanceof Error ? exc.message : "Print layout preparation failed.");
     } finally {
@@ -496,9 +539,11 @@ export function MapComposerClient() {
           onGenerateReport={generateReportExport}
           onGoToAdjust={() => setActiveStep("adjust")}
           onOpenPrintLayout={openPrintLayout}
+          onPrintSnapshotReady={handlePrintSnapshotReady}
           previewPacketId={previewPacketId}
           response={response}
           lockedMapState={currentLockedMapState()}
+          printSnapshotReady={Boolean(printSnapshotDataUrl)}
           printOptions={printOptions}
           setPrintOptions={setPrintOptions}
         />

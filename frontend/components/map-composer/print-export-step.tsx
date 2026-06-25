@@ -19,7 +19,9 @@ type PrintExportStepProps = {
   onGenerateReport: () => void;
   onGoToAdjust: () => void;
   onOpenPrintLayout: () => void;
+  onPrintSnapshotReady: (dataUrl: string) => void;
   previewPacketId: string;
+  printSnapshotReady: boolean;
   printOptions: LivePrintOptions;
   response: ComposerResponse | null;
   setPrintOptions: (options: LivePrintOptions) => void;
@@ -113,7 +115,9 @@ export function PrintExportStep({
   onGenerateReport,
   onGoToAdjust,
   onOpenPrintLayout,
+  onPrintSnapshotReady,
   previewPacketId,
+  printSnapshotReady,
   printOptions,
   response,
   setPrintOptions,
@@ -356,6 +360,7 @@ export function PrintExportStep({
         <section className="definition-box">
           <strong>Locked map state</strong>
           <p>If you need to change the extent, zoom, or layer visibility, use Unlock and Edit Map. Print/export does not pan or zoom the locked map.</p>
+          <p className="muted">{printSnapshotReady ? "Print snapshot ready." : "Preparing print snapshot from the locked map."}</p>
         </section>
 
         <div className="button-row composer-export-buttons">
@@ -411,7 +416,13 @@ export function PrintExportStep({
         ) : null}
       </aside>
 
-      <PrintPreviewPanel mapState={lockedMapState} packetId={previewPacketId} printOptions={printOptions} response={response} />
+      <PrintPreviewPanel
+        mapState={lockedMapState}
+        onSnapshotReady={onPrintSnapshotReady}
+        packetId={previewPacketId}
+        printOptions={printOptions}
+        response={response}
+      />
     </section>
   );
 }

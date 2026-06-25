@@ -5,12 +5,13 @@ import { MapSheetDocument } from "./map-sheet-document";
 
 type PrintPreviewPanelProps = {
   mapState?: ComposerMapState | null;
+  onSnapshotReady?: (dataUrl: string) => void;
   packetId?: string;
   printOptions: LivePrintOptions;
   response: ComposerResponse | null;
 };
 
-export function PrintPreviewPanel({ mapState, packetId, printOptions, response }: PrintPreviewPanelProps) {
+export function PrintPreviewPanel({ mapState, onSnapshotReady, packetId, printOptions, response }: PrintPreviewPanelProps) {
   return (
     <section className="print-preview-panel" aria-label="Live Print Preview">
       <div className="print-preview-panel-header">
@@ -21,7 +22,7 @@ export function PrintPreviewPanel({ mapState, packetId, printOptions, response }
         <span>Updates live</span>
       </div>
       <div className="print-preview-scroll">
-        <MapSheetDocument mapState={mapState} packetId={packetId} printOptions={printOptions} response={response} />
+        <MapSheetDocument mapState={mapState} onSnapshotReady={onSnapshotReady} packetId={packetId} printOptions={printOptions} response={response} />
       </div>
     </section>
   );
