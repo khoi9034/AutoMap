@@ -13,6 +13,7 @@ import {
   composerDisplaySubtitle,
   composerDisplayTitle,
   defaultComposerPrompt,
+  hasPreviewMapPayload,
   layerEditsFromResponse,
   packetIdForPreview,
 } from "@/components/map-composer/utils";
@@ -119,7 +120,7 @@ export function MapComposerClient() {
   }>({});
 
   const previewPacketId = useMemo(() => packetIdForPreview(response), [response]);
-  const previewReady = Boolean(response?.can_preview && previewPacketId);
+  const previewReady = hasPreviewMapPayload(response);
   const exported = Boolean(response?.export || response?.exhibit || exhibitPackage);
   const statuses = composerStepStatuses(activeStep, response, exported);
   const disabled: ComposerStepDisabled = {

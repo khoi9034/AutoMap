@@ -8,7 +8,7 @@ import { StatusChip } from "@/components/status-chip";
 import { isRoadRouteMode } from "@/lib/map-symbols";
 import type { ComposerResponse, ProximityResult } from "@/types/automap";
 
-import { actionLabel, composerDisplayTitle, identifierText, isAddressFocused } from "./utils";
+import { actionLabel, composerDisplayTitle, hasPreviewMapPayload, identifierText, isAddressFocused } from "./utils";
 
 type PreviewStepProps = {
   loading?: boolean;
@@ -704,7 +704,7 @@ export function PreviewStep({
     );
   }
 
-  const previewReady = Boolean(response.can_preview && previewPacketId);
+  const previewReady = hasPreviewMapPayload(response);
   const tableRequest = Boolean(response.table_context?.table_requested);
   const statusLabel = previewReady ? "Ready" : tableRequest ? "Table draft" : "Blocked";
   const statusTone = previewReady || tableRequest ? "success" : "danger";

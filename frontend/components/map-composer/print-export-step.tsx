@@ -8,7 +8,7 @@ import type { LivePrintOptions, PrintExportMode } from "@/types/print-options";
 import { effectiveSheetDimensions, includedPrintSections, printOptionsForMode, SHEET_SIZE_PRESETS } from "@/types/print-options";
 
 import { MapStateCapture } from "./map-state-capture";
-import { localFileUrl } from "./utils";
+import { hasPreviewMapPayload, localFileUrl } from "./utils";
 
 type PrintExportStepProps = {
   exhibitPackage?: ExhibitPackage | null;
@@ -122,7 +122,7 @@ export function PrintExportStep({
   response,
   setPrintOptions,
 }: PrintExportStepProps) {
-  if (!response?.can_preview || !previewPacketId) {
+  if (!hasPreviewMapPayload(response)) {
     return (
       <section className="panel empty-state">
         <h3>Preview required</h3>

@@ -108,6 +108,20 @@ export function packetIdForPreview(response: ComposerResponse | null): string {
   return response.adjusted_packet_id || response.packet_id || response.review_packet_id || packetIdFromPath(response.packet_path || "");
 }
 
+export function hasPreviewMapPayload(response: ComposerResponse | null): response is ComposerResponse {
+  if (!response?.can_preview) return false;
+  const preview = response.preview_config || response.composer_map_state?.preview_config;
+  return Boolean(
+    packetIdForPreview(response) ||
+      preview?.derived_overlays?.length ||
+      preview?.context_layers?.length ||
+      preview?.operational_layers?.length ||
+      preview?.focus_extent ||
+      preview?.initial_extent ||
+      response.proximity_result?.derived_overlays?.length,
+  );
+}
+
 export function composerDisplayTitle(response: ComposerResponse | null): string {
   return response?.map_layout?.title || response?.map_title || response?.recipe?.map_title || "AutoMap Draft Map";
 }

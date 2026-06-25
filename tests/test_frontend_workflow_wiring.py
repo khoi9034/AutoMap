@@ -217,6 +217,7 @@ def test_map_composer_is_primary_simple_workflow():
     adjust_step = read("components/map-composer/adjust-step.tsx")
     export_step = read("components/map-composer/export-step.tsx")
     print_export_step = read("components/map-composer/print-export-step.tsx")
+    composer_utils = read("components/map-composer/utils.ts")
     map_state_capture = read("components/map-composer/map-state-capture.tsx")
     step_types = read("components/map-composer/types.ts")
     composer_map_state_lib = read("lib/composer-map-state.ts")
@@ -293,6 +294,11 @@ def test_map_composer_is_primary_simple_workflow():
     assert "AdjustStep" in client
     assert "ExportStep" in client
     assert "PrintExportStep" in export_step
+    assert "hasPreviewMapPayload" in composer_utils
+    assert "const previewReady = hasPreviewMapPayload(response)" in client
+    assert "const previewReady = hasPreviewMapPayload(response)" in preview_step
+    assert "if (!hasPreviewMapPayload(response))" in adjust_step
+    assert "if (!hasPreviewMapPayload(response))" in print_export_step
     assert "exportComposerDraft" in client
     assert "saveComposerMapState" in client
     assert "exportComposerExhibit" in client

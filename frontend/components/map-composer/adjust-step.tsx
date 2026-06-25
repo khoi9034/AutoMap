@@ -8,7 +8,7 @@ import { StatusChip } from "@/components/status-chip";
 import type { ComposerMapState, ComposerResponse } from "@/types/automap";
 
 import type { ComposerLayerEdit } from "./types";
-import { composerDisplaySubtitle, composerDisplayTitle, isRouteLayer } from "./utils";
+import { composerDisplaySubtitle, composerDisplayTitle, hasPreviewMapPayload, isRouteLayer } from "./utils";
 
 type AdjustStepProps = {
   layers: ComposerLayerEdit[];
@@ -186,7 +186,7 @@ export function AdjustStep({
   setNotes,
 }: AdjustStepProps) {
   const [viewCommand, setViewCommand] = useState<MapViewCommand | null>(null);
-  if (!response?.can_preview || !previewPacketId) {
+  if (!hasPreviewMapPayload(response)) {
     return (
       <section className="panel empty-state">
         <h3>Preview required</h3>
