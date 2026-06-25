@@ -4,7 +4,11 @@
 
 import type { ReactNode, CSSProperties } from "react";
 
+import { MapLegend } from "@/components/map-legend";
+import { MapScaleBar } from "@/components/map-scale-bar";
+import { NorthArrow } from "@/components/north-arrow";
 import type { ComposerMapState, ComposerResponse } from "@/types/automap";
+import type { DerivedOverlay, JsonValue, PreviewLayer } from "@/types/automap";
 import { effectiveSheetDimensions, type LivePrintOptions } from "@/types/print-options";
 
 type LockedMapSheetPageProps = {
@@ -14,6 +18,8 @@ type LockedMapSheetPageProps = {
   response: ComposerResponse | null;
   snapshotDataUrl?: string | null;
 };
+
+const SOURCE_NOTE = "Sources: Cabarrus County / public GIS services. Draft output only.";
 
 function routeSummary(response: ComposerResponse | null, mapState?: ComposerMapState | null): string {
   const proximity = mapState?.proximity_summary || response?.proximity_result;
@@ -25,6 +31,54 @@ function routeSummary(response: ComposerResponse | null, mapState?: ComposerMapS
   const roadRoute = proximity.route_mode === "road_network" || proximity.nearest_facility_method === "road_distance";
   const label = roadRoute ? "Road-following draft route" : proximity.route_label || proximity.route_mode || "Route draft";
   return `${label} - ${distance}`;
+}
+
+function asRecord(value: unknown): Record<string, JsonValue> {
+  return value && typeof value === "object" ? (value as Record<string, JsonValue>) : {};
+}
+
+function roleForLegend(label: string): string {
+  const text = label.toLowerCase();
+  if (text.includes("floodplain") && text.includes("parcel")) return "affected_parcels";
+  if (text.includes("flood")) return "flood";
+  if (text.includes("zoning")) return "zoning";
+  if (text.includes("road")) return "roads";
+  if (text.includes("boundary") || text.includes("concord")) return "boundary";
+  return "context";
+}
+
+function layoutLegendLayers(mapState?: ComposerMapState | null, response?: ComposerResponse | null): PreviewLayer[] {
+  const rawItems = mapState?.legend_items || response?.map_layout?.legend_items || response?.preview_config?.map_layout?.legend_items || [];
+  return rawItems.map((item, index) => {
+    const record = asRecord(item);
+    const label = String(record.label || record.legend_label || record.title || `Map layer ${index + 1}`);
+    return {
+      id: String(record.id || `layout-legend-${index}`),
+      title: label,
+      legend_label: label,
+      cartography_role: String(record.role || record.cartography_role || roleForLegend(label)),
+      visible: true,
+    } as PreviewLayer;
+  });
+}
+
+function printOverlays(mapState?: ComposerMapState | null, response?: ComposerResponse | null): DerivedOverlay[] {
+  return (
+    mapState?.derived_overlays ||
+    mapState?.preview_config?.derived_overlays ||
+    response?.preview_config?.derived_overlays ||
+    response?.proximity_result?.derived_overlays ||
+    []
+  );
+}
+
+function printContextLayers(mapState?: ComposerMapState | null, response?: ComposerResponse | null): PreviewLayer[] {
+  const configured =
+    mapState?.preview_config?.context_layers ||
+    response?.preview_config?.context_layers ||
+    response?.preview_config?.operational_layers ||
+    [];
+  return configured.length ? configured : layoutLegendLayers(mapState, response);
 }
 
 function sheetMarginValue(printOptions: LivePrintOptions): string {
@@ -49,6 +103,8 @@ export function LockedMapSheetPage({ mapFallback, mapState, printOptions, respon
     "--print-width": `${sheetDimensions.width}in`,
     "--print-height": `${sheetDimensions.height}in`,
   } as CSSProperties;
+  const overlays = printOverlays(mapState, response);
+  const contextLayers = printContextLayers(mapState, response);
   const classes = [
     "print-preview-sheet",
     "print-map-page-preview",
@@ -85,18 +141,22 @@ export function LockedMapSheetPage({ mapFallback, mapState, printOptions, respon
         {snapshotDataUrl ? (
           <img
             className="print-map-snapshot print-static-map-image"
-            alt="Locked map snapshot for browser print"
+            alt="Locked map snapshot for print"
             src={snapshotDataUrl}
             data-print-snapshot="true"
           />
         ) : (
           mapFallback || <div className="print-snapshot-missing">Print snapshot is required before this map sheet can be printed.</div>
         )}
+        {snapshotDataUrl && printOptions.includeNorthArrow ? <NorthArrow /> : null}
+        {snapshotDataUrl && printOptions.includeScaleBar ? <MapScaleBar scale={mapState?.current_scale} /> : null}
+        {snapshotDataUrl && printOptions.includeLegend ? <MapLegend overlays={overlays} contextLayers={contextLayers} /> : null}
       </div>
       <footer className="print-preview-map-notes">
-        {printOptions.includeSourceNote ? <span>{routeSummary(response, mapState)}</span> : null}
+        {printOptions.includeSourceNote ? <span>{SOURCE_NOTE}</span> : null}
         {printOptions.includeScopeNote ? <span>Scope: Cabarrus County, NC</span> : null}
         {printOptions.includeRealPublishNote ? <span>Local only - no ArcGIS item published.</span> : null}
+        {response?.proximity_result ? <span>{routeSummary(response, mapState)}</span> : null}
         <span>
           Sheet: {sheetDimensions.width} x {sheetDimensions.height} in, {fixedScale}
         </span>

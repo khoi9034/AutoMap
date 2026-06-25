@@ -6,6 +6,7 @@ import type { LivePrintOptions } from "@/types/print-options";
 
 const SESSION_PREFIX = "automap-composer-session:";
 const LOCKED_STATE_PREFIX = "automap-locked-map-state:";
+const PRINT_SNAPSHOT_PREFIX = "automap-print-snapshot:";
 const MOST_RECENT_KEY = "automap-composer-most-recent-session";
 const SCHEMA_VERSION = 3;
 const TTL_MS = 24 * 60 * 60 * 1000;
@@ -182,11 +183,27 @@ export function loadLockedMapState(composerSessionId: string): ComposerMapState 
   return payload.state || null;
 }
 
+export function savePrintSnapshot(composerSessionId: string | undefined, dataUrl: string | null | undefined): void {
+  if (!composerSessionId || !dataUrl?.startsWith("data:image/")) return;
+  writeJson(`${PRINT_SNAPSHOT_PREFIX}${composerSessionId}`, {
+    composer_session_id: composerSessionId,
+    data_url: dataUrl,
+    saved_at: new Date().toISOString(),
+    schema_version: SCHEMA_VERSION,
+  });
+}
+
+export function loadPrintSnapshot(composerSessionId: string): string | null {
+  const payload = readJson<{ data_url?: string; saved_at?: string; schema_version?: number }>(`${PRINT_SNAPSHOT_PREFIX}${composerSessionId}`);
+  if (!payload || payload.schema_version !== SCHEMA_VERSION || expired(payload.saved_at) || !payload.data_url?.startsWith("data:image/")) return null;
+  return payload.data_url;
+}
+
 export function clearExpiredSessions(): void {
   if (!canUseStorage()) return;
   try {
     Object.keys(window.localStorage).forEach((key) => {
-      if (!key.startsWith(SESSION_PREFIX) && !key.startsWith(LOCKED_STATE_PREFIX)) return;
+      if (!key.startsWith(SESSION_PREFIX) && !key.startsWith(LOCKED_STATE_PREFIX) && !key.startsWith(PRINT_SNAPSHOT_PREFIX)) return;
       const payload = readJson<{ saved_at?: string; schema_version?: number; updated_at?: string }>(key);
       if (!payload || payload.schema_version !== SCHEMA_VERSION || expired(payload.updated_at || payload.saved_at)) window.localStorage.removeItem(key);
     });

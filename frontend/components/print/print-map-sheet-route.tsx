@@ -32,7 +32,7 @@ export function PrintMapSheetRoute() {
   useEffect(() => {
     const jobId = searchParams.get("job");
     if (!jobId) {
-      setError("Print job is missing. Return to Print / Export and open Browser Print again.");
+      setError("Print job is missing. Return to Print / Export and choose Print Map again.");
       return;
     }
     try {
@@ -44,12 +44,12 @@ export function PrintMapSheetRoute() {
           const stored = loadComposerSession(sessionId);
           setError(
             stored
-              ? "Print snapshot expired, but the final map state is saved. Return to Print / Export and open Browser Print again."
+              ? "Print snapshot expired, but the final map state is saved. Return to Print / Export and choose Print Map again."
               : "Final map state expired. Return to Map Composer and lock the map again.",
           );
           return;
         }
-        setError("Print job expired. Return to Print / Export and open Browser Print again.");
+        setError("Print job expired. Return to Print / Export and choose Print Map again.");
         return;
       }
       const parsed = JSON.parse(raw) as unknown;
@@ -119,7 +119,7 @@ export function PrintMapSheetRoute() {
           <p>Page 1 is the map sheet. Summary and report pages, when selected, start after it.</p>
         </div>
         <button className="button" type="button" onClick={printSheet} disabled={!imageReady}>
-          {imageReady ? "Print this sheet" : "Preparing snapshot..."}
+          {imageReady ? "Print Map" : "Preparing snapshot..."}
         </button>
       </div>
       <div id="automap-print-root" className="automap-print-document print-only-document" data-print-root="true">

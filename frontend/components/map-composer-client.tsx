@@ -22,9 +22,11 @@ import { buildComposerExportPayload } from "@/lib/composer-map-state";
 import {
   clearExpiredSessions,
   loadLockedMapState,
+  loadPrintSnapshot,
   loadMostRecentComposerSession,
   saveComposerSession,
   saveLockedMapState,
+  savePrintSnapshot,
   type StoredComposerSession,
 } from "@/lib/composer-session-store";
 import { validatePrintSnapshot } from "@/lib/print-snapshot";
@@ -139,6 +141,11 @@ export function MapComposerClient() {
     setMapSubtitle(stored.map_subtitle || composerDisplaySubtitle(stored.response));
     setNotes(stored.notes || "");
     setActiveMapViewState(stored.active_map_view_state || null);
+    const storedSnapshot = loadPrintSnapshot(stored.composer_session_id);
+    if (storedSnapshot) {
+      printSnapshotRef.current = storedSnapshot;
+      setPrintSnapshotDataUrl(storedSnapshot);
+    }
     if (stored.print_options) {
       setPrintOptionsState(stored.print_options);
       setReportConfig(printOptionsToReportConfig(stored.print_options));
@@ -213,7 +220,8 @@ export function MapComposerClient() {
   const handlePrintSnapshotReady = useCallback((dataUrl: string) => {
     printSnapshotRef.current = dataUrl;
     setPrintSnapshotDataUrl(dataUrl);
-  }, []);
+    savePrintSnapshot(response?.composer_session_id, dataUrl);
+  }, [response?.composer_session_id]);
 
   function setPrintOptions(nextOptions: LivePrintOptions) {
     const normalized = printOptionsForMode(nextOptions.exportMode, nextOptions);
@@ -485,14 +493,14 @@ export function MapComposerClient() {
     try {
       const payload = currentComposerPayload();
       if (!payload) return;
-      const snapshot = printSnapshotRef.current || printSnapshotDataUrl;
+      const snapshot = printSnapshotRef.current || printSnapshotDataUrl || loadPrintSnapshot(response.composer_session_id);
       if (!snapshot) {
-        setError("Print snapshot could not be created yet. Map snapshot is still loading. Please wait a moment and try Print again.");
+        setError("Print snapshot could not be created yet. Map snapshot is still loading. Please wait a moment and try Print Map again.");
         return;
       }
       const validation = await validatePrintSnapshot(snapshot);
       if (!validation.ok) {
-        setError("Print snapshot could not be created yet. Map snapshot is still loading. Please wait a moment and try Print again.");
+        setError("Print snapshot could not be created yet. Map snapshot is still loading. Please wait a moment and try Print Map again.");
         return;
       }
       const saved = await saveComposerMapState(payload);
@@ -503,8 +511,11 @@ export function MapComposerClient() {
       }
       const responseForPrint = { ...response, composer_map_state: lockedMapState };
       setResponse(responseForPrint);
+      printSnapshotRef.current = snapshot;
+      setPrintSnapshotDataUrl(snapshot);
       setExhibitPackage(null);
       saveLockedMapState(response.composer_session_id, lockedMapState);
+      savePrintSnapshot(response.composer_session_id, snapshot);
       persistComposerSession(responseForPrint, { active_map_view_state: activeMapViewState, print_options: printOptions });
       const printJobId = `print_${response.composer_session_id}_${Date.now()}`;
       const printJob: PrintJobPayload = {
@@ -525,7 +536,7 @@ export function MapComposerClient() {
         setError("The print-only route was blocked by the browser. Allow popups for this site and try again.");
         return;
       }
-      setToast({ tone: "success", message: "Print-only map sheet opened in a new tab." });
+      setToast({ tone: "success", message: "Print Map sheet opened in a new tab." });
     } catch (exc) {
       setError(exc instanceof Error ? exc.message : "Print layout preparation failed.");
     } finally {

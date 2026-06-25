@@ -62,7 +62,7 @@ export function ComposerPrintClient({ sessionId }: { sessionId: string }) {
       return;
     }
     if (!snapshotReady) {
-      setPrintWarning("Print snapshot could not be created yet; browser print may vary.");
+      setPrintWarning("Print snapshot could not be created yet; Print Map may vary.");
     } else {
       setPrintWarning(null);
     }
@@ -73,12 +73,15 @@ export function ComposerPrintClient({ sessionId }: { sessionId: string }) {
   const actions = (
     <div className="button-row print-route-actions no-print">
       <button className="button" type="button" onClick={openBrowserPrint} disabled={!lockedMapState}>
-        Open Browser Print
+        Print Map
       </button>
       {response.webmap_path ? (
-        <a className="button button-secondary" href={localFileUrl(response.webmap_path)} target="_blank" rel="noreferrer">
-          Open WebMap JSON
-        </a>
+        <details className="advanced-export-panel">
+          <summary>Advanced exports</summary>
+          <a className="button button-secondary" href={localFileUrl(response.webmap_path)} target="_blank" rel="noreferrer">
+            Open WebMap JSON
+          </a>
+        </details>
       ) : null}
     </div>
   );

@@ -45,6 +45,8 @@ def test_composer_sessions_and_print_snapshots_are_durable():
     assert "saveComposerSession" in client
     assert "loadMostRecentComposerSession" in client
     assert "saveLockedMapState" in client
+    assert "savePrintSnapshot" in client
+    assert "loadPrintSnapshot" in client
     assert "validatePrintSnapshot" in client
     assert "response?.composer_map_state || (sessionId ? loadLockedMapState(sessionId) : null) || currentComposerPayload()?.map_state" in client
     assert "window.localStorage.setItem(storageKey" in client
@@ -58,6 +60,9 @@ def test_composer_sessions_and_print_snapshots_are_durable():
     assert "session.has_extent" in store
     assert "automap-composer-session:" in store
     assert "automap-locked-map-state:" in store
+    assert "automap-print-snapshot:" in store
+    assert "savePrintSnapshot" in store
+    assert "loadPrintSnapshot" in store
     assert "TTL_MS = 24 * 60 * 60 * 1000" in store
     assert "database_url" in store
     assert "owner_name" in store
@@ -486,7 +491,8 @@ def test_map_composer_is_primary_simple_workflow():
     assert "Line thickness" in adjust_step
     assert "Line style" in adjust_step
     assert "samplePrompts" not in adjust_step
-    assert "Open Browser Print" in print_export_step
+    assert "Print Map" in print_export_step
+    assert "Open Browser Print" not in print_export_step
     assert "Generate Exhibit Package" in print_export_step
     assert "Map only" in print_export_step
     assert "Map Sheet" in print_export_step
@@ -508,9 +514,10 @@ def test_map_composer_is_primary_simple_workflow():
     assert "Print snapshot ready" in print_export_step
     assert "Changing export mode adds pages after the locked map sheet" in print_export_step
     assert "Unlock and Edit Map" in print_export_step
-    assert "Export Map Sheet PDF" in print_export_step
-    assert "Export Map Sheet PNG" in print_export_step
+    assert "PDF via Print Map" in print_export_step
+    assert "PNG export draft" in print_export_step
     assert "Generate Review Report" in print_export_step
+    assert "Advanced exports" in print_export_step
     assert "Export Layer Source CSV" in print_export_step
     assert "Export Warning Summary" in print_export_step
     assert "Export WebMap JSON" in print_export_step
@@ -578,6 +585,10 @@ def test_map_composer_is_primary_simple_workflow():
     assert "effectiveSheetDimensions" in locked_map_sheet_page
     assert "print-map-snapshot" in locked_map_sheet_page
     assert "data-print-snapshot" in locked_map_sheet_page
+    assert "Sources: Cabarrus County / public GIS services. Draft output only." in locked_map_sheet_page
+    assert "<NorthArrow />" in locked_map_sheet_page
+    assert "<MapScaleBar scale={mapState?.current_scale}" in locked_map_sheet_page
+    assert "<MapLegend overlays={overlays} contextLayers={contextLayers}" in locked_map_sheet_page
     assert "locked-map-sheet-page" in locked_map_sheet_page
     assert "onSnapshotReady" in shared_renderer
     assert "mapOnly?: boolean" in shared_renderer
@@ -613,7 +624,8 @@ def test_map_composer_is_primary_simple_workflow():
     assert "exhibit_locked" in shared_renderer
     assert "viewCommand" in shared_renderer
     assert "onViewStateChange" in shared_renderer
-    assert "Open Browser Print" in print_client
+    assert "Print Map" in print_client
+    assert "Open Browser Print" not in print_client
     assert "exhibit-layout" in exhibit_layout
     assert "ExhibitTitleBlock" in exhibit_layout
     assert "ExhibitMapFrame" in exhibit_layout

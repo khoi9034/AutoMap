@@ -365,13 +365,13 @@ export function PrintExportStep({
 
         <div className="button-row composer-export-buttons">
           <button className="button" type="button" onClick={onOpenPrintLayout} disabled={loadingReport || !canOpenPrint}>
-            Open Browser Print
+            Print Map
           </button>
           <button className="button button-secondary" type="button" onClick={onOpenPrintLayout} disabled={loadingReport || !isMapSheet || !canOpenPrint}>
-            Export Map Sheet PDF
+            PDF via Print Map
           </button>
           <button className="button button-secondary" type="button" disabled title="PNG export draft">
-            Export Map Sheet PNG
+            PNG export draft
           </button>
           <button className="button button-secondary" type="button" onClick={onGenerateExhibit} disabled={loadingExhibit}>
             {loadingExhibit ? "Generating..." : "Generate Exhibit Package"}
@@ -379,23 +379,29 @@ export function PrintExportStep({
           <button className="button button-secondary" type="button" onClick={onGenerateReport} disabled={loadingReport}>
             {loadingReport ? "Generating..." : "Generate Review Report"}
           </button>
-          <a className="button button-secondary" href={localFileUrl(response.webmap_path)} target="_blank" rel="noreferrer">
-            Export WebMap JSON
-          </a>
-          {layerSourceFile ? (
-            <a className="button button-secondary" href={packageFileUrl(layerSourceFile.path, layerSourceFile.url)} target="_blank" rel="noreferrer">
-              Export Layer Source CSV
-            </a>
-          ) : null}
-          {warningFile ? (
-            <a className="button button-secondary" href={packageFileUrl(warningFile.path, warningFile.url)} target="_blank" rel="noreferrer">
-              Export Warning Summary
-            </a>
-          ) : null}
           <button className="button button-secondary" type="button" onClick={onGoToAdjust}>
             Unlock and Edit Map
           </button>
         </div>
+
+        <details className="definition-box advanced-export-panel">
+          <summary>Advanced exports</summary>
+          <div className="button-row composer-export-buttons">
+            <a className="button button-secondary" href={localFileUrl(response.webmap_path)} target="_blank" rel="noreferrer">
+              Export WebMap JSON
+            </a>
+            {layerSourceFile ? (
+              <a className="button button-secondary" href={packageFileUrl(layerSourceFile.path, layerSourceFile.url)} target="_blank" rel="noreferrer">
+                Export Layer Source CSV
+              </a>
+            ) : null}
+            {warningFile ? (
+              <a className="button button-secondary" href={packageFileUrl(warningFile.path, warningFile.url)} target="_blank" rel="noreferrer">
+                Export Warning Summary
+              </a>
+            ) : null}
+          </div>
+        </details>
 
         <div className="definition-box">
           <strong>Export status</strong>
