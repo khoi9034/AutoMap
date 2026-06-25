@@ -1353,6 +1353,7 @@ def _write_geojson_output(
 ) -> None:
     if not geojson:
         return
+    result[f"{key_prefix}_geojson"] = geojson
     output_path = repo_root() / output_folder
     output_path.mkdir(parents=True, exist_ok=True)
     full_path = output_path / file_name
@@ -1391,10 +1392,13 @@ def _proximity_overlay(
     return {
         "id": overlay_id,
         "title": title,
+        "kind": "generated_graphic",
+        "layer_type": "graphics_overlay" if geometry_type != "line" else "route_overlay",
         "type": "geojson",
         "url": url,
         "path": path,
         "file_id": result.get(f"{key_prefix}_geojson_file_id"),
+        "geojson": result.get(f"{key_prefix}_geojson"),
         "role": role,
         "geometry_role": geometry_role or role,
         "geometry_type": geometry_type,

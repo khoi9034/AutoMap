@@ -984,10 +984,16 @@ export type PreviewLayer = {
 export type DerivedOverlay = {
   id?: string;
   title?: string;
+  kind?: "source_layer" | "generated_graphic" | "derived_overlay" | string;
+  layer_type?: "arcgis_feature_layer" | "arcgis_map_image_layer" | "graphics_overlay" | "route_overlay" | "point_marker" | string;
   type?: "geojson" | string;
   url?: string;
   path?: string;
   file_id?: string | null;
+  geojson?: Record<string, JsonValue> | null;
+  feature_collection?: Record<string, JsonValue> | null;
+  feature?: Record<string, JsonValue> | null;
+  geometry?: Record<string, JsonValue> | null;
   role?: string;
   geometry_type?: "point" | "line" | "polygon" | string;
   visible?: boolean;

@@ -69,6 +69,31 @@ function absoluteApiUrl(url?: string): string | null {
   return `${API_BASE_URL}${url.startsWith("/") ? url : `/${url}`}`;
 }
 
+function overlayIsGeneratedGraphic(overlay: DerivedOverlay): boolean {
+  const blob = `${overlay.kind || ""} ${overlay.layer_type || ""} ${overlay.role || ""} ${overlay.geometry_role || ""} ${overlay.symbol_key || ""}`.toLowerCase();
+  return (
+    blob.includes("generated_graphic") ||
+    blob.includes("graphics_overlay") ||
+    blob.includes("route_overlay") ||
+    blob.includes("point_marker") ||
+    blob.includes("origin") ||
+    blob.includes("target") ||
+    blob.includes("route")
+  );
+}
+
+function featureCollectionFromOverlay(overlay: DerivedOverlay): GeoJsonFeatureCollection | null {
+  const inline = overlay.geojson || overlay.feature_collection;
+  if (inline && inline.type === "FeatureCollection" && Array.isArray(inline.features)) {
+    return inline as unknown as GeoJsonFeatureCollection;
+  }
+  const feature = overlay.feature || (overlay.geometry ? { type: "Feature", properties: {}, geometry: overlay.geometry } : null);
+  if (feature && feature.type === "Feature" && feature.geometry) {
+    return { type: "FeatureCollection", features: [feature as unknown as GeoJsonFeature] };
+  }
+  return null;
+}
+
 function numericExtent(value: unknown): [number, number, number, number] | null {
   if (!value || typeof value !== "object") return null;
   const extent = value as { xmin?: unknown; ymin?: unknown; xmax?: unknown; ymax?: unknown };
@@ -459,15 +484,25 @@ export function ComposerMapPreview({
     setLoadError(null);
     Promise.all(
       derivedOverlays.map(async (overlay) => {
+        const inline = featureCollectionFromOverlay(overlay);
+        if (inline) return { overlay, collection: inline };
         const url = absoluteApiUrl(overlay.url);
-        if (!url) throw new Error(`Missing local GeoJSON URL for ${overlay.title || overlay.id}.`);
-        const response = await fetch(url, { cache: "no-store" });
-        if (!response.ok) throw new Error(`${overlay.title || overlay.id} failed to load (${response.status}).`);
-        return { overlay, collection: (await response.json()) as GeoJsonFeatureCollection };
+        if (!url) {
+          if (overlayIsGeneratedGraphic(overlay)) return null;
+          throw new Error(`Missing local GeoJSON URL for ${overlay.title || overlay.id}.`);
+        }
+        try {
+          const response = await fetch(url, { cache: "no-store" });
+          if (!response.ok) throw new Error(`${overlay.title || overlay.id} failed to load (${response.status}).`);
+          return { overlay, collection: (await response.json()) as GeoJsonFeatureCollection };
+        } catch (exc) {
+          if (overlayIsGeneratedGraphic(overlay)) return null;
+          throw exc;
+        }
       }),
     )
       .then((items) => {
-        if (!cancelled) setLoaded(items);
+        if (!cancelled) setLoaded(items.filter(Boolean) as LoadedOverlay[]);
       })
       .catch((exc) => {
         if (!cancelled) setLoadError(exc instanceof Error ? exc.message : "Derived GeoJSON failed to load.");

@@ -273,6 +273,13 @@ def test_proximity_result_writes_origin_target_and_line_geojson(monkeypatch, tmp
     assert result["line_geojson_url"].startswith("/api/local-outputs/geojson/proximity/")
     assert {overlay["role"] for overlay in result["derived_overlays"]} >= {"origin", "target", "distance_line"}
     assert {overlay["symbol_key"] for overlay in result["derived_overlays"]} >= {"origin_home", "target_fire_station", "route_straight_line"}
+    origin_overlay = next(overlay for overlay in result["derived_overlays"] if overlay["role"] == "origin")
+    target_overlay = next(overlay for overlay in result["derived_overlays"] if overlay["role"] == "target")
+    assert origin_overlay["kind"] == "generated_graphic"
+    assert origin_overlay["layer_type"] == "graphics_overlay"
+    assert origin_overlay["geojson"]["features"][0]["geometry"]["type"] == "Point"
+    assert target_overlay["kind"] == "generated_graphic"
+    assert target_overlay["geojson"]["features"][0]["geometry"]["type"] == "Point"
     assert "selected_parcel" not in {overlay["role"] for overlay in result["derived_overlays"]}
     assert result["property_match_status"] == "not_resolved"
 
@@ -337,6 +344,9 @@ def test_road_following_output_is_preferred_over_straight_line(monkeypatch, tmp_
     route_overlay = next(overlay for overlay in result["derived_overlays"] if overlay["role"] == "route_line")
     assert route_overlay["id"] == "road_following_route_draft"
     assert route_overlay["symbol_key"] == "route_road_following"
+    assert route_overlay["kind"] == "generated_graphic"
+    assert route_overlay["layer_type"] == "route_overlay"
+    assert route_overlay["geojson"]["features"][0]["geometry"]["type"] == "LineString"
 
 
 def test_nearest_facility_can_be_selected_by_road_distance(monkeypatch, tmp_path):
