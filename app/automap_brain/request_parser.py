@@ -43,7 +43,7 @@ def _output_mode(text: str, requested_output_type: str | None) -> str:
         return "table"
     if re.search(r"\b(report|print|pdf|export package)\b", text):
         return "report"
-    if re.search(r"\b(nearest|route|nearest line|driving|road route)\b", text):
+    if re.search(r"\b(nearest|closest|route|nearest line|driving|road route)\b", text):
         return "route"
     return "map"
 
@@ -90,8 +90,10 @@ def _request_type(text: str, output_mode: str, primary_domain: str | None, secon
     domains = {primary_domain, *secondary_domains}
     if output_mode == "table" or "table_requests" in domains:
         return "table_request"
-    if re.search(r"\bnearest\b", text) and re.search(r"\b(fire|station|facility|line)\b", text):
+    if re.search(r"\b(nearest|closest)\b", text) and re.search(r"\b(fire|station|facility|line)\b", text):
         return "proximity"
+    if parsed_request.get("historical_year") or "historical_layers" in domains:
+        return "historical_lookup"
     if "zoning" in domains:
         return "zoning_context"
     if {"parcels", "floodplain"}.issubset(domains):
@@ -100,8 +102,6 @@ def _request_type(text: str, output_mode: str, primary_domain: str | None, secon
         return "development_activity"
     if "suitability" in domains:
         return "suitability"
-    if parsed_request.get("historical_year") or "historical_layers" in domains:
-        return "historical_lookup"
     return "general_map" if primary_domain else "unsupported"
 
 

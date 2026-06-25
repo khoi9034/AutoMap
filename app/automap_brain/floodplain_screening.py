@@ -27,6 +27,11 @@ LIVE_SCREENING_DISABLED_WARNING = (
 )
 
 
+def live_floodplain_screening_enabled() -> bool:
+    """Return whether production should run the slower exact intersection path."""
+    return os.getenv("AUTOMAP_ENABLE_LIVE_FLOODPLAIN_SCREENING", "").strip().lower() in {"1", "true", "yes"}
+
+
 def is_floodplain_screening_recipe(recipe: dict[str, Any]) -> bool:
     plan = recipe.get("request_plan") or {}
     return str(plan.get("request_type") or recipe.get("request_type") or "") == "floodplain_screening"
@@ -185,8 +190,7 @@ def attach_floodplain_screening_result(
         params["floodplain_type"] = plan["floodplain_type"]
         params["result_layer"] = "affected_parcels"
 
-    live_enabled = os.getenv("AUTOMAP_ENABLE_LIVE_FLOODPLAIN_SCREENING", "").strip().lower() in {"1", "true", "yes"}
-    if query_client is None and not live_enabled:
+    if query_client is None and not live_floodplain_screening_enabled():
         warning = LIVE_SCREENING_DISABLED_WARNING
         next_recipe.setdefault("review_reasons", [])
         _append_unique(next_recipe["review_reasons"], warning)

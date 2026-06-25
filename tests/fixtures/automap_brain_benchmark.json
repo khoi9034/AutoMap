@@ -351,7 +351,7 @@
   },
   {
     "prompt": "show 2014 zoning in Concord",
-    "expected_request_type": "zoning_context",
+    "expected_request_type": "historical_lookup",
     "expected_domains": ["zoning", "historical_layers"],
     "expected_geography": "Concord",
     "expected_output_mode": "map",
@@ -418,5 +418,224 @@
     "must_have_layer_roles": [],
     "allowed_fallbacks": ["unsupported_owner_search"],
     "must_not_do": ["owner_name_search", "real_publish"]
+  },
+  {
+    "prompt": "show parcels in Concord in the floodplain",
+    "expected_request_type": "floodplain_screening",
+    "expected_domains": ["parcels", "floodplain"],
+    "expected_geography": "Concord",
+    "expected_output_mode": "map",
+    "expected_spatial_operation": "intersects",
+    "expected_layer_roles": ["affected_parcels", "floodplain_overlay"],
+    "allowed_fallbacks": ["flood_context"],
+    "must_not_do": ["owner_name_search", "real_publish"]
+  },
+  {
+    "prompt": "show parcels intersecting the 100-year floodplain in Concord",
+    "expected_request_type": "floodplain_screening",
+    "expected_domains": ["parcels", "floodplain"],
+    "expected_geography": "Concord",
+    "expected_output_mode": "map",
+    "expected_spatial_operation": "intersects",
+    "expected_layer_roles": ["affected_parcels", "floodplain_overlay"],
+    "allowed_fallbacks": ["flood_context"],
+    "must_not_do": ["owner_name_search", "real_publish"]
+  },
+  {
+    "prompt": "map floodplain-affected parcels in Concord",
+    "expected_request_type": "floodplain_screening",
+    "expected_domains": ["parcels", "floodplain"],
+    "expected_geography": "Concord",
+    "expected_output_mode": "map",
+    "expected_spatial_operation": "intersects",
+    "expected_layer_roles": ["affected_parcels", "floodplain_overlay"],
+    "allowed_fallbacks": ["flood_context"],
+    "must_not_do": ["owner_name_search", "real_publish"]
+  },
+  {
+    "prompt": "show Concord parcels within FEMA 100-year floodplain",
+    "expected_request_type": "floodplain_screening",
+    "expected_domains": ["parcels", "floodplain"],
+    "expected_geography": "Concord",
+    "expected_output_mode": "map",
+    "expected_spatial_operation": "intersects",
+    "expected_layer_roles": ["affected_parcels", "floodplain_overlay"],
+    "allowed_fallbacks": ["flood_context"],
+    "must_not_do": ["owner_name_search", "real_publish"]
+  },
+  {
+    "prompt": "show parcels in the 1 percent annual chance floodplain",
+    "expected_request_type": "floodplain_screening",
+    "expected_domains": ["parcels", "floodplain"],
+    "expected_geography": null,
+    "expected_output_mode": "map",
+    "expected_spatial_operation": "intersects",
+    "expected_layer_roles": ["affected_parcels", "floodplain_overlay"],
+    "allowed_fallbacks": ["flood_context"],
+    "must_not_do": ["owner_name_search", "real_publish"]
+  },
+  {
+    "prompt": "show parcles in conord in the 100 year flood plane",
+    "expected_request_type": "floodplain_screening",
+    "expected_domains": ["parcels", "floodplain"],
+    "expected_geography": "Concord",
+    "expected_output_mode": "map",
+    "expected_spatial_operation": "intersects",
+    "expected_layer_roles": ["affected_parcels", "floodplain_overlay"],
+    "allowed_fallbacks": ["flood_context"],
+    "must_not_do": ["owner_name_search", "real_publish"]
+  },
+  {
+    "prompt": "show commercial zones near major roads in Cabarrus County",
+    "expected_request_type": "zoning_context",
+    "expected_domains": ["zoning", "transportation"],
+    "expected_geography": "Cabarrus County",
+    "expected_output_mode": "map",
+    "expected_spatial_operation": "clipped_to_aoi",
+    "expected_layer_roles": ["primary_polygon_highlight", "major_road"],
+    "allowed_fallbacks": ["zoning_context", "road_context"],
+    "must_not_do": ["empty_preview", "real_publish"]
+  },
+  {
+    "prompt": "show business zoning in Concord near major roads",
+    "expected_request_type": "zoning_context",
+    "expected_domains": ["zoning", "transportation"],
+    "expected_geography": "Concord",
+    "expected_output_mode": "map",
+    "expected_spatial_operation": "clipped_to_aoi",
+    "expected_layer_roles": ["primary_polygon_highlight", "major_road"],
+    "allowed_fallbacks": ["zoning_context", "road_context"],
+    "must_not_do": ["empty_preview", "real_publish"]
+  },
+  {
+    "prompt": "show zoning and major roads in Concord",
+    "expected_request_type": "zoning_context",
+    "expected_domains": ["zoning", "transportation"],
+    "expected_geography": "Concord",
+    "expected_output_mode": "map",
+    "expected_spatial_operation": "clipped_to_aoi",
+    "expected_layer_roles": ["primary_polygon_highlight", "major_road"],
+    "allowed_fallbacks": ["zoning_context", "road_context"],
+    "must_not_do": ["empty_preview", "real_publish"]
+  },
+  {
+    "prompt": "map commercial zoning near Concord roads",
+    "expected_request_type": "zoning_context",
+    "expected_domains": ["zoning", "transportation"],
+    "expected_geography": "Concord",
+    "expected_output_mode": "map",
+    "expected_spatial_operation": "clipped_to_aoi",
+    "expected_layer_roles": ["primary_polygon_highlight", "major_road"],
+    "allowed_fallbacks": ["zoning_context", "road_context"],
+    "must_not_do": ["empty_preview", "real_publish"]
+  },
+  {
+    "prompt": "give me a CSV of parcels in Concord",
+    "expected_request_type": "table_request",
+    "expected_domains": ["parcels", "table_requests"],
+    "expected_geography": "Concord",
+    "expected_output_mode": "table",
+    "expected_spatial_operation": "attribute_projection",
+    "expected_layer_roles": ["table_source"],
+    "allowed_fallbacks": ["preview_only"],
+    "must_not_do": ["returnGeometry_true", "real_publish"]
+  },
+  {
+    "prompt": "list parcel IDs and acreage for Cabarrus parcels",
+    "expected_request_type": "table_request",
+    "expected_domains": ["parcels", "table_requests"],
+    "expected_geography": "Cabarrus County",
+    "expected_output_mode": "table",
+    "expected_spatial_operation": "attribute_projection",
+    "expected_layer_roles": ["table_source"],
+    "allowed_fallbacks": ["preview_only"],
+    "must_not_do": ["returnGeometry_true", "real_publish"]
+  },
+  {
+    "prompt": "make a spreadsheet of permits near Kannapolis",
+    "expected_request_type": "table_request",
+    "expected_domains": ["development_activity", "table_requests"],
+    "expected_geography": "Kannapolis",
+    "expected_output_mode": "table",
+    "expected_spatial_operation": "attribute_projection",
+    "expected_layer_roles": ["table_source"],
+    "allowed_fallbacks": ["preview_only", "data_limited"],
+    "must_not_do": ["fake_permits", "real_publish"]
+  },
+  {
+    "prompt": "closest fire station to 793 bartram ave",
+    "expected_request_type": "proximity",
+    "expected_domains": ["address_proximity", "transportation"],
+    "expected_geography": null,
+    "expected_output_mode": "route",
+    "expected_spatial_operation": "closest_by_road",
+    "expected_layer_roles": ["route_line", "origin_marker", "target_marker"],
+    "allowed_fallbacks": ["straight_line_fallback"],
+    "must_not_do": ["paid_geocoder", "owner_name_search", "real_publish"]
+  },
+  {
+    "prompt": "route from 793 Bartram Ave to nearest fire station",
+    "expected_request_type": "proximity",
+    "expected_domains": ["address_proximity", "transportation"],
+    "expected_geography": null,
+    "expected_output_mode": "route",
+    "expected_spatial_operation": "closest_by_road",
+    "expected_layer_roles": ["route_line", "origin_marker", "target_marker"],
+    "allowed_fallbacks": ["straight_line_fallback"],
+    "must_not_do": ["paid_geocoder", "owner_name_search", "real_publish"]
+  },
+  {
+    "prompt": "show current zoning around Harrisburg",
+    "expected_request_type": "zoning_context",
+    "expected_domains": ["zoning"],
+    "expected_geography": "Harrisburg",
+    "expected_output_mode": "map",
+    "expected_spatial_operation": "clipped_to_aoi",
+    "expected_layer_roles": ["primary_polygon_highlight", "boundary_outline"],
+    "allowed_fallbacks": ["zoning_context"],
+    "must_not_do": ["empty_preview", "real_publish"]
+  },
+  {
+    "prompt": "map road context around Midland",
+    "expected_request_type": "general_map",
+    "expected_domains": ["transportation"],
+    "expected_geography": "Midland",
+    "expected_output_mode": "map",
+    "expected_spatial_operation": "context_only",
+    "expected_layer_roles": ["context_polygon_muted"],
+    "allowed_fallbacks": ["road_context"],
+    "must_not_do": ["empty_preview", "real_publish"]
+  },
+  {
+    "prompt": "show floodway in Cabarrus County",
+    "expected_request_type": "general_map",
+    "expected_domains": ["floodplain"],
+    "expected_geography": "Cabarrus County",
+    "expected_output_mode": "map",
+    "expected_spatial_operation": "context_only",
+    "expected_layer_roles": ["context_polygon_muted"],
+    "allowed_fallbacks": ["flood_context"],
+    "must_not_do": ["real_publish"]
+  },
+  {
+    "prompt": "show 500-year floodplain around Concord",
+    "expected_request_type": "general_map",
+    "expected_domains": ["floodplain"],
+    "expected_geography": "Concord",
+    "expected_output_mode": "map",
+    "expected_spatial_operation": "context_only",
+    "expected_layer_roles": ["context_polygon_muted"],
+    "allowed_fallbacks": ["flood_context"],
+    "must_not_do": ["real_publish"]
+  },
+  {
+    "prompt": "show parcels near 123 Main St Charlotte NC",
+    "expected_request_type": "unsupported",
+    "expected_domains": ["parcels"],
+    "expected_geography": "Charlotte",
+    "expected_output_mode": "map",
+    "expected_layer_roles": [],
+    "allowed_fallbacks": ["unsupported_area"],
+    "must_not_do": ["national_geocoder", "real_publish"]
   }
 ]

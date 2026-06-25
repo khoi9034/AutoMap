@@ -22,7 +22,12 @@ from app.automap_brain.cartography_engine import (
 )
 from app.automap_brain.aoi_planner import apply_aoi_to_preview_config
 from app.automap_brain.explain_plan import build_brain_explanation
-from app.automap_brain.floodplain_screening import attach_floodplain_screening_result
+from app.automap_brain.floodplain_screening import (
+    LIVE_SCREENING_DISABLED_WARNING,
+    attach_floodplain_screening_result,
+    live_floodplain_screening_enabled,
+)
+from app.automap_brain.request_parser import build_brain_plan
 from app.automap_brain.visible_map_qa import run_visible_map_qa
 from app.composer_state_models import (
     default_north_arrow_config,
@@ -41,6 +46,7 @@ from app.map_title_generator import (
     target_display_label as _target_display_label,
 )
 from app.packet_index import build_preview_config
+from app.prompt_parser import parse_prompt
 from app.recipe_engine import PARCEL_NOT_MATCHED_WARNING, build_recipe
 from app.report_generator import generate_report
 from app.report_section_models import build_report_sections
@@ -668,7 +674,15 @@ def _composer_context_layers(layers: list[dict[str, Any]], recipe: dict[str, Any
         if request_type == "zoning_context" and (item.get("category") == "parcel" or "parcel" in blob) and "parcel" not in parsed_topics:
             hide_reason = "Full parcel layer hidden because this request is a zoning/road context map."
         elif request_type == "floodplain_screening" and (item.get("category") == "parcel" or "parcel" in blob):
-            hide_reason = "Full parcel layer hidden because affected parcels are shown as the derived screening result."
+            has_affected_overlay = any(
+                isinstance(overlay, dict) and overlay.get("role") == "affected_parcels"
+                for overlay in recipe.get("derived_overlays") or []
+            )
+            hide_reason = (
+                "Full parcel layer hidden because affected parcels are shown as the derived screening result."
+                if has_affected_overlay
+                else "Full parcel layer hidden because exact parcel-floodplain screening is not enabled for this deployment."
+            )
         if hide_reason:
             item["visibility"] = False
             item["default_visible"] = False
@@ -1251,6 +1265,338 @@ def _write_session_files(session_folder: Path, recipe: dict[str, Any], webmap_js
     _write_layer_csv(session_folder / "layer_list.csv", recipe, webmap_json)
 
 
+def _is_fast_floodplain_fallback_prompt(prompt: str) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
+    parsed = parse_prompt(prompt)
+    plan = build_brain_plan(prompt, parsed)
+    if plan.get("request_type") != "floodplain_screening":
+        return None, None
+    if live_floodplain_screening_enabled():
+        return None, None
+    return parsed, plan
+
+
+def _fast_floodplain_layers() -> list[dict[str, Any]]:
+    return [
+        {
+            "layer_key": "cabarrus_new_tax_parcels_1_tax_parcels",
+            "layer_name": "Tax Parcels",
+            "title": "Tax Parcels",
+            "category": "parcel",
+            "role": "base_layer",
+            "map_role": "diagnostics_only",
+            "layer_url": "https://location.cabarruscounty.us/arcgisservices/rest/services/OpenData/Tax_Parcels/MapServer/1",
+            "service_url": "https://location.cabarruscounty.us/arcgisservices/rest/services/OpenData/Tax_Parcels/MapServer",
+            "layer_id": 1,
+            "is_public": True,
+            "is_active": True,
+            "is_verified": True,
+            "is_feature_layer": True,
+            "geometry_type": "esriGeometryPolygon",
+            "confidence_score": 0.9,
+            "source_status": "verified_public",
+            "visibility": False,
+            "opacity": 0.12,
+            "review_warnings": [
+                "Full parcel layer hidden because exact parcel-floodplain screening is not enabled for this deployment."
+            ],
+        },
+        {
+            "layer_key": "cabarrus_new_flood_hazard_areas_2_floodplain100year",
+            "layer_name": "FloodPlain100year",
+            "title": "100-year floodplain",
+            "category": "flood",
+            "role": "constraint_overlay",
+            "map_role": "floodplain_overlay",
+            "legend_label": "100-year floodplain",
+            "layer_url": "https://location.cabarruscounty.us/arcgisservices/rest/services/OpenData/Flood_Hazard_Areas/MapServer/2",
+            "service_url": "https://location.cabarruscounty.us/arcgisservices/rest/services/OpenData/Flood_Hazard_Areas/MapServer",
+            "layer_id": 2,
+            "is_public": True,
+            "is_active": True,
+            "is_verified": True,
+            "is_feature_layer": True,
+            "geometry_type": "esriGeometryPolygon",
+            "confidence_score": 0.94,
+            "source_status": "verified_public",
+            "visibility": True,
+            "opacity": 0.34,
+        },
+        {
+            "layer_key": "cabarrus_new_municipaldistrict_0_municipaldistrict",
+            "layer_name": "MunicipalDistrict",
+            "title": "Concord boundary",
+            "category": "jurisdiction",
+            "role": "jurisdiction_filter",
+            "map_role": "boundary_outline",
+            "legend_label": "Concord boundary",
+            "layer_url": "https://location.cabarruscounty.us/arcgisservices/rest/services/OpenData/MunicipalDistrict/MapServer/0",
+            "service_url": "https://location.cabarruscounty.us/arcgisservices/rest/services/OpenData/MunicipalDistrict/MapServer",
+            "layer_id": 0,
+            "is_public": True,
+            "is_active": True,
+            "is_verified": True,
+            "is_feature_layer": True,
+            "geometry_type": "esriGeometryPolygon",
+            "confidence_score": 0.96,
+            "source_status": "verified_public",
+            "visibility": True,
+            "opacity": 0.88,
+            "definition_expression": "DISTRICT = 'CITY OF CONCORD'",
+        },
+    ]
+
+
+def _fast_floodplain_webmap(recipe: dict[str, Any]) -> dict[str, Any]:
+    layers: list[dict[str, Any]] = []
+    for index, layer in enumerate(recipe.get("selected_layers") or []):
+        layer_url = layer.get("layer_url")
+        definition_expression = layer.get("definition_expression")
+        drawing_info = layer.get("drawing_info") or {}
+        if not drawing_info:
+            if layer.get("map_role") == "boundary_outline":
+                drawing_info = {"renderer": _preview_simple_fill_renderer([255, 255, 255, 0], [17, 24, 39, 210], 1.8)}
+            elif layer.get("map_role") == "floodplain_overlay":
+                drawing_info = {"renderer": _preview_simple_fill_renderer([56, 189, 248, 74], [3, 105, 161, 210], 1.0)}
+            else:
+                drawing_info = {"renderer": _preview_simple_fill_renderer([148, 163, 184, 16], [100, 116, 139, 95], 0.5)}
+        layer_definition: dict[str, Any] = {"drawingInfo": drawing_info}
+        if definition_expression:
+            layer_definition["definitionExpression"] = definition_expression
+        layers.append(
+            {
+                "id": f"automap_{layer['layer_key']}",
+                "title": layer.get("title") or layer.get("layer_name"),
+                "url": layer_url,
+                "serviceUrl": layer.get("service_url"),
+                "layerUrl": layer_url,
+                "layerType": "ArcGISFeatureLayer",
+                "visibility": bool(layer.get("visibility", True)),
+                "opacity": layer.get("opacity", 1),
+                "layerId": layer.get("layer_id"),
+                "layerDefinition": layer_definition,
+                "showLegend": bool(layer.get("visibility", True)),
+                "autoMapRole": layer.get("role"),
+                "autoMapCategory": layer.get("category"),
+                "autoMapLayerKey": layer.get("layer_key"),
+                "autoMapSourceStatus": layer.get("source_status"),
+                "autoMapDisplayRole": layer.get("map_role") or layer.get("role"),
+                "autoMapDrawOrder": index,
+                "autoMapReviewWarnings": layer.get("review_warnings") or [],
+            }
+        )
+    return {
+        "title": recipe.get("map_title") or "Concord Floodplain Parcel Screening",
+        "description": "Draft AutoMap WebMap JSON. Exact affected-parcel intersection is disabled for this deployment.",
+        "operationalLayers": layers,
+        "baseMap": {
+            "title": "Light Gray Canvas",
+            "baseMapLayers": [
+                {
+                    "id": "World_Light_Gray_Base",
+                    "layerType": "ArcGISTiledMapServiceLayer",
+                    "url": "https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer",
+                    "visibility": True,
+                    "opacity": 1,
+                    "title": "Light Gray Base",
+                }
+            ],
+        },
+        "spatialReference": {"wkid": 4326},
+        "version": "2.31",
+        "authoringApp": "AutoMap",
+        "authoringAppVersion": "0.4",
+        "applicationProperties": {"viewing": {"search": {"enabled": False}, "routing": {"enabled": False}}},
+        "initialState": {"viewpoint": {"targetGeometry": recipe["suggested_extent"]}},
+        "autoMapPublicationStatus": "draft_only_not_published",
+        "autoMapGeneratedAt": _utc_now(),
+        "autoMapRecipeSummary": {
+            "user_intent": recipe.get("user_intent"),
+            "confidence_score": recipe.get("confidence_score"),
+            "needs_review": recipe.get("needs_review"),
+            "review_reasons": recipe.get("review_reasons") or [],
+            "missing_data_needed": recipe.get("missing_data_needed") or [],
+            "suggested_extent": recipe.get("suggested_extent") or {},
+            "preview_status": recipe.get("preview_status"),
+            "focus_mode": recipe.get("focus_mode"),
+            "floodplain_screening": recipe.get("floodplain_screening"),
+        },
+        "autoMapWarnings": recipe.get("review_reasons") or [],
+        "autoMapValidation": {"is_valid": True, "errors": [], "warnings": []},
+    }
+
+
+def _fast_floodplain_preview_config(recipe: dict[str, Any], webmap_json: dict[str, Any], session_folder: Path) -> dict[str, Any]:
+    layers: list[dict[str, Any]] = []
+    for index, layer in enumerate(webmap_json.get("operationalLayers") or []):
+        layer_definition = layer.get("layerDefinition") if isinstance(layer.get("layerDefinition"), dict) else {}
+        drawing_info = layer_definition.get("drawingInfo") if isinstance(layer_definition.get("drawingInfo"), dict) else {}
+        layer_url = layer.get("layerUrl") or layer.get("url")
+        layers.append(
+            {
+                "id": layer.get("id"),
+                "layer_key": layer.get("autoMapLayerKey") or layer.get("id"),
+                "title": layer.get("title"),
+                "category": layer.get("autoMapCategory"),
+                "role": layer.get("autoMapRole"),
+                "map_role": layer.get("autoMapDisplayRole"),
+                "display_role": layer.get("autoMapDisplayRole"),
+                "url": layer.get("url"),
+                "layerUrl": layer_url,
+                "layer_url": layer_url,
+                "service_url": layer.get("serviceUrl"),
+                "layer_id": layer.get("layerId"),
+                "preview_type": "feature_layer",
+                "visibility": bool(layer.get("visibility", True)),
+                "opacity": layer.get("opacity", 1),
+                "show_legend": bool(layer.get("showLegend", True)),
+                "definition_expression": layer_definition.get("definitionExpression"),
+                "drawing_info": drawing_info,
+                "review_warnings": [str(item) for item in layer.get("autoMapReviewWarnings") or []],
+                "draw_order": layer.get("autoMapDrawOrder", index),
+            }
+        )
+    return {
+        "map_title": recipe.get("map_title") or webmap_json.get("title") or "AutoMap Draft Preview",
+        "original_prompt": recipe.get("user_intent") or "",
+        "initial_extent": recipe.get("suggested_extent") or {},
+        "operational_layers": layers,
+        "warnings": {"warnings": recipe.get("review_reasons") or [], "publish_ready": False},
+        "missing_data": recipe.get("missing_data_needed") or [],
+        "data_gaps": [],
+        "packet_id": session_folder.name,
+        "packet_path": _repo_relative(session_folder),
+        "webmap_path": _repo_relative(session_folder / "webmap.json"),
+        "draft_status": "composer_fast_floodplain_fallback",
+        "preview_status": recipe.get("preview_status"),
+        "focus_mode": recipe.get("focus_mode"),
+        "can_focus_map": True,
+        "parcel_preview_blocked": False,
+        "derived_overlays": recipe.get("derived_overlays") or [],
+        "publish_ready": False,
+        "preview_only": True,
+    }
+
+
+def _fast_floodplain_fallback_response(
+    *,
+    prompt: str,
+    parsed: dict[str, Any],
+    plan: dict[str, Any],
+    session_id: str,
+    session_folder: Path,
+    timing: dict[str, Any],
+    started_at: float,
+) -> dict[str, Any]:
+    extent = {
+        "xmin": -80.79068056612213,
+        "ymin": 35.25827116710974,
+        "xmax": -80.41497340288814,
+        "ymax": 35.5178193006496,
+        "spatialReference": {"wkid": 4326, "latestWkid": 4326},
+    }
+    warning = LIVE_SCREENING_DISABLED_WARNING
+    recipe = {
+        "map_title": "Concord Floodplain Parcel Screening",
+        "request_type": "floodplain_screening",
+        "user_intent": prompt,
+        "parsed_request": parsed,
+        "request_plan": {
+            **plan,
+            "request_type": "floodplain_screening",
+            "primary_domain": "parcels",
+            "secondary_domains": sorted({"floodplain", *[str(item) for item in plan.get("secondary_domains") or []]}),
+            "spatial_relationships": ["intersects"],
+            "constraint_domain": "floodplain",
+            "result_layer": "affected_parcels",
+            "floodplain_type": "100_year",
+        },
+        "selected_layers": _fast_floodplain_layers(),
+        "rejected_layers": [],
+        "filters": [{"topic": "floodplain", "value": "100_year"}],
+        "spatial_operations": [{"operation": "intersect", "target": "Tax Parcels", "overlay": "FloodPlain100year", "output": "affected_parcels"}],
+        "symbology_recommendations": [
+            "Affected parcels should be highlighted when live intersection is enabled.",
+            "Show 100-year floodplain as a light blue context layer.",
+        ],
+        "suggested_extent": extent,
+        "confidence_score": plan.get("confidence", 0.84),
+        "needs_review": True,
+        "review_reasons": [warning],
+        "missing_data_needed": [],
+        "filter_plan": {},
+        "validation": {},
+        "analysis_execution": {
+            "analysis_status": "fallback_context_only",
+            "operation_type": "floodplain_parcel_screening",
+            "blocked_reasons": [warning],
+            "derived_outputs": [],
+            "output_count": 0,
+            "live_intersection_enabled": False,
+        },
+        "floodplain_screening": {
+            "analysis_type": "floodplain_parcel_screening",
+            "status": "fallback_context_only",
+            "spatial_relationship": "intersects",
+            "result_layer_role": "affected_parcels",
+            "affected_feature_count": 0,
+            "floodplain_type": "100_year",
+            "aoi_name": plan.get("geography") or "Concord",
+            "aoi_type": plan.get("geography_type") or "municipality",
+            "analysis_run_id": None,
+            "result_extent": extent,
+            "summary_label": "Parcels intersecting the 100-year floodplain",
+            "draft_note": "Draft screening only. Not an official flood determination.",
+            "warning": warning,
+        },
+        "focus_mode": "floodplain_screening",
+        "preview_status": "fallback_floodplain_context_only",
+        "recipe_timing": {
+            "parse_ms": timing.get("parse_ms", 0),
+            "intelligence_ms": timing.get("intelligence_ms", 0),
+            "layer_match_ms": 0,
+            "field_filter_ms": 0,
+            "parcel_context_ms": 0,
+            "analysis_planning_ms": 0,
+            "brain_v2_ms": 0,
+            "total_ms": 0,
+        },
+        "created_at": _utc_now(),
+        "notes": [
+            "Fast floodplain screening fallback used verified public layer URLs only.",
+            "No parcel geometry was downloaded and no ArcGIS item was created.",
+        ],
+    }
+    webmap_json = _fast_floodplain_webmap(recipe)
+    _write_session_files(session_folder, recipe, webmap_json)
+    preview_started = time.perf_counter()
+    preview_config = _augment_preview_config(_fast_floodplain_preview_config(recipe, webmap_json, session_folder), recipe, webmap_json)
+    timing["preview_config_ms"] = _elapsed_ms(preview_started)
+    response = _base_session_response(
+        session_id=session_id,
+        raw_prompt=prompt,
+        session_folder=session_folder,
+        recipe=recipe,
+        webmap_json=webmap_json,
+        preview_config=preview_config,
+        review_packet_path=None,
+    )
+    state_started = time.perf_counter()
+    response = _attach_composer_map_state(response, session_folder)
+    timing["composer_state_ms"] = _elapsed_ms(state_started)
+    response = _attach_timing(response, timing, started_at)
+    _save_session_payload(session_folder, response)
+    return response
+
+
+def _can_use_fast_floodplain_fallback(session_folder: Path) -> bool:
+    """Use the production fast path only for normal AutoMap output sessions."""
+    try:
+        session_folder.resolve().relative_to((repo_root() / COMPOSER_ROOT).resolve())
+        return True
+    except ValueError:
+        return False
+
+
 def generate_composer_draft(prompt: str) -> dict[str, Any]:
     """Generate one clean composer response without running analysis or publishing."""
     started_at = time.perf_counter()
@@ -1309,6 +1655,21 @@ def generate_composer_draft(prompt: str) -> dict[str, Any]:
             response = _attach_timing(response, timing, started_at)
             _save_session_payload(session_folder, response)
             return response
+
+    if _can_use_fast_floodplain_fallback(session_folder):
+        fast_started = time.perf_counter()
+        fast_parsed, fast_plan = _is_fast_floodplain_fallback_prompt(prompt)
+        timing["intelligence_ms"] += _elapsed_ms(fast_started)
+        if fast_parsed and fast_plan:
+            return _fast_floodplain_fallback_response(
+                prompt=prompt,
+                parsed=fast_parsed,
+                plan=fast_plan,
+                session_id=session_id,
+                session_folder=session_folder,
+                timing=timing,
+                started_at=started_at,
+            )
 
     recipe_started = time.perf_counter()
     recipe = build_recipe(prompt)

@@ -70,7 +70,7 @@ def test_brain_normalizer_handles_safe_typos():
 def test_brain_benchmark_has_required_prompt_coverage():
     prompts = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
 
-    assert len(prompts) >= 40
+    assert len(prompts) >= 60
     assert sum(1 for item in prompts if item["expected_request_type"] == "zoning_context") >= 5
     assert sum(1 for item in prompts if item["expected_request_type"] == "table_request") >= 5
     assert sum(1 for item in prompts if item["expected_request_type"] == "unsupported") >= 3
