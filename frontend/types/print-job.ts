@@ -2,6 +2,7 @@ import type { ComposerMapState, ComposerResponse } from "@/types/automap";
 import type { LivePrintOptions } from "@/types/print-options";
 
 export type PrintJobPayload = {
+  composer_session_id?: string;
   createdAt: string;
   export_mode: LivePrintOptions["exportMode"];
   jobId: string;

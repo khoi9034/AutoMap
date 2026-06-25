@@ -2,6 +2,7 @@
 
 import { SharedMapRenderer } from "@/components/map-renderer/shared-map-renderer";
 import { LockedMapSheetPage } from "@/components/print/LockedMapSheetPage";
+import { validatePrintSnapshot } from "@/lib/print-snapshot";
 import type { ComposerMapState, ComposerResponse } from "@/types/automap";
 import type { LivePrintOptions } from "@/types/print-options";
 import { useState } from "react";
@@ -16,7 +17,9 @@ type PrintMapPagePreviewProps = {
 
 export function PrintMapPagePreview({ mapState, onSnapshotReady, packetId, printOptions, response }: PrintMapPagePreviewProps) {
   const [snapshotUrl, setSnapshotUrl] = useState<string | null>(null);
-  const handleSnapshotReady = (dataUrl: string) => {
+  const handleSnapshotReady = async (dataUrl: string) => {
+    const validation = await validatePrintSnapshot(dataUrl);
+    if (!validation.ok) return;
     setSnapshotUrl(dataUrl);
     onSnapshotReady?.(dataUrl);
   };

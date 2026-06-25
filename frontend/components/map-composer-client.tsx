@@ -18,6 +18,15 @@ import {
 } from "@/components/map-composer/utils";
 import { adjustComposerDraft, exportComposerDraft, exportComposerExhibit, generateComposerDraft, getApiHealth, refineComposerRoute, saveComposerMapState } from "@/lib/api";
 import { buildComposerExportPayload } from "@/lib/composer-map-state";
+import {
+  clearExpiredSessions,
+  loadLockedMapState,
+  loadMostRecentComposerSession,
+  saveComposerSession,
+  saveLockedMapState,
+  type StoredComposerSession,
+} from "@/lib/composer-session-store";
+import { validatePrintSnapshot } from "@/lib/print-snapshot";
 import { staticDemoComposerResponse } from "@/lib/static-demo";
 import { mergeWorkflowState } from "@/lib/workflow-store";
 import type { ComposerAdjustPayload, ComposerMapState, ComposerResponse, ExhibitPackage, ReportSectionConfig } from "@/types/automap";
@@ -120,6 +129,25 @@ export function MapComposerClient() {
   };
 
   useEffect(() => {
+    clearExpiredSessions();
+    const stored = loadMostRecentComposerSession();
+    if (!stored) return;
+    setResponse(stored.response);
+    setLayers(stored.layers?.length ? stored.layers : layerEditsFromResponse(stored.response));
+    setMapTitle(stored.map_title || composerDisplayTitle(stored.response));
+    setMapSubtitle(stored.map_subtitle || composerDisplaySubtitle(stored.response));
+    setNotes(stored.notes || "");
+    setActiveMapViewState(stored.active_map_view_state || null);
+    if (stored.print_options) {
+      setPrintOptionsState(stored.print_options);
+      setReportConfig(printOptionsToReportConfig(stored.print_options));
+    }
+    setPrompt(stored.original_prompt || stored.response.raw_prompt || stored.response.prompt || defaultComposerPrompt);
+    setActiveStep(stored.response.can_preview ? "preview" : "request");
+    setToast({ tone: "default", message: "Restored the most recent live map session." });
+  }, []);
+
+  useEffect(() => {
     if (loading !== "generate") {
       setGenerateElapsedSeconds(0);
       return;
@@ -171,7 +199,8 @@ export function MapComposerClient() {
   }
 
   function currentLockedMapState(): ComposerMapState | null {
-    return currentComposerPayload()?.map_state || response?.composer_map_state || null;
+    const sessionId = response?.composer_session_id;
+    return currentComposerPayload()?.map_state || response?.composer_map_state || (sessionId ? loadLockedMapState(sessionId) : null) || null;
   }
 
   const handleMapViewStateChange = useCallback((state: Partial<ComposerMapState>) => {
@@ -189,6 +218,22 @@ export function MapComposerClient() {
     const normalized = printOptionsForMode(nextOptions.exportMode, nextOptions);
     setPrintOptionsState(normalized);
     setReportConfig(printOptionsToReportConfig(normalized));
+  }
+
+  function persistComposerSession(nextResponse: ComposerResponse, options: Partial<StoredComposerSession> = {}) {
+    if (!nextResponse.composer_session_id) return;
+    saveComposerSession({
+      active_map_view_state: options.active_map_view_state ?? activeMapViewState,
+      composer_session_id: nextResponse.composer_session_id,
+      layers: options.layers || layerEditsFromResponse(nextResponse),
+      map_subtitle: options.map_subtitle || composerDisplaySubtitle(nextResponse),
+      map_title: options.map_title || composerDisplayTitle(nextResponse),
+      notes: options.notes ?? notes,
+      original_prompt: nextResponse.raw_prompt || nextResponse.prompt || prompt,
+      print_options: options.print_options || printOptions,
+      response: nextResponse,
+    });
+    saveLockedMapState(nextResponse.composer_session_id, nextResponse.composer_map_state);
   }
 
   function changeStep(step: ComposerStepId) {
@@ -211,6 +256,14 @@ export function MapComposerClient() {
       result.composer_map_state?.report_section_config || defaultReportConfig,
     );
     setPrintOptions(nextPrintOptions);
+    persistComposerSession(result, {
+      active_map_view_state: null,
+      layers: layerEditsFromResponse(result),
+      map_subtitle: composerDisplaySubtitle(result),
+      map_title: composerDisplayTitle(result),
+      notes: "",
+      print_options: nextPrintOptions,
+    });
     setActiveStep("preview");
     mergeWorkflowState({
       rawPrompt: prompt,
@@ -359,6 +412,12 @@ export function MapComposerClient() {
       setMapTitle(composerDisplayTitle(result));
       setMapSubtitle(composerDisplaySubtitle(result));
       setActiveMapViewState(null);
+      persistComposerSession(result, {
+        active_map_view_state: null,
+        layers: layerEditsFromResponse(result),
+        map_subtitle: composerDisplaySubtitle(result),
+        map_title: composerDisplayTitle(result),
+      });
       mergeWorkflowState({
         rawPrompt: prompt,
         recipe: result.recipe,
@@ -387,6 +446,11 @@ export function MapComposerClient() {
       setLayers(layerEditsFromResponse(result));
       setMapTitle(composerDisplayTitle(result));
       setMapSubtitle(composerDisplaySubtitle(result));
+      persistComposerSession(result, {
+        layers: layerEditsFromResponse(result),
+        map_subtitle: composerDisplaySubtitle(result),
+        map_title: composerDisplayTitle(result),
+      });
       setToast({ tone: "success", message: "Route refinement finished. The straight-line reference remains available if refinement was not possible." });
     } catch (exc) {
       setError(exc instanceof Error ? exc.message : "Route refinement failed.");
@@ -404,6 +468,7 @@ export function MapComposerClient() {
       if (!payload) return;
       const result = await exportComposerDraft(payload);
       setResponse(result);
+      persistComposerSession(result);
       setToast({ tone: "success", message: "Draft review report/export created locally." });
     } catch (exc) {
       setError(exc instanceof Error ? exc.message : "Report/export generation failed.");
@@ -421,7 +486,12 @@ export function MapComposerClient() {
       if (!payload) return;
       const snapshot = printSnapshotRef.current || printSnapshotDataUrl;
       if (!snapshot) {
-        setError("Print snapshot could not be created. Reopen Adjust, lock the map, and try again.");
+        setError("Print snapshot could not be created yet. Map snapshot is still loading. Please wait a moment and try Print again.");
+        return;
+      }
+      const validation = await validatePrintSnapshot(snapshot);
+      if (!validation.ok) {
+        setError("Print snapshot could not be created yet. Map snapshot is still loading. Please wait a moment and try Print again.");
         return;
       }
       const saved = await saveComposerMapState(payload);
@@ -433,8 +503,11 @@ export function MapComposerClient() {
       const responseForPrint = { ...response, composer_map_state: lockedMapState };
       setResponse(responseForPrint);
       setExhibitPackage(null);
+      saveLockedMapState(response.composer_session_id, lockedMapState);
+      persistComposerSession(responseForPrint, { active_map_view_state: activeMapViewState, print_options: printOptions });
       const printJobId = `print_${response.composer_session_id}_${Date.now()}`;
       const printJob: PrintJobPayload = {
+        composer_session_id: response.composer_session_id,
         createdAt: new Date().toISOString(),
         export_mode: printOptions.exportMode,
         jobId: printJobId,
@@ -443,8 +516,10 @@ export function MapComposerClient() {
         print_options: printOptions,
         response: responseForPrint,
       };
-      window.sessionStorage.setItem(printJobStorageKey(printJobId), JSON.stringify(printJob));
-      const opened = window.open(`/print/map-sheet?job=${encodeURIComponent(printJobId)}`, "_blank");
+      const storageKey = printJobStorageKey(printJobId);
+      window.sessionStorage.setItem(storageKey, JSON.stringify(printJob));
+      window.localStorage.setItem(storageKey, JSON.stringify(printJob));
+      const opened = window.open(`/print/map-sheet?job=${encodeURIComponent(printJobId)}&session=${encodeURIComponent(response.composer_session_id)}`, "_blank");
       if (!opened) {
         setError("The print-only route was blocked by the browser. Allow popups for this site and try again.");
         return;

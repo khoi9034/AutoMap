@@ -5,6 +5,8 @@ import { useEffect, useState } from "react";
 
 import { LockedMapSheetPage } from "@/components/print/LockedMapSheetPage";
 import { PrintReportSections } from "@/components/print/PrintReportSections";
+import { loadComposerSession, loadLockedMapState } from "@/lib/composer-session-store";
+import { validatePrintSnapshot } from "@/lib/print-snapshot";
 import type { PrintJobPayload } from "@/types/print-job";
 import { printJobStorageKey } from "@/types/print-job";
 
@@ -25,6 +27,7 @@ export function PrintMapSheetRoute() {
   const searchParams = useSearchParams();
   const [payload, setPayload] = useState<PrintJobPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [imageReady, setImageReady] = useState(false);
 
   useEffect(() => {
     const jobId = searchParams.get("job");
@@ -33,8 +36,19 @@ export function PrintMapSheetRoute() {
       return;
     }
     try {
-      const raw = window.sessionStorage.getItem(printJobStorageKey(jobId));
+      const sessionId = searchParams.get("session");
+      const storageKey = printJobStorageKey(jobId);
+      const raw = window.sessionStorage.getItem(storageKey) || window.localStorage.getItem(storageKey);
       if (!raw) {
+        if (sessionId && loadLockedMapState(sessionId)) {
+          const stored = loadComposerSession(sessionId);
+          setError(
+            stored
+              ? "Print snapshot expired, but the final map state is saved. Return to Print / Export and open Browser Print again."
+              : "Final map state expired. Return to Map Composer and lock the map again.",
+          );
+          return;
+        }
         setError("Print job expired. Return to Print / Export and open Browser Print again.");
         return;
       }
@@ -45,12 +59,30 @@ export function PrintMapSheetRoute() {
       }
       setPayload(parsed);
       setError(null);
+      setImageReady(false);
     } catch {
       setError("Print job could not be loaded. Return to Print / Export and try again.");
     }
   }, [searchParams]);
 
+  useEffect(() => {
+    if (!payload?.map_snapshot_data_url) return;
+    let cancelled = false;
+    validatePrintSnapshot(payload.map_snapshot_data_url).then((validation) => {
+      if (!cancelled) {
+        setImageReady(validation.ok);
+        if (!validation.ok) {
+          setError("Print snapshot is still loading or invalid. Return to Print / Export and regenerate the print snapshot.");
+        }
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [payload?.map_snapshot_data_url]);
+
   function printSheet() {
+    if (!imageReady) return;
     window.print();
   }
 
@@ -86,8 +118,8 @@ export function PrintMapSheetRoute() {
           <h1>Locked map sheet</h1>
           <p>Page 1 is the map sheet. Summary and report pages, when selected, start after it.</p>
         </div>
-        <button className="button" type="button" onClick={printSheet}>
-          Print this sheet
+        <button className="button" type="button" onClick={printSheet} disabled={!imageReady}>
+          {imageReady ? "Print this sheet" : "Preparing snapshot..."}
         </button>
       </div>
       <div id="automap-print-root" className="automap-print-document print-only-document" data-print-root="true">

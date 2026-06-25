@@ -13,6 +13,7 @@ import { NorthArrow } from "@/components/north-arrow";
 import { StatusChip } from "@/components/status-chip";
 import { API_BASE_URL } from "@/lib/api";
 import { arcgisSymbolForOverlay, isRoadRouteMode } from "@/lib/map-symbols";
+import { validatePrintSnapshot } from "@/lib/print-snapshot";
 import type { ComposerMapState, ComposerResponse, DerivedOverlay, JsonValue, PreviewLayer } from "@/types/automap";
 
 type LoadedOverlay = {
@@ -33,6 +34,7 @@ type ArcView = {
   goTo: (target: unknown, options?: Record<string, unknown>) => Promise<unknown>;
   destroy: () => void;
   takeScreenshot?: (options?: Record<string, unknown>) => Promise<{ dataUrl?: string; data?: string }>;
+  updating?: boolean;
   center?: unknown;
   extent?: unknown;
   zoom?: number;
@@ -129,6 +131,36 @@ function viewStateFromArcView(view: ArcView): Partial<ComposerMapState> {
     current_rotation: typeof view.rotation === "number" ? view.rotation : 0,
     map_extent: serializeArcObject(view.extent),
   };
+}
+
+function wait(ms: number): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+function nextFrame(): Promise<void> {
+  return new Promise((resolve) => window.requestAnimationFrame(() => resolve()));
+}
+
+async function waitForSettledView(view: ArcView, timeoutMs = 8000): Promise<void> {
+  const startedAt = Date.now();
+  while (view.updating && Date.now() - startedAt < timeoutMs) {
+    await wait(250);
+  }
+  await nextFrame();
+  await wait(150);
+}
+
+async function captureValidatedSnapshot(view: ArcView): Promise<string | null> {
+  if (typeof view.takeScreenshot !== "function") return null;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    await waitForSettledView(view);
+    const snapshot = await view.takeScreenshot({ format: "png" });
+    const dataUrl = snapshot?.dataUrl || snapshot?.data || null;
+    const validation = await validatePrintSnapshot(dataUrl);
+    if (validation.ok && dataUrl) return dataUrl;
+    await wait(650 + attempt * 450);
+  }
+  return null;
 }
 
 function panelTitle(response: ComposerResponse): string {
@@ -516,18 +548,13 @@ export function ComposerMapPreview({
           return nextView.goTo(extent, { animate: false }).finally(() => {
             emitState();
             if ((interactionMode === "print_locked" || interactionMode === "exhibit_locked") && typeof nextView.takeScreenshot === "function") {
-              window.setTimeout(() => {
-                if (cancelled) return;
-                nextView
-                  .takeScreenshot?.({ format: "png" })
-                  .then((snapshot) => {
-                    const dataUrl = snapshot?.dataUrl || snapshot?.data;
-                    if (!cancelled && dataUrl) onSnapshotReady?.(dataUrl);
-                  })
-                  .catch(() => {
-                    // Browser print can still use the locked live map if ArcGIS screenshot capture is unavailable.
-                  });
-              }, 450);
+              captureValidatedSnapshot(nextView)
+                .then((dataUrl) => {
+                  if (!cancelled && dataUrl) onSnapshotReady?.(dataUrl);
+                })
+                .catch(() => {
+                  // Snapshot capture is best effort; the print button stays disabled until a valid image exists.
+                });
             }
           });
         });

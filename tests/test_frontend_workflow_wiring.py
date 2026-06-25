@@ -35,6 +35,30 @@ def test_stepper_and_context_panel_are_present():
     assert "WorkflowContextPanel" in layout
 
 
+def test_composer_sessions_and_print_snapshots_are_durable():
+    client = read("components/map-composer-client.tsx")
+    store = read("lib/composer-session-store.ts")
+    snapshot = read("lib/print-snapshot.ts")
+    print_route = read("components/print/print-map-sheet-route.tsx")
+
+    assert "saveComposerSession" in client
+    assert "loadMostRecentComposerSession" in client
+    assert "saveLockedMapState" in client
+    assert "validatePrintSnapshot" in client
+    assert "window.localStorage.setItem(storageKey" in client
+    assert "Print snapshot could not be created yet" in client
+    assert "automap-composer-session:" in store
+    assert "automap-locked-map-state:" in store
+    assert "TTL_MS = 24 * 60 * 60 * 1000" in store
+    assert "database_url" in store
+    assert "owner_name" in store
+    assert "blank_or_white" in snapshot
+    assert "ratio >= 0.025" in snapshot
+    assert "window.localStorage.getItem(storageKey)" in print_route
+    assert "disabled={!imageReady}" in print_route
+    assert "Final map state expired" in print_route
+
+
 def test_packet_picker_supports_resume_workflows():
     source = read("components/packet-picker.tsx")
 
@@ -265,7 +289,7 @@ def test_map_composer_is_primary_simple_workflow():
     assert "refineComposerRoute" in client
     assert "printJobStorageKey" in client
     assert "window.sessionStorage.setItem" in client
-    assert 'window.open(`/print/map-sheet?job=${encodeURIComponent(printJobId)}`, "_blank")' in client
+    assert 'window.open(`/print/map-sheet?job=${encodeURIComponent(printJobId)}&session=${encodeURIComponent(response.composer_session_id)}`, "_blank")' in client
     assert "/map-composer/${response.composer_session_id}/print" not in client
     assert "window.print()" not in client
     assert "buildComposerExportPayload" in client
