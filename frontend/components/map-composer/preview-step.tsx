@@ -337,16 +337,21 @@ function aoiSummary(response: ComposerResponse): string | null {
 function WhyThisMapPanel({ response }: { response: ComposerResponse }) {
   const plan = planFromResponse(response);
   const params = planParameters(response);
+  const screening = response.floodplain_screening;
   const totalFeatures = visibleFeatureCount(response);
   const fallbackUsed = Boolean(response.preview_config?.visible_map_qa?.fallback_used);
   const aoi = aoiSummary(response);
+  const requestLabel =
+    response.analysis_type === "floodplain_parcel_screening" || screening
+      ? "Floodplain parcel screening"
+      : String(plan.request_type || response.request_type || "General map").replaceAll("_", " ");
   return (
     <div className="definition-box why-this-map-panel">
       <strong>Why this map?</strong>
       <dl>
         <div>
           <dt>Interpreted request</dt>
-          <dd>{String(plan.request_type || response.request_type || "General map").replaceAll("_", " ")}</dd>
+          <dd>{requestLabel}</dd>
         </div>
         <div>
           <dt>Area</dt>
@@ -360,11 +365,11 @@ function WhyThisMapPanel({ response }: { response: ComposerResponse }) {
         ) : null}
         <div>
           <dt>Main layer</dt>
-          <dd>{valueList(params.feature_type)}</dd>
+          <dd>{screening ? "Parcels in 100-year floodplain" : valueList(params.feature_type)}</dd>
         </div>
         <div>
           <dt>Filter</dt>
-          <dd>{valueList(params.subtype_filter)}</dd>
+          <dd>{screening ? "100-year / 1% annual chance floodplain" : valueList(params.subtype_filter)}</dd>
         </div>
         <div>
           <dt>Status</dt>
@@ -378,6 +383,51 @@ function WhyThisMapPanel({ response }: { response: ComposerResponse }) {
         ) : null}
       </dl>
     </div>
+  );
+}
+
+function FloodplainScreeningPanel({ response }: { response: ComposerResponse }) {
+  const screening = response.floodplain_screening;
+  if (!screening && response.analysis_type !== "floodplain_parcel_screening") return null;
+  const affectedCount =
+    typeof response.affected_feature_count === "number"
+      ? response.affected_feature_count
+      : typeof screening?.affected_feature_count === "number"
+        ? screening.affected_feature_count
+        : null;
+  const area = response.aoi_name || (typeof screening?.aoi_name === "string" ? screening.aoi_name : "Concord");
+  const warning = typeof screening?.warning === "string" ? screening.warning : null;
+  return (
+    <section className="panel floodplain-screening-summary">
+      <div className="panel-title-row">
+        <div>
+          <p className="eyebrow">Spatial screening</p>
+          <h3>Floodplain parcel screening</h3>
+          <p className="muted">Parcels intersecting the 100-year floodplain in {area}, NC.</p>
+        </div>
+        <StatusChip tone={warning ? "warning" : "success"}>{warning ? "Fallback" : "Live result"}</StatusChip>
+      </div>
+      <div className="result-strip">
+        <div>
+          <span>Area</span>
+          <strong>{area}</strong>
+        </div>
+        <div>
+          <span>Relationship</span>
+          <strong>{response.spatial_relationship || "intersects"}</strong>
+        </div>
+        <div>
+          <span>Affected parcels</span>
+          <strong>{affectedCount ?? "n/a"}</strong>
+        </div>
+        <div>
+          <span>Flood type</span>
+          <strong>100-year</strong>
+        </div>
+      </div>
+      <p className="muted">Draft screening only. Not an official flood determination.</p>
+      {warning ? <p className="muted">{warning}</p> : null}
+    </section>
   );
 }
 
@@ -620,8 +670,11 @@ function PreviewDetailsPanel({
         {activeTab === "route" ? (
           <>
             <ProximityResultSummary result={response.proximity_result} onRouteRefine={onRouteRefine} routeRefineLoading={routeRefineLoading} />
+            <FloodplainScreeningPanel response={response} />
             {tableRequest ? <TableContextPanel response={response} /> : null}
-            {!response.proximity_result && !tableRequest ? <p className="muted">No route or table analysis is attached to this draft.</p> : null}
+            {!response.proximity_result && !response.floodplain_screening && response.analysis_type !== "floodplain_parcel_screening" && !tableRequest ? (
+              <p className="muted">No route or table analysis is attached to this draft.</p>
+            ) : null}
           </>
         ) : null}
         {activeTab === "notes" ? <PreviewNotesPanel response={response} /> : null}

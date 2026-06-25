@@ -132,6 +132,7 @@ function viewStateFromArcView(view: ArcView): Partial<ComposerMapState> {
 }
 
 function panelTitle(response: ComposerResponse): string {
+  if (response.analysis_type === "floodplain_parcel_screening" || response.floodplain_screening) return "Floodplain parcel screening";
   const target = response.proximity_result?.target_name;
   const classification = response.proximity_result?.target_classification;
   if (target && classification === "mixed_fire_ems") return `Nearest fire/EMS station found: ${target}`;
@@ -141,6 +142,12 @@ function panelTitle(response: ComposerResponse): string {
 }
 
 function routeSummary(response: ComposerResponse, lineLabel: string, distance: string | null): string {
+  const screening = response.floodplain_screening;
+  if (screening || response.analysis_type === "floodplain_parcel_screening") {
+    const count = response.affected_feature_count ?? Number(screening?.affected_feature_count ?? 0);
+    const area = response.aoi_name || String(screening?.aoi_name || "Concord");
+    return `${count || "Affected"} parcels intersecting the 100-year floodplain in ${area}.`;
+  }
   const target = panelTitle(response);
   if (distance) return `${target} - ${lineLabel}: ${distance}. Line shown on map.`;
   return "Local derived overlays are drawn on a real ArcGIS basemap.";
@@ -586,23 +593,32 @@ export function ComposerMapPreview({
   }
 
   const distance = distanceText(response);
-  const lineLabel = routeLabel(response);
-  const routeMode = response.proximity_result?.route_mode || "straight_line_fallback";
+  const isProximity = Boolean(response.proximity_result);
+  const isFloodplainScreening = response.analysis_type === "floodplain_parcel_screening" || Boolean(response.floodplain_screening);
+  const lineLabel = isProximity ? routeLabel(response) : isFloodplainScreening ? "Affected parcels" : "Draft map";
+  const routeMode = response.proximity_result?.route_mode || (isProximity ? "straight_line_fallback" : "");
   const roadRoute = isRoadRouteMode(routeMode);
   const layout = mapLayout(response);
   const layoutTitle = layout?.title || response.map_title || panelTitle(response);
   const layoutSubtitle =
     layout?.subtitle ||
-    (roadRoute ? "Road-following draft route. Not official navigation." : "Straight-line fallback. Road route unavailable.");
+    (isProximity
+      ? roadRoute
+        ? "Road-following draft route. Not official navigation."
+        : "Straight-line fallback. Road route unavailable."
+      : isFloodplainScreening
+        ? "Floodplain parcel screening. Draft only, not an official determination."
+        : "Draft AutoMap preview, not an official county map.");
   const frameMode = frameModeForInteraction(interactionMode);
   const frameSizing = frameSizingForInteraction(interactionMode);
   const routeWarningText = roadRoute
     ? "Draft route based on public road centerlines. Not official navigation."
     : response.proximity_result?.route_warning || "Straight-line fallback only. Road route unavailable.";
   const routeWarning =
-    !roadRoute ||
-    Boolean(response.proximity_result?.route_warning) ||
-    (response.proximity_result?.warnings || []).some((warning) => warning.toLowerCase().includes("not a driving route"));
+    isProximity &&
+    (!roadRoute ||
+      Boolean(response.proximity_result?.route_warning) ||
+      (response.proximity_result?.warnings || []).some((warning) => warning.toLowerCase().includes("not a driving route")));
   const propertyNotResolved = response.proximity_result?.property_match_status === "not_resolved";
   const fireEmsWarning = (response.proximity_result?.warnings || []).some((warning) => warning.toLowerCase().includes("fire") && warning.toLowerCase().includes("ems"));
   const clutterWarning = (response.warnings || []).some((warning) => warning.toLowerCase().includes("address layer hidden"));
@@ -614,29 +630,39 @@ export function ComposerMapPreview({
           <div className="panel-title-row">
             <div>
               <p className="eyebrow">Focused ArcGIS map</p>
-              <h3>Route and distance</h3>
+              <h3>{isFloodplainScreening ? "Floodplain screening" : isProximity ? "Route and distance" : "Draft map"}</h3>
               <p className="muted">{routeSummary(response, lineLabel, distance)}</p>
             </div>
             <div className="chip-row">
               <StatusChip tone="success">Real basemap</StatusChip>
-              <StatusChip tone="success">Home marker</StatusChip>
-              <StatusChip tone="success">Facility marker</StatusChip>
-              <StatusChip tone={roadRoute ? "success" : "warning"}>{lineLabel}</StatusChip>
+              {isFloodplainScreening ? (
+                <>
+                  <StatusChip tone="success">Affected parcels</StatusChip>
+                  <StatusChip tone="success">100-year floodplain</StatusChip>
+                  <StatusChip tone="success">Concord boundary</StatusChip>
+                </>
+              ) : (
+                <>
+                  <StatusChip tone="success">Home marker</StatusChip>
+                  <StatusChip tone="success">Facility marker</StatusChip>
+                  <StatusChip tone={roadRoute ? "success" : "warning"}>{lineLabel}</StatusChip>
+                </>
+              )}
             </div>
           </div>
         ) : null}
 
-        {!mapOnly && propertyNotResolved ? (
+        {!mapOnly && isProximity && propertyNotResolved ? (
           <div className="inline-warning" role="status">
             Address matched. Related parcel was not resolved from verified fields, so the origin marker is shown as an address point.
           </div>
         ) : null}
-        {!mapOnly && fireEmsWarning ? (
+        {!mapOnly && isProximity && fireEmsWarning ? (
           <div className="inline-warning" role="status">
             The verified layer combines Fire and EMS stations; AutoMap could not confirm a fire-only filter.
           </div>
         ) : null}
-        {!mapOnly && routeWarning ? (
+        {!mapOnly && isProximity && routeWarning ? (
           <div className="inline-warning" role="status">
             {routeWarningText}
           </div>
@@ -646,7 +672,7 @@ export function ComposerMapPreview({
             Full address layer hidden to reduce clutter. The origin address marker remains visible.
           </div>
         ) : null}
-        {loading ? <div className="preview-loading">Loading local origin, target, and line GeoJSON...</div> : null}
+        {loading ? <div className="preview-loading">Loading local analysis GeoJSON...</div> : null}
         {loadError ? <div className="preview-error">Map preview failed to load. {loadError}</div> : null}
         {mapError ? <div className="preview-error">Map preview failed to load. {mapError}</div> : null}
 

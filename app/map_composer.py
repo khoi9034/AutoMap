@@ -22,6 +22,7 @@ from app.automap_brain.cartography_engine import (
 )
 from app.automap_brain.aoi_planner import apply_aoi_to_preview_config
 from app.automap_brain.explain_plan import build_brain_explanation
+from app.automap_brain.floodplain_screening import attach_floodplain_screening_result
 from app.automap_brain.visible_map_qa import run_visible_map_qa
 from app.composer_state_models import (
     default_north_arrow_config,
@@ -71,6 +72,7 @@ COMPOSER_TIMING_KEYS = [
     "route_mode_ms",
     "route_generation_ms",
     "geojson_write_ms",
+    "floodplain_screening_ms",
     "preview_config_ms",
     "review_packet_ms",
     "composer_state_ms",
@@ -311,6 +313,10 @@ def _legend_label_for_overlay(overlay: dict[str, Any]) -> str:
     role = str(overlay.get("role") or overlay.get("geometry_role") or "").lower()
     symbol_key = str(overlay.get("symbol_key") or "")
     route_label = overlay.get("route_label")
+    if overlay.get("legend_label"):
+        return str(overlay["legend_label"])
+    if "affected" in role and "parcel" in role:
+        return "Parcels in 100-year floodplain"
     if "origin" in role:
         return "Origin Address"
     if "target" in role:
@@ -361,7 +367,7 @@ def _legend_items_from_preview(config: dict[str, Any] | None) -> list[dict[str, 
         visible = layer.get("default_visible", layer.get("visibility", True))
         if visible is False:
             continue
-        label = str(layer.get("title") or layer.get("layer_key") or "Context layer")
+        label = str(layer.get("legend_label") or layer.get("title") or layer.get("layer_key") or "Context layer")
         dedupe_key = f"context:{label}"
         if dedupe_key in seen:
             continue
@@ -379,7 +385,13 @@ def _legend_items_from_preview(config: dict[str, Any] | None) -> list[dict[str, 
 def _build_map_layout(recipe: dict[str, Any], config: dict[str, Any] | None) -> dict[str, Any]:
     result = recipe.get("proximity_result") or {}
     route_label = _route_mode_label(result) if result else "Draft map"
-    subtitle = _map_layout_subtitle(result) if result else "Draft AutoMap preview, not an official county map."
+    screening = recipe.get("floodplain_screening") if isinstance(recipe.get("floodplain_screening"), dict) else None
+    if result:
+        subtitle = _map_layout_subtitle(result)
+    elif screening:
+        subtitle = "Floodplain parcel screening. Draft only, not an official determination."
+    else:
+        subtitle = "Draft AutoMap preview, not an official county map."
     return {
         "title": recipe.get("map_title") or (config or {}).get("map_title") or "AutoMap Draft Map",
         "subtitle": subtitle,
@@ -474,6 +486,10 @@ def _preview_layer_text(layer: dict[str, Any]) -> str:
             layer.get("layer_name"),
             layer.get("role"),
             layer.get("category"),
+            layer.get("map_role"),
+            layer.get("cartography_role"),
+            layer.get("geometry_role"),
+            layer.get("legend_label"),
         ]
     )
 
@@ -492,6 +508,8 @@ def _is_commercial_zoning_recipe(recipe: dict[str, Any]) -> bool:
 
 def _preview_context_role(layer: dict[str, Any]) -> str:
     blob = _preview_layer_text(layer)
+    if "affected_parcels" in blob or ("affected" in blob and "parcel" in blob):
+        return "affected_parcels"
     if "road" in blob or "street" in blob or "centerline" in blob:
         return "roads"
     if "zoning" in blob:
@@ -506,11 +524,13 @@ def _preview_context_role(layer: dict[str, Any]) -> str:
 
 
 def _context_draw_rank(layer: dict[str, Any]) -> int:
-    role = str(layer.get("cartography_role") or _preview_context_role(layer))
+    role = str(layer.get("map_role") or layer.get("cartography_role") or _preview_context_role(layer))
     if role == "boundary":
         return 10
-    if role in {"commercial_zoning", "zoning", "flood"}:
+    if role in {"commercial_zoning", "zoning", "flood", "floodplain_overlay", "context_polygon_muted"}:
         return 20
+    if role in {"affected_parcels", "parcel_outline"}:
+        return 32 if role == "affected_parcels" else 30
     if role == "parcel_context":
         return 30
     if role in {"major_roads", "roads"}:
@@ -561,7 +581,20 @@ def _style_context_layer(layer: dict[str, Any], recipe: dict[str, Any]) -> dict[
         item["title"] = "100-year floodplain"
         item["legend_label"] = "100-year floodplain"
         item["cartography_role"] = "flood"
+        item["map_role"] = "floodplain_overlay"
         item["opacity"] = 0.34
+        item["drawing_info"] = {
+            "renderer": _preview_simple_fill_renderer([56, 189, 248, 74], [3, 105, 161, 210], 1.0)
+        }
+    elif role == "affected_parcels":
+        item["title"] = "Parcels in 100-year floodplain"
+        item["legend_label"] = "Parcels in 100-year floodplain"
+        item["cartography_role"] = "affected_parcels"
+        item["map_role"] = "affected_parcels"
+        item["opacity"] = 0.84
+        item["drawing_info"] = {
+            "renderer": _preview_simple_fill_renderer([249, 115, 22, 86], [154, 52, 18, 238], 1.45)
+        }
     elif role == "parcel_context":
         item["legend_label"] = "Parcels"
         item["cartography_role"] = "parcel_context"
@@ -634,9 +667,15 @@ def _composer_context_layers(layers: list[dict[str, Any]], recipe: dict[str, Any
         hide_reason = None
         if request_type == "zoning_context" and (item.get("category") == "parcel" or "parcel" in blob) and "parcel" not in parsed_topics:
             hide_reason = "Full parcel layer hidden because this request is a zoning/road context map."
+        elif request_type == "floodplain_screening" and (item.get("category") == "parcel" or "parcel" in blob):
+            hide_reason = "Full parcel layer hidden because affected parcels are shown as the derived screening result."
         if hide_reason:
             item["visibility"] = False
             item["default_visible"] = False
+            item["visible_by_default"] = False
+            item["map_role"] = "diagnostics_only"
+            item["display_role"] = "diagnostics_only"
+            item["diagnostics_only"] = True
             warnings = list(item.get("review_warnings") or [])
             if hide_reason not in warnings:
                 warnings.append(hide_reason)
@@ -730,13 +769,14 @@ def _augment_preview_config(preview_config: dict[str, Any] | None, recipe: dict[
     config["map_title"] = recipe.get("map_title") or webmap_json.get("title") or config.get("map_title")
     config["context_layers"] = _composer_context_layers(config.get("operational_layers") or [], recipe)
     config["warnings"] = _review_warnings(recipe, recipe.get("parcel_context") or {})
-    overlays = recipe.get("derived_overlays") or (recipe.get("proximity_result") or {}).get("derived_overlays") or []
+    proximity_result = recipe.get("proximity_result") or {}
+    overlays = recipe.get("derived_overlays") or proximity_result.get("derived_overlays") or []
     if overlays:
         config["derived_overlays"] = overlays
+    if overlays and proximity_result:
         config["context_layers"] = _proximity_context_layers(config.get("context_layers") or [], recipe.get("proximity_result") or {})
         config["focus_mode"] = recipe.get("focus_mode") or "proximity"
         config["preview_status"] = recipe.get("preview_status") or "ready_for_proximity_preview"
-        proximity_result = recipe.get("proximity_result") or {}
         config["proximity_result"] = proximity_result
         config["origin_summary"] = {
             "origin_input": proximity_result.get("origin_input"),
@@ -774,6 +814,15 @@ def _augment_preview_config(preview_config: dict[str, Any] | None, recipe: dict[
             if isinstance(target_geometry, dict) and target_geometry:
                 config["initial_extent"] = target_geometry
                 config["focus_extent"] = target_geometry
+    elif isinstance(recipe.get("floodplain_screening"), dict):
+        screening = recipe["floodplain_screening"]
+        config["focus_mode"] = recipe.get("focus_mode") or "floodplain_screening"
+        config["preview_status"] = recipe.get("preview_status") or "ready_for_floodplain_screening_preview"
+        config["floodplain_screening"] = screening
+        extent = screening.get("result_extent") or recipe.get("suggested_extent")
+        if isinstance(extent, dict):
+            config["initial_extent"] = extent
+            config["focus_extent"] = extent
     config = apply_aoi_to_preview_config(config, recipe)
     qa = visible_map_qa(config, recipe)
     config = brain_apply_visible_qa_fallbacks(config, qa, recipe)
@@ -1095,6 +1144,7 @@ def _base_session_response(
     parcel_context = recipe.get("parcel_context") or {}
     origin_context = recipe.get("origin_context") or {}
     proximity_result = recipe.get("proximity_result") or None
+    screening = recipe.get("floodplain_screening") if isinstance(recipe.get("floodplain_screening"), dict) else {}
     blockers = _preview_blockers(recipe)
     can_preview = _can_preview(recipe, webmap_json)
     if blockers:
@@ -1114,6 +1164,14 @@ def _base_session_response(
         "origin_candidates": origin_context.get("candidate_matches") or parcel_context.get("candidate_matches") or [],
         "related_parcel": origin_context.get("related_parcel"),
         "proximity_result": proximity_result,
+        "analysis_type": screening.get("analysis_type"),
+        "spatial_relationship": screening.get("spatial_relationship"),
+        "result_layer_role": screening.get("result_layer_role"),
+        "affected_feature_count": screening.get("affected_feature_count"),
+        "floodplain_type": screening.get("floodplain_type"),
+        "aoi_name": screening.get("aoi_name"),
+        "aoi_type": screening.get("aoi_type"),
+        "floodplain_screening": screening or None,
         "request_plan": recipe.get("request_plan"),
         "automap_brain": recipe.get("automap_brain"),
         "brain_explanation": (preview_config or {}).get("brain_explanation") if isinstance(preview_config, dict) else None,
@@ -1275,6 +1333,10 @@ def generate_composer_draft(prompt: str) -> dict[str, Any]:
                 "published": False,
             }
         _apply_proximity_result_to_recipe(recipe, prompt, proximity_result)
+    else:
+        floodplain_started = time.perf_counter()
+        recipe = attach_floodplain_screening_result(recipe)
+        timing["floodplain_screening_ms"] = _elapsed_ms(floodplain_started)
     recipe["map_title"] = generate_map_title(prompt, recipe=recipe, proximity_result=recipe.get("proximity_result"))
     preview_started = time.perf_counter()
     webmap_json = build_webmap_json(recipe)

@@ -96,3 +96,36 @@ def test_brain_visible_map_qa_preserves_aoi_clipping_metadata():
     assert row["aoi_filter_applied"] is True
     assert row["aoi_summary"] == "Concord boundary + 2 mile buffer"
     assert row["map_role"] == "road_context"
+
+
+def test_brain_visible_map_qa_counts_affected_parcel_overlay():
+    recipe = {"request_plan": {"request_type": "floodplain_screening", "parameters": {"geography": "Concord"}}}
+    preview = {
+        "aoi": {
+            "type": "municipality",
+            "summary": "Concord boundary",
+            "extent": {"xmin": -80.7, "ymin": 35.3, "xmax": -80.5, "ymax": 35.5, "spatialReference": {"wkid": 4326}},
+        },
+        "context_layers": [],
+        "derived_overlays": [
+            {
+                "id": "affected",
+                "title": "Parcels in 100-year floodplain",
+                "role": "affected_parcels",
+                "geometry_role": "affected_parcels",
+                "feature_count": 12,
+                "visible": True,
+                "extent": {"xmin": -80.61, "ymin": 35.36, "xmax": -80.55, "ymax": 35.42, "spatialReference": {"wkid": 4326}},
+                "local_output": True,
+            }
+        ],
+    }
+
+    qa = run_visible_map_qa(preview, recipe)
+
+    assert qa["qa_status"] == "visible"
+    assert qa["visible_feature_total"] == 12
+    row = qa["visible_feature_summary"][0]
+    assert row["expected_role"] == "affected_parcels"
+    assert row["feature_count"] == 12
+    assert row["clipped_to_aoi"] is True

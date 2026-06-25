@@ -172,6 +172,8 @@ def _layer_blob(layer: dict[str, Any]) -> str:
 def _layer_role(layer: dict[str, Any]) -> str:
     role = str(layer.get("map_role") or layer.get("cartography_role") or layer.get("role") or layer.get("category") or "").lower()
     blob = _layer_blob(layer)
+    if "affected_parcels" in role or "affected_parcels" in blob or ("affected" in blob and "parcel" in blob):
+        return "affected_parcels"
     if "commercial_zoning" in role or "commercial zoning" in blob:
         return "primary_polygon_highlight"
     if "zoning" in blob:
@@ -280,6 +282,7 @@ def _priority_for_layer(layer: dict[str, Any]) -> int:
         "major_road": 3,
         "road_context": 3,
         "floodplain_overlay": 4,
+        "affected_parcels": 1,
         "context_polygon_muted": 5,
         "parcel_outline": 6,
     }
@@ -371,6 +374,13 @@ def apply_aoi_to_layers(layers: list[dict[str, Any]], recipe: dict[str, Any], ao
                     item["simplification_applied"] = True
                     prepared.append(_hide_layer(item, "Duplicate context layer hidden to keep the local map readable."))
                     continue
+        if request_type == "floodplain_screening" and local_aoi:
+            if role == "parcel_outline":
+                prepared.append(_hide_layer(item, "Full parcel layer hidden because affected parcels are shown as the derived screening result."))
+                continue
+            if role in {"context_polygon_muted", "road_context", "major_road"}:
+                prepared.append(_hide_layer(item, "Low-priority context layer hidden because this floodplain screening answers with affected parcels."))
+                continue
         prepared.append(item)
 
     visible_layers = [item for item in prepared if _visible(item)]
@@ -393,7 +403,7 @@ def apply_aoi_to_layers(layers: list[dict[str, Any]], recipe: dict[str, Any], ao
 
 def visual_complexity_score(layers: list[dict[str, Any]], aoi: dict[str, Any]) -> dict[str, Any]:
     visible_layers = [layer for layer in layers if _visible(layer)]
-    polygon_layers = [layer for layer in visible_layers if _layer_role(layer) in {"primary_polygon_highlight", "context_polygon_muted", "parcel_outline", "floodplain_overlay"}]
+    polygon_layers = [layer for layer in visible_layers if _layer_role(layer) in {"primary_polygon_highlight", "context_polygon_muted", "parcel_outline", "affected_parcels", "floodplain_overlay"}]
     line_layers = [layer for layer in visible_layers if _layer_role(layer) in {"major_road", "road_context"}]
     unbounded = [layer for layer in visible_layers if not layer.get("clipped_to_aoi") and aoi.get("type") not in {"county", "unknown"}]
     score = len(visible_layers) * 8 + len(polygon_layers) * 10 + len(line_layers) * 8 + len(unbounded) * 30

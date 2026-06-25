@@ -536,11 +536,6 @@ def _execute_attribute_filter(
     run_id = f"analysis_{datetime.now(UTC).strftime('%Y%m%d%H%M%S')}_{uuid4().hex[:8]}"
     attribute_layer = AnalysisLayerRef.from_layer(plan["attribute_layer"])
     layer_dict = dict(plan["attribute_layer"] or {})
-    catalog_layer = next(
-        (layer for layer in _enriched_selected_layers(recipe) if layer.get("layer_key") == attribute_layer.layer_key),
-        {},
-    )
-    layer_dict.update({key: value for key, value in catalog_layer.items() if value is not None})
     where = _commercial_where(recipe, layer_dict)
     if not where:
         blocked = _blocked_execution(recipe, plan, "No safe attribute where clause was available for execution.")
@@ -593,11 +588,12 @@ def execute_analysis(
     catalog_records: list[dict[str, Any]] | None = None,
     query_client: SpatialQueryClient | None = None,
     max_features: int = DEFAULT_MAX_FEATURES,
+    estimate_counts: bool = True,
 ) -> dict[str, Any]:
     """Execute a supported bounded analysis and write local outputs."""
     init_analysis_tables()
     recipe = build_recipe(prompt_or_recipe, catalog_records, persist_data_gaps=False) if isinstance(prompt_or_recipe, str) else deepcopy(prompt_or_recipe)
-    plan = build_analysis_plan(recipe, catalog_records=catalog_records, query_client=query_client, estimate_counts=True, max_features=max_features)
+    plan = build_analysis_plan(recipe, catalog_records=catalog_records, query_client=query_client, estimate_counts=estimate_counts, max_features=max_features)
     client = query_client or SpatialQueryClient(max_features=max_features)
     if not plan.get("executable"):
         plan_reasons = list(plan.get("blocked_reasons") or [])

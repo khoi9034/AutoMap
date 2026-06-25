@@ -22,6 +22,7 @@ const SYMBOLS: Record<string, SymbolDefinition> = {
   route_road_following: { key: "route_road_following", label: "Road-following draft", color: "#1d4ed8", glyph: "route" },
   route_straight_line: { key: "route_straight_line", label: "Straight-line fallback", color: "#2563eb", glyph: "route" },
   selected_parcel: { key: "selected_parcel", label: "Selected parcel", color: "#f59e0b", glyph: "parcel" },
+  affected_floodplain_parcel: { key: "affected_floodplain_parcel", label: "Parcels in 100-year floodplain", color: "#ea580c", glyph: "parcel" },
 };
 
 export function symbolDefinition(symbolKey?: string | null): SymbolDefinition {
@@ -104,11 +105,12 @@ export function arcgisSymbolForOverlay(
       join: "round",
     };
   }
-  const color = role.includes("parcel") ? "#f59e0b" : definition.color;
+  const affectedFloodplainParcels = role.includes("affected") && role.includes("parcel");
+  const color = affectedFloodplainParcels ? "#9a3412" : role.includes("parcel") ? "#f59e0b" : definition.color;
   return {
     type: "simple-fill",
-    color: role.includes("parcel") ? [245, 158, 11, 0.12] : [37, 99, 235, 0.1],
-    outline: { color, width: role.includes("parcel") ? 3 : 2 },
+    color: affectedFloodplainParcels ? [249, 115, 22, 0.34] : role.includes("parcel") ? [245, 158, 11, 0.12] : [37, 99, 235, 0.1],
+    outline: { color, width: affectedFloodplainParcels ? 2.2 : role.includes("parcel") ? 3 : 2 },
   };
 }
 

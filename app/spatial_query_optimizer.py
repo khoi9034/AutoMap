@@ -278,7 +278,15 @@ def optimize_intersection_query_plan(
     counts: dict[str, Any] = {}
 
     try:
-        counts["target_broad"] = client.query_count(target_ref.layer_url or "")
+        try:
+            counts["target_broad"] = client.query_count(target_ref.layer_url or "")
+        except SpatialQueryError as exc:
+            counts["target_broad"] = {
+                "count": None,
+                "return_geometry": False,
+                "diagnostic_only": True,
+                "warning": str(exc),
+            }
         geography_features, geography_result, geography_where = _query_geography_features(client, recipe, geography_ref, limits)
         counts["geography"] = {
             "queried_count": geography_result.get("count"),

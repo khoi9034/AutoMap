@@ -9,6 +9,7 @@ from app.analysis_chunker import chunk_constraint_features, enforce_chunk_limits
 from app.analysis_models import DEFAULT_MAX_FEATURES
 from app.geometry_utils import compute_basic_stats, intersect_features
 from app.spatial_query_client import SpatialQueryClient
+from app.spatial_query_client import SpatialQueryError
 from app.spatial_query_optimizer import deduplicate_feature_ids, optimize_intersection_query_plan
 
 
@@ -144,6 +145,13 @@ class FakeSpatialQueryClient:
         return {"status": "ok", "count": 0, "features": []}
 
 
+class FakeBroadParcelCountTimeoutClient(FakeSpatialQueryClient):
+    def query_count(self, layer_url, **kwargs):
+        if "parcels" in layer_url and not kwargs.get("geometry"):
+            raise SpatialQueryError("Timed out running bounded ArcGIS query.")
+        return super().query_count(layer_url, **kwargs)
+
+
 def isolate_outputs(monkeypatch, tmp_path):
     monkeypatch.setattr("app.analysis_result_store.repo_root", lambda: tmp_path)
     monkeypatch.setattr("app.analysis_executor.repo_root", lambda: tmp_path)
@@ -182,6 +190,22 @@ def test_bounded_query_count_blocks_huge_requests_before_target_download(monkeyp
     assert not any("parcels" in url for url in fake.feature_queries)
     assert fake.object_id_queries
     assert not fake.object_id_feature_queries
+
+
+def test_floodplain_execution_ignores_diagnostic_broad_parcel_count_timeout(monkeypatch, tmp_path):
+    isolate_outputs(monkeypatch, tmp_path)
+    fake = FakeBroadParcelCountTimeoutClient()
+
+    result = execute_analysis(
+        "Show parcels in Concord that are in the 100-year floodplain.",
+        catalog_records=sample_catalog(),
+        query_client=fake,
+        estimate_counts=False,
+    )
+
+    assert result["status"] == "completed"
+    assert result["output_count"] == 1
+    assert any("parcels" in url for url in fake.object_id_feature_queries)
 
 
 def test_intersection_execution_writes_receipt_and_valid_geojson(monkeypatch, tmp_path):

@@ -93,7 +93,7 @@ def _extract_topics(text: str) -> tuple[list[str], dict[str, Any]]:
         if any(_contains_phrase(text, phrase) for phrase in phrases):
             topics.append(topic)
 
-    if re.search(r"\b100\s*-?\s*year\b|\b100year\b", text):
+    if re.search(r"\b100\s*-?\s*year\b|\b100year\b|\b1\s*%?\s*percent\s+annual\s+chance\b|\b1\s*%\s*annual\s+chance\b", text):
         if "flood" not in topics:
             topics.append("flood")
         details["flood_frequency"] = "100_year"

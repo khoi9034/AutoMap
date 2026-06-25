@@ -3335,6 +3335,12 @@ body:has(.print-only-route) .content-main {
   background: rgba(245, 158, 11, 0.12);
 }
 
+.map-legend-affected-parcel,
+.map-legend-context-affected-parcels {
+  border-color: rgba(154, 52, 18, 0.88);
+  background: rgba(249, 115, 22, 0.28);
+}
+
 .map-legend-context {
   width: 24px;
   height: 12px;

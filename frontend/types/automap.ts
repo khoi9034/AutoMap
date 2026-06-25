@@ -1003,6 +1003,12 @@ export type DerivedOverlay = {
   facility_display_name?: string | null;
   default_visible?: boolean;
   is_context_layer?: boolean;
+  feature_count?: number;
+  output_count?: number;
+  extent?: Record<string, JsonValue> | null;
+  legend_label?: string;
+  analysis_type?: string;
+  floodplain_type?: string;
 };
 
 export type PreviewConfig = {
@@ -1033,6 +1039,7 @@ export type PreviewConfig = {
   target_summary?: Record<string, JsonValue>;
   distance_summary?: Record<string, JsonValue>;
   parcel_resolution_summary?: Record<string, JsonValue>;
+  floodplain_screening?: Record<string, JsonValue>;
   map_layout?: MapLayout;
   visible_feature_summary?: Array<Record<string, JsonValue>>;
   visible_feature_total?: number | null;
@@ -1329,6 +1336,14 @@ export type ComposerResponse = {
   origin_candidates?: Array<Record<string, JsonValue>> | JsonValue[];
   related_parcel?: Record<string, JsonValue> | null;
   proximity_result?: ProximityResult | null;
+  analysis_type?: string | null;
+  spatial_relationship?: string | null;
+  result_layer_role?: string | null;
+  affected_feature_count?: number | null;
+  floodplain_type?: string | null;
+  aoi_name?: string | null;
+  aoi_type?: string | null;
+  floodplain_screening?: Record<string, JsonValue> | null;
   route_refinement_available?: boolean;
   route_refinement_status?: string | null;
   recipe?: MapRecipe;

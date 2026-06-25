@@ -51,7 +51,7 @@ def _output_mode(text: str, requested_output_type: str | None) -> str:
 def _spatial_relationships(text: str) -> list[str]:
     relationships: list[str] = []
     if re.search(r"\b(intersecting|intersect|overlap|inside|within|in the)\b", text):
-        relationships.append("intersecting")
+        relationships.append("intersects")
     if re.search(r"\b(around|near|nearby|close to|adjacent)\b", text):
         relationships.append("near_or_around")
     if re.search(r"\boutside\b|\bnot in\b|\bavoid\b", text):
@@ -174,6 +174,10 @@ def build_brain_plan(prompt: str, parsed_request: dict[str, Any] | None = None) 
         primary_domain = primary_domain or "address_proximity"
         if "transportation" not in secondary_domains:
             secondary_domains.append("transportation")
+    if request_type == "floodplain_screening":
+        primary_domain = "parcels"
+        if "floodplain" not in secondary_domains:
+            secondary_domains.append("floodplain")
     filters = _filters(text, parsed_request)
     missing = []
     if request_type == "zoning_context" and not geography_name:
@@ -181,6 +185,9 @@ def build_brain_plan(prompt: str, parsed_request: dict[str, Any] | None = None) 
     if request_type == "proximity" and not re.search(r"\d+\s+\w+", text):
         missing.append("origin address or parcel")
     spatial_relationships = _spatial_relationships(text)
+    if request_type == "floodplain_screening" and "intersects" not in spatial_relationships:
+        spatial_relationships.insert(0, "intersects")
+    floodplain_type = next((str(item.get("value")) for item in filters if item.get("domain") == "floodplain" and item.get("value")), None)
     fallback_strategy = {
         "zoning_context": ["Broaden uncertain commercial zoning filters to muted zoning context.", "Show road context if major-road classification is unavailable."],
         "proximity": ["Use straight-line fallback only when bounded road-network routing fails."],
@@ -213,6 +220,8 @@ def build_brain_plan(prompt: str, parsed_request: dict[str, Any] | None = None) 
             "feature_type": list(parsed_request.get("topics") or []),
             "subtype_filter": [item["value"] for item in filters if item.get("value") in {"commercial zoning", "major roads"}],
             "spatial_relationship": spatial_relationships[0] if spatial_relationships else None,
+            "floodplain_type": floodplain_type,
+            "result_layer": "affected_parcels" if request_type == "floodplain_screening" else None,
             "output_mode": output_mode,
             "time_period": parsed_request.get("historical_year") or (parsed_request.get("time_references") or [None])[0],
             "confidence": confidence,
@@ -220,6 +229,9 @@ def build_brain_plan(prompt: str, parsed_request: dict[str, Any] | None = None) 
             "safety_scope": f"{SUPPORTED_SCOPE} only",
         },
         "zoning_category": "commercial" if any(item.get("value") == "commercial zoning" for item in filters) else None,
+        "floodplain_type": floodplain_type,
+        "constraint_domain": "floodplain" if request_type == "floodplain_screening" else None,
+        "result_layer": "affected_parcels" if request_type == "floodplain_screening" else None,
         "commercial_zoning_terms": COMMERCIAL_ZONING_TERMS if any(item.get("value") == "commercial zoning" for item in filters) else [],
         "context_layers": ["roads"] if "transportation" in parsed_request.get("topics", []) or any(item.get("value") == "major roads" for item in filters) else [],
         "status": "unsupported_area" if unsupported_area else "unsupported" if request_type == "unsupported" else "interpreted",

@@ -9,6 +9,8 @@ function isVisible(value: { visible?: boolean; visibility?: boolean; default_vis
 
 function overlayLabel(overlay: DerivedOverlay): string {
   const role = `${overlay.role || ""} ${overlay.geometry_role || ""}`.toLowerCase();
+  if (overlay.legend_label) return overlay.legend_label;
+  if (role.includes("affected") && role.includes("parcel")) return "Parcels in 100-year floodplain";
   if (role.includes("origin")) return "Origin Address";
   if (role.includes("target")) {
     if ((overlay.facility_type || "").includes("fire") || overlay.symbol_key === "target_fire_station") {
@@ -24,6 +26,7 @@ function overlayLabel(overlay: DerivedOverlay): string {
 function contextLabel(layer: PreviewLayer): string {
   if (layer.legend_label) return layer.legend_label;
   const role = layer.cartography_role || "";
+  if (role === "affected_parcels" || layer.map_role === "affected_parcels") return "Parcels in 100-year floodplain";
   if (role === "commercial_zoning") return "Commercial zoning";
   if (role === "zoning") return "Zoning context";
   if (role === "boundary") return "Concord boundary";
@@ -36,6 +39,7 @@ function contextLabel(layer: PreviewLayer): string {
 
 function contextKind(layer: PreviewLayer): string {
   const blob = `${layer.cartography_role || ""} ${layer.role || ""} ${layer.layer_key || ""} ${layer.title || ""}`.toLowerCase();
+  if (blob.includes("affected") && blob.includes("parcel")) return "affected-parcels";
   if (blob.includes("road") || blob.includes("street") || blob.includes("centerline")) return "line";
   if (blob.includes("flood")) return "flood";
   if (blob.includes("zoning")) return "zoning";
@@ -69,13 +73,14 @@ export function MapLegend({
       <div className="map-legend-list">
         {overlayItems.map(({ overlay, label, definition }) => {
           const isRoute = definition.key.startsWith("route_") || (overlay.role || "").includes("line");
-          const isParcel = definition.key === "selected_parcel";
+          const isParcel = definition.key === "selected_parcel" || definition.key === "affected_floodplain_parcel";
+          const isAffectedParcel = definition.key === "affected_floodplain_parcel" || (overlay.role || "").includes("affected");
           return (
             <span className="map-legend-item" key={`${definition.key}-${label}`}>
               {isRoute ? (
                 <i className={`map-legend-line ${isRoadRouteMode(overlay.route_mode) ? "map-legend-line-solid" : "map-legend-line-dashed"}`} aria-hidden="true" />
               ) : isParcel ? (
-                <i className="map-legend-parcel" aria-hidden="true" />
+                <i className={isAffectedParcel ? "map-legend-parcel map-legend-affected-parcel" : "map-legend-parcel"} aria-hidden="true" />
               ) : (
                 <i className="map-legend-icon" style={{ backgroundImage: `url("${svgDataUrl(definition)}")` }} aria-hidden="true" />
               )}

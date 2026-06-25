@@ -68,6 +68,10 @@ def _layer_text(layer: dict[str, Any]) -> str:
         layer.get("layer_name"),
         layer.get("role"),
         layer.get("category"),
+        layer.get("map_role"),
+        layer.get("cartography_role"),
+        layer.get("geometry_role"),
+        layer.get("legend_label"),
     ]
     return " ".join(str(part or "") for part in parts).lower()
 
@@ -91,6 +95,8 @@ def _visibility(layer: dict[str, Any]) -> bool:
 
 def _expected_role(layer: dict[str, Any]) -> str:
     blob = _layer_text(layer)
+    if "affected_parcels" in blob or ("affected" in blob and "parcel" in blob):
+        return "affected_parcels"
     if "zoning" in blob:
         return "zoning"
     if "road" in blob or "street" in blob or "centerline" in blob:
@@ -148,6 +154,15 @@ def visible_map_qa(
     aoi = preview_config.get("aoi") if isinstance(preview_config.get("aoi"), dict) else {}
     request_extent = _extent((aoi or {}).get("extent") or preview_config.get("focus_extent") or preview_config.get("initial_extent")) or CONCORD_FALLBACK_EXTENT
     layers = deepcopy(preview_config.get("context_layers") or preview_config.get("operational_layers") or [])
+    for overlay in preview_config.get("derived_overlays") or []:
+        if isinstance(overlay, dict):
+            overlay_layer = deepcopy(overlay)
+            overlay_layer.setdefault("local_output", True)
+            overlay_layer.setdefault("title", overlay_layer.get("legend_label") or overlay_layer.get("title") or "Derived output")
+            overlay_layer.setdefault("visibility", overlay_layer.get("visible", overlay_layer.get("default_visible", True)))
+            overlay_layer.setdefault("clipped_to_aoi", True)
+            overlay_layer.setdefault("aoi_filter_applied", True)
+            layers.append(overlay_layer)
     commercial_context = _is_commercial_zoning_context(recipe)
     summary: list[dict[str, Any]] = []
     warnings: list[str] = []
@@ -192,7 +207,9 @@ def visible_map_qa(
             row["warning"] = "Visible local layer is not marked as clipped to the requested AOI."
             warnings.append(row["warning"])
         if _is_route_or_derived(layer):
-            row["feature_count"] = 1
+            row["feature_count"] = int(layer.get("feature_count") or layer.get("output_count") or 1)
+            if isinstance(layer.get("extent"), dict):
+                extents.append(layer["extent"])
             summary.append(row)
             continue
         if not url:
@@ -262,9 +279,14 @@ def visible_map_qa(
     if visible_extent:
         visible_extent = buffer_extent(visible_extent, ratio=0.08, minimum=0.003)
     if visible_total == 0:
-        warnings.append(
-            "AutoMap found the relevant layers but the filter returned no visible features. Try broadening the zoning filter or showing all zoning around Concord."
-        )
+        if str((recipe.get("request_plan") or {}).get("request_type") or recipe.get("request_type") or "") == "floodplain_screening":
+            warnings.append(
+                "AutoMap found the parcel and floodplain layers, but no affected parcels were available for this preview."
+            )
+        else:
+            warnings.append(
+                "AutoMap found the relevant layers but the filter returned no visible features. Try broadening the zoning filter or showing all zoning around Concord."
+            )
     return {
         "visible_feature_summary": summary,
         "visible_feature_total": visible_total,

@@ -41,6 +41,7 @@ def test_plain_legend_labels_are_user_facing():
     assert plain_legend_label({"map_role": "road_context"}) == "Road context"
     assert plain_legend_label({"map_role": "floodplain_overlay"}) == "100-year floodplain"
     assert plain_legend_label({"map_role": "primary_polygon_highlight"}) == "Commercial zoning"
+    assert plain_legend_label({"map_role": "affected_parcels"}) == "Parcels in 100-year floodplain"
 
 
 def test_route_and_fallback_symbols_are_distinct_roles():
@@ -51,3 +52,14 @@ def test_route_and_fallback_symbols_are_distinct_roles():
     assert route["map_role"] == "major_road"
     assert route["drawing_info"]["renderer"]["symbol"]["width"] > 2
     assert muted["opacity"] < 0.3
+
+
+def test_floodplain_screening_cartography_highlights_affected_parcels():
+    affected = cartography_for_role("affected_parcels")
+    flood = cartography_for_role("flood")
+
+    assert affected["cartography_role"] == "affected_parcels"
+    assert affected["map_role"] == "affected_parcels"
+    assert affected["legend_label"] == "Parcels in 100-year floodplain"
+    assert affected["opacity"] > flood["opacity"]
+    assert context_draw_rank({"map_role": "floodplain_overlay"}) < context_draw_rank({"map_role": "affected_parcels"})
