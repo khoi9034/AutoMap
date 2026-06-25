@@ -29,7 +29,7 @@ LIVE_SCREENING_DISABLED_WARNING = (
 
 def live_floodplain_screening_enabled() -> bool:
     """Return whether production should run the slower exact intersection path."""
-    return os.getenv("AUTOMAP_ENABLE_LIVE_FLOODPLAIN_SCREENING", "true").strip().lower() not in {"0", "false", "no", "off"}
+    return os.getenv("AUTOMAP_ENABLE_LIVE_FLOODPLAIN_SCREENING", "").strip().lower() in {"1", "true", "yes"}
 
 
 def is_floodplain_screening_recipe(recipe: dict[str, Any]) -> bool:
