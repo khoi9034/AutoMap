@@ -129,3 +129,33 @@ def test_brain_visible_map_qa_counts_affected_parcel_overlay():
     assert row["expected_role"] == "affected_parcels"
     assert row["feature_count"] == 12
     assert row["clipped_to_aoi"] is True
+
+
+def test_brain_visible_map_qa_uses_truthful_floodplain_fallback_warning():
+    class FakeClient:
+        def query_count(self, *_args, **_kwargs):
+            return {"count": 0}
+
+        def query_extent(self, *_args, **_kwargs):
+            return {"extent": None}
+
+    recipe = {"request_plan": {"request_type": "floodplain_screening", "parameters": {"geography": "Concord"}}}
+    preview = {
+        "context_layers": [
+            {
+                "layer_key": "flood_100",
+                "title": "100-year floodplain",
+                "category": "flood",
+                "url": "https://example.test/flood/0",
+                "visibility": True,
+                "drawing_info": {"renderer": {"symbol": {"type": "esriSFS", "color": [56, 189, 248, 74]}}},
+            }
+        ],
+    }
+
+    qa = run_visible_map_qa(preview, recipe, query_client=FakeClient())
+
+    assert qa["qa_status"] == "no_visible_features"
+    assert any("affected parcel extraction unavailable" in warning for warning in qa["warnings"])
+    assert qa["visible_feature_summary"][0]["legend_label"] == "100-year floodplain"
+    assert qa["visible_feature_summary"][0]["drawing_info"]["renderer"]["symbol"]["color"] == [56, 189, 248, 74]

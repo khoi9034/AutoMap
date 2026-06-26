@@ -352,6 +352,10 @@ def test_map_composer_is_primary_simple_workflow():
     assert "Zoning context" in map_legend
     assert "Major roads" in map_legend
     assert "Road context" in map_legend
+    assert "contextSwatchStyle" in map_legend
+    assert "drawing_info as { renderer?: { symbol?: EsriSymbol } }" in map_legend
+    assert "borderTopColor: color" in map_legend
+    assert "background: color" in map_legend
     assert "NorthArrow" in composer_preview
     assert "MapScaleBar" in composer_preview
     assert "MapFrame" in composer_preview
@@ -589,6 +593,8 @@ def test_map_composer_is_primary_simple_workflow():
     assert "<NorthArrow />" in locked_map_sheet_page
     assert "<MapScaleBar scale={mapState?.current_scale}" in locked_map_sheet_page
     assert "<MapLegend overlays={overlays} contextLayers={contextLayers}" in locked_map_sheet_page
+    assert "record.drawing_info" in locked_map_sheet_page
+    assert "drawing_info: drawingInfo" in locked_map_sheet_page
     assert "locked-map-sheet-page" in locked_map_sheet_page
     assert "onSnapshotReady" in shared_renderer
     assert "mapOnly?: boolean" in shared_renderer

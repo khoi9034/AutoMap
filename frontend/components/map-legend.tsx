@@ -1,5 +1,6 @@
 "use client";
 
+import type { CSSProperties } from "react";
 import type { DerivedOverlay, PreviewLayer } from "@/types/automap";
 import { isRoadRouteMode, symbolDefinition, svgDataUrl } from "@/lib/map-symbols";
 
@@ -46,6 +47,47 @@ function contextKind(layer: PreviewLayer): string {
   return "context";
 }
 
+type EsriSymbol = {
+  type?: string;
+  style?: string;
+  color?: unknown;
+  width?: unknown;
+  outline?: { color?: unknown; width?: unknown } | null;
+};
+
+function rgba(value: unknown): string | undefined {
+  if (!Array.isArray(value) || value.length < 3) return undefined;
+  const [r, g, b] = value;
+  if (typeof r !== "number" || typeof g !== "number" || typeof b !== "number") return undefined;
+  const alphaValue = typeof value[3] === "number" ? value[3] : 255;
+  const alpha = Math.max(0, Math.min(1, alphaValue > 1 ? alphaValue / 255 : alphaValue));
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+function rendererSymbol(layer: PreviewLayer): EsriSymbol | null {
+  const drawingInfo = layer.drawing_info as { renderer?: { symbol?: EsriSymbol } } | null | undefined;
+  return drawingInfo?.renderer?.symbol || null;
+}
+
+function contextSwatchStyle(layer: PreviewLayer): CSSProperties | undefined {
+  const symbol = rendererSymbol(layer);
+  if (!symbol) return undefined;
+  const color = rgba(symbol.color);
+  const outline = symbol.outline && typeof symbol.outline === "object" ? symbol.outline : null;
+  if (symbol.type === "esriSLS") {
+    return {
+      borderTopColor: color,
+      borderTopWidth: typeof symbol.width === "number" ? `${Math.max(2, symbol.width)}px` : undefined,
+      borderTopStyle: symbol.style?.toLowerCase().includes("dash") ? "dashed" : "solid",
+    };
+  }
+  return {
+    background: color,
+    borderColor: rgba(outline?.color),
+    borderWidth: typeof outline?.width === "number" ? `${Math.max(1, outline.width)}px` : undefined,
+  };
+}
+
 export function MapLegend({
   overlays = [],
   contextLayers = [],
@@ -90,7 +132,7 @@ export function MapLegend({
         })}
         {visibleContextLayers.map((layer) => (
           <span className="map-legend-item" key={`context-${layer.id || layer.layer_key || layer.title}`}>
-            <i className={`map-legend-context map-legend-context-${contextKind(layer)}`} aria-hidden="true" />
+            <i className={`map-legend-context map-legend-context-${contextKind(layer)}`} style={contextSwatchStyle(layer)} aria-hidden="true" />
             {contextLabel(layer)}
           </span>
         ))}

@@ -289,12 +289,23 @@ def _priority_for_layer(layer: dict[str, Any]) -> int:
     return priorities.get(role, 8)
 
 
+def _has_affected_result(recipe: dict[str, Any]) -> bool:
+    if any(isinstance(overlay, dict) and overlay.get("role") == "affected_parcels" for overlay in recipe.get("derived_overlays") or []):
+        return True
+    execution = recipe.get("analysis_execution") if isinstance(recipe.get("analysis_execution"), dict) else {}
+    try:
+        return int(execution.get("output_count") or 0) > 0
+    except (TypeError, ValueError):
+        return False
+
+
 def apply_aoi_to_layers(layers: list[dict[str, Any]], recipe: dict[str, Any], aoi: dict[str, Any]) -> list[dict[str, Any]]:
     """Attach AOI/role metadata and simplify visible layers for local maps."""
     local_aoi = aoi.get("type") not in {"county", "unknown"}
     request_type = str((recipe.get("request_plan") or {}).get("request_type") or recipe.get("request_type") or "")
     major_roads = request_wants_major_roads(recipe)
     commercial_request = _is_commercial_zoning_request(recipe)
+    has_affected_result = _has_affected_result(recipe)
     parsed_topics = set((recipe.get("parsed_request") or {}).get("topics") or [])
     filter_plan = recipe.get("filter_plan") if isinstance(recipe.get("filter_plan"), dict) else {}
     has_primary_zoning_highlight = any(
@@ -376,10 +387,20 @@ def apply_aoi_to_layers(layers: list[dict[str, Any]], recipe: dict[str, Any], ao
                     continue
         if request_type == "floodplain_screening" and local_aoi:
             if role == "parcel_outline":
-                prepared.append(_hide_layer(item, "Full parcel layer hidden because affected parcels are shown as the derived screening result."))
+                reason = (
+                    "Full parcel layer hidden because affected parcels are shown as the derived screening result."
+                    if has_affected_result
+                    else "Full parcel layer hidden because exact parcel-floodplain extraction is unavailable; showing floodplain context only."
+                )
+                prepared.append(_hide_layer(item, reason))
                 continue
             if role in {"context_polygon_muted", "road_context", "major_road"}:
-                prepared.append(_hide_layer(item, "Low-priority context layer hidden because this floodplain screening answers with affected parcels."))
+                reason = (
+                    "Low-priority context layer hidden because this floodplain screening answers with affected parcels."
+                    if has_affected_result
+                    else "Low-priority context layer hidden so the floodplain context remains readable."
+                )
+                prepared.append(_hide_layer(item, reason))
                 continue
         prepared.append(item)
 

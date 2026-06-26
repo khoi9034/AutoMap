@@ -187,6 +187,8 @@ def visible_map_qa(
             "layer_title": layer_title,
             "expected_role": expected_role,
             "map_role": layer.get("map_role") or layer.get("cartography_role") or layer.get("role"),
+            "legend_label": layer.get("legend_label") or layer_title,
+            "drawing_info": layer.get("drawing_info"),
             "feature_count": None,
             "visible": visible,
             "visible_by_default": layer.get("visible_by_default", visible),
@@ -281,7 +283,7 @@ def visible_map_qa(
     if visible_total == 0:
         if str((recipe.get("request_plan") or {}).get("request_type") or recipe.get("request_type") or "") == "floodplain_screening":
             warnings.append(
-                "AutoMap found the parcel and floodplain layers, but no affected parcels were available for this preview."
+                "100-year floodplain context shown; affected parcel extraction unavailable or returned no features."
             )
         else:
             warnings.append(

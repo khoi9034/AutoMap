@@ -52,11 +52,19 @@ function layoutLegendLayers(mapState?: ComposerMapState | null, response?: Compo
   return rawItems.map((item, index) => {
     const record = asRecord(item);
     const label = String(record.label || record.legend_label || record.title || `Map layer ${index + 1}`);
+    const drawingInfo =
+      record.drawing_info && typeof record.drawing_info === "object" && !Array.isArray(record.drawing_info)
+        ? (record.drawing_info as Record<string, JsonValue>)
+        : null;
     return {
       id: String(record.id || `layout-legend-${index}`),
       title: label,
       legend_label: label,
-      cartography_role: String(record.role || record.cartography_role || roleForLegend(label)),
+      cartography_role: String(record.cartography_role || record.role || roleForLegend(label)),
+      map_role: record.map_role ? String(record.map_role) : undefined,
+      layer_role: record.layer_role ? String(record.layer_role) : undefined,
+      opacity: typeof record.opacity === "number" ? record.opacity : undefined,
+      drawing_info: drawingInfo,
       visible: true,
     } as PreviewLayer;
   });

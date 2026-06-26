@@ -118,14 +118,21 @@ def test_composer_floodplain_preview_promotes_affected_parcels(monkeypatch, tmp_
     assert result["analysis_type"] == "floodplain_parcel_screening"
     assert result["affected_feature_count"] == 1
     assert result["result_layer_role"] == "affected_parcels"
+    assert result["map_layout"]["title"] == "Concord Floodplain Parcel Screening"
+    assert result["map_layout"]["subtitle"].startswith("Parcels intersecting the 100-year floodplain")
     overlays = result["preview_config"]["derived_overlays"]
     assert overlays[0]["legend_label"] == "Parcels in 100-year floodplain"
+    legend_items = result["map_layout"]["legend_items"]
+    flood_legend = next(item for item in legend_items if item["label"] == "100-year floodplain")
+    assert flood_legend["drawing_info"]["renderer"]["symbol"]["color"] == [56, 189, 248, 74]
+    assert all(item["label"] != "Tax Parcels" for item in legend_items)
     context_layers = result["preview_config"]["context_layers"]
     parcel_layer = next(layer for layer in context_layers if layer["layer_key"] == "parcels")
     flood_layer = next(layer for layer in context_layers if layer["layer_key"] == "flood100")
     boundary_layer = next(layer for layer in context_layers if layer["layer_key"] == "municipal")
     assert parcel_layer["visibility"] is False
     assert parcel_layer["diagnostics_only"] is True
+    assert parcel_layer["map_role"] == "diagnostics_only"
     assert flood_layer["legend_label"] == "100-year floodplain"
     assert boundary_layer["legend_label"] == "Concord boundary"
     assert result["visible_feature_summary"][0]["expected_role"] == "affected_parcels"

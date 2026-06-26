@@ -3,6 +3,7 @@ from app.automap_brain.cartography_engine import (
     context_draw_rank,
     plain_legend_label,
     style_context_layer,
+    universal_layer_role,
 )
 
 
@@ -25,6 +26,7 @@ def test_zoning_cartography_uses_visible_commercial_highlight():
     assert styled["legend_label"] == "Commercial zoning"
     assert styled["cartography_role"] == "commercial_zoning"
     assert styled["map_role"] == "primary_polygon_highlight"
+    assert styled["layer_role"] == "primary_result"
     assert 0.35 <= styled["opacity"] <= 0.55
     assert styled["drawing_info"]["renderer"]["symbol"]["outline"]["width"] >= 1.2
 
@@ -63,3 +65,10 @@ def test_floodplain_screening_cartography_highlights_affected_parcels():
     assert affected["legend_label"] == "Parcels in 100-year floodplain"
     assert affected["opacity"] > flood["opacity"]
     assert context_draw_rank({"map_role": "floodplain_overlay"}) < context_draw_rank({"map_role": "affected_parcels"})
+
+
+def test_universal_roles_group_primary_context_and_diagnostics():
+    assert universal_layer_role({"map_role": "affected_parcels"}) == "primary_result"
+    assert universal_layer_role({"map_role": "floodplain_overlay"}) == "supporting_context"
+    assert universal_layer_role({"map_role": "boundary_outline"}) == "boundary_context"
+    assert universal_layer_role({"map_role": "diagnostics_only"}) == "diagnostic_hidden"

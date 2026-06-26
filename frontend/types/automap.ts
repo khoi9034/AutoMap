@@ -966,6 +966,7 @@ export type PreviewLayer = {
   legend_label?: string;
   cartography_role?: string;
   map_role?: string;
+  layer_role?: string;
   clipped_to_aoi?: boolean;
   aoi_filter_applied?: boolean;
   aoi_summary?: string;

@@ -23,6 +23,35 @@ ROLE_DRAW_ORDER = {
     "table_only": 99,
 }
 
+UNIVERSAL_LAYER_ROLES = {
+    "affected_parcels": "primary_result",
+    "primary_polygon_highlight": "primary_result",
+    "commercial_zoning": "primary_result",
+    "route_line": "primary_result",
+    "floodplain_overlay": "supporting_context",
+    "context_polygon_muted": "supporting_context",
+    "flood": "supporting_context",
+    "zoning": "supporting_context",
+    "boundary_outline": "boundary_context",
+    "boundary": "boundary_context",
+    "major_road": "transportation_context",
+    "road_context": "transportation_context",
+    "major_roads": "transportation_context",
+    "roads": "transportation_context",
+    "parcel_outline": "reference_context",
+    "parcel_context": "reference_context",
+    "diagnostics_only": "diagnostic_hidden",
+    "table_only": "diagnostic_hidden",
+    "origin_marker": "label_overlay",
+    "target_marker": "label_overlay",
+    "point_facility": "label_overlay",
+}
+
+
+def universal_layer_role(layer_or_role: dict[str, Any] | str) -> str:
+    role = layer_or_role if isinstance(layer_or_role, str) else layer_or_role.get("map_role") or layer_or_role.get("cartography_role") or context_role(layer_or_role)
+    return UNIVERSAL_LAYER_ROLES.get(str(role), "supporting_context")
+
 
 def simple_fill_renderer(fill: list[int], outline: list[int], width: float = 1.0) -> dict[str, Any]:
     return {"type": "simple", "symbol": {"type": "esriSFS", "style": "esriSFSSolid", "color": fill, "outline": {"type": "esriSLS", "style": "esriSLSSolid", "color": outline, "width": width}}}
@@ -56,6 +85,8 @@ def request_is_commercial_zoning(recipe: dict[str, Any]) -> bool:
 
 
 def context_role(layer: dict[str, Any]) -> str:
+    if layer.get("diagnostics_only") or layer.get("map_role") == "diagnostics_only" or layer.get("display_role") == "diagnostics_only":
+        return "diagnostics_only"
     blob = layer_text(layer)
     if "affected_parcels" in blob or ("affected" in blob and "parcel" in blob):
         return "affected_parcels"
@@ -150,6 +181,7 @@ def style_context_layer(layer: dict[str, Any], recipe: dict[str, Any]) -> dict[s
     for key, value in style.items():
         item[key] = min(float(item.get("opacity") or value), float(value)) if key == "opacity" and role == "parcel_context" else value
     item["draw_order"] = context_draw_rank(item)
+    item["layer_role"] = universal_layer_role(item)
     return item
 
 

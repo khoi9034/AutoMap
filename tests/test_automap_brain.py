@@ -190,6 +190,25 @@ def test_aoi_application_filters_major_roads_when_route_fields_exist():
     assert "NameID" not in roads["definition_expression"]
 
 
+def test_aoi_floodplain_context_fallback_is_truthful_without_affected_overlay():
+    recipe = build_recipe("show parcels in Concord that are in the 100-year floodplain", sample_catalog(), persist_data_gaps=False)
+    preview = {
+        "operational_layers": [
+            {"layer_key": "tax_parcels", "title": "Tax Parcels", "category": "parcel", "visibility": True},
+            {"layer_key": "flood_100", "title": "FloodPlain100year", "category": "flood", "visibility": True},
+            {"layer_key": "municipal", "title": "Municipal District", "category": "jurisdiction", "visibility": True},
+        ]
+    }
+
+    bounded = apply_aoi_to_preview_config(preview, recipe)
+    parcels = next(layer for layer in bounded["operational_layers"] if layer["layer_key"] == "tax_parcels")
+
+    assert parcels["visibility"] is False
+    assert parcels["diagnostics_only"] is True
+    assert "extraction is unavailable" in parcels["warning"]
+    assert "affected parcels are shown" not in parcels["warning"]
+
+
 def test_visual_complexity_score_tracks_visible_layer_stack():
     aoi = {"type": "municipality", "summary": "Concord boundary + 2 mile buffer"}
     layers = [

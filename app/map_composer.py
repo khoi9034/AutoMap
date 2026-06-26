@@ -18,6 +18,7 @@ from app.address_parcel_resolver import ADDRESS_NOT_MATCHED_WARNING, resolve_add
 from app.automap_brain.cartography_engine import (
     apply_visible_qa_fallbacks as brain_apply_visible_qa_fallbacks,
     context_draw_rank as brain_context_draw_rank,
+    simple_fill_renderer as brain_simple_fill_renderer,
     style_context_layer as brain_style_context_layer,
 )
 from app.automap_brain.aoi_planner import apply_aoi_to_preview_config
@@ -360,9 +361,14 @@ def _legend_items_from_preview(config: dict[str, Any] | None) -> list[dict[str, 
         seen.add(dedupe_key)
         items.append(
             {
+                "id": overlay.get("id"),
                 "label": label,
                 "symbol_key": overlay.get("symbol_key"),
                 "geometry_role": overlay.get("geometry_role") or overlay.get("role"),
+                "map_role": overlay.get("map_role") or overlay.get("role"),
+                "cartography_role": overlay.get("cartography_role"),
+                "drawing_info": overlay.get("drawing_info"),
+                "opacity": overlay.get("opacity"),
                 "route_mode": overlay.get("route_mode"),
                 "source": "derived_overlay",
             }
@@ -380,8 +386,14 @@ def _legend_items_from_preview(config: dict[str, Any] | None) -> list[dict[str, 
         seen.add(dedupe_key)
         items.append(
             {
+                "id": layer.get("id") or layer.get("layer_key"),
                 "label": label,
                 "geometry_role": layer.get("role") or "context",
+                "map_role": layer.get("map_role"),
+                "cartography_role": layer.get("cartography_role"),
+                "layer_role": layer.get("layer_role"),
+                "drawing_info": layer.get("drawing_info"),
+                "opacity": layer.get("opacity"),
                 "source": "context_layer",
             }
         )
@@ -393,13 +405,21 @@ def _build_map_layout(recipe: dict[str, Any], config: dict[str, Any] | None) -> 
     route_label = _route_mode_label(result) if result else "Draft map"
     screening = recipe.get("floodplain_screening") if isinstance(recipe.get("floodplain_screening"), dict) else None
     if result:
+        title = recipe.get("map_title") or (config or {}).get("map_title") or "AutoMap Draft Map"
         subtitle = _map_layout_subtitle(result)
     elif screening:
-        subtitle = "Floodplain parcel screening. Draft only, not an official determination."
+        aoi_name = str(screening.get("aoi_name") or "Cabarrus County")
+        title = f"{aoi_name} Floodplain Parcel Screening"
+        affected_count = int(screening.get("affected_feature_count") or 0)
+        if screening.get("status") == "completed" and affected_count > 0:
+            subtitle = "Parcels intersecting the 100-year floodplain. Draft only, not an official determination."
+        else:
+            subtitle = "100-year floodplain context shown; parcel extraction unavailable. Draft only, not an official determination."
     else:
+        title = recipe.get("map_title") or (config or {}).get("map_title") or "AutoMap Draft Map"
         subtitle = "Draft AutoMap preview, not an official county map."
     return {
-        "title": recipe.get("map_title") or (config or {}).get("map_title") or "AutoMap Draft Map",
+        "title": title,
         "subtitle": subtitle,
         "legend_items": _legend_items_from_preview(config),
         "scale_bar_enabled": True,
@@ -452,204 +472,6 @@ def _proximity_context_layers(layers: list[dict[str, Any]], result: dict[str, An
             item["is_context_layer"] = True
         cleaned.append(item)
     return cleaned
-
-
-def _preview_simple_fill_renderer(fill: list[int], outline: list[int], width: float = 1.0) -> dict[str, Any]:
-    return {
-        "type": "simple",
-        "symbol": {
-            "type": "esriSFS",
-            "style": "esriSFSSolid",
-            "color": fill,
-            "outline": {
-                "type": "esriSLS",
-                "style": "esriSLSSolid",
-                "color": outline,
-                "width": width,
-            },
-        },
-    }
-
-
-def _preview_simple_line_renderer(color: list[int], width: float = 1.8) -> dict[str, Any]:
-    return {
-        "type": "simple",
-        "symbol": {
-            "type": "esriSLS",
-            "style": "esriSLSSolid",
-            "color": color,
-            "width": width,
-        },
-    }
-
-
-def _preview_layer_text(layer: dict[str, Any]) -> str:
-    return " ".join(
-        str(value or "").lower()
-        for value in [
-            layer.get("title"),
-            layer.get("layer_key"),
-            layer.get("layer_name"),
-            layer.get("role"),
-            layer.get("category"),
-            layer.get("map_role"),
-            layer.get("cartography_role"),
-            layer.get("geometry_role"),
-            layer.get("legend_label"),
-        ]
-    )
-
-
-def _is_commercial_zoning_recipe(recipe: dict[str, Any]) -> bool:
-    plan = recipe.get("request_plan") or {}
-    parsed = recipe.get("parsed_request") or {}
-    return (
-        plan.get("request_type") == "zoning_context"
-        and (
-            plan.get("zoning_category") == "commercial"
-            or "commercial" in (parsed.get("topic_details", {}).get("zoning_modifiers") or [])
-        )
-    )
-
-
-def _preview_context_role(layer: dict[str, Any]) -> str:
-    blob = _preview_layer_text(layer)
-    if "affected_parcels" in blob or ("affected" in blob and "parcel" in blob):
-        return "affected_parcels"
-    if "road" in blob or "street" in blob or "centerline" in blob:
-        return "roads"
-    if "zoning" in blob:
-        return "zoning"
-    if "flood" in blob:
-        return "flood"
-    if "municipal" in blob or "district" in blob or "boundary" in blob:
-        return "boundary"
-    if "parcel" in blob:
-        return "parcel_context"
-    return str(layer.get("role") or layer.get("category") or "context")
-
-
-def _context_draw_rank(layer: dict[str, Any]) -> int:
-    role = str(layer.get("map_role") or layer.get("cartography_role") or _preview_context_role(layer))
-    if role == "boundary":
-        return 10
-    if role in {"commercial_zoning", "zoning", "flood", "floodplain_overlay", "context_polygon_muted"}:
-        return 20
-    if role in {"affected_parcels", "parcel_outline"}:
-        return 32 if role == "affected_parcels" else 30
-    if role == "parcel_context":
-        return 30
-    if role in {"major_roads", "roads"}:
-        return 40
-    return 25
-
-
-def _style_context_layer(layer: dict[str, Any], recipe: dict[str, Any]) -> dict[str, Any]:
-    item = deepcopy(layer)
-    role = _preview_context_role(item)
-    commercial_context = _is_commercial_zoning_recipe(recipe)
-    definition_expression = item.get("definition_expression")
-    if role == "zoning":
-        if commercial_context and definition_expression:
-            item["title"] = "Commercial zoning"
-            item["legend_label"] = "Commercial zoning"
-            item["cartography_role"] = "commercial_zoning"
-            item["opacity"] = 0.48
-            item["drawing_info"] = {
-                "renderer": _preview_simple_fill_renderer([37, 99, 235, 92], [30, 64, 175, 235], 1.35)
-            }
-        else:
-            item["title"] = "Zoning context"
-            item["legend_label"] = "Zoning context"
-            item["cartography_role"] = "zoning"
-            item["opacity"] = 0.22
-            item["drawing_info"] = {
-                "renderer": _preview_simple_fill_renderer([100, 116, 139, 34], [71, 85, 105, 155], 0.7)
-            }
-    elif role == "roads":
-        major_requested = "major" in str(recipe.get("user_intent") or "").lower()
-        item["title"] = "Major roads" if major_requested else "Road context"
-        item["legend_label"] = item["title"]
-        item["cartography_role"] = "major_roads" if major_requested else "roads"
-        item["opacity"] = 0.92
-        item["drawing_info"] = {
-            "renderer": _preview_simple_line_renderer([31, 41, 55, 238], 2.4 if major_requested else 1.7)
-        }
-    elif role == "boundary":
-        item["title"] = "Concord boundary" if "concord" in str(recipe.get("user_intent") or "").lower() else "Boundary"
-        item["legend_label"] = item["title"]
-        item["cartography_role"] = "boundary"
-        item["opacity"] = 0.88
-        item["drawing_info"] = {
-            "renderer": _preview_simple_fill_renderer([255, 255, 255, 0], [17, 24, 39, 210], 1.8)
-        }
-    elif role == "flood":
-        item["title"] = "100-year floodplain"
-        item["legend_label"] = "100-year floodplain"
-        item["cartography_role"] = "flood"
-        item["map_role"] = "floodplain_overlay"
-        item["opacity"] = 0.34
-        item["drawing_info"] = {
-            "renderer": _preview_simple_fill_renderer([56, 189, 248, 74], [3, 105, 161, 210], 1.0)
-        }
-    elif role == "affected_parcels":
-        item["title"] = "Parcels in 100-year floodplain"
-        item["legend_label"] = "Parcels in 100-year floodplain"
-        item["cartography_role"] = "affected_parcels"
-        item["map_role"] = "affected_parcels"
-        item["opacity"] = 0.84
-        item["drawing_info"] = {
-            "renderer": _preview_simple_fill_renderer([249, 115, 22, 86], [154, 52, 18, 238], 1.45)
-        }
-    elif role == "parcel_context":
-        item["legend_label"] = "Parcels"
-        item["cartography_role"] = "parcel_context"
-        item["opacity"] = min(float(item.get("opacity") or 0.4), 0.34)
-    else:
-        item["legend_label"] = item.get("title") or "Context layer"
-        item["cartography_role"] = role
-    item["draw_order"] = _context_draw_rank(item)
-    return item
-
-
-def _apply_visible_qa_fallbacks(config: dict[str, Any], qa: dict[str, Any], recipe: dict[str, Any]) -> dict[str, Any]:
-    """Make safe QA fallbacks visible in the actual preview, not just in metadata."""
-    if not qa.get("fallback_used"):
-        return config
-    by_id = {
-        str(row.get("layer_id")): row
-        for row in qa.get("visible_feature_summary") or []
-        if isinstance(row, dict) and row.get("fallback_used")
-    }
-    if not by_id:
-        return config
-    patched = deepcopy(config)
-    next_layers: list[dict[str, Any]] = []
-    for layer in patched.get("context_layers") or []:
-        if not isinstance(layer, dict):
-            next_layers.append(layer)
-            continue
-        key = str(layer.get("layer_key") or layer.get("id") or layer.get("title") or "")
-        row = by_id.get(key)
-        if row and row.get("expected_role") == "zoning":
-            layer = deepcopy(layer)
-            layer.pop("definition_expression", None)
-            layer["title"] = "Zoning context"
-            layer["legend_label"] = "Zoning context"
-            layer["cartography_role"] = "zoning"
-            layer["opacity"] = 0.22
-            layer["fallback_used"] = True
-            layer["drawing_info"] = {
-                "renderer": _preview_simple_fill_renderer([100, 116, 139, 34], [71, 85, 105, 155], 0.7)
-            }
-            warnings = list(layer.get("review_warnings") or [])
-            warning = row.get("warning")
-            if warning and warning not in warnings:
-                warnings.append(str(warning))
-            layer["review_warnings"] = warnings
-        next_layers.append(layer)
-    patched["context_layers"] = sorted(next_layers, key=lambda item: _context_draw_rank(item) if isinstance(item, dict) else 99)
-    return patched
 
 
 def _composer_context_layers(layers: list[dict[str, Any]], recipe: dict[str, Any]) -> list[dict[str, Any]]:
@@ -1354,11 +1176,11 @@ def _fast_floodplain_webmap(recipe: dict[str, Any]) -> dict[str, Any]:
         drawing_info = layer.get("drawing_info") or {}
         if not drawing_info:
             if layer.get("map_role") == "boundary_outline":
-                drawing_info = {"renderer": _preview_simple_fill_renderer([255, 255, 255, 0], [17, 24, 39, 210], 1.8)}
+                drawing_info = {"renderer": brain_simple_fill_renderer([255, 255, 255, 0], [17, 24, 39, 210], 1.8)}
             elif layer.get("map_role") == "floodplain_overlay":
-                drawing_info = {"renderer": _preview_simple_fill_renderer([56, 189, 248, 74], [3, 105, 161, 210], 1.0)}
+                drawing_info = {"renderer": brain_simple_fill_renderer([56, 189, 248, 74], [3, 105, 161, 210], 1.0)}
             else:
-                drawing_info = {"renderer": _preview_simple_fill_renderer([148, 163, 184, 16], [100, 116, 139, 95], 0.5)}
+                drawing_info = {"renderer": brain_simple_fill_renderer([148, 163, 184, 16], [100, 116, 139, 95], 0.5)}
         layer_definition: dict[str, Any] = {"drawingInfo": drawing_info}
         if definition_expression:
             layer_definition["definitionExpression"] = definition_expression
