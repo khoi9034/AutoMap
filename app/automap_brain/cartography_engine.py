@@ -23,6 +23,95 @@ ROLE_DRAW_ORDER = {
     "table_only": 99,
 }
 
+CARTOGRAPHY_TOKENS: dict[str, dict[str, Any]] = {
+    "commercial_zoning": {
+        "cartography_role": "commercial_zoning",
+        "map_role": "primary_polygon_highlight",
+        "legend_label": "Commercial zoning",
+        "opacity": 0.55,
+        "fill": [37, 99, 235, 104],
+        "outline": [30, 64, 175, 245],
+        "width": 1.6,
+        "min_stroke_width": 1.4,
+        "scale_behavior": "primary_result_visible",
+    },
+    "zoning": {
+        "cartography_role": "zoning",
+        "map_role": "context_polygon_muted",
+        "legend_label": "Zoning context",
+        "opacity": 0.22,
+        "fill": [100, 116, 139, 30],
+        "outline": [71, 85, 105, 135],
+        "width": 0.7,
+        "min_stroke_width": 0.6,
+        "scale_behavior": "muted_context",
+    },
+    "boundary": {
+        "cartography_role": "boundary",
+        "map_role": "boundary_outline",
+        "legend_label": "Concord boundary",
+        "opacity": 0.96,
+        "fill": [255, 255, 255, 0],
+        "outline": [15, 23, 42, 245],
+        "width": 2.6,
+        "min_stroke_width": 2.4,
+        "scale_behavior": "outline_visible_at_municipality_scale",
+    },
+    "flood": {
+        "cartography_role": "flood",
+        "map_role": "floodplain_overlay",
+        "legend_label": "100-year floodplain",
+        "opacity": 0.46,
+        "fill": [14, 165, 233, 112],
+        "outline": [2, 132, 199, 235],
+        "width": 1.8,
+        "min_stroke_width": 1.6,
+        "scale_behavior": "supporting_overlay_visible",
+    },
+    "affected_parcels": {
+        "cartography_role": "affected_parcels",
+        "map_role": "affected_parcels",
+        "legend_label": "Parcels in 100-year floodplain",
+        "opacity": 0.92,
+        "fill": [245, 158, 11, 118],
+        "outline": [146, 64, 14, 245],
+        "width": 2.1,
+        "min_stroke_width": 1.8,
+        "scale_behavior": "primary_result_visible",
+    },
+    "parcel_context": {
+        "cartography_role": "parcel_context",
+        "map_role": "parcel_outline",
+        "legend_label": "Parcels",
+        "opacity": 0.24,
+        "fill": [255, 255, 255, 0],
+        "outline": [100, 116, 139, 145],
+        "width": 0.55,
+        "min_stroke_width": 0.5,
+        "scale_behavior": "hide_or_mute_at_municipality_scale",
+    },
+    "roads": {
+        "cartography_role": "roads",
+        "map_role": "road_context",
+        "legend_label": "Road context",
+        "opacity": 0.82,
+        "line": [51, 65, 85, 215],
+        "width": 1.6,
+        "min_stroke_width": 1.3,
+        "scale_behavior": "context_lines_clipped_to_aoi",
+    },
+    "major_roads": {
+        "cartography_role": "major_roads",
+        "map_role": "major_road",
+        "legend_label": "Major roads",
+        "opacity": 0.94,
+        "line": [31, 41, 55, 245],
+        "width": 2.8,
+        "min_stroke_width": 2.4,
+        "scale_behavior": "major_context_lines",
+    },
+}
+
 UNIVERSAL_LAYER_ROLES = {
     "affected_parcels": "primary_result",
     "primary_polygon_highlight": "primary_result",
@@ -59,6 +148,24 @@ def simple_fill_renderer(fill: list[int], outline: list[int], width: float = 1.0
 
 def simple_line_renderer(color: list[int], width: float = 1.8, style: str = "esriSLSSolid") -> dict[str, Any]:
     return {"type": "simple", "symbol": {"type": "esriSLS", "style": style, "color": color, "width": width}}
+
+
+def _style_from_token(token_key: str) -> dict[str, Any]:
+    token = CARTOGRAPHY_TOKENS[token_key]
+    if "line" in token:
+        renderer = simple_line_renderer(token["line"], token["width"])
+    else:
+        renderer = simple_fill_renderer(token["fill"], token["outline"], token["width"])
+    return {
+        "cartography_role": token["cartography_role"],
+        "map_role": token["map_role"],
+        "legend_label": token["legend_label"],
+        "opacity": token["opacity"],
+        "drawing_info": {"renderer": renderer},
+        "draw_order": ROLE_DRAW_ORDER.get(token["map_role"], 35),
+        "min_stroke_width": token["min_stroke_width"],
+        "scale_behavior": token["scale_behavior"],
+    }
 
 
 def layer_text(layer: dict[str, Any]) -> str:
@@ -105,19 +212,19 @@ def context_role(layer: dict[str, Any]) -> str:
 
 def cartography_for_role(role: str, *, major_requested: bool = False) -> dict[str, Any]:
     if role == "commercial_zoning":
-        return {"cartography_role": "commercial_zoning", "map_role": "primary_polygon_highlight", "legend_label": "Commercial zoning", "opacity": 0.48, "drawing_info": {"renderer": simple_fill_renderer([37, 99, 235, 92], [30, 64, 175, 235], 1.35)}}
+        return _style_from_token("commercial_zoning")
     if role == "zoning":
-        return {"cartography_role": "zoning", "map_role": "context_polygon_muted", "legend_label": "Zoning context", "opacity": 0.22, "drawing_info": {"renderer": simple_fill_renderer([100, 116, 139, 34], [71, 85, 105, 155], 0.7)}}
+        return _style_from_token("zoning")
     if role == "roads":
-        return {"cartography_role": "major_roads" if major_requested else "roads", "map_role": "major_road" if major_requested else "road_context", "legend_label": "Major roads" if major_requested else "Road context", "opacity": 0.92, "drawing_info": {"renderer": simple_line_renderer([31, 41, 55, 238], 2.4 if major_requested else 1.7)}}
+        return _style_from_token("major_roads" if major_requested else "roads")
     if role == "boundary":
-        return {"cartography_role": "boundary", "map_role": "boundary_outline", "legend_label": "Concord boundary", "opacity": 0.88, "drawing_info": {"renderer": simple_fill_renderer([255, 255, 255, 0], [17, 24, 39, 210], 1.8)}}
+        return _style_from_token("boundary")
     if role == "flood":
-        return {"cartography_role": "flood", "map_role": "floodplain_overlay", "legend_label": "100-year floodplain", "opacity": 0.34, "drawing_info": {"renderer": simple_fill_renderer([56, 189, 248, 74], [3, 105, 161, 210], 1.0)}}
+        return _style_from_token("flood")
     if role == "affected_parcels":
-        return {"cartography_role": "affected_parcels", "map_role": "affected_parcels", "legend_label": "Parcels in 100-year floodplain", "opacity": 0.84, "drawing_info": {"renderer": simple_fill_renderer([249, 115, 22, 86], [154, 52, 18, 238], 1.45)}}
+        return _style_from_token("affected_parcels")
     if role == "parcel_context":
-        return {"cartography_role": "parcel_context", "map_role": "parcel_outline", "legend_label": "Parcels", "opacity": 0.34, "drawing_info": {"renderer": simple_fill_renderer([255, 255, 255, 0], [100, 116, 139, 190], 0.55)}}
+        return _style_from_token("parcel_context")
     return {"cartography_role": role, "legend_label": "Context layer", "opacity": 0.65}
 
 

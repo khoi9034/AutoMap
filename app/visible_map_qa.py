@@ -110,6 +110,16 @@ def _fill_alpha(layer: dict[str, Any]) -> float:
         return 255
 
 
+def _outline_width(layer: dict[str, Any]) -> float:
+    symbol = _symbol(layer)
+    outline = symbol.get("outline") if isinstance(symbol.get("outline"), dict) else {}
+    width = outline.get("width") if outline else symbol.get("width")
+    try:
+        return float(width)
+    except (TypeError, ValueError):
+        return 0
+
+
 def _expected_role(layer: dict[str, Any]) -> str:
     blob = _layer_text(layer)
     if "affected_parcels" in blob or ("affected" in blob and "parcel" in blob):
@@ -225,8 +235,15 @@ def visible_map_qa(
         if layer.get("diagnostics_only") or layer.get("map_role") == "diagnostics_only":
             row["warning"] = "Diagnostics-only layer is visible and should be hidden from the public map."
             warnings.append(row["warning"])
+        outline_width = _outline_width(layer)
         if expected_role == "boundary" and _fill_alpha(layer) > 12:
             row["warning"] = row.get("warning") or "Boundary layer fill is too opaque; boundary should render as outline only."
+            warnings.append(row["warning"])
+        if expected_role == "boundary" and outline_width and outline_width < 2:
+            row["warning"] = row.get("warning") or "Boundary outline is too weak for the requested AOI."
+            warnings.append(row["warning"])
+        if expected_role in {"flood", "floodplain_overlay"} and (_fill_alpha(layer) < 80 or outline_width < 1.5):
+            row["warning"] = row.get("warning") or "Floodplain symbol is too weak for enterprise map output."
             warnings.append(row["warning"])
         if local_aoi and not clipped_to_aoi:
             row["warning"] = "Visible local layer is not marked as clipped to the requested AOI."

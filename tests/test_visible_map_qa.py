@@ -148,7 +148,7 @@ def test_brain_visible_map_qa_uses_truthful_floodplain_fallback_warning():
                 "category": "flood",
                 "url": "https://example.test/flood/0",
                 "visibility": True,
-                "drawing_info": {"renderer": {"symbol": {"type": "esriSFS", "color": [56, 189, 248, 74]}}},
+                "drawing_info": {"renderer": {"symbol": {"type": "esriSFS", "color": [14, 165, 233, 112], "outline": {"color": [2, 132, 199, 235], "width": 1.8}}}},
             }
         ],
     }
@@ -158,7 +158,7 @@ def test_brain_visible_map_qa_uses_truthful_floodplain_fallback_warning():
     assert qa["qa_status"] == "no_visible_features"
     assert any("affected parcel extraction unavailable" in warning for warning in qa["warnings"])
     assert qa["visible_feature_summary"][0]["legend_label"] == "100-year floodplain"
-    assert qa["visible_feature_summary"][0]["drawing_info"]["renderer"]["symbol"]["color"] == [56, 189, 248, 74]
+    assert qa["visible_feature_summary"][0]["drawing_info"]["renderer"]["symbol"]["color"] == [14, 165, 233, 112]
 
 
 def test_brain_visible_map_qa_flags_filled_boundary_renderer():
@@ -186,3 +186,30 @@ def test_brain_visible_map_qa_flags_filled_boundary_renderer():
     qa = run_visible_map_qa(preview, recipe, query_client=FakeClient())
 
     assert any("Boundary layer fill is too opaque" in warning for warning in qa["warnings"])
+
+
+def test_brain_visible_map_qa_flags_weak_floodplain_symbol():
+    class FakeClient:
+        def query_count(self, *_args, **_kwargs):
+            return {"count": 1}
+
+        def query_extent(self, *_args, **_kwargs):
+            return {"extent": {"xmin": -80.6, "ymin": 35.3, "xmax": -80.5, "ymax": 35.4, "spatialReference": {"wkid": 4326}}}
+
+    recipe = {"request_plan": {"request_type": "floodplain_screening", "parameters": {"geography": "Concord"}}}
+    preview = {
+        "context_layers": [
+            {
+                "layer_key": "flood_100",
+                "title": "100-year floodplain",
+                "category": "flood",
+                "url": "https://example.test/flood/0",
+                "visibility": True,
+                "drawing_info": {"renderer": {"symbol": {"type": "esriSFS", "color": [56, 189, 248, 40], "outline": {"width": 0.5}}}},
+            }
+        ],
+    }
+
+    qa = run_visible_map_qa(preview, recipe, query_client=FakeClient())
+
+    assert any("Floodplain symbol is too weak" in warning for warning in qa["warnings"])

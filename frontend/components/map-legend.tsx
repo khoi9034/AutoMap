@@ -55,6 +55,8 @@ type EsriSymbol = {
   outline?: { color?: unknown; width?: unknown } | null;
 };
 
+type SymbolSource = { drawing_info?: Record<string, unknown> | null };
+
 function rgba(value: unknown): string | undefined {
   if (!Array.isArray(value) || value.length < 3) return undefined;
   const [r, g, b] = value;
@@ -64,12 +66,12 @@ function rgba(value: unknown): string | undefined {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
-function rendererSymbol(layer: PreviewLayer): EsriSymbol | null {
+function rendererSymbol(layer: SymbolSource): EsriSymbol | null {
   const drawingInfo = layer.drawing_info as { renderer?: { symbol?: EsriSymbol } } | null | undefined;
   return drawingInfo?.renderer?.symbol || null;
 }
 
-function contextSwatchStyle(layer: PreviewLayer): CSSProperties | undefined {
+function contextSwatchStyle(layer: SymbolSource): CSSProperties | undefined {
   const symbol = rendererSymbol(layer);
   if (!symbol) return undefined;
   const color = rgba(symbol.color);
@@ -117,12 +119,13 @@ export function MapLegend({
           const isRoute = definition.key.startsWith("route_") || (overlay.role || "").includes("line");
           const isParcel = definition.key === "selected_parcel" || definition.key === "affected_floodplain_parcel";
           const isAffectedParcel = definition.key === "affected_floodplain_parcel" || (overlay.role || "").includes("affected");
+          const overlayStyle = contextSwatchStyle(overlay);
           return (
             <span className="map-legend-item" key={`${definition.key}-${label}`}>
               {isRoute ? (
                 <i className={`map-legend-line ${isRoadRouteMode(overlay.route_mode) ? "map-legend-line-solid" : "map-legend-line-dashed"}`} aria-hidden="true" />
               ) : isParcel ? (
-                <i className={isAffectedParcel ? "map-legend-parcel map-legend-affected-parcel" : "map-legend-parcel"} aria-hidden="true" />
+                <i className={isAffectedParcel ? "map-legend-parcel map-legend-affected-parcel" : "map-legend-parcel"} style={overlayStyle} aria-hidden="true" />
               ) : (
                 <i className="map-legend-icon" style={{ backgroundImage: `url("${svgDataUrl(definition)}")` }} aria-hidden="true" />
               )}

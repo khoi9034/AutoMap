@@ -534,13 +534,13 @@ def test_composer_commercial_zoning_preview_carries_visible_qa(monkeypatch, tmp_
     assert zoning_layer["title"] == "Commercial zoning"
     assert zoning_layer["legend_label"] == "Commercial zoning"
     assert zoning_layer["cartography_role"] == "commercial_zoning"
-    assert zoning_layer["opacity"] == 0.48
+    assert zoning_layer["opacity"] == 0.55
     assert zoning_layer["clipped_to_aoi"] is True
     assert roads_layer["legend_label"] == "Road context"
     assert roads_layer["cartography_role"] == "roads"
     assert roads_layer["map_role"] == "road_context"
     assert roads_layer["clipped_to_aoi"] is True
-    assert roads_layer["opacity"] == 0.92
+    assert roads_layer["opacity"] == 0.82
     assert roads_layer["draw_order"] > zoning_layer["draw_order"]
     assert parcel_layer["visibility"] is False
     assert parcel_layer["diagnostics_only"] is True

@@ -6,6 +6,8 @@ from copy import deepcopy
 import math
 from typing import Any
 
+from app.automap_brain.cartography_engine import cartography_for_role
+
 
 COUNTY_EXTENT = {"xmin": -80.86, "ymin": 35.15, "xmax": -80.32, "ymax": 35.55, "spatialReference": {"wkid": 4326}}
 
@@ -348,6 +350,7 @@ def apply_aoi_to_layers(layers: list[dict[str, Any]], recipe: dict[str, Any], ao
         if role in {"major_road", "road_context"} and major_roads:
             expression = item.get("definition_expression") or major_road_definition_expression(item)
             if expression:
+                item.update(cartography_for_role("roads", major_requested=True))
                 item["definition_expression"] = expression
                 item["major_road_filter_applied"] = True
                 item["map_role"] = "major_road"
@@ -355,6 +358,7 @@ def apply_aoi_to_layers(layers: list[dict[str, Any]], recipe: dict[str, Any], ao
                 item["title"] = "Major roads"
                 item["legend_label"] = "Major roads"
             else:
+                item.update(cartography_for_role("roads", major_requested=False))
                 item["major_road_filter_applied"] = False
                 item["map_role"] = "road_context"
                 item["cartography_role"] = "roads"

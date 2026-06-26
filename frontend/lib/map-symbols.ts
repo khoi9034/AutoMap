@@ -66,6 +66,29 @@ export function isRoadRouteMode(routeMode?: string | null): boolean {
   return ["road_network", "road_network_route", "road_following_draft"].includes((routeMode || "").toLowerCase());
 }
 
+function arcgisColor(value: unknown): unknown {
+  if (!Array.isArray(value) || value.length < 3) return value;
+  const [r, g, b] = value;
+  if (typeof r !== "number" || typeof g !== "number" || typeof b !== "number") return value;
+  const alphaValue = typeof value[3] === "number" ? value[3] : 255;
+  const alpha = alphaValue > 1 ? alphaValue / 255 : alphaValue;
+  return [r, g, b, Math.max(0, Math.min(1, alpha))];
+}
+
+function polygonSymbolFromRenderer(overlay: DerivedOverlay): Record<string, unknown> | null {
+  const drawingInfo = overlay.drawing_info as { renderer?: { symbol?: { type?: string; color?: unknown; outline?: { color?: unknown; width?: unknown } } } } | null | undefined;
+  const symbol = drawingInfo?.renderer?.symbol;
+  if (symbol?.type !== "esriSFS") return null;
+  return {
+    type: "simple-fill",
+    color: arcgisColor(symbol.color),
+    outline: {
+      color: arcgisColor(symbol.outline?.color),
+      width: typeof symbol.outline?.width === "number" ? symbol.outline.width : 1.5,
+    },
+  };
+}
+
 export function arcgisSymbolForOverlay(
   overlay: DerivedOverlay,
   geometryType: string,
@@ -104,6 +127,10 @@ export function arcgisSymbolForOverlay(
       cap: "round",
       join: "round",
     };
+  }
+  if (geometryType === "polygon") {
+    const rendererSymbol = polygonSymbolFromRenderer(overlay);
+    if (rendererSymbol) return rendererSymbol;
   }
   const affectedFloodplainParcels = role.includes("affected") && role.includes("parcel");
   const color = affectedFloodplainParcels ? "#9a3412" : role.includes("parcel") ? "#f59e0b" : definition.color;

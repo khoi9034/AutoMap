@@ -17,8 +17,8 @@ from app.adjustment_models import normalize_adjustments
 from app.address_parcel_resolver import ADDRESS_NOT_MATCHED_WARNING, resolve_address_or_parcel_origin
 from app.automap_brain.cartography_engine import (
     apply_visible_qa_fallbacks as brain_apply_visible_qa_fallbacks,
+    cartography_for_role as brain_cartography_for_role,
     context_draw_rank as brain_context_draw_rank,
-    simple_fill_renderer as brain_simple_fill_renderer,
     style_context_layer as brain_style_context_layer,
 )
 from app.automap_brain.aoi_planner import apply_aoi_to_preview_config
@@ -348,15 +348,27 @@ def _legend_symbol_fields(drawing_info: Any) -> dict[str, Any]:
     if not isinstance(symbol, dict):
         return {}
     outline = symbol.get("outline") if isinstance(symbol.get("outline"), dict) else {}
+    def alpha(color: Any) -> float | None:
+        if not isinstance(color, list) or len(color) < 4:
+            return None
+        try:
+            value = float(color[3])
+        except (TypeError, ValueError):
+            return None
+        return round(value / 255, 3) if value > 1 else round(value, 3)
     if symbol.get("type") == "esriSLS":
         return {
             "line_color": symbol.get("color"),
+            "line_opacity": alpha(symbol.get("color")),
             "line_style": symbol.get("style"),
             "line_width": symbol.get("width"),
         }
     return {
         "fill_color": symbol.get("color"),
+        "fill_opacity": alpha(symbol.get("color")),
         "outline_color": outline.get("color"),
+        "outline_opacity": alpha(outline.get("color")),
+        "outline_style": outline.get("style"),
         "outline_width": outline.get("width"),
     }
 
@@ -1199,11 +1211,11 @@ def _fast_floodplain_webmap(recipe: dict[str, Any]) -> dict[str, Any]:
         drawing_info = layer.get("drawing_info") or {}
         if not drawing_info:
             if layer.get("map_role") == "boundary_outline":
-                drawing_info = {"renderer": brain_simple_fill_renderer([255, 255, 255, 0], [17, 24, 39, 210], 1.8)}
+                drawing_info = brain_cartography_for_role("boundary")["drawing_info"]
             elif layer.get("map_role") == "floodplain_overlay":
-                drawing_info = {"renderer": brain_simple_fill_renderer([56, 189, 248, 74], [3, 105, 161, 210], 1.0)}
+                drawing_info = brain_cartography_for_role("flood")["drawing_info"]
             else:
-                drawing_info = {"renderer": brain_simple_fill_renderer([148, 163, 184, 16], [100, 116, 139, 95], 0.5)}
+                drawing_info = brain_cartography_for_role("parcel_context")["drawing_info"]
         layer_definition: dict[str, Any] = {"drawingInfo": drawing_info}
         if definition_expression:
             layer_definition["definitionExpression"] = definition_expression

@@ -126,11 +126,15 @@ def test_composer_floodplain_preview_promotes_affected_parcels(monkeypatch, tmp_
     flood_legend = next(item for item in legend_items if item["label"] == "100-year floodplain")
     boundary_legend = next(item for item in legend_items if item["label"] == "Concord boundary")
     affected_legend = next(item for item in legend_items if item["label"] == "Parcels in 100-year floodplain")
-    assert flood_legend["drawing_info"]["renderer"]["symbol"]["color"] == [56, 189, 248, 74]
-    assert flood_legend["fill_color"] == [56, 189, 248, 74]
-    assert flood_legend["outline_color"] == [3, 105, 161, 210]
+    assert flood_legend["drawing_info"]["renderer"]["symbol"]["color"] == [14, 165, 233, 112]
+    assert flood_legend["fill_color"] == [14, 165, 233, 112]
+    assert flood_legend["fill_opacity"] > 0.4
+    assert flood_legend["outline_color"] == [2, 132, 199, 235]
+    assert flood_legend["outline_width"] >= 1.5
     assert boundary_legend["fill_color"] == [255, 255, 255, 0]
-    assert affected_legend["fill_color"] == [249, 115, 22, 86]
+    assert boundary_legend["outline_width"] >= 2.4
+    assert affected_legend["fill_color"] == [245, 158, 11, 118]
+    assert affected_legend["outline_width"] > flood_legend["outline_width"]
     assert all(item["label"] != "Tax Parcels" for item in legend_items)
     context_layers = result["preview_config"]["context_layers"]
     parcel_layer = next(layer for layer in context_layers if layer["layer_key"] == "parcels")

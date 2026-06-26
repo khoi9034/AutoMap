@@ -996,6 +996,10 @@ export type DerivedOverlay = {
   feature?: Record<string, JsonValue> | null;
   geometry?: Record<string, JsonValue> | null;
   role?: string;
+  map_role?: string;
+  cartography_role?: string;
+  opacity?: number;
+  drawing_info?: Record<string, JsonValue> | null;
   geometry_type?: "point" | "line" | "polygon" | string;
   visible?: boolean;
   local_output?: boolean;
