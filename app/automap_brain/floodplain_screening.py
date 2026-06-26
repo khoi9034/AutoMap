@@ -12,6 +12,7 @@ import os
 from pathlib import Path
 from typing import Any
 
+from app.automap_brain.cartography_engine import cartography_for_role
 from app.geometry_utils import buffer_extent, geojson_extent
 from app.spatial_query_client import SpatialQueryClient
 from app.ui_models import output_file_url
@@ -67,6 +68,7 @@ def _derived_overlay(result: dict[str, Any], extent: dict[str, Any] | None) -> d
     path = result.get("output_geojson_path")
     if not path:
         return None
+    style = cartography_for_role("affected_parcels")
     return {
         "id": f"affected_floodplain_parcels_{result.get('analysis_run_id') or 'analysis'}",
         "title": "Parcels in 100-year floodplain",
@@ -80,6 +82,10 @@ def _derived_overlay(result: dict[str, Any], extent: dict[str, Any] | None) -> d
         "default_visible": True,
         "local_output": True,
         "source_status": "derived_local",
+        "map_role": style["map_role"],
+        "cartography_role": style["cartography_role"],
+        "opacity": style["opacity"],
+        "drawing_info": style["drawing_info"],
         "feature_count": int(result.get("output_count") or 0),
         "extent": extent,
         "legend_label": "Parcels in 100-year floodplain",

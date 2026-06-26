@@ -59,11 +59,14 @@ def test_route_and_fallback_symbols_are_distinct_roles():
 def test_floodplain_screening_cartography_highlights_affected_parcels():
     affected = cartography_for_role("affected_parcels")
     flood = cartography_for_role("flood")
+    boundary = cartography_for_role("boundary")
 
     assert affected["cartography_role"] == "affected_parcels"
     assert affected["map_role"] == "affected_parcels"
     assert affected["legend_label"] == "Parcels in 100-year floodplain"
     assert affected["opacity"] > flood["opacity"]
+    assert flood["drawing_info"]["renderer"]["symbol"]["color"] == [56, 189, 248, 74]
+    assert boundary["drawing_info"]["renderer"]["symbol"]["color"][3] == 0
     assert context_draw_rank({"map_role": "floodplain_overlay"}) < context_draw_rank({"map_role": "affected_parcels"})
 
 

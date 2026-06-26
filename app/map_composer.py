@@ -342,6 +342,25 @@ def _legend_label_for_overlay(overlay: dict[str, Any]) -> str:
     return str(overlay.get("title") or overlay.get("id") or "Map overlay")
 
 
+def _legend_symbol_fields(drawing_info: Any) -> dict[str, Any]:
+    renderer = drawing_info.get("renderer") if isinstance(drawing_info, dict) else {}
+    symbol = renderer.get("symbol") if isinstance(renderer, dict) else {}
+    if not isinstance(symbol, dict):
+        return {}
+    outline = symbol.get("outline") if isinstance(symbol.get("outline"), dict) else {}
+    if symbol.get("type") == "esriSLS":
+        return {
+            "line_color": symbol.get("color"),
+            "line_style": symbol.get("style"),
+            "line_width": symbol.get("width"),
+        }
+    return {
+        "fill_color": symbol.get("color"),
+        "outline_color": outline.get("color"),
+        "outline_width": outline.get("width"),
+    }
+
+
 def _legend_items_from_preview(config: dict[str, Any] | None) -> list[dict[str, Any]]:
     if not config:
         return []
@@ -363,6 +382,7 @@ def _legend_items_from_preview(config: dict[str, Any] | None) -> list[dict[str, 
             {
                 "id": overlay.get("id"),
                 "label": label,
+                "geometry_type": overlay.get("geometry_type") or overlay.get("geometry_role"),
                 "symbol_key": overlay.get("symbol_key"),
                 "geometry_role": overlay.get("geometry_role") or overlay.get("role"),
                 "map_role": overlay.get("map_role") or overlay.get("role"),
@@ -371,6 +391,7 @@ def _legend_items_from_preview(config: dict[str, Any] | None) -> list[dict[str, 
                 "opacity": overlay.get("opacity"),
                 "route_mode": overlay.get("route_mode"),
                 "source": "derived_overlay",
+                **_legend_symbol_fields(overlay.get("drawing_info")),
             }
         )
     for layer in config.get("context_layers") or []:
@@ -388,6 +409,7 @@ def _legend_items_from_preview(config: dict[str, Any] | None) -> list[dict[str, 
             {
                 "id": layer.get("id") or layer.get("layer_key"),
                 "label": label,
+                "geometry_type": layer.get("geometry_type"),
                 "geometry_role": layer.get("role") or "context",
                 "map_role": layer.get("map_role"),
                 "cartography_role": layer.get("cartography_role"),
@@ -395,6 +417,7 @@ def _legend_items_from_preview(config: dict[str, Any] | None) -> list[dict[str, 
                 "drawing_info": layer.get("drawing_info"),
                 "opacity": layer.get("opacity"),
                 "source": "context_layer",
+                **_legend_symbol_fields(layer.get("drawing_info")),
             }
         )
     return items

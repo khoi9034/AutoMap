@@ -339,6 +339,8 @@ def test_map_composer_is_primary_simple_workflow():
     assert "GraphicsLayer" in composer_preview
     assert "FeatureLayer" in composer_preview
     assert "MapImageLayer" in composer_preview
+    assert "const layerUrl = layer.layer_url || layer.url" in composer_preview
+    assert composer_preview.index("new modules.FeatureLayer") < composer_preview.index("new modules.MapImageLayer")
     assert "streets-vector" in composer_preview
     assert "Map preview failed to load." in composer_preview
     assert "composer-map-grid" not in composer_preview

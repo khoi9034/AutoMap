@@ -159,3 +159,30 @@ def test_brain_visible_map_qa_uses_truthful_floodplain_fallback_warning():
     assert any("affected parcel extraction unavailable" in warning for warning in qa["warnings"])
     assert qa["visible_feature_summary"][0]["legend_label"] == "100-year floodplain"
     assert qa["visible_feature_summary"][0]["drawing_info"]["renderer"]["symbol"]["color"] == [56, 189, 248, 74]
+
+
+def test_brain_visible_map_qa_flags_filled_boundary_renderer():
+    class FakeClient:
+        def query_count(self, *_args, **_kwargs):
+            return {"count": 1}
+
+        def query_extent(self, *_args, **_kwargs):
+            return {"extent": {"xmin": -80.6, "ymin": 35.3, "xmax": -80.5, "ymax": 35.4, "spatialReference": {"wkid": 4326}}}
+
+    recipe = {"request_plan": {"request_type": "floodplain_screening", "parameters": {"geography": "Concord"}}}
+    preview = {
+        "context_layers": [
+            {
+                "layer_key": "municipal",
+                "title": "Concord boundary",
+                "category": "jurisdiction",
+                "url": "https://example.test/municipal/0",
+                "visibility": True,
+                "drawing_info": {"renderer": {"symbol": {"type": "esriSFS", "color": [237, 212, 252, 255]}}},
+            }
+        ],
+    }
+
+    qa = run_visible_map_qa(preview, recipe, query_client=FakeClient())
+
+    assert any("Boundary layer fill is too opaque" in warning for warning in qa["warnings"])

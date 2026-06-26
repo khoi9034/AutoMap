@@ -93,6 +93,23 @@ def _visibility(layer: dict[str, Any]) -> bool:
     return True
 
 
+def _symbol(layer: dict[str, Any]) -> dict[str, Any]:
+    drawing_info = layer.get("drawing_info") if isinstance(layer.get("drawing_info"), dict) else {}
+    renderer = drawing_info.get("renderer") if isinstance(drawing_info.get("renderer"), dict) else {}
+    symbol = renderer.get("symbol") if isinstance(renderer.get("symbol"), dict) else {}
+    return symbol
+
+
+def _fill_alpha(layer: dict[str, Any]) -> float:
+    color = _symbol(layer).get("color")
+    if not isinstance(color, list) or len(color) < 4:
+        return 255
+    try:
+        return float(color[3])
+    except (TypeError, ValueError):
+        return 255
+
+
 def _expected_role(layer: dict[str, Any]) -> str:
     blob = _layer_text(layer)
     if "affected_parcels" in blob or ("affected" in blob and "parcel" in blob):
@@ -205,6 +222,12 @@ def visible_map_qa(
         if not visible:
             summary.append(row)
             continue
+        if layer.get("diagnostics_only") or layer.get("map_role") == "diagnostics_only":
+            row["warning"] = "Diagnostics-only layer is visible and should be hidden from the public map."
+            warnings.append(row["warning"])
+        if expected_role == "boundary" and _fill_alpha(layer) > 12:
+            row["warning"] = row.get("warning") or "Boundary layer fill is too opaque; boundary should render as outline only."
+            warnings.append(row["warning"])
         if local_aoi and not clipped_to_aoi:
             row["warning"] = "Visible local layer is not marked as clipped to the requested AOI."
             warnings.append(row["warning"])

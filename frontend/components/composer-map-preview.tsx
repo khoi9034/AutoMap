@@ -344,6 +344,7 @@ function addContextLayers(map: ArcMap, contextLayers: PreviewLayer[], modules: A
   [...contextLayers].sort((a, b) => contextDrawRank(a) - contextDrawRank(b)).forEach((layer) => {
     const url = contextLayerUrl(layer);
     if (!url) return;
+    const layerUrl = layer.layer_url || layer.url;
     const title = layer.title || layer.layer_key || "Context layer";
     const visible = layer.default_visible ?? layer.visibility ?? true;
     const blob = `${layer.role || ""} ${layer.layer_key || ""} ${layer.title || ""}`.toLowerCase();
@@ -358,6 +359,20 @@ function addContextLayers(map: ArcMap, contextLayers: PreviewLayer[], modules: A
     const definitionExpression = layer.definition_expression || undefined;
     const renderer = layer.drawing_info?.renderer;
     try {
+      if (layerUrl) {
+        map.add(
+          new modules.FeatureLayer({
+            url: layerUrl,
+            title,
+            opacity,
+            visible,
+            definitionExpression,
+            renderer,
+            outFields: ["*"],
+          }),
+        );
+        return;
+      }
       if (layer.service_url && typeof layer.layer_id === "number" && /MapServer/i.test(layer.service_url)) {
         map.add(
           new modules.MapImageLayer({
@@ -378,17 +393,6 @@ function addContextLayers(map: ArcMap, contextLayers: PreviewLayer[], modules: A
         );
         return;
       }
-      map.add(
-        new modules.FeatureLayer({
-          url,
-          title,
-          opacity,
-          visible,
-          definitionExpression,
-          renderer,
-          outFields: ["*"],
-        }),
-      );
     } catch {
       // Layer failures are surfaced by ArcGIS layer view errors; a single context
       // layer should not prevent local origin/target/line overlays from drawing.
