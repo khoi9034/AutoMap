@@ -474,6 +474,9 @@ def test_map_composer_is_primary_simple_workflow():
     assert "Why this map?" in preview_step
     assert "Interpreted request" in preview_step
     assert "AOI" in preview_step
+    assert "100-year floodplain context" in preview_step
+    assert "Affected parcel extraction unavailable; showing floodplain context" in preview_step
+    assert "Affected parcel extraction unavailable; showing 100-year floodplain context" in preview_step
     assert "Display complexity" in preview_step
     assert "clipped to AOI" in preview_step
     assert "Visible map QA" in preview_step

@@ -340,6 +340,13 @@ function WhyThisMapPanel({ response }: { response: ComposerResponse }) {
   const screening = response.floodplain_screening;
   const totalFeatures = visibleFeatureCount(response);
   const fallbackUsed = Boolean(response.preview_config?.visible_map_qa?.fallback_used);
+  const affectedCount =
+    typeof response.affected_feature_count === "number"
+      ? response.affected_feature_count
+      : typeof screening?.affected_feature_count === "number"
+        ? screening.affected_feature_count
+        : null;
+  const screeningFallback = Boolean(screening && (screening.status !== "completed" || affectedCount === 0));
   const aoi = aoiSummary(response);
   const requestLabel =
     response.analysis_type === "floodplain_parcel_screening" || screening
@@ -365,7 +372,7 @@ function WhyThisMapPanel({ response }: { response: ComposerResponse }) {
         ) : null}
         <div>
           <dt>Main layer</dt>
-          <dd>{screening ? "Parcels in 100-year floodplain" : valueList(params.feature_type)}</dd>
+          <dd>{screeningFallback ? "100-year floodplain context" : screening ? "Parcels in 100-year floodplain" : valueList(params.feature_type)}</dd>
         </div>
         <div>
           <dt>Filter</dt>
@@ -373,7 +380,7 @@ function WhyThisMapPanel({ response }: { response: ComposerResponse }) {
         </div>
         <div>
           <dt>Status</dt>
-          <dd>{fallbackUsed ? "Live result with fallback" : "Live result"}</dd>
+          <dd>{screeningFallback ? "Affected parcel extraction unavailable; showing floodplain context" : fallbackUsed ? "Live result with fallback" : "Live result"}</dd>
         </div>
         {totalFeatures !== null ? (
           <div>
@@ -397,15 +404,20 @@ function FloodplainScreeningPanel({ response }: { response: ComposerResponse }) 
         : null;
   const area = response.aoi_name || (typeof screening?.aoi_name === "string" ? screening.aoi_name : "Concord");
   const warning = typeof screening?.warning === "string" ? screening.warning : null;
+  const fallback = Boolean(screening && (screening.status !== "completed" || affectedCount === 0));
   return (
     <section className="panel floodplain-screening-summary">
       <div className="panel-title-row">
         <div>
           <p className="eyebrow">Spatial screening</p>
           <h3>Floodplain parcel screening</h3>
-          <p className="muted">Parcels intersecting the 100-year floodplain in {area}, NC.</p>
+          <p className="muted">
+            {fallback
+              ? `Affected parcel extraction unavailable; showing 100-year floodplain context in ${area}, NC.`
+              : `Parcels intersecting the 100-year floodplain in ${area}, NC.`}
+          </p>
         </div>
-        <StatusChip tone={warning ? "warning" : "success"}>{warning ? "Fallback" : "Live result"}</StatusChip>
+        <StatusChip tone={fallback || warning ? "warning" : "success"}>{fallback || warning ? "Fallback" : "Live result"}</StatusChip>
       </div>
       <div className="result-strip">
         <div>
