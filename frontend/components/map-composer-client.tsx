@@ -10,11 +10,11 @@ import { PreviewStep } from "@/components/map-composer/preview-step";
 import { RequestStep } from "@/components/map-composer/request-step";
 import type { ComposerLayerEdit, ComposerStepDisabled, ComposerStepId, ComposerStepStatuses } from "@/components/map-composer/types";
 import {
+  canShowComposerMap,
   composerDisplaySubtitle,
   composerDisplayTitle,
   composerResultState,
   defaultComposerPrompt,
-  hasPreviewMapPayload,
   layerEditsFromResponse,
   packetIdForPreview,
 } from "@/components/map-composer/utils";
@@ -78,12 +78,13 @@ function composerStepStatuses(
   exported: boolean,
 ): ComposerStepStatuses {
   const resultState = composerResultState(response);
+  const mapAvailable = canShowComposerMap(response);
   const adjusted = Boolean(response?.adjusted_packet_id || response?.applied_adjustments);
   return {
     request: activeStep === "request" ? "active" : response ? "complete" : "pending",
     preview: activeStep === "preview" ? "active" : resultState === "ready" ? "complete" : resultState === "blocked" || resultState === "unsupported" ? "blocked" : "pending",
-    adjust: activeStep === "adjust" ? "active" : adjusted ? "complete" : resultState === "ready" ? "pending" : "blocked",
-    export: activeStep === "export" ? "active" : exported ? "complete" : resultState === "ready" ? "pending" : "blocked",
+    adjust: activeStep === "adjust" ? "active" : adjusted ? "complete" : mapAvailable ? "pending" : "blocked",
+    export: activeStep === "export" ? "active" : exported ? "complete" : mapAvailable ? "pending" : "blocked",
   };
 }
 
@@ -122,7 +123,7 @@ export function MapComposerClient() {
   }>({});
 
   const previewPacketId = useMemo(() => packetIdForPreview(response), [response]);
-  const previewReady = hasPreviewMapPayload(response);
+  const previewReady = canShowComposerMap(response);
   const exported = Boolean(response?.export || response?.exhibit || exhibitPackage);
   const statuses = composerStepStatuses(activeStep, response, exported);
   const disabled: ComposerStepDisabled = {
@@ -283,7 +284,7 @@ export function MapComposerClient() {
       selectedPacketId: result.packet_id || undefined,
       warnings: result.warnings || [],
       missingData: result.missing_data || [],
-      activeStep: resultState === "ready" ? "preview" : "recipe",
+      activeStep: canShowComposerMap(result) ? "preview" : "recipe",
     });
     setToast({
       tone: resultState === "ready" ? "success" : "warning",

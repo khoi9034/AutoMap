@@ -153,6 +153,14 @@ export function hasContextMapPayload(response: ComposerResponse | null): respons
   return hasMapPayload(response);
 }
 
+export function isPartialContextMap(response: ComposerResponse | null): response is ComposerResponse {
+  return Boolean(response && composerResultState(response) === "partial" && response.context_map_available !== false && hasContextMapPayload(response));
+}
+
+export function canShowComposerMap(response: ComposerResponse | null): response is ComposerResponse {
+  return Boolean(hasPreviewMapPayload(response) || isPartialContextMap(response) || (composerResultState(response) === "no_matches" && hasContextMapPayload(response)));
+}
+
 export function composerDisplayTitle(response: ComposerResponse | null): string {
   return response?.map_layout?.title || response?.map_title || response?.recipe?.map_title || "AutoMap Draft Map";
 }

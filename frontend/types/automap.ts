@@ -1352,6 +1352,9 @@ export type ComposerResponse = {
   requested_result?: string | null;
   available_context?: string[] | null;
   missing_operation?: string | null;
+  context_map_available?: boolean | null;
+  primary_result_available?: boolean | null;
+  requested_result_missing?: boolean | null;
   primary_result_role?: string | null;
   analysis_status?: string | null;
   spatial_relationship?: string | null;

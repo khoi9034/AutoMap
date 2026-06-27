@@ -8,7 +8,7 @@ import { StatusChip } from "@/components/status-chip";
 import type { ComposerMapState, ComposerResponse } from "@/types/automap";
 
 import type { ComposerLayerEdit } from "./types";
-import { composerDisplaySubtitle, composerDisplayTitle, hasPreviewMapPayload, isRouteLayer } from "./utils";
+import { canShowComposerMap, composerDisplaySubtitle, composerDisplayTitle, composerResultState, isRouteLayer } from "./utils";
 
 type AdjustStepProps = {
   layers: ComposerLayerEdit[];
@@ -186,7 +186,7 @@ export function AdjustStep({
   setNotes,
 }: AdjustStepProps) {
   const [viewCommand, setViewCommand] = useState<MapViewCommand | null>(null);
-  if (!hasPreviewMapPayload(response)) {
+  if (!canShowComposerMap(response)) {
     return (
       <section className="panel empty-state">
         <h3>Preview required</h3>
@@ -200,6 +200,7 @@ export function AdjustStep({
   const hasOrigin = overlayBlob.includes("origin");
   const hasTarget = overlayBlob.includes("target") || overlayBlob.includes("facility");
   const hasFeatureExtent = overlays.length > 0;
+  const partialContext = composerResultState(response) === "partial";
   const sendViewCommand = (type: MapViewCommandType) => setViewCommand({ id: Date.now(), type });
 
   return (
@@ -220,9 +221,11 @@ export function AdjustStep({
           <div>
             <p className="eyebrow">Adjust</p>
             <h3>Map controls</h3>
-            <p className="muted">Original request: {response.raw_prompt || response.prompt}</p>
+            <p className="muted">
+              {partialContext ? "Adjusting a partial context map. Affected parcel extraction is unavailable." : `Original request: ${response.raw_prompt || response.prompt}`}
+            </p>
           </div>
-          <StatusChip tone="success">Live preview</StatusChip>
+          <StatusChip tone={partialContext ? "warning" : "success"}>{partialContext ? "Partial context map" : "Live preview"}</StatusChip>
         </div>
 
         <section className="definition-box composer-view-reset-controls">
@@ -270,7 +273,7 @@ export function AdjustStep({
             {loading ? "Applying..." : "Apply Adjustments"}
           </button>
           <button className="button" type="button" onClick={onApply} disabled={loading || !layers.length}>
-            {loading ? "Locking..." : "Lock Final Map"}
+            {loading ? "Locking..." : partialContext ? "Lock Partial Context Map" : "Lock Final Map"}
           </button>
           <button className="button button-secondary" type="button" onClick={onReset} disabled={loading}>
             Reset adjustments

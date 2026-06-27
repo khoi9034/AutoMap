@@ -8,7 +8,7 @@ import type { LivePrintOptions, PrintExportMode } from "@/types/print-options";
 import { effectiveSheetDimensions, includedPrintSections, printOptionsForMode, SHEET_SIZE_PRESETS } from "@/types/print-options";
 
 import { MapStateCapture } from "./map-state-capture";
-import { hasPreviewMapPayload, localFileUrl } from "./utils";
+import { canShowComposerMap, composerResultState, localFileUrl } from "./utils";
 
 type PrintExportStepProps = {
   exhibitPackage?: ExhibitPackage | null;
@@ -122,7 +122,7 @@ export function PrintExportStep({
   response,
   setPrintOptions,
 }: PrintExportStepProps) {
-  if (!hasPreviewMapPayload(response)) {
+  if (!canShowComposerMap(response)) {
     return (
       <section className="panel empty-state">
         <h3>Preview required</h3>
@@ -136,6 +136,7 @@ export function PrintExportStep({
   const warningFile = files.find((file) => file.name === "warnings.json");
   const includedSections = includedPrintSections(printOptions);
   const isMapSheet = printOptions.exportMode === "map_sheet";
+  const partialContext = composerResultState(response) === "partial";
   const canOpenPrint = Boolean(lockedMapState);
   const sheetDimensions = effectiveSheetDimensions(printOptions);
   const customSizeWarning =
@@ -153,9 +154,13 @@ export function PrintExportStep({
           <div>
             <p className="eyebrow">Print / Export</p>
             <h3>Choose output</h3>
-            <p className="muted">Preview updates as you choose options. Printed output uses the locked final map.</p>
+            <p className="muted">
+              {partialContext
+                ? "This output is a partial context map. Affected parcel extraction is unavailable."
+                : "Preview updates as you choose options. Printed output uses the locked final map."}
+            </p>
           </div>
-          <StatusChip tone="success">Locked final map</StatusChip>
+          <StatusChip tone={partialContext ? "warning" : "success"}>{partialContext ? "Partial context map" : "Locked final map"}</StatusChip>
         </div>
 
         <section className="definition-box export-mode-selector">
@@ -365,7 +370,7 @@ export function PrintExportStep({
 
         <div className="button-row composer-export-buttons">
           <button className="button" type="button" onClick={onOpenPrintLayout} disabled={loadingReport || !canOpenPrint}>
-            Print Map
+            {partialContext ? "Print Partial Context Map" : "Print Map"}
           </button>
           <button className="button button-secondary" type="button" onClick={onOpenPrintLayout} disabled={loadingReport || !isMapSheet || !canOpenPrint}>
             PDF via Print Map
@@ -406,7 +411,12 @@ export function PrintExportStep({
         <div className="definition-box">
           <strong>Export status</strong>
           <p>
-            {canOpenPrint ? "Print/export files are local draft artifacts." : "Lock final map before printing."} No ArcGIS item is created and no ArcGIS login is required.
+            {partialContext
+              ? "Partial context map - not the completed parcel screening result."
+              : canOpenPrint
+                ? "Print/export files are local draft artifacts."
+                : "Lock final map before printing."}{" "}
+            No ArcGIS item is created and no ArcGIS login is required.
           </p>
         </div>
 

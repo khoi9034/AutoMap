@@ -8,7 +8,7 @@ import { StatusChip } from "@/components/status-chip";
 import { isRoadRouteMode } from "@/lib/map-symbols";
 import type { ComposerResponse, ProximityResult } from "@/types/automap";
 
-import { actionLabel, composerDisplayTitle, composerResultState, hasContextMapPayload, hasPreviewMapPayload, identifierText, isAddressFocused } from "./utils";
+import { actionLabel, canShowComposerMap, composerDisplayTitle, composerResultState, identifierText, isAddressFocused, isPartialContextMap } from "./utils";
 
 type PreviewStepProps = {
   loading?: boolean;
@@ -39,17 +39,29 @@ function isPartialFloodplainContext(response: ComposerResponse): boolean {
 export function PreviewBlocker({
   response,
   onGoToRequest,
-  onShowContextMap,
 }: {
   response: ComposerResponse;
   onGoToRequest: () => void;
-  onShowContextMap?: () => void;
 }) {
   const floodplainPartial = isPartialFloodplainContext(response);
   if (floodplainPartial) {
     const blockerText =
       response.preview_blockers?.[0] ||
       "AutoMap found the Concord boundary and 100-year floodplain, but could not complete the parcel intersection.";
+    if (isPartialContextMap(response)) {
+      return (
+        <section className="panel parcel-preview-blocked composer-partial-context-banner" role="status">
+          <p className="eyebrow">Partial context map</p>
+          <h3>Parcel intersection unavailable</h3>
+          <p>{blockerText}</p>
+          <div className="button-row">
+            <button className="button button-secondary" type="button" onClick={onGoToRequest}>
+              Try broader request
+            </button>
+          </div>
+        </section>
+      );
+    }
     return (
       <section className="panel parcel-preview-blocked" role="alert">
         <p className="eyebrow">Floodplain screening partial</p>
@@ -60,11 +72,6 @@ export function PreviewBlocker({
           <p>Concord boundary and 100-year floodplain context are available, but the requested affected parcel result is missing.</p>
         </div>
         <div className="button-row">
-          {onShowContextMap ? (
-            <button className="button button-secondary" type="button" onClick={onShowContextMap}>
-              Show context map anyway
-            </button>
-          ) : null}
           <button className="button" type="button" onClick={onGoToRequest}>
             Try broader request
           </button>
@@ -327,13 +334,13 @@ function PreviewSummaryPanel({
       <WhyThisMapPanel response={response} />
       <div className="button-row composer-preview-actions">
         <button className="button" type="button" onClick={onGoToAdjust} disabled={!previewReady}>
-          Continue to Adjust
+          {partialContext ? "Adjust context map" : "Continue to Adjust"}
         </button>
         <button className="button button-secondary" type="button" onClick={onRegenerate} disabled={loading}>
           Regenerate Draft
         </button>
         <button className="button button-secondary" type="button" onClick={onGoToExport} disabled={!previewReady}>
-          Print / Export
+          {partialContext ? "Print partial context map" : "Print / Export"}
         </button>
       </div>
     </section>
@@ -766,7 +773,6 @@ export function PreviewStep({
   response,
   routeRefineLoading = false,
 }: PreviewStepProps) {
-  const [showPartialContext, setShowPartialContext] = useState(false);
   if (!response) {
     return (
       <section className="panel empty-state">
@@ -776,13 +782,11 @@ export function PreviewStep({
     );
   }
 
-  const previewReady = hasPreviewMapPayload(response);
+  const previewReady = canShowComposerMap(response);
   const tableRequest = Boolean(response.table_context?.table_requested);
   const resultState = composerResultState(response);
   const floodplainPartial = isPartialFloodplainContext(response);
-  const noMatches = resultState === "no_matches";
-  const partialContextAvailable = floodplainPartial && hasContextMapPayload(response);
-  const showMap = previewReady || (noMatches && hasContextMapPayload(response)) || (showPartialContext && partialContextAvailable);
+  const showMap = previewReady;
   const statusLabel = resultState === "ready" ? "Ready" : tableRequest ? "Table draft" : resultState === "no_matches" ? "No matches" : floodplainPartial ? "Partial" : resultState === "unsupported" ? "Unsupported" : "Blocked";
   const statusTone = resultState === "ready" ? "success" : tableRequest || resultState === "partial" || resultState === "no_matches" ? "warning" : "danger";
   return (
@@ -798,7 +802,6 @@ export function PreviewStep({
           <PreviewBlocker
             response={response}
             onGoToRequest={onGoToRequest}
-            onShowContextMap={partialContextAvailable ? () => setShowPartialContext(true) : undefined}
           />
         )}
         {showMap ? (

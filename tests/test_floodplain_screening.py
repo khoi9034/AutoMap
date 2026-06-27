@@ -171,6 +171,9 @@ def test_floodplain_context_only_fallback_is_not_ready(monkeypatch, tmp_path):
     assert result["requested_result"] == "Parcels in 100-year floodplain"
     assert result["available_context"] == ["100-year floodplain", "Concord boundary"]
     assert result["missing_operation"] == "Parcel-floodplain intersection"
+    assert result["context_map_available"] is True
+    assert result["primary_result_available"] is False
+    assert result["requested_result_missing"] is True
     assert result["analysis_status"] == "partial_context_only"
     assert result["preview_quality"] == "partial_context_only"
     assert result["preview_blockers"]

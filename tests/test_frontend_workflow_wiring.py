@@ -301,16 +301,20 @@ def test_map_composer_is_primary_simple_workflow():
     assert "ExportStep" in client
     assert "PrintExportStep" in export_step
     assert "hasPreviewMapPayload" in composer_utils
+    assert "canShowComposerMap" in composer_utils
     assert "composerResultState" in composer_utils
     assert "context_preview" in composer_utils
     assert "result_state" in automap_types
     assert "requested_result" in automap_types
     assert "available_context" in automap_types
     assert "missing_operation" in automap_types
-    assert "const previewReady = hasPreviewMapPayload(response)" in client
-    assert "const previewReady = hasPreviewMapPayload(response)" in preview_step
-    assert "if (!hasPreviewMapPayload(response))" in adjust_step
-    assert "if (!hasPreviewMapPayload(response))" in print_export_step
+    assert "context_map_available" in automap_types
+    assert "primary_result_available" in automap_types
+    assert "requested_result_missing" in automap_types
+    assert "const previewReady = canShowComposerMap(response)" in client
+    assert "const previewReady = canShowComposerMap(response)" in preview_step
+    assert "if (!canShowComposerMap(response))" in adjust_step
+    assert "if (!canShowComposerMap(response))" in print_export_step
     assert "exportComposerDraft" in client
     assert "saveComposerMapState" in client
     assert "exportComposerExhibit" in client
@@ -486,8 +490,10 @@ def test_map_composer_is_primary_simple_workflow():
     assert "composerResultState" in preview_step
     assert "Partial" in preview_step
     assert "Parcel intersection unavailable" in preview_step
-    assert "Show context map anyway" in preview_step
-    assert "setShowPartialContext(true)" in preview_step
+    assert "Partial context map" in preview_step
+    assert "isPartialContextMap(response)" in preview_step
+    assert "Adjust context map" in preview_step
+    assert "Print partial context map" in preview_step
     assert "Requested result" in preview_step
     assert "Available context" in preview_step
     assert "Missing operation" in preview_step
@@ -499,6 +505,7 @@ def test_map_composer_is_primary_simple_workflow():
     assert "composer-preview-tab-list" in preview_step
     assert "composer-adjust-layout" in adjust_step
     assert "composer-adjust-controls-panel" in adjust_step
+    assert "Lock Partial Context Map" in adjust_step
     assert "SharedMapRenderer" in adjust_step
     assert 'mode="adjust_interactive"' in adjust_step
     assert "Reset to Generated View" in adjust_step
@@ -516,6 +523,7 @@ def test_map_composer_is_primary_simple_workflow():
     assert "Line style" in adjust_step
     assert "samplePrompts" not in adjust_step
     assert "Print Map" in print_export_step
+    assert "Print Partial Context Map" in print_export_step
     assert "Open Browser Print" not in print_export_step
     assert "Generate Exhibit Package" in print_export_step
     assert "Map only" in print_export_step

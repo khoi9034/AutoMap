@@ -265,11 +265,15 @@ def _result_truth_summary(recipe: dict[str, Any], result_state: str) -> dict[str
     if not screening:
         return {}
     context = ["100-year floodplain", f"{screening.get('aoi_name') or 'Concord'} boundary"]
+    context_map_available = result_state in {"partial", "no_matches"} and bool(context)
     return {
         "requested_result": "Parcels in 100-year floodplain",
         "available_context": context if result_state in {"partial", "no_matches"} else [],
         "missing_operation": "Parcel-floodplain intersection" if result_state == "partial" else None,
         "primary_result_role": "affected_parcels" if result_state == "ready" else None,
+        "context_map_available": context_map_available,
+        "primary_result_available": result_state == "ready",
+        "requested_result_missing": result_state == "partial",
     }
 
 
@@ -1078,6 +1082,7 @@ def _base_session_response(
         can_preview = False
     result_state = _result_state(recipe, can_preview, blockers)
     result_truth = _result_truth_summary(recipe, result_state)
+    map_available = result_state == "ready" or bool(result_truth.get("context_map_available"))
     packet_path = adjusted_packet_path or review_packet_path
     packet_id = packet_path.name if packet_path else None
     webmap_path = session_folder / ("adjusted_webmap.json" if (session_folder / "adjusted_webmap.json").exists() else "webmap.json")
@@ -1133,8 +1138,8 @@ def _base_session_response(
         "simple_steps": [
             {"step": "Request", "status": "complete"},
             {"step": "Preview", "status": "complete" if result_state == "ready" else "blocked" if result_state in {"blocked", "unsupported"} else "pending"},
-            {"step": "Adjust", "status": "pending" if result_state == "ready" else "blocked"},
-            {"step": "Print / Export", "status": "pending" if result_state == "ready" else "blocked"},
+            {"step": "Adjust", "status": "pending" if map_available else "blocked"},
+            {"step": "Print / Export", "status": "pending" if map_available else "blocked"},
         ],
         "debug_details": {"recipe_timing": recipe.get("recipe_timing")},
         "review_packet_id": review_packet_path.name if review_packet_path else None,
