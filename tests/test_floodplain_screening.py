@@ -30,12 +30,17 @@ def test_floodplain_screening_typo_variant_normalizes_to_same_intent():
     assert plan["parameters"]["spatial_relationship"] == "intersects"
 
 
-def test_live_floodplain_screening_is_explicit_opt_in(monkeypatch):
+def test_live_floodplain_screening_is_enabled_by_default_with_disable_switch(monkeypatch):
     monkeypatch.delenv("AUTOMAP_ENABLE_LIVE_FLOODPLAIN_SCREENING", raising=False)
+    monkeypatch.delenv("AUTOMAP_DISABLE_LIVE_FLOODPLAIN_SCREENING", raising=False)
+    assert live_floodplain_screening_enabled() is True
+
+    monkeypatch.setenv("AUTOMAP_DISABLE_LIVE_FLOODPLAIN_SCREENING", "true")
     assert live_floodplain_screening_enabled() is False
 
-    monkeypatch.setenv("AUTOMAP_ENABLE_LIVE_FLOODPLAIN_SCREENING", "true")
-    assert live_floodplain_screening_enabled() is True
+    monkeypatch.setenv("AUTOMAP_DISABLE_LIVE_FLOODPLAIN_SCREENING", "false")
+    monkeypatch.setenv("AUTOMAP_ENABLE_LIVE_FLOODPLAIN_SCREENING", "false")
+    assert live_floodplain_screening_enabled() is False
 
 
 def test_floodplain_screening_attaches_affected_parcel_overlay(monkeypatch, tmp_path):
@@ -155,6 +160,7 @@ def test_composer_floodplain_preview_promotes_affected_parcels(monkeypatch, tmp_
 def test_floodplain_context_only_fallback_is_not_ready(monkeypatch, tmp_path):
     isolate_outputs(monkeypatch, tmp_path)
     monkeypatch.delenv("AUTOMAP_ENABLE_LIVE_FLOODPLAIN_SCREENING", raising=False)
+    monkeypatch.setenv("AUTOMAP_DISABLE_LIVE_FLOODPLAIN_SCREENING", "true")
     monkeypatch.setattr("app.map_composer._session_root", lambda: tmp_path / "composer_sessions")
     monkeypatch.setattr("app.map_composer._can_use_fast_floodplain_fallback", lambda _path: True)
 

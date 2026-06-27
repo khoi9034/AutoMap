@@ -594,7 +594,7 @@ def _composer_context_layers(layers: list[dict[str, Any]], recipe: dict[str, Any
             hide_reason = (
                 "Full parcel layer hidden because affected parcels are shown as the derived screening result."
                 if has_affected_overlay
-                else "Full parcel layer hidden because exact parcel-floodplain screening is not enabled for this deployment."
+                else "Full parcel layer hidden because exact parcel-floodplain screening is unavailable for this draft."
             )
         if hide_reason:
             item["visibility"] = False
@@ -1217,7 +1217,7 @@ def _fast_floodplain_layers() -> list[dict[str, Any]]:
             "visibility": False,
             "opacity": 0.12,
             "review_warnings": [
-                "Full parcel layer hidden because exact parcel-floodplain screening is not enabled for this deployment."
+                "Full parcel layer hidden because exact parcel-floodplain screening is unavailable for this draft."
             ],
         },
         {

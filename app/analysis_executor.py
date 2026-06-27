@@ -450,11 +450,12 @@ def _execute_intersection(
         )
         return write_analysis_outputs(blocked)
 
+    target_out_fields = target.object_id_field or "OBJECTID"
     candidate_object_ids = optimized_plan.get("candidate_object_ids") or []
     target_result = query_client.query_features_by_object_ids(
         target.layer_url or "",
         object_ids=candidate_object_ids,
-        out_fields="*",
+        out_fields=target_out_fields,
         return_geometry=True,
         result_record_count=max_features,
     )
@@ -487,6 +488,7 @@ def _execute_intersection(
         "geography_layer": geography.to_dict(),
         "constraint_layer": constraint.to_dict(),
         "where_clauses": where_clauses,
+        "target_out_fields": target_out_fields,
         "counts_before_after": input_counts,
         "query_strategy": optimized_plan.get("strategy"),
         "strategy_explanation": optimized_plan.get("strategy_explanation"),

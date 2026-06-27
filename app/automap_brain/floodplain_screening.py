@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from app.automap_brain.cartography_engine import cartography_for_role
+from app.analysis_models import DEFAULT_MAX_FEATURES
 from app.geometry_utils import buffer_extent, geojson_extent
 from app.spatial_query_client import SpatialQueryClient
 from app.ui_models import output_file_url
@@ -23,14 +24,20 @@ FLOODPLAIN_SCREENING_WARNING = (
     "parcel-floodplain intersection. Showing floodplain context only."
 )
 LIVE_SCREENING_DISABLED_WARNING = (
-    "Live parcel-floodplain intersection is not enabled for this deployment. "
+    "Live parcel-floodplain intersection is disabled for this deployment. "
     "Showing 100-year floodplain context only."
 )
 
 
 def live_floodplain_screening_enabled() -> bool:
-    """Return whether production should run the slower exact intersection path."""
-    return os.getenv("AUTOMAP_ENABLE_LIVE_FLOODPLAIN_SCREENING", "").strip().lower() in {"1", "true", "yes"}
+    """Return whether production should run the bounded exact intersection path."""
+    disabled = os.getenv("AUTOMAP_DISABLE_LIVE_FLOODPLAIN_SCREENING", "").strip().lower()
+    if disabled in {"1", "true", "yes", "on"}:
+        return False
+    enabled = os.getenv("AUTOMAP_ENABLE_LIVE_FLOODPLAIN_SCREENING", "").strip().lower()
+    if enabled in {"0", "false", "no", "off"}:
+        return False
+    return True
 
 
 def is_floodplain_screening_recipe(recipe: dict[str, Any]) -> bool:
@@ -171,7 +178,7 @@ def attach_floodplain_screening_result(
     *,
     catalog_records: list[dict[str, Any]] | None = None,
     query_client: Any | None = None,
-    max_features: int = 1000,
+    max_features: int = DEFAULT_MAX_FEATURES,
 ) -> dict[str, Any]:
     """Execute and attach a bounded affected-parcels layer when appropriate."""
     next_recipe = deepcopy(recipe)
@@ -221,7 +228,7 @@ def attach_floodplain_screening_result(
         result = execute_analysis(
             next_recipe,
             catalog_records=analysis_catalog,
-            query_client=query_client or SpatialQueryClient(max_features=max_features, timeout=2),
+            query_client=query_client or SpatialQueryClient(max_features=max_features, timeout=12),
             max_features=max_features,
             estimate_counts=False,
         )

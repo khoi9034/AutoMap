@@ -83,6 +83,7 @@ class FakeSpatialQueryClient:
         self.feature_queries: list[str] = []
         self.object_id_queries: list[str] = []
         self.object_id_feature_queries: list[str] = []
+        self.last_object_id_feature_kwargs: dict[str, object] = {}
 
     def query_count(self, layer_url, **kwargs):
         if "parcels" in layer_url and kwargs.get("geometry"):
@@ -119,6 +120,7 @@ class FakeSpatialQueryClient:
 
     def query_features_by_object_ids(self, layer_url, **kwargs):
         self.object_id_feature_queries.append(layer_url)
+        self.last_object_id_feature_kwargs = kwargs
         object_ids = set(kwargs.get("object_ids") or [])
         features = []
         if 100 in object_ids:
@@ -206,6 +208,7 @@ def test_floodplain_execution_ignores_diagnostic_broad_parcel_count_timeout(monk
     assert result["status"] == "completed"
     assert result["output_count"] == 1
     assert any("parcels" in url for url in fake.object_id_feature_queries)
+    assert fake.last_object_id_feature_kwargs["out_fields"] == "OBJECTID"
 
 
 def test_intersection_execution_writes_receipt_and_valid_geojson(monkeypatch, tmp_path):
@@ -230,6 +233,7 @@ def test_intersection_execution_writes_receipt_and_valid_geojson(monkeypatch, tm
     assert receipt["broad_count"] == 90000
     assert receipt["optimized_candidate_count"] == 2
     assert receipt["object_ids_selected_count"] == 2
+    assert receipt["target_out_fields"] == "OBJECTID"
     assert receipt["published"] is False
     assert receipt["protected_external_database_touched"] is False
 
