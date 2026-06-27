@@ -391,6 +391,12 @@ def test_map_composer_is_primary_simple_workflow():
     assert "<MapScaleBar scale={viewScale} mapWidth={viewWidth}" in composer_preview
     assert "<MapLegend overlays={derivedOverlays} contextLayers={contextLayers} />" in composer_preview
     assert "contextDrawRank" in composer_preview
+    assert 'typeof layer.draw_order === "number"' in composer_preview
+    assert 'return layer.draw_order' in composer_preview
+    assert "addContextLayers(map, contextLayers.filter((layer) => contextDrawRank(layer) < 36), modules)" in composer_preview
+    assert 'addDerivedOverlayLayers(map, loaded, modules, ["parcel", "other"])' in composer_preview
+    assert "addContextLayers(map, contextLayers.filter((layer) => contextDrawRank(layer) === 36), modules)" in composer_preview
+    assert 'addDerivedOverlayLayers(map, loaded, modules, ["route", "origin", "target"])' in composer_preview
     frame_index = composer_preview.index("<MapFrame")
     legend_index = composer_preview.index("<MapLegend overlays={derivedOverlays} contextLayers={contextLayers} />")
     assert frame_index < legend_index

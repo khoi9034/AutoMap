@@ -7,12 +7,12 @@ from typing import Any
 
 
 ROLE_DRAW_ORDER = {
-    "boundary_outline": 10,
     "context_polygon_muted": 20,
     "floodplain_overlay": 22,
     "primary_polygon_highlight": 24,
     "parcel_outline": 30,
     "affected_parcels": 34,
+    "boundary_outline": 36,
     "road_context": 40,
     "major_road": 45,
     "route_line": 50,
@@ -50,11 +50,11 @@ CARTOGRAPHY_TOKENS: dict[str, dict[str, Any]] = {
         "cartography_role": "boundary",
         "map_role": "boundary_outline",
         "legend_label": "Concord boundary",
-        "opacity": 0.96,
+        "opacity": 1.0,
         "fill": [255, 255, 255, 0],
-        "outline": [15, 23, 42, 245],
-        "width": 2.6,
-        "min_stroke_width": 2.4,
+        "outline": [15, 23, 42, 255],
+        "width": 3.2,
+        "min_stroke_width": 3.0,
         "scale_behavior": "outline_visible_at_municipality_scale",
     },
     "flood": {

@@ -232,6 +232,7 @@ def visible_map_qa(
             "display_generalized": bool(layer.get("display_generalized")),
             "display_feature_count": layer.get("display_feature_count"),
             "diagnostic_note": layer.get("diagnostic_note"),
+            "draw_order": layer.get("draw_order"),
         }
         if not visible:
             summary.append(row)
@@ -243,8 +244,11 @@ def visible_map_qa(
         if expected_role == "boundary" and _fill_alpha(layer) > 12:
             row["warning"] = row.get("warning") or "Boundary layer fill is too opaque; boundary should render as outline only."
             warnings.append(row["warning"])
-        if expected_role == "boundary" and outline_width and outline_width < 2:
+        if expected_role == "boundary" and outline_width and outline_width < 3:
             row["warning"] = row.get("warning") or "Boundary outline is too weak for the requested AOI."
+            warnings.append(row["warning"])
+        if expected_role == "boundary" and isinstance(layer.get("draw_order"), (int, float)) and float(layer["draw_order"]) <= 34:
+            row["warning"] = row.get("warning") or "Boundary draw order is below primary polygon results."
             warnings.append(row["warning"])
         if expected_role in {"flood", "floodplain_overlay"} and (_fill_alpha(layer) < 80 or outline_width < 1.5):
             row["warning"] = row.get("warning") or "Floodplain symbol is too weak for enterprise map output."
@@ -340,10 +344,24 @@ def visible_map_qa(
             warnings.append(
                 "AutoMap found the relevant layers but the filter returned no visible features. Try broadening the zoning filter or showing all zoning around Concord."
             )
+    boundary_rows = [item for item in summary if item.get("visible") and item.get("expected_role") == "boundary"]
+    primary_rows = [
+        item
+        for item in summary
+        if item.get("visible") and item.get("expected_role") in {"affected_parcels", "zoning", "roads"} and int(item.get("feature_count") or 0) > 0
+    ]
     return {
         "visible_feature_summary": summary,
         "visible_feature_total": visible_total,
         "visible_extent": visible_extent,
         "warnings": sorted({warning for warning in warnings if warning}),
         "fallback_used": fallback_used,
+        "visual_quality": {
+            "boundary_visible": not boundary_rows or all(not item.get("warning") for item in boundary_rows),
+            "legend_truth": True,
+            "primary_result_visible": bool(primary_rows) or visible_total > 0,
+            "clutter_score": min(100, visible_total),
+            "extent_focus_score": 1 if visible_extent else 0,
+            "repairs_applied": [],
+        },
     }

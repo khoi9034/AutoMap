@@ -34,10 +34,12 @@ def test_zoning_cartography_uses_visible_commercial_highlight():
 
 def test_layer_order_keeps_roads_above_polygons():
     zoning = {"cartography_role": "commercial_zoning", "map_role": "primary_polygon_highlight"}
+    flood = {"cartography_role": "flood", "map_role": "floodplain_overlay"}
+    affected = {"cartography_role": "affected_parcels", "map_role": "affected_parcels"}
     roads = {"cartography_role": "major_roads", "map_role": "major_road"}
     boundary = {"cartography_role": "boundary", "map_role": "boundary_outline"}
 
-    assert context_draw_rank(boundary) < context_draw_rank(zoning) < context_draw_rank(roads)
+    assert context_draw_rank(flood) < context_draw_rank(zoning) < context_draw_rank(affected) < context_draw_rank(boundary) < context_draw_rank(roads)
 
 
 def test_plain_legend_labels_are_user_facing():
@@ -69,10 +71,10 @@ def test_floodplain_screening_cartography_highlights_affected_parcels():
     assert flood["drawing_info"]["renderer"]["symbol"]["color"] == [14, 165, 233, 112]
     assert flood["drawing_info"]["renderer"]["symbol"]["outline"]["width"] >= 1.5
     assert boundary["drawing_info"]["renderer"]["symbol"]["color"][3] == 0
-    assert boundary["drawing_info"]["renderer"]["symbol"]["outline"]["width"] >= 2.4
-    assert boundary["min_stroke_width"] >= 2.4
+    assert boundary["drawing_info"]["renderer"]["symbol"]["outline"]["width"] >= 3
+    assert boundary["min_stroke_width"] >= 3
     assert affected["drawing_info"]["renderer"]["symbol"]["outline"]["width"] <= 1.5
-    assert context_draw_rank({"map_role": "floodplain_overlay"}) < context_draw_rank({"map_role": "affected_parcels"})
+    assert context_draw_rank({"map_role": "affected_parcels"}) < context_draw_rank({"map_role": "boundary_outline"})
 
 
 def test_dense_primary_polygons_use_generalized_display_mode():

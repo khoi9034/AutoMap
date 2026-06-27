@@ -211,6 +211,35 @@ def test_brain_visible_map_qa_flags_filled_boundary_renderer():
     assert any("Boundary layer fill is too opaque" in warning for warning in qa["warnings"])
 
 
+def test_brain_visible_map_qa_flags_boundary_below_primary_polygons():
+    class FakeClient:
+        def query_count(self, *_args, **_kwargs):
+            return {"count": 1}
+
+        def query_extent(self, *_args, **_kwargs):
+            return {"extent": {"xmin": -80.6, "ymin": 35.3, "xmax": -80.5, "ymax": 35.4, "spatialReference": {"wkid": 4326}}}
+
+    recipe = {"request_plan": {"request_type": "floodplain_screening", "parameters": {"geography": "Concord"}}}
+    preview = {
+        "context_layers": [
+            {
+                "layer_key": "municipal",
+                "title": "Concord boundary",
+                "category": "jurisdiction",
+                "url": "https://example.test/municipal/0",
+                "visibility": True,
+                "draw_order": 10,
+                "drawing_info": {"renderer": {"symbol": {"type": "esriSFS", "color": [255, 255, 255, 0], "outline": {"width": 3.2}}}},
+            }
+        ],
+    }
+
+    qa = run_visible_map_qa(preview, recipe, query_client=FakeClient())
+
+    assert any("Boundary draw order is below primary polygon results" in warning for warning in qa["warnings"])
+    assert qa["visual_quality"]["boundary_visible"] is False
+
+
 def test_brain_visible_map_qa_flags_weak_floodplain_symbol():
     class FakeClient:
         def query_count(self, *_args, **_kwargs):

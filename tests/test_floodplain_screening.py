@@ -141,7 +141,7 @@ def test_composer_floodplain_preview_promotes_affected_parcels(monkeypatch, tmp_
     assert flood_legend["outline_color"] == [2, 132, 199, 235]
     assert flood_legend["outline_width"] >= 1.5
     assert boundary_legend["fill_color"] == [255, 255, 255, 0]
-    assert boundary_legend["outline_width"] >= 2.4
+    assert boundary_legend["outline_width"] >= 3
     assert affected_legend["fill_color"] == [245, 158, 11, 118]
     assert affected_legend["outline_width"] <= 1.5
     assert all(item["label"] != "Tax Parcels" for item in legend_items)

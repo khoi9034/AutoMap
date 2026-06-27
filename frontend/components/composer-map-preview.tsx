@@ -288,7 +288,9 @@ function graphicsForFeature(
   return [];
 }
 
-function overlayKind(overlay: DerivedOverlay): "route" | "parcel" | "origin" | "target" | "other" {
+type OverlayKind = "route" | "parcel" | "origin" | "target" | "other";
+
+function overlayKind(overlay: DerivedOverlay): OverlayKind {
   const blob = `${overlay.role || ""} ${overlay.geometry_role || ""} ${overlay.symbol_key || ""} ${overlay.id || ""}`.toLowerCase();
   if (blob.includes("route") || blob.includes("distance_line") || blob.includes("straight_line")) return "route";
   if (blob.includes("parcel")) return "parcel";
@@ -318,8 +320,8 @@ function addOverlayGraphicsLayer(
   map.add(layer);
 }
 
-function addDerivedOverlayLayers(map: ArcMap, items: LoadedOverlay[], modules: ArcModules): void {
-  const visibleItems = items.filter((item) => overlayVisible(item.overlay));
+function addDerivedOverlayLayers(map: ArcMap, items: LoadedOverlay[], modules: ArcModules, kinds?: OverlayKind[]): void {
+  const visibleItems = items.filter((item) => overlayVisible(item.overlay) && (!kinds || kinds.includes(overlayKind(item.overlay))));
   const byKind = (kind: ReturnType<typeof overlayKind>) => visibleItems.filter((item) => overlayKind(item.overlay) === kind);
   const routeItems = byKind("route");
 
@@ -332,10 +334,11 @@ function addDerivedOverlayLayers(map: ArcMap, items: LoadedOverlay[], modules: A
 }
 
 function contextDrawRank(layer: PreviewLayer): number {
-  const blob = `${layer.role || ""} ${layer.layer_key || ""} ${layer.title || ""} ${layer.category || ""}`.toLowerCase();
-  if (blob.includes("boundary") || blob.includes("municipal") || blob.includes("district")) return 10;
+  if (typeof layer.draw_order === "number") return layer.draw_order;
+  const blob = `${layer.map_role || ""} ${layer.cartography_role || ""} ${layer.role || ""} ${layer.layer_key || ""} ${layer.title || ""} ${layer.category || ""}`.toLowerCase();
   if (blob.includes("zoning") || blob.includes("flood") || blob.includes("school")) return 20;
   if (blob.includes("parcel")) return 30;
+  if (blob.includes("boundary") || blob.includes("municipal") || blob.includes("district")) return 36;
   if (blob.includes("road") || blob.includes("street") || blob.includes("centerline")) return 40;
   return 25;
 }
@@ -538,8 +541,11 @@ export function ComposerMapPreview({
         const map = new modules.EsriMap({
           basemap: response.preview_config?.basemap || "streets-vector",
         });
-        addContextLayers(map, contextLayers, modules);
-        addDerivedOverlayLayers(map, loaded, modules);
+        addContextLayers(map, contextLayers.filter((layer) => contextDrawRank(layer) < 36), modules);
+        addDerivedOverlayLayers(map, loaded, modules, ["parcel", "other"]);
+        addContextLayers(map, contextLayers.filter((layer) => contextDrawRank(layer) === 36), modules);
+        addContextLayers(map, contextLayers.filter((layer) => contextDrawRank(layer) > 36), modules);
+        addDerivedOverlayLayers(map, loaded, modules, ["route", "origin", "target"]);
 
         const configuredExtent = numericExtent(response.preview_config?.focus_extent || response.preview_config?.initial_extent);
         const computedExtent = featureCollectionBounds(loaded.map((item) => item.collection));

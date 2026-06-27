@@ -766,6 +766,7 @@ def _augment_preview_config(preview_config: dict[str, Any] | None, recipe: dict[
         "warnings": qa.get("warnings") or [],
         "aoi_summary": (config.get("aoi") or {}).get("summary"),
         "display_complexity": config.get("display_complexity"),
+        "visual_quality": qa.get("visual_quality"),
     }
     if isinstance(qa.get("visible_extent"), dict) and qa["visible_extent"]:
         config["initial_extent"] = qa["visible_extent"]
