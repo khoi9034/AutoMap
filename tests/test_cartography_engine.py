@@ -2,7 +2,9 @@ from app.automap_brain.cartography_engine import (
     cartography_for_role,
     context_draw_rank,
     display_mode_for_role,
+    map_purpose_for_recipe,
     plain_legend_label,
+    relationship_type_for_recipe,
     style_context_layer,
     universal_layer_role,
 )
@@ -75,6 +77,23 @@ def test_floodplain_screening_cartography_highlights_affected_parcels():
     assert boundary["min_stroke_width"] >= 3
     assert affected["drawing_info"]["renderer"]["symbol"]["outline"]["width"] <= 1.5
     assert context_draw_rank({"map_role": "affected_parcels"}) < context_draw_rank({"map_role": "boundary_outline"})
+
+
+def test_relationship_overlay_composites_constraint_between_result_and_boundary():
+    recipe = {"request_plan": {"request_type": "floodplain_screening", "spatial_relationships": ["intersects"]}}
+    purpose = map_purpose_for_recipe(recipe)
+    affected = cartography_for_role("affected_parcels", map_purpose=purpose)
+    flood = cartography_for_role("flood", map_purpose=purpose)
+    boundary = cartography_for_role("boundary", map_purpose=purpose)
+
+    assert purpose == "relationship_overlay"
+    assert relationship_type_for_recipe(recipe) == "target_intersects_constraint"
+    assert affected["relationship_role"] == "target_result"
+    assert flood["relationship_role"] == "constraint_overlay"
+    assert affected["draw_order"] < flood["draw_order"] < boundary["draw_order"]
+    assert affected["drawing_info"]["renderer"]["symbol"]["color"] == [245, 158, 11, 82]
+    assert flood["drawing_info"]["renderer"]["symbol"]["color"] == [14, 165, 233, 96]
+    assert flood["drawing_info"]["renderer"]["symbol"]["outline"]["width"] >= 2
 
 
 def test_dense_primary_polygons_use_generalized_display_mode():

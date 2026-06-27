@@ -69,6 +69,8 @@ def test_floodplain_screening_attaches_affected_parcel_overlay(monkeypatch, tmp_
     assert overlay["role"] == "affected_parcels"
     assert overlay["symbol_key"] == "affected_floodplain_parcel"
     assert overlay["legend_label"] == "Parcels in 100-year floodplain"
+    assert overlay["relationship_role"] == "target_result"
+    assert overlay["draw_order"] == 34
     assert overlay["feature_count"] == 1
     assert overlay["extent"]["xmin"] < overlay["extent"]["xmax"]
 
@@ -120,6 +122,8 @@ def test_composer_floodplain_preview_promotes_affected_parcels(monkeypatch, tmp_
     result = generate_composer_draft("show parcels in Concord that are in the 100-year floodplain")
 
     assert result["request_type"] == "floodplain_screening"
+    assert result["map_purpose"] == "relationship_overlay"
+    assert result["relationship_type"] == "target_intersects_constraint"
     assert result["result_state"] == "ready"
     assert result["can_preview"] is True
     assert result["requested_result"] == "Parcels in 100-year floodplain"
@@ -131,18 +135,20 @@ def test_composer_floodplain_preview_promotes_affected_parcels(monkeypatch, tmp_
     assert result["map_layout"]["subtitle"].startswith("Parcels intersecting the 100-year floodplain")
     overlays = result["preview_config"]["derived_overlays"]
     assert overlays[0]["legend_label"] == "Parcels in 100-year floodplain"
+    assert overlays[0]["relationship_role"] == "target_result"
+    assert overlays[0]["draw_order"] == 34
     legend_items = result["map_layout"]["legend_items"]
     flood_legend = next(item for item in legend_items if item["label"] == "100-year floodplain")
     boundary_legend = next(item for item in legend_items if item["label"] == "Concord boundary")
     affected_legend = next(item for item in legend_items if item["label"] == "Parcels in 100-year floodplain")
-    assert flood_legend["drawing_info"]["renderer"]["symbol"]["color"] == [14, 165, 233, 112]
-    assert flood_legend["fill_color"] == [14, 165, 233, 112]
-    assert flood_legend["fill_opacity"] > 0.4
-    assert flood_legend["outline_color"] == [2, 132, 199, 235]
-    assert flood_legend["outline_width"] >= 1.5
+    assert flood_legend["drawing_info"]["renderer"]["symbol"]["color"] == [14, 165, 233, 96]
+    assert flood_legend["fill_color"] == [14, 165, 233, 96]
+    assert flood_legend["fill_opacity"] > 0.35
+    assert flood_legend["outline_color"] == [2, 132, 199, 245]
+    assert flood_legend["outline_width"] >= 2
     assert boundary_legend["fill_color"] == [255, 255, 255, 0]
     assert boundary_legend["outline_width"] >= 3
-    assert affected_legend["fill_color"] == [245, 158, 11, 118]
+    assert affected_legend["fill_color"] == [245, 158, 11, 82]
     assert affected_legend["outline_width"] <= 1.5
     assert all(item["label"] != "Tax Parcels" for item in legend_items)
     context_layers = result["preview_config"]["context_layers"]
@@ -153,7 +159,10 @@ def test_composer_floodplain_preview_promotes_affected_parcels(monkeypatch, tmp_
     assert parcel_layer["diagnostics_only"] is True
     assert parcel_layer["map_role"] == "diagnostics_only"
     assert flood_layer["legend_label"] == "100-year floodplain"
+    assert flood_layer["relationship_role"] == "constraint_overlay"
+    assert flood_layer["draw_order"] == 35
     assert boundary_layer["legend_label"] == "Concord boundary"
+    assert result["map_layout"]["how_to_read"].startswith("Orange areas show affected parcels")
     assert result["visible_feature_summary"][0]["expected_role"] == "affected_parcels"
 
 

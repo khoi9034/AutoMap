@@ -13,7 +13,7 @@ import os
 from pathlib import Path
 from typing import Any
 
-from app.automap_brain.cartography_engine import cartography_for_role, display_mode_for_role
+from app.automap_brain.cartography_engine import cartography_for_role, display_mode_for_role, map_purpose_for_recipe
 from app.analysis_models import HARD_MAX_FEATURES
 from app.geometry_utils import buffer_extent, geojson_extent, make_generalized_display_geojson
 from app.spatial_query_client import SpatialQueryClient
@@ -139,12 +139,17 @@ def _display_metadata(result: dict[str, Any]) -> dict[str, Any]:
     return metadata
 
 
-def _derived_overlay(result: dict[str, Any], extent: dict[str, Any] | None, display: dict[str, Any] | None = None) -> dict[str, Any] | None:
+def _derived_overlay(
+    result: dict[str, Any],
+    extent: dict[str, Any] | None,
+    display: dict[str, Any] | None = None,
+    recipe: dict[str, Any] | None = None,
+) -> dict[str, Any] | None:
     display = display or _display_metadata(result)
     path = display.get("path") or result.get("output_geojson_path")
     if not path:
         return None
-    style = cartography_for_role("affected_parcels")
+    style = cartography_for_role("affected_parcels", map_purpose=map_purpose_for_recipe(recipe or {}))
     return {
         "id": f"affected_floodplain_parcels_{result.get('analysis_run_id') or 'analysis'}",
         "title": "Parcels in 100-year floodplain",
@@ -164,6 +169,11 @@ def _derived_overlay(result: dict[str, Any], extent: dict[str, Any] | None, disp
         "cartography_role": style["cartography_role"],
         "opacity": style["opacity"],
         "drawing_info": style["drawing_info"],
+        "draw_order": style.get("draw_order"),
+        "relationship_role": style.get("relationship_role"),
+        "compositing_mode": style.get("compositing_mode"),
+        "min_stroke_width": style.get("min_stroke_width"),
+        "scale_behavior": style.get("scale_behavior"),
         "feature_count": int(result.get("output_count") or 0),
         "display_feature_count": int(display.get("display_feature_count") or result.get("output_count") or 0),
         "display_mode": display.get("display_mode"),
@@ -178,11 +188,17 @@ def _derived_overlay(result: dict[str, Any], extent: dict[str, Any] | None, disp
     }
 
 
-def _derived_output(result: dict[str, Any], extent: dict[str, Any] | None, display: dict[str, Any] | None = None) -> dict[str, Any] | None:
+def _derived_output(
+    result: dict[str, Any],
+    extent: dict[str, Any] | None,
+    display: dict[str, Any] | None = None,
+    recipe: dict[str, Any] | None = None,
+) -> dict[str, Any] | None:
     display = display or _display_metadata(result)
     path = result.get("output_geojson_path")
     if not path:
         return None
+    style = cartography_for_role("affected_parcels", map_purpose=map_purpose_for_recipe(recipe or {}))
     return {
         "type": "floodplain_affected_parcels_geojson",
         "path": path,
@@ -205,9 +221,12 @@ def _derived_output(result: dict[str, Any], extent: dict[str, Any] | None, displ
             "title": "Parcels in 100-year floodplain",
             "layer_key": f"affected_floodplain_parcels_{result.get('analysis_run_id') or 'analysis'}",
             "role": "affected_parcels",
-            "map_role": "affected_parcels",
-            "cartography_role": "affected_parcels",
-            "opacity": 0.9,
+            "map_role": style["map_role"],
+            "cartography_role": style["cartography_role"],
+            "opacity": style["opacity"],
+            "drawing_info": style["drawing_info"],
+            "draw_order": style.get("draw_order"),
+            "relationship_role": style.get("relationship_role"),
             "display_mode": display.get("display_mode"),
         },
     }
@@ -262,8 +281,12 @@ def attach_floodplain_screening_result(
         return next_recipe
 
     next_recipe["request_type"] = "floodplain_screening"
+    next_recipe["map_purpose"] = "relationship_overlay"
+    next_recipe["relationship_type"] = "target_intersects_constraint"
     plan = next_recipe.setdefault("request_plan", {})
     plan["request_type"] = "floodplain_screening"
+    plan["map_purpose"] = "relationship_overlay"
+    plan["relationship_type"] = "target_intersects_constraint"
     plan["primary_domain"] = "parcels"
     secondary_domains = list(plan.get("secondary_domains") or [])
     if "floodplain" not in secondary_domains:
@@ -329,8 +352,8 @@ def attach_floodplain_screening_result(
     if result.get("status") == "completed" and output_count > 0 and result.get("output_geojson_path"):
         display = _display_metadata(result)
         extent = buffer_extent(_geojson_extent_from_result(result["output_geojson_path"]), ratio=0.06, minimum=0.002)
-        derived_output = _derived_output(result, extent, display)
-        overlay = _derived_overlay(result, extent, display)
+        derived_output = _derived_output(result, extent, display, next_recipe)
+        overlay = _derived_overlay(result, extent, display, next_recipe)
         if derived_output:
             outputs = next_recipe.setdefault("analysis_execution", {}).setdefault("derived_outputs", [])
             outputs[:] = [

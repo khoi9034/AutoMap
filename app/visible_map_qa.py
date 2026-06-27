@@ -345,6 +345,23 @@ def visible_map_qa(
                 "AutoMap found the relevant layers but the filter returned no visible features. Try broadening the zoning filter or showing all zoning around Concord."
             )
     boundary_rows = [item for item in summary if item.get("visible") and item.get("expected_role") == "boundary"]
+    affected_rows = [item for item in summary if item.get("visible") and item.get("expected_role") == "affected_parcels"]
+    constraint_rows = [item for item in summary if item.get("visible") and item.get("expected_role") in {"flood", "floodplain_overlay"}]
+    constraint_visible = True
+    if (
+        str(recipe.get("map_purpose") or "") == "relationship_overlay"
+        and affected_rows
+        and constraint_rows
+        and any(
+            isinstance(constraint.get("draw_order"), (int, float))
+            and isinstance(affected.get("draw_order"), (int, float))
+            and float(constraint["draw_order"]) <= float(affected["draw_order"])
+            for constraint in constraint_rows
+            for affected in affected_rows
+        )
+    ):
+        constraint_visible = False
+        warnings.append("Relationship constraint overlay is drawn below the primary result and may be hidden.")
     primary_rows = [
         item
         for item in summary
@@ -358,6 +375,7 @@ def visible_map_qa(
         "fallback_used": fallback_used,
         "visual_quality": {
             "boundary_visible": not boundary_rows or all(not item.get("warning") for item in boundary_rows),
+            "constraint_visible": constraint_visible,
             "legend_truth": True,
             "primary_result_visible": bool(primary_rows) or visible_total > 0,
             "clutter_score": min(100, visible_total),

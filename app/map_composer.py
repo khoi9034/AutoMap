@@ -516,6 +516,13 @@ def _build_map_layout(recipe: dict[str, Any], config: dict[str, Any] | None) -> 
     return {
         "title": title,
         "subtitle": subtitle,
+        "map_purpose": recipe.get("map_purpose") or (config or {}).get("map_purpose"),
+        "relationship_type": recipe.get("relationship_type") or (config or {}).get("relationship_type"),
+        "how_to_read": (
+            "Orange areas show affected parcels. Blue overlay shows the 100-year floodplain. Where they overlap, parcels are floodplain-affected."
+            if screening and screening.get("status") == "completed" and int(screening.get("affected_feature_count") or 0) > 0
+            else None
+        ),
         "legend_items": _legend_items_from_preview(config),
         "scale_bar_enabled": True,
         "scale_bar_position": "bottom_center",
@@ -698,6 +705,8 @@ def _augment_preview_config(preview_config: dict[str, Any] | None, recipe: dict[
     config = deepcopy(preview_config)
     config["basemap"] = config.get("basemap") or "streets-vector"
     config["map_title"] = recipe.get("map_title") or webmap_json.get("title") or config.get("map_title")
+    config["map_purpose"] = recipe.get("map_purpose")
+    config["relationship_type"] = recipe.get("relationship_type")
     config["context_layers"] = _composer_context_layers(config.get("operational_layers") or [], recipe)
     config["warnings"] = _review_warnings(recipe, recipe.get("parcel_context") or {})
     proximity_result = recipe.get("proximity_result") or {}
@@ -1100,6 +1109,8 @@ def _base_session_response(
         "related_parcel": origin_context.get("related_parcel"),
         "proximity_result": proximity_result,
         "analysis_type": screening.get("analysis_type"),
+        "map_purpose": recipe.get("map_purpose"),
+        "relationship_type": recipe.get("relationship_type"),
         "result_state": result_state,
         **result_truth,
         "analysis_status": (recipe.get("analysis_execution") or {}).get("analysis_status") or screening.get("status"),

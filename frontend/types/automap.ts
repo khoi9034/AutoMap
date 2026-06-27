@@ -1025,6 +1025,8 @@ export type DerivedOverlay = {
 export type PreviewConfig = {
   map_title?: string;
   original_prompt?: string;
+  map_purpose?: string | null;
+  relationship_type?: string | null;
   basemap?: string;
   initial_extent?: Record<string, JsonValue>;
   operational_layers?: PreviewLayer[];
@@ -1061,6 +1063,9 @@ export type PreviewConfig = {
 export type MapLayout = {
   title?: string;
   subtitle?: string;
+  map_purpose?: string | null;
+  relationship_type?: string | null;
+  how_to_read?: string | null;
   legend_items?: Array<Record<string, JsonValue>>;
   scale_bar_enabled?: boolean;
   scale_bar_position?: string;
@@ -1348,6 +1353,8 @@ export type ComposerResponse = {
   related_parcel?: Record<string, JsonValue> | null;
   proximity_result?: ProximityResult | null;
   analysis_type?: string | null;
+  map_purpose?: string | null;
+  relationship_type?: string | null;
   result_state?: "ready" | "partial" | "blocked" | "no_matches" | "unsupported" | string | null;
   requested_result?: string | null;
   available_context?: string[] | null;

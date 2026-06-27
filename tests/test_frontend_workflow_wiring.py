@@ -394,9 +394,12 @@ def test_map_composer_is_primary_simple_workflow():
     assert "contextDrawRank" in composer_preview
     assert 'typeof layer.draw_order === "number"' in composer_preview
     assert 'return layer.draw_order' in composer_preview
-    assert "addContextLayers(map, contextLayers.filter((layer) => contextDrawRank(layer) < 36), modules)" in composer_preview
+    assert "RESULT_OVERLAY_DRAW_RANK" in composer_preview
+    assert "BOUNDARY_DRAW_RANK" in composer_preview
+    assert "addContextLayers(map, contextLayers.filter((layer) => contextDrawRank(layer) < RESULT_OVERLAY_DRAW_RANK), modules)" in composer_preview
     assert 'addDerivedOverlayLayers(map, loaded, modules, ["parcel", "other"])' in composer_preview
-    assert "addContextLayers(map, contextLayers.filter((layer) => contextDrawRank(layer) === 36), modules)" in composer_preview
+    assert "contextDrawRank(layer) >= RESULT_OVERLAY_DRAW_RANK && contextDrawRank(layer) < BOUNDARY_DRAW_RANK" in composer_preview
+    assert "addContextLayers(map, contextLayers.filter((layer) => contextDrawRank(layer) === BOUNDARY_DRAW_RANK), modules)" in composer_preview
     assert 'addDerivedOverlayLayers(map, loaded, modules, ["route", "origin", "target"])' in composer_preview
     frame_index = composer_preview.index("<MapFrame")
     legend_index = composer_preview.index("<MapLegend overlays={derivedOverlays} contextLayers={contextLayers} />")
@@ -491,6 +494,7 @@ def test_map_composer_is_primary_simple_workflow():
     assert "Diagnostics" in preview_step
     assert "Why this map?" in preview_step
     assert "Interpreted request" in preview_step
+    assert "How to read" in preview_step
     assert "AOI" in preview_step
     assert "100-year floodplain context" in preview_step
     assert "Affected parcel extraction unavailable; showing 100-year floodplain context" in preview_step

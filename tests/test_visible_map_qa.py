@@ -265,3 +265,47 @@ def test_brain_visible_map_qa_flags_weak_floodplain_symbol():
     qa = run_visible_map_qa(preview, recipe, query_client=FakeClient())
 
     assert any("Floodplain symbol is too weak" in warning for warning in qa["warnings"])
+
+
+def test_brain_visible_map_qa_flags_hidden_relationship_constraint():
+    class FakeClient:
+        def query_count(self, *_args, **_kwargs):
+            return {"count": 1}
+
+        def query_extent(self, *_args, **_kwargs):
+            return {"extent": {"xmin": -80.6, "ymin": 35.3, "xmax": -80.5, "ymax": 35.4, "spatialReference": {"wkid": 4326}}}
+
+    recipe = {
+        "map_purpose": "relationship_overlay",
+        "request_plan": {"request_type": "floodplain_screening", "parameters": {"geography": "Concord"}},
+    }
+    preview = {
+        "context_layers": [
+            {
+                "layer_key": "flood_100",
+                "title": "100-year floodplain",
+                "category": "flood",
+                "url": "https://example.test/flood/0",
+                "visibility": True,
+                "draw_order": 22,
+                "drawing_info": {"renderer": {"symbol": {"type": "esriSFS", "color": [14, 165, 233, 96], "outline": {"width": 2}}}},
+            }
+        ],
+        "derived_overlays": [
+            {
+                "id": "affected",
+                "title": "Parcels in 100-year floodplain",
+                "role": "affected_parcels",
+                "geometry_role": "affected_parcels",
+                "feature_count": 1,
+                "visible": True,
+                "draw_order": 34,
+                "local_output": True,
+            }
+        ],
+    }
+
+    qa = run_visible_map_qa(preview, recipe, query_client=FakeClient())
+
+    assert any("constraint overlay is drawn below" in warning for warning in qa["warnings"])
+    assert qa["visual_quality"]["constraint_visible"] is False

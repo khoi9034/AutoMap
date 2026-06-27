@@ -343,6 +343,9 @@ function contextDrawRank(layer: PreviewLayer): number {
   return 25;
 }
 
+const RESULT_OVERLAY_DRAW_RANK = 34;
+const BOUNDARY_DRAW_RANK = 36;
+
 function addContextLayers(map: ArcMap, contextLayers: PreviewLayer[], modules: ArcModules): void {
   [...contextLayers].sort((a, b) => contextDrawRank(a) - contextDrawRank(b)).forEach((layer) => {
     const url = contextLayerUrl(layer);
@@ -541,10 +544,11 @@ export function ComposerMapPreview({
         const map = new modules.EsriMap({
           basemap: response.preview_config?.basemap || "streets-vector",
         });
-        addContextLayers(map, contextLayers.filter((layer) => contextDrawRank(layer) < 36), modules);
+        addContextLayers(map, contextLayers.filter((layer) => contextDrawRank(layer) < RESULT_OVERLAY_DRAW_RANK), modules);
         addDerivedOverlayLayers(map, loaded, modules, ["parcel", "other"]);
-        addContextLayers(map, contextLayers.filter((layer) => contextDrawRank(layer) === 36), modules);
-        addContextLayers(map, contextLayers.filter((layer) => contextDrawRank(layer) > 36), modules);
+        addContextLayers(map, contextLayers.filter((layer) => contextDrawRank(layer) >= RESULT_OVERLAY_DRAW_RANK && contextDrawRank(layer) < BOUNDARY_DRAW_RANK), modules);
+        addContextLayers(map, contextLayers.filter((layer) => contextDrawRank(layer) === BOUNDARY_DRAW_RANK), modules);
+        addContextLayers(map, contextLayers.filter((layer) => contextDrawRank(layer) > BOUNDARY_DRAW_RANK), modules);
         addDerivedOverlayLayers(map, loaded, modules, ["route", "origin", "target"]);
 
         const configuredExtent = numericExtent(response.preview_config?.focus_extent || response.preview_config?.initial_extent);

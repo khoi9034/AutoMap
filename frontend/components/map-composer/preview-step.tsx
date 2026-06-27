@@ -393,6 +393,7 @@ function WhyThisMapPanel({ response }: { response: ComposerResponse }) {
   const requestedResult = response.requested_result || "Parcels in 100-year floodplain";
   const availableContext = response.available_context?.length ? response.available_context.join(", ") : "100-year floodplain, Concord boundary";
   const missingOperation = response.missing_operation || "Parcel-floodplain intersection";
+  const howToRead = response.map_layout?.how_to_read || response.preview_config?.map_layout?.how_to_read || null;
   const requestLabel =
     response.analysis_type === "floodplain_parcel_screening" || screening
       ? "Floodplain parcel screening"
@@ -448,6 +449,12 @@ function WhyThisMapPanel({ response }: { response: ComposerResponse }) {
           <div>
             <dt>Visible features</dt>
             <dd>{totalFeatures}</dd>
+          </div>
+        ) : null}
+        {howToRead ? (
+          <div>
+            <dt>How to read</dt>
+            <dd>{howToRead}</dd>
           </div>
         ) : null}
       </dl>

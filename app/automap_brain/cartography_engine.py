@@ -145,6 +145,47 @@ def universal_layer_role(layer_or_role: dict[str, Any] | str) -> str:
     return UNIVERSAL_LAYER_ROLES.get(str(role), "supporting_context")
 
 
+def map_purpose_for_recipe(recipe: dict[str, Any]) -> str:
+    plan = recipe.get("request_plan") or {}
+    explicit = str(recipe.get("map_purpose") or plan.get("map_purpose") or "").strip()
+    if explicit:
+        return explicit
+    request_type = str(plan.get("request_type") or recipe.get("request_type") or "")
+    if request_type == "proximity":
+        return "proximity_route"
+    if request_type == "floodplain_screening":
+        return "relationship_overlay"
+    primary = str(plan.get("primary_domain") or "")
+    secondary = [str(item) for item in plan.get("secondary_domains") or [] if item]
+    relationships = {str(item) for item in plan.get("spatial_relationships") or [] if item}
+    if primary and secondary and relationships.intersection({"intersects", "within", "contains", "near", "around", "avoids"}):
+        return "relationship_overlay"
+    if request_type == "zoning_context":
+        return "zoning_context"
+    if request_type == "development_activity":
+        return "development_activity"
+    if request_type == "table_request":
+        return "table_preview"
+    return "general_reference"
+
+
+def relationship_type_for_recipe(recipe: dict[str, Any]) -> str | None:
+    if map_purpose_for_recipe(recipe) != "relationship_overlay":
+        return None
+    plan = recipe.get("request_plan") or {}
+    explicit = str(recipe.get("relationship_type") or plan.get("relationship_type") or "").strip()
+    if explicit:
+        return explicit
+    relationships = {str(item) for item in plan.get("spatial_relationships") or [] if item}
+    if relationships.intersection({"intersects", "within", "contains"}):
+        return "target_intersects_constraint"
+    if relationships.intersection({"near", "around"}):
+        return "target_near_context"
+    if relationships.intersection({"avoids", "outside"}):
+        return "target_avoids_constraint"
+    return "target_intersects_constraint"
+
+
 def simple_fill_renderer(fill: list[int], outline: list[int], width: float = 1.0) -> dict[str, Any]:
     return {"type": "simple", "symbol": {"type": "esriSFS", "style": "esriSFSSolid", "color": fill, "outline": {"type": "esriSLS", "style": "esriSLSSolid", "color": outline, "width": width}}}
 
@@ -169,6 +210,39 @@ def _style_from_token(token_key: str) -> dict[str, Any]:
         "min_stroke_width": token["min_stroke_width"],
         "scale_behavior": token["scale_behavior"],
     }
+
+
+def _apply_relationship_compositing(style: dict[str, Any]) -> dict[str, Any]:
+    next_style = deepcopy(style)
+    role = str(next_style.get("map_role") or next_style.get("cartography_role") or "")
+    symbol = (((next_style.get("drawing_info") or {}).get("renderer") or {}).get("symbol") or {})
+    if role == "affected_parcels":
+        symbol["color"] = [245, 158, 11, 82]
+        if isinstance(symbol.get("outline"), dict):
+            symbol["outline"]["color"] = [146, 64, 14, 230]
+            symbol["outline"]["width"] = 1.35
+        next_style.update(
+            {
+                "opacity": 0.86,
+                "draw_order": ROLE_DRAW_ORDER["affected_parcels"],
+                "relationship_role": "target_result",
+                "compositing_mode": "target_fill_constraint_overlay",
+            }
+        )
+    elif role == "floodplain_overlay":
+        symbol["color"] = [14, 165, 233, 96]
+        if isinstance(symbol.get("outline"), dict):
+            symbol["outline"]["color"] = [2, 132, 199, 245]
+            symbol["outline"]["width"] = 2.0
+        next_style.update(
+            {
+                "opacity": 0.58,
+                "draw_order": ROLE_DRAW_ORDER["affected_parcels"] + 1,
+                "relationship_role": "constraint_overlay",
+                "compositing_mode": "constraint_visible_above_target",
+            }
+        )
+    return next_style
 
 
 def display_mode_for_role(
@@ -275,22 +349,24 @@ def context_role(layer: dict[str, Any]) -> str:
     return str(layer.get("role") or layer.get("category") or "context")
 
 
-def cartography_for_role(role: str, *, major_requested: bool = False) -> dict[str, Any]:
+def cartography_for_role(role: str, *, major_requested: bool = False, map_purpose: str | None = None) -> dict[str, Any]:
     if role == "commercial_zoning":
-        return _style_from_token("commercial_zoning")
-    if role == "zoning":
-        return _style_from_token("zoning")
-    if role == "roads":
-        return _style_from_token("major_roads" if major_requested else "roads")
-    if role == "boundary":
-        return _style_from_token("boundary")
-    if role == "flood":
-        return _style_from_token("flood")
-    if role == "affected_parcels":
-        return _style_from_token("affected_parcels")
-    if role == "parcel_context":
-        return _style_from_token("parcel_context")
-    return {"cartography_role": role, "legend_label": "Context layer", "opacity": 0.65}
+        style = _style_from_token("commercial_zoning")
+    elif role == "zoning":
+        style = _style_from_token("zoning")
+    elif role == "roads":
+        style = _style_from_token("major_roads" if major_requested else "roads")
+    elif role == "boundary":
+        style = _style_from_token("boundary")
+    elif role == "flood":
+        style = _style_from_token("flood")
+    elif role == "affected_parcels":
+        style = _style_from_token("affected_parcels")
+    elif role == "parcel_context":
+        style = _style_from_token("parcel_context")
+    else:
+        style = {"cartography_role": role, "legend_label": "Context layer", "opacity": 0.65}
+    return _apply_relationship_compositing(style) if map_purpose == "relationship_overlay" else style
 
 
 def draw_order_for_role(role: str) -> int:
@@ -312,6 +388,8 @@ def draw_order_for_role(role: str) -> int:
 
 
 def context_draw_rank(layer: dict[str, Any]) -> int:
+    if isinstance(layer.get("draw_order"), (int, float)):
+        return int(layer["draw_order"])
     role = str(layer.get("map_role") or layer.get("cartography_role") or context_role(layer))
     return ROLE_DRAW_ORDER.get(role, draw_order_for_role(role))
 
@@ -325,26 +403,27 @@ def plain_legend_label(layer: dict[str, Any]) -> str:
 def style_context_layer(layer: dict[str, Any], recipe: dict[str, Any]) -> dict[str, Any]:
     item = deepcopy(layer)
     role = context_role(item)
+    map_purpose = map_purpose_for_recipe(recipe)
     major_requested = "major" in str(recipe.get("user_intent") or "").lower()
     if role == "zoning" and request_is_commercial_zoning(recipe) and item.get("definition_expression"):
-        style = cartography_for_role("commercial_zoning")
+        style = cartography_for_role("commercial_zoning", map_purpose=map_purpose)
         item["title"] = "Commercial zoning"
     elif role == "zoning":
-        style = cartography_for_role("zoning")
+        style = cartography_for_role("zoning", map_purpose=map_purpose)
         item["title"] = "Zoning context"
     elif role == "roads":
-        style = cartography_for_role("roads", major_requested=major_requested)
+        style = cartography_for_role("roads", major_requested=major_requested, map_purpose=map_purpose)
         item["title"] = style["legend_label"]
     elif role == "boundary":
-        style = cartography_for_role("boundary")
+        style = cartography_for_role("boundary", map_purpose=map_purpose)
         item["title"] = "Concord boundary" if "concord" in str(recipe.get("user_intent") or "").lower() else "Boundary"
         if item["title"] == "Boundary":
             style = {**style, "legend_label": "Boundary"}
     elif role == "flood":
-        style = cartography_for_role("flood")
+        style = cartography_for_role("flood", map_purpose=map_purpose)
         item["title"] = "100-year floodplain"
     elif role == "affected_parcels":
-        style = cartography_for_role("affected_parcels")
+        style = cartography_for_role("affected_parcels", map_purpose=map_purpose)
         item["title"] = "Parcels in 100-year floodplain"
     elif role == "parcel_context":
         style = cartography_for_role("parcel_context")
