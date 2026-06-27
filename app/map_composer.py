@@ -218,8 +218,27 @@ def _preview_blockers(recipe: dict[str, Any]) -> list[str]:
         origin_type = str(origin_context.get("origin_type") or "origin")
         fallback = ADDRESS_NOT_MATCHED_WARNING if origin_type == "address" else "Origin not matched. AutoMap cannot preview this focused map until the origin is matched."
         return [origin_context.get("reason_if_not_focusable") or fallback]
+    primary_blocker = _primary_result_blocker(recipe)
+    if primary_blocker:
+        return [primary_blocker]
     validation = recipe.get("validation") or {}
     return [str(item) for item in validation.get("errors") or [] if item]
+
+
+def _primary_result_blocker(recipe: dict[str, Any]) -> str | None:
+    screening = recipe.get("floodplain_screening") if isinstance(recipe.get("floodplain_screening"), dict) else None
+    if not screening:
+        return None
+    status = str(screening.get("status") or "")
+    affected_count = int(screening.get("affected_feature_count") or 0)
+    if status == "completed" and affected_count > 0:
+        return None
+    if status == "no_matches":
+        return None
+    return str(
+        screening.get("warning")
+        or "AutoMap found the Concord boundary and 100-year floodplain, but could not complete the parcel intersection."
+    )
 
 
 def _can_preview(recipe: dict[str, Any], webmap_json: dict[str, Any]) -> bool:
@@ -444,12 +463,15 @@ def _build_map_layout(recipe: dict[str, Any], config: dict[str, Any] | None) -> 
         subtitle = _map_layout_subtitle(result)
     elif screening:
         aoi_name = str(screening.get("aoi_name") or "Cabarrus County")
-        title = f"{aoi_name} Floodplain Parcel Screening"
+        partial_context = bool(_primary_result_blocker(recipe))
+        title = f"{aoi_name} Floodplain Context" if partial_context else f"{aoi_name} Floodplain Parcel Screening"
         affected_count = int(screening.get("affected_feature_count") or 0)
         if screening.get("status") == "completed" and affected_count > 0:
             subtitle = "Parcels intersecting the 100-year floodplain. Draft only, not an official determination."
+        elif screening.get("status") == "no_matches":
+            subtitle = f"No {aoi_name} parcels were found intersecting the 100-year floodplain in the available data."
         else:
-            subtitle = "100-year floodplain context shown; parcel extraction unavailable. Draft only, not an official determination."
+            subtitle = "Affected parcel extraction unavailable. Showing 100-year floodplain context only."
     else:
         title = recipe.get("map_title") or (config or {}).get("map_title") or "AutoMap Draft Map"
         subtitle = "Draft AutoMap preview, not an official county map."
@@ -464,7 +486,7 @@ def _build_map_layout(recipe: dict[str, Any], config: dict[str, Any] | None) -> 
         "north_arrow_enabled": True,
         "disclaimer": "Draft AutoMap preview - Local only - Not official county map",
         "route_mode_label": route_label,
-        "print_ready": bool(config),
+        "print_ready": bool(config) and not bool(_primary_result_blocker(recipe)),
     }
 
 
@@ -1036,6 +1058,7 @@ def _base_session_response(
         "related_parcel": origin_context.get("related_parcel"),
         "proximity_result": proximity_result,
         "analysis_type": screening.get("analysis_type"),
+        "analysis_status": (recipe.get("analysis_execution") or {}).get("analysis_status") or screening.get("status"),
         "spatial_relationship": screening.get("spatial_relationship"),
         "result_layer_role": screening.get("result_layer_role"),
         "affected_feature_count": screening.get("affected_feature_count"),
@@ -1051,6 +1074,8 @@ def _base_session_response(
         "recipe": recipe,
         "webmap_json": webmap_json,
         "preview_config": preview_config,
+        "preview_status": recipe.get("preview_status"),
+        "preview_quality": recipe.get("preview_quality"),
         "map_layout": (preview_config or {}).get("map_layout") if isinstance(preview_config, dict) else None,
         "visible_feature_summary": (preview_config or {}).get("visible_feature_summary") if isinstance(preview_config, dict) else [],
         "selected_layers": _selected_layers(recipe),
@@ -1325,6 +1350,7 @@ def _fast_floodplain_preview_config(recipe: dict[str, Any], webmap_json: dict[st
         "webmap_path": _repo_relative(session_folder / "webmap.json"),
         "draft_status": "composer_fast_floodplain_fallback",
         "preview_status": recipe.get("preview_status"),
+        "preview_quality": recipe.get("preview_quality"),
         "focus_mode": recipe.get("focus_mode"),
         "can_focus_map": True,
         "parcel_preview_blocked": False,
@@ -1353,7 +1379,7 @@ def _fast_floodplain_fallback_response(
     }
     warning = LIVE_SCREENING_DISABLED_WARNING
     recipe = {
-        "map_title": "Concord Floodplain Parcel Screening",
+        "map_title": "Concord Floodplain Context",
         "request_type": "floodplain_screening",
         "user_intent": prompt,
         "parsed_request": parsed,
@@ -1383,7 +1409,7 @@ def _fast_floodplain_fallback_response(
         "filter_plan": {},
         "validation": {},
         "analysis_execution": {
-            "analysis_status": "fallback_context_only",
+            "analysis_status": "partial_context_only",
             "operation_type": "floodplain_parcel_screening",
             "blocked_reasons": [warning],
             "derived_outputs": [],
@@ -1392,7 +1418,7 @@ def _fast_floodplain_fallback_response(
         },
         "floodplain_screening": {
             "analysis_type": "floodplain_parcel_screening",
-            "status": "fallback_context_only",
+            "status": "partial_context_only",
             "spatial_relationship": "intersects",
             "result_layer_role": "affected_parcels",
             "affected_feature_count": 0,
@@ -1406,7 +1432,8 @@ def _fast_floodplain_fallback_response(
             "warning": warning,
         },
         "focus_mode": "floodplain_screening",
-        "preview_status": "fallback_floodplain_context_only",
+        "preview_status": "partial_floodplain_context_only",
+        "preview_quality": "partial_context_only",
         "recipe_timing": {
             "parse_ms": timing.get("parse_ms", 0),
             "intelligence_ms": timing.get("intelligence_ms", 0),
@@ -1513,7 +1540,7 @@ def generate_composer_draft(prompt: str) -> dict[str, Any]:
             _save_session_payload(session_folder, response)
             return response
 
-    if _can_use_fast_floodplain_fallback(session_folder):
+    if _can_use_fast_floodplain_fallback(session_folder) and not live_floodplain_screening_enabled():
         fast_started = time.perf_counter()
         fast_parsed, fast_plan = _is_fast_floodplain_fallback_prompt(prompt)
         timing["intelligence_ms"] += _elapsed_ms(fast_started)

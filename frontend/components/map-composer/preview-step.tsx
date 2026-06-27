@@ -32,7 +32,49 @@ const PREVIEW_DETAIL_TABS: Array<{ id: PreviewDetailsTab; label: string }> = [
   { id: "diagnostics", label: "Diagnostics" },
 ];
 
-export function PreviewBlocker({ response, onGoToRequest }: { response: ComposerResponse; onGoToRequest: () => void }) {
+function isPartialFloodplainContext(response: ComposerResponse): boolean {
+  const screening = response.floodplain_screening;
+  if (!screening) return false;
+  const status = String(screening.status || response.analysis_status || response.preview_quality || "");
+  return status !== "completed" && status !== "no_matches";
+}
+
+export function PreviewBlocker({
+  response,
+  onGoToRequest,
+  onShowContextMap,
+}: {
+  response: ComposerResponse;
+  onGoToRequest: () => void;
+  onShowContextMap?: () => void;
+}) {
+  const floodplainPartial = isPartialFloodplainContext(response);
+  if (floodplainPartial) {
+    const blockerText =
+      response.preview_blockers?.[0] ||
+      "AutoMap found the Concord boundary and 100-year floodplain, but could not complete the parcel intersection.";
+    return (
+      <section className="panel parcel-preview-blocked" role="alert">
+        <p className="eyebrow">Floodplain screening partial</p>
+        <h3>Parcel intersection unavailable</h3>
+        <p>{blockerText}</p>
+        <div className="definition-box">
+          <strong>What AutoMap found</strong>
+          <p>Concord boundary and 100-year floodplain context are available, but the requested affected parcel result is missing.</p>
+        </div>
+        <div className="button-row">
+          {onShowContextMap ? (
+            <button className="button button-secondary" type="button" onClick={onShowContextMap}>
+              Show context map anyway
+            </button>
+          ) : null}
+          <button className="button" type="button" onClick={onGoToRequest}>
+            Try broader request
+          </button>
+        </div>
+      </section>
+    );
+  }
   const context = response.parcel_context;
   const isAddress = isAddressFocused(response);
   const blockerText = response.preview_blockers?.[0] || context?.reason_if_not_focusable || "";
@@ -244,7 +286,7 @@ function PreviewSummaryPanel({
   previewReady: boolean;
   response: ComposerResponse;
   statusLabel: string;
-  statusTone: "success" | "danger";
+  statusTone: "success" | "warning" | "danger";
 }) {
   const proximity = response.proximity_result;
   const target = proximity?.target_name || "Needs review";
@@ -645,7 +687,7 @@ function PreviewDetailsPanel({
   response: ComposerResponse;
   routeRefineLoading?: boolean;
   statusLabel: string;
-  statusTone: "success" | "danger";
+  statusTone: "success" | "warning" | "danger";
 }) {
   const [activeTab, setActiveTab] = useState<PreviewDetailsTab>("summary");
   const tableRequest = Boolean(response.table_context?.table_requested);
@@ -707,6 +749,7 @@ export function PreviewStep({
   response,
   routeRefineLoading = false,
 }: PreviewStepProps) {
+  const [showPartialContext, setShowPartialContext] = useState(false);
   if (!response) {
     return (
       <section className="panel empty-state">
@@ -718,8 +761,11 @@ export function PreviewStep({
 
   const previewReady = hasPreviewMapPayload(response);
   const tableRequest = Boolean(response.table_context?.table_requested);
-  const statusLabel = previewReady ? "Ready" : tableRequest ? "Table draft" : "Blocked";
-  const statusTone = previewReady || tableRequest ? "success" : "danger";
+  const floodplainPartial = isPartialFloodplainContext(response);
+  const partialContextAvailable = floodplainPartial && Boolean(response.preview_config || response.composer_map_state?.preview_config);
+  const showMap = previewReady || (showPartialContext && partialContextAvailable);
+  const statusLabel = previewReady ? "Ready" : tableRequest ? "Table draft" : floodplainPartial ? "Partial result" : "Blocked";
+  const statusTone = previewReady || tableRequest ? "success" : floodplainPartial ? "warning" : "danger";
   return (
     <section className="composer-preview-layout">
       <div className="composer-preview-main">
@@ -727,8 +773,16 @@ export function PreviewStep({
           <span className="eyebrow">Original request</span>
           <p>{response.raw_prompt || response.prompt}</p>
         </div>
-        {tableRequest && !previewReady ? <TableContextPanel response={response} /> : <PreviewBlocker response={response} onGoToRequest={onGoToRequest} />}
-        {previewReady ? (
+        {tableRequest && !previewReady ? (
+          <TableContextPanel response={response} />
+        ) : (
+          <PreviewBlocker
+            response={response}
+            onGoToRequest={onGoToRequest}
+            onShowContextMap={partialContextAvailable ? () => setShowPartialContext(true) : undefined}
+          />
+        )}
+        {showMap ? (
           <SharedMapRenderer
             mode="preview_locked"
             mapState={response.composer_map_state}

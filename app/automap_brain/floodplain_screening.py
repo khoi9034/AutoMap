@@ -201,10 +201,10 @@ def attach_floodplain_screening_result(
         next_recipe.setdefault("review_reasons", [])
         _append_unique(next_recipe["review_reasons"], warning)
         next_recipe["needs_review"] = True
-        next_recipe["floodplain_screening"] = _screening_summary(next_recipe, status="fallback_context_only", warning=warning)
+        next_recipe["floodplain_screening"] = _screening_summary(next_recipe, status="partial_context_only", warning=warning)
         next_recipe.setdefault("analysis_execution", {}).update(
             {
-                "analysis_status": "fallback_context_only",
+                "analysis_status": "partial_context_only",
                 "operation_type": "floodplain_parcel_screening",
                 "blocked_reasons": [warning],
                 "derived_outputs": [],
@@ -230,10 +230,10 @@ def attach_floodplain_screening_result(
         next_recipe.setdefault("review_reasons", [])
         _append_unique(next_recipe["review_reasons"], warning)
         next_recipe["needs_review"] = True
-        next_recipe["floodplain_screening"] = _screening_summary(next_recipe, status="fallback_context_only", warning=warning)
+        next_recipe["floodplain_screening"] = _screening_summary(next_recipe, status="partial_context_only", warning=warning)
         next_recipe.setdefault("analysis_execution", {}).update(
             {
-                "analysis_status": "fallback_context_only",
+                "analysis_status": "partial_context_only",
                 "operation_type": "floodplain_parcel_screening",
                 "error_category": exc.__class__.__name__,
                 "derived_outputs": [],
@@ -287,16 +287,18 @@ def attach_floodplain_screening_result(
 
     if output_count == 0 and result.get("status") == "completed":
         warning = "No parcels in the requested area intersected the selected 100-year floodplain layer."
+        status = "no_matches"
     else:
         blocked = "; ".join(str(item) for item in result.get("blocked_reasons") or [] if item)
         warning = f"{FLOODPLAIN_SCREENING_WARNING}{f' {blocked}' if blocked else ''}"
+        status = "partial_context_only"
     next_recipe.setdefault("review_reasons", [])
     _append_unique(next_recipe["review_reasons"], warning)
     next_recipe["needs_review"] = True
-    next_recipe["floodplain_screening"] = _screening_summary(next_recipe, status="fallback_context_only", warning=warning)
+    next_recipe["floodplain_screening"] = _screening_summary(next_recipe, status=status, warning=warning)
     next_recipe.setdefault("analysis_execution", {}).update(
         {
-            "analysis_status": "fallback_context_only",
+            "analysis_status": "no_matching_parcels" if status == "no_matches" else "partial_context_only",
             "operation_type": "floodplain_parcel_screening",
             "blocked_reasons": result.get("blocked_reasons") or [warning],
             "derived_outputs": [],

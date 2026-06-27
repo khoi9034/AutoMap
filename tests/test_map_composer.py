@@ -48,6 +48,28 @@ def sample_catalog():
     ]
 
 
+def mark_floodplain_screening_complete(recipe):
+    recipe["floodplain_screening"] = {
+        "analysis_type": "floodplain_parcel_screening",
+        "status": "completed",
+        "spatial_relationship": "intersects",
+        "result_layer_role": "affected_parcels",
+        "affected_feature_count": 1,
+        "floodplain_type": "100_year",
+        "aoi_name": "Concord",
+        "aoi_type": "municipality",
+    }
+    recipe.setdefault("analysis_execution", {}).update(
+        {
+            "analysis_status": "completed",
+            "operation_type": "floodplain_parcel_screening",
+            "output_count": 1,
+            "result_layer_role": "affected_parcels",
+        }
+    )
+    return recipe
+
+
 def selected_parcel_geojson(path: Path) -> None:
     path.write_text(
         json.dumps(
@@ -460,6 +482,7 @@ def test_geography_prompt_uses_focused_review_extent(monkeypatch, tmp_path):
         "app.map_composer.build_recipe",
         lambda prompt: build_recipe(prompt, sample_catalog(), persist_data_gaps=False),
     )
+    monkeypatch.setattr("app.map_composer.attach_floodplain_screening_result", mark_floodplain_screening_complete)
     packet_path = tmp_path / "review_packets" / "packet"
     packet_path.mkdir(parents=True)
     monkeypatch.setattr("app.map_composer.save_review_packet", lambda prompt, recipe, webmap: packet_path)
@@ -618,6 +641,7 @@ def test_composer_adjust_changes_title_visibility_opacity_and_order(monkeypatch,
         "app.map_composer.build_recipe",
         lambda prompt: build_recipe(prompt, sample_catalog(), persist_data_gaps=False),
     )
+    monkeypatch.setattr("app.map_composer.attach_floodplain_screening_result", mark_floodplain_screening_complete)
     monkeypatch.setattr("app.map_composer.save_review_packet", lambda prompt, recipe, webmap: packet_path)
     monkeypatch.setattr("app.map_composer.write_adjusted_packet", lambda packet, recipe, webmap, adjustments: adjusted_path)
     monkeypatch.setattr("app.map_composer._preview_config_for", lambda path, can_preview: {"operational_layers": []})
@@ -659,6 +683,7 @@ def test_composer_map_state_saves_after_generate(monkeypatch, tmp_path):
         "app.map_composer.build_recipe",
         lambda prompt: build_recipe(prompt, sample_catalog(), persist_data_gaps=False),
     )
+    monkeypatch.setattr("app.map_composer.attach_floodplain_screening_result", mark_floodplain_screening_complete)
     monkeypatch.setattr("app.map_composer.save_review_packet", lambda prompt, recipe, webmap: packet_path)
     monkeypatch.setattr("app.map_composer._preview_config_for", lambda path, can_preview: {"operational_layers": []})
 
@@ -684,6 +709,7 @@ def test_composer_export_updates_saved_state_and_report_options(monkeypatch, tmp
         "app.map_composer.build_recipe",
         lambda prompt: build_recipe(prompt, sample_catalog(), persist_data_gaps=False),
     )
+    monkeypatch.setattr("app.map_composer.attach_floodplain_screening_result", mark_floodplain_screening_complete)
     monkeypatch.setattr("app.map_composer.save_review_packet", lambda prompt, recipe, webmap: packet_path)
     monkeypatch.setattr("app.map_composer._preview_config_for", lambda path, can_preview: {"operational_layers": []})
     monkeypatch.setattr(
@@ -723,6 +749,7 @@ def test_full_report_export_mode_enables_appendix_sections(monkeypatch, tmp_path
         "app.map_composer.build_recipe",
         lambda prompt: build_recipe(prompt, sample_catalog(), persist_data_gaps=False),
     )
+    monkeypatch.setattr("app.map_composer.attach_floodplain_screening_result", mark_floodplain_screening_complete)
     monkeypatch.setattr("app.map_composer.save_review_packet", lambda prompt, recipe, webmap: packet_path)
     monkeypatch.setattr("app.map_composer._preview_config_for", lambda path, can_preview: {"operational_layers": []})
     monkeypatch.setattr(

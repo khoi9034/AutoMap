@@ -146,3 +146,45 @@ def test_composer_floodplain_preview_promotes_affected_parcels(monkeypatch, tmp_
     assert flood_layer["legend_label"] == "100-year floodplain"
     assert boundary_layer["legend_label"] == "Concord boundary"
     assert result["visible_feature_summary"][0]["expected_role"] == "affected_parcels"
+
+
+def test_floodplain_context_only_fallback_is_not_ready(monkeypatch, tmp_path):
+    isolate_outputs(monkeypatch, tmp_path)
+    monkeypatch.delenv("AUTOMAP_ENABLE_LIVE_FLOODPLAIN_SCREENING", raising=False)
+    monkeypatch.setattr("app.map_composer._session_root", lambda: tmp_path / "composer_sessions")
+    monkeypatch.setattr("app.map_composer._can_use_fast_floodplain_fallback", lambda _path: True)
+
+    result = generate_composer_draft("show parcels in Concord that are in the 100-year floodplain")
+
+    assert result["can_preview"] is False
+    assert result["analysis_status"] == "partial_context_only"
+    assert result["preview_quality"] == "partial_context_only"
+    assert result["preview_blockers"]
+    assert result["map_layout"]["title"] == "Concord Floodplain Context"
+    assert result["map_layout"]["subtitle"] == "Affected parcel extraction unavailable. Showing 100-year floodplain context only."
+    assert result["map_layout"]["print_ready"] is False
+    labels = {item["label"] for item in result["map_layout"]["legend_items"]}
+    assert "Parcels in 100-year floodplain" not in labels
+    assert {"100-year floodplain", "Concord boundary"}.issubset(labels)
+
+
+def test_floodplain_zero_matches_is_honest_not_blocked(monkeypatch):
+    recipe = build_recipe(
+        "show parcels in Concord that are in the 100-year floodplain",
+        sample_catalog(),
+        persist_data_gaps=False,
+    )
+    monkeypatch.setattr(
+        "app.analysis_executor.execute_analysis",
+        lambda *_args, **_kwargs: {"status": "completed", "output_count": 0, "blocked_reasons": []},
+    )
+
+    screened = attach_floodplain_screening_result(
+        recipe,
+        catalog_records=sample_catalog(),
+        query_client=FakeSpatialQueryClient(),
+    )
+
+    assert screened["floodplain_screening"]["status"] == "no_matches"
+    assert screened["analysis_execution"]["analysis_status"] == "no_matching_parcels"
+    assert screened["analysis_execution"]["output_count"] == 0

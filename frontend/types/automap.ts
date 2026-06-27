@@ -1348,6 +1348,7 @@ export type ComposerResponse = {
   related_parcel?: Record<string, JsonValue> | null;
   proximity_result?: ProximityResult | null;
   analysis_type?: string | null;
+  analysis_status?: string | null;
   spatial_relationship?: string | null;
   result_layer_role?: string | null;
   affected_feature_count?: number | null;
@@ -1360,6 +1361,8 @@ export type ComposerResponse = {
   recipe?: MapRecipe;
   webmap_json?: Record<string, JsonValue>;
   preview_config?: PreviewConfig | null;
+  preview_status?: string | null;
+  preview_quality?: string | null;
   map_layout?: MapLayout | null;
   request_plan?: Record<string, JsonValue> | null;
   visible_feature_summary?: Array<Record<string, JsonValue>>;

@@ -477,6 +477,10 @@ def test_map_composer_is_primary_simple_workflow():
     assert "100-year floodplain context" in preview_step
     assert "Affected parcel extraction unavailable; showing floodplain context" in preview_step
     assert "Affected parcel extraction unavailable; showing 100-year floodplain context" in preview_step
+    assert "Partial result" in preview_step
+    assert "Parcel intersection unavailable" in preview_step
+    assert "Show context map anyway" in preview_step
+    assert "setShowPartialContext(true)" in preview_step
     assert "Display complexity" in preview_step
     assert "clipped to AOI" in preview_step
     assert "Visible map QA" in preview_step
