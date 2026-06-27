@@ -8,13 +8,14 @@ downloaded after server-side narrowing finds a safe affected parcel set.
 from __future__ import annotations
 
 from copy import deepcopy
+import json
 import os
 from pathlib import Path
 from typing import Any
 
-from app.automap_brain.cartography_engine import cartography_for_role
+from app.automap_brain.cartography_engine import cartography_for_role, display_mode_for_role
 from app.analysis_models import HARD_MAX_FEATURES
-from app.geometry_utils import buffer_extent, geojson_extent
+from app.geometry_utils import buffer_extent, geojson_extent, make_generalized_display_geojson
 from app.spatial_query_client import SpatialQueryClient
 from app.ui_models import output_file_url
 
@@ -71,8 +72,76 @@ def _append_unique(values: list[str], value: str) -> list[str]:
     return values
 
 
-def _derived_overlay(result: dict[str, Any], extent: dict[str, Any] | None) -> dict[str, Any] | None:
+def _resolve_output_path(path: str | Path) -> Path:
+    source = Path(path)
+    if source.is_absolute():
+        return source
+    try:
+        from app.analysis_executor import repo_root as analysis_repo_root
+
+        return analysis_repo_root() / source
+    except Exception:
+        return source
+
+
+def _display_path_value(path: str | Path) -> str:
+    source = Path(path)
+    return str(source.with_name(f"{source.stem}_display{source.suffix or '.geojson'}"))
+
+
+def _display_metadata(result: dict[str, Any]) -> dict[str, Any]:
     path = result.get("output_geojson_path")
+    feature_count = int(result.get("output_count") or 0)
+    mode = display_mode_for_role(
+        "affected_parcels",
+        feature_count=feature_count,
+        geometry_type="polygon",
+        focus_mode="result_focused_with_aoi_context",
+    )
+    metadata = {
+        **mode,
+        "analysis_geojson_path": path,
+        "display_geojson_path": path,
+        "path": path,
+        "display_generalized": False,
+        "display_feature_count": feature_count,
+    }
+    if not path or mode.get("display_mode") != "dissolved_result_area":
+        return metadata
+    display_value = _display_path_value(path)
+    try:
+        display_path = _resolve_output_path(display_value)
+        display_path.parent.mkdir(parents=True, exist_ok=True)
+        display_geojson = make_generalized_display_geojson(
+            _resolve_output_path(path),
+            max_features=HARD_MAX_FEATURES,
+            name="Parcels in 100-year floodplain display",
+            display_mode=str(mode["display_mode"]),
+            simplify_tolerance=float(mode.get("simplification_tolerance") or 0),
+        )
+        display_path.write_text(json.dumps(display_geojson, separators=(",", ":")), encoding="utf-8")
+        metadata.update(
+            {
+                "path": display_value,
+                "display_geojson_path": display_value,
+                "display_generalized": True,
+                "display_feature_count": len(display_geojson.get("features") or []),
+            }
+        )
+    except Exception as exc:
+        metadata.update(
+            {
+                "display_mode": "simplified_features",
+                "display_generalized": False,
+                "diagnostic_note": f"Display generalization unavailable; using thin affected parcel outlines. {exc.__class__.__name__}",
+            }
+        )
+    return metadata
+
+
+def _derived_overlay(result: dict[str, Any], extent: dict[str, Any] | None, display: dict[str, Any] | None = None) -> dict[str, Any] | None:
+    display = display or _display_metadata(result)
+    path = display.get("path") or result.get("output_geojson_path")
     if not path:
         return None
     style = cartography_for_role("affected_parcels")
@@ -82,6 +151,8 @@ def _derived_overlay(result: dict[str, Any], extent: dict[str, Any] | None) -> d
         "type": "geojson",
         "url": output_file_url(path),
         "path": path,
+        "analysis_geojson_path": display.get("analysis_geojson_path") or result.get("output_geojson_path"),
+        "display_geojson_path": display.get("display_geojson_path") or path,
         "role": "affected_parcels",
         "geometry_role": "affected_parcels",
         "symbol_key": "affected_floodplain_parcel",
@@ -94,6 +165,12 @@ def _derived_overlay(result: dict[str, Any], extent: dict[str, Any] | None) -> d
         "opacity": style["opacity"],
         "drawing_info": style["drawing_info"],
         "feature_count": int(result.get("output_count") or 0),
+        "display_feature_count": int(display.get("display_feature_count") or result.get("output_count") or 0),
+        "display_mode": display.get("display_mode"),
+        "display_generalized": bool(display.get("display_generalized")),
+        "simplification_applied": bool(display.get("display_generalized")),
+        "visual_density_score": display.get("visual_density_score"),
+        "diagnostic_note": display.get("diagnostic_note"),
         "extent": extent,
         "legend_label": "Parcels in 100-year floodplain",
         "analysis_type": "floodplain_parcel_screening",
@@ -101,7 +178,8 @@ def _derived_overlay(result: dict[str, Any], extent: dict[str, Any] | None) -> d
     }
 
 
-def _derived_output(result: dict[str, Any], extent: dict[str, Any] | None) -> dict[str, Any] | None:
+def _derived_output(result: dict[str, Any], extent: dict[str, Any] | None, display: dict[str, Any] | None = None) -> dict[str, Any] | None:
+    display = display or _display_metadata(result)
     path = result.get("output_geojson_path")
     if not path:
         return None
@@ -109,6 +187,12 @@ def _derived_output(result: dict[str, Any], extent: dict[str, Any] | None) -> di
         "type": "floodplain_affected_parcels_geojson",
         "path": path,
         "url": output_file_url(path),
+        "display_path": display.get("display_geojson_path") or path,
+        "display_url": output_file_url(display.get("display_geojson_path") or path),
+        "display_mode": display.get("display_mode"),
+        "display_generalized": bool(display.get("display_generalized")),
+        "display_feature_count": int(display.get("display_feature_count") or result.get("output_count") or 0),
+        "diagnostic_note": display.get("diagnostic_note"),
         "title": "Parcels in 100-year floodplain",
         "layer_key": f"affected_floodplain_parcels_{result.get('analysis_run_id') or 'analysis'}",
         "role": "affected_parcels",
@@ -123,25 +207,17 @@ def _derived_output(result: dict[str, Any], extent: dict[str, Any] | None) -> di
             "role": "affected_parcels",
             "map_role": "affected_parcels",
             "cartography_role": "affected_parcels",
-            "opacity": 0.84,
+            "opacity": 0.9,
+            "display_mode": display.get("display_mode"),
         },
     }
 
 
 def _geojson_extent_from_result(path: str | Path) -> dict[str, Any] | None:
-    source = Path(path)
-    candidates = [source]
-    if not source.is_absolute():
-        try:
-            from app.analysis_executor import repo_root as analysis_repo_root
-
-            candidates.append(analysis_repo_root() / source)
-        except Exception:
-            pass
-    for candidate in candidates:
-        if candidate.exists():
-            return geojson_extent(candidate)
-    return geojson_extent(source)
+    source = _resolve_output_path(path)
+    if source.exists():
+        return geojson_extent(source)
+    return geojson_extent(path)
 
 
 def _screening_summary(
@@ -251,9 +327,10 @@ def attach_floodplain_screening_result(
 
     output_count = int(result.get("output_count") or 0)
     if result.get("status") == "completed" and output_count > 0 and result.get("output_geojson_path"):
-        extent = buffer_extent(_geojson_extent_from_result(result["output_geojson_path"]), ratio=0.12, minimum=0.003)
-        derived_output = _derived_output(result, extent)
-        overlay = _derived_overlay(result, extent)
+        display = _display_metadata(result)
+        extent = buffer_extent(_geojson_extent_from_result(result["output_geojson_path"]), ratio=0.06, minimum=0.002)
+        derived_output = _derived_output(result, extent, display)
+        overlay = _derived_overlay(result, extent, display)
         if derived_output:
             outputs = next_recipe.setdefault("analysis_execution", {}).setdefault("derived_outputs", [])
             outputs[:] = [
@@ -284,11 +361,14 @@ def attach_floodplain_screening_result(
                 "operation_type": "floodplain_parcel_screening",
                 "output_count": output_count,
                 "result_layer_role": "affected_parcels",
+                "display_mode": display.get("display_mode"),
+                "display_generalized": bool(display.get("display_generalized")),
+                "display_feature_count": int(display.get("display_feature_count") or output_count),
             }
         )
         if extent:
             next_recipe["suggested_extent"] = extent
-        next_recipe["focus_mode"] = "floodplain_screening"
+        next_recipe["focus_mode"] = "result_focused_with_aoi_context"
         next_recipe["preview_status"] = "ready_for_floodplain_screening_preview"
         return next_recipe
 

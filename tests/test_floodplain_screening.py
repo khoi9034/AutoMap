@@ -143,7 +143,7 @@ def test_composer_floodplain_preview_promotes_affected_parcels(monkeypatch, tmp_
     assert boundary_legend["fill_color"] == [255, 255, 255, 0]
     assert boundary_legend["outline_width"] >= 2.4
     assert affected_legend["fill_color"] == [245, 158, 11, 118]
-    assert affected_legend["outline_width"] > flood_legend["outline_width"]
+    assert affected_legend["outline_width"] <= 1.5
     assert all(item["label"] != "Tax Parcels" for item in legend_items)
     context_layers = result["preview_config"]["context_layers"]
     parcel_layer = next(layer for layer in context_layers if layer["layer_key"] == "parcels")
@@ -155,6 +155,65 @@ def test_composer_floodplain_preview_promotes_affected_parcels(monkeypatch, tmp_
     assert flood_layer["legend_label"] == "100-year floodplain"
     assert boundary_layer["legend_label"] == "Concord boundary"
     assert result["visible_feature_summary"][0]["expected_role"] == "affected_parcels"
+
+
+def test_dense_floodplain_result_uses_generalized_display_geojson(monkeypatch, tmp_path):
+    isolate_outputs(monkeypatch, tmp_path)
+    recipe = build_recipe(
+        "show parcels in Concord that are in the 100-year floodplain",
+        sample_catalog(),
+        persist_data_gaps=False,
+    )
+    output_path = tmp_path / "outputs" / "analysis_runs" / "run" / "affected_parcels.geojson"
+    output_path.parent.mkdir(parents=True)
+
+    features = []
+    for index in range(120):
+        x = float(index % 20)
+        y = float(index // 20)
+        features.append(
+            {
+                "type": "Feature",
+                "properties": {"OBJECTID": index + 1},
+                "geometry": {
+                    "type": "Polygon",
+                    "coordinates": [[[x, y], [x + 0.4, y], [x + 0.4, y + 0.4], [x, y + 0.4], [x, y]]],
+                },
+            }
+        )
+    output_path.write_text(json.dumps({"type": "FeatureCollection", "features": features}), encoding="utf-8")
+
+    monkeypatch.setattr(
+        "app.analysis_executor.execute_analysis",
+        lambda *_args, **_kwargs: {
+            "status": "completed",
+            "analysis_run_id": "run",
+            "output_count": 120,
+            "output_geojson_path": "outputs/analysis_runs/run/affected_parcels.geojson",
+        },
+    )
+
+    screened = attach_floodplain_screening_result(
+        recipe,
+        catalog_records=sample_catalog(),
+        query_client=FakeSpatialQueryClient(),
+    )
+
+    overlay = screened["derived_overlays"][0]
+    derived_output = screened["analysis_execution"]["derived_outputs"][0]
+    display_path = tmp_path / overlay["path"]
+    display_geojson = json.loads(display_path.read_text(encoding="utf-8"))
+
+    assert overlay["display_mode"] == "dissolved_result_area"
+    assert overlay["display_generalized"] is True
+    assert overlay["feature_count"] == 120
+    assert overlay["display_feature_count"] == 1
+    assert overlay["analysis_geojson_path"] == "outputs/analysis_runs/run/affected_parcels.geojson"
+    assert overlay["path"].endswith("affected_parcels_display.geojson")
+    assert display_geojson["features"][0]["properties"]["automap_source_feature_count"] == 120
+    assert derived_output["display_path"] == overlay["display_geojson_path"]
+    assert screened["focus_mode"] == "result_focused_with_aoi_context"
+    assert screened["analysis_execution"]["display_generalized"] is True
 
 
 def test_floodplain_context_only_fallback_is_not_ready(monkeypatch, tmp_path):

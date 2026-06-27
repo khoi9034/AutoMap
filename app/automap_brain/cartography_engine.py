@@ -72,11 +72,11 @@ CARTOGRAPHY_TOKENS: dict[str, dict[str, Any]] = {
         "cartography_role": "affected_parcels",
         "map_role": "affected_parcels",
         "legend_label": "Parcels in 100-year floodplain",
-        "opacity": 0.92,
+        "opacity": 0.9,
         "fill": [245, 158, 11, 118],
         "outline": [146, 64, 14, 245],
-        "width": 2.1,
-        "min_stroke_width": 1.8,
+        "width": 1.2,
+        "min_stroke_width": 1.0,
         "scale_behavior": "primary_result_visible",
     },
     "parcel_context": {
@@ -111,6 +111,9 @@ CARTOGRAPHY_TOKENS: dict[str, dict[str, Any]] = {
         "scale_behavior": "major_context_lines",
     },
 }
+
+DENSE_POLYGON_FEATURE_THRESHOLD = 100
+MEDIUM_POLYGON_FEATURE_THRESHOLD = 50
 
 UNIVERSAL_LAYER_ROLES = {
     "affected_parcels": "primary_result",
@@ -165,6 +168,68 @@ def _style_from_token(token_key: str) -> dict[str, Any]:
         "draw_order": ROLE_DRAW_ORDER.get(token["map_role"], 35),
         "min_stroke_width": token["min_stroke_width"],
         "scale_behavior": token["scale_behavior"],
+    }
+
+
+def display_mode_for_role(
+    role: str,
+    *,
+    feature_count: int = 0,
+    geometry_type: str = "polygon",
+    focus_mode: str | None = None,
+) -> dict[str, Any]:
+    """Return the lightest display mode that keeps dense primary results readable."""
+    normalized_role = str(role or "")
+    normalized_geometry = str(geometry_type or "").lower()
+    try:
+        count = int(feature_count or 0)
+    except (TypeError, ValueError):
+        count = 0
+    is_primary_polygon = normalized_geometry in {"polygon", "multipolygon", "esrigeometrypolygon"} and normalized_role in {
+        "affected_parcels",
+        "primary_result",
+        "primary_polygon_highlight",
+        "commercial_zoning",
+    }
+    if not is_primary_polygon:
+        return {
+            "display_mode": "detailed_features",
+            "visual_density_score": count,
+            "outline_visibility": "normal",
+            "recommendation": "standard_role_style",
+        }
+    if count >= DENSE_POLYGON_FEATURE_THRESHOLD:
+        return {
+            "display_mode": "dissolved_result_area",
+            "visual_density_score": count,
+            "outline_visibility": "generalized_area_outline",
+            "outline_width": 1.2,
+            "fill_opacity": 0.46,
+            "simplification_tolerance": 0.00004,
+            "recommendation": "generalize_dense_primary_polygons",
+            "diagnostic_note": "Display generalized from affected parcel features for map readability.",
+            "focus_mode": focus_mode or "result_focused",
+        }
+    if count >= MEDIUM_POLYGON_FEATURE_THRESHOLD:
+        return {
+            "display_mode": "simplified_features",
+            "visual_density_score": count,
+            "outline_visibility": "thin",
+            "outline_width": 1.0,
+            "fill_opacity": 0.44,
+            "simplification_tolerance": 0.00002,
+            "recommendation": "thin_dense_primary_outlines",
+            "focus_mode": focus_mode or "result_focused",
+        }
+    return {
+        "display_mode": "detailed_features",
+        "visual_density_score": count,
+        "outline_visibility": "normal",
+        "outline_width": 1.2,
+        "fill_opacity": 0.46,
+        "simplification_tolerance": 0,
+        "recommendation": "show_individual_features",
+        "focus_mode": focus_mode or "result_focused",
     }
 
 

@@ -256,6 +256,51 @@ def make_safe_geojson_output(
     }
 
 
+def make_generalized_display_geojson(
+    source: str | Path | dict[str, Any] | list[dict[str, Any]],
+    *,
+    max_features: int,
+    name: str,
+    display_mode: str,
+    simplify_tolerance: float = 0,
+) -> dict[str, Any]:
+    """Dissolve dense polygon results for display while preserving analysis features elsewhere."""
+    features = load_geojson_features(source)
+    if len(features) > max_features:
+        raise GeometrySafetyError(f"Display source feature count {len(features)} exceeds max {max_features}.")
+    dissolved = _union(features)
+    if dissolved.is_empty:
+        return make_safe_geojson_output(features, max_features=max_features, name=name)
+    if simplify_tolerance:
+        try:
+            dissolved = dissolved.simplify(float(simplify_tolerance), preserve_topology=True)
+        except GEOSException as exc:
+            raise GeometrySafetyError("Display geometry could not be simplified safely.") from exc
+    return {
+        "type": "FeatureCollection",
+        "name": name,
+        "features": [
+            {
+                "type": "Feature",
+                "properties": {
+                    "automap_display_generalized": True,
+                    "automap_display_mode": display_mode,
+                    "automap_source_feature_count": len(features),
+                },
+                "geometry": mapping(dissolved),
+            }
+        ],
+        "automap": {
+            "derived_local_analysis_result": True,
+            "display_generalized": True,
+            "display_mode": display_mode,
+            "source_feature_count": len(features),
+            "display_feature_count": 1,
+            "not_published": True,
+        },
+    }
+
+
 def compute_origin_point(feature: dict[str, Any]) -> dict[str, Any]:
     """Return a GeoJSON point for a feature point or polygon centroid."""
     geometry = _feature_geometry(feature)

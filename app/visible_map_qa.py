@@ -228,6 +228,10 @@ def visible_map_qa(
             "aoi_summary": (aoi or {}).get("summary"),
             "max_feature_count": layer.get("max_feature_count"),
             "simplification_applied": bool(layer.get("simplification_applied")),
+            "display_mode": layer.get("display_mode"),
+            "display_generalized": bool(layer.get("display_generalized")),
+            "display_feature_count": layer.get("display_feature_count"),
+            "diagnostic_note": layer.get("diagnostic_note"),
         }
         if not visible:
             summary.append(row)
@@ -244,6 +248,13 @@ def visible_map_qa(
             warnings.append(row["warning"])
         if expected_role in {"flood", "floodplain_overlay"} and (_fill_alpha(layer) < 80 or outline_width < 1.5):
             row["warning"] = row.get("warning") or "Floodplain symbol is too weak for enterprise map output."
+            warnings.append(row["warning"])
+        if (
+            expected_role == "affected_parcels"
+            and int(layer.get("feature_count") or 0) >= 100
+            and layer.get("display_mode") not in {"dissolved_result_area", "simplified_features"}
+        ):
+            row["warning"] = row.get("warning") or "Dense affected parcel results should use a generalized display mode."
             warnings.append(row["warning"])
         if local_aoi and not clipped_to_aoi:
             row["warning"] = "Visible local layer is not marked as clipped to the requested AOI."

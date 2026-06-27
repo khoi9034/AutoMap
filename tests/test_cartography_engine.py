@@ -1,6 +1,7 @@
 from app.automap_brain.cartography_engine import (
     cartography_for_role,
     context_draw_rank,
+    display_mode_for_role,
     plain_legend_label,
     style_context_layer,
     universal_layer_role,
@@ -70,8 +71,20 @@ def test_floodplain_screening_cartography_highlights_affected_parcels():
     assert boundary["drawing_info"]["renderer"]["symbol"]["color"][3] == 0
     assert boundary["drawing_info"]["renderer"]["symbol"]["outline"]["width"] >= 2.4
     assert boundary["min_stroke_width"] >= 2.4
-    assert affected["drawing_info"]["renderer"]["symbol"]["outline"]["width"] > flood["drawing_info"]["renderer"]["symbol"]["outline"]["width"]
+    assert affected["drawing_info"]["renderer"]["symbol"]["outline"]["width"] <= 1.5
     assert context_draw_rank({"map_role": "floodplain_overlay"}) < context_draw_rank({"map_role": "affected_parcels"})
+
+
+def test_dense_primary_polygons_use_generalized_display_mode():
+    dense = display_mode_for_role("affected_parcels", feature_count=150, geometry_type="polygon")
+    sparse = display_mode_for_role("affected_parcels", feature_count=12, geometry_type="polygon")
+    road = display_mode_for_role("road_context", feature_count=500, geometry_type="polyline")
+
+    assert dense["display_mode"] == "dissolved_result_area"
+    assert dense["outline_width"] <= 1.5
+    assert dense["recommendation"] == "generalize_dense_primary_polygons"
+    assert sparse["display_mode"] == "detailed_features"
+    assert road["display_mode"] == "detailed_features"
 
 
 def test_universal_roles_group_primary_context_and_diagnostics():

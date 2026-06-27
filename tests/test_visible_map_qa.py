@@ -131,6 +131,29 @@ def test_brain_visible_map_qa_counts_affected_parcel_overlay():
     assert row["clipped_to_aoi"] is True
 
 
+def test_brain_visible_map_qa_flags_dense_affected_parcels_without_display_mode():
+    recipe = {"request_plan": {"request_type": "floodplain_screening", "parameters": {"geography": "Concord"}}}
+    preview = {
+        "derived_overlays": [
+            {
+                "id": "affected",
+                "title": "Parcels in 100-year floodplain",
+                "role": "affected_parcels",
+                "geometry_role": "affected_parcels",
+                "feature_count": 150,
+                "visible": True,
+                "extent": {"xmin": -80.61, "ymin": 35.36, "xmax": -80.55, "ymax": 35.42, "spatialReference": {"wkid": 4326}},
+                "local_output": True,
+            }
+        ],
+    }
+
+    qa = run_visible_map_qa(preview, recipe)
+
+    assert any("generalized display mode" in warning for warning in qa["warnings"])
+    assert qa["visible_feature_summary"][0]["display_mode"] is None
+
+
 def test_brain_visible_map_qa_uses_truthful_floodplain_fallback_warning():
     class FakeClient:
         def query_count(self, *_args, **_kwargs):
