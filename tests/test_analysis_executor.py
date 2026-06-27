@@ -82,6 +82,7 @@ class FakeSpatialQueryClient:
         self.block_target = block_target
         self.feature_queries: list[str] = []
         self.object_id_queries: list[str] = []
+        self.object_id_query_geometries: list[dict[str, object] | None] = []
         self.object_id_feature_queries: list[str] = []
         self.last_object_id_feature_kwargs: dict[str, object] = {}
 
@@ -100,6 +101,7 @@ class FakeSpatialQueryClient:
 
     def query_object_ids(self, layer_url, **kwargs):
         self.object_id_queries.append(layer_url)
+        self.object_id_query_geometries.append(kwargs.get("geometry"))
         if "parcels" in layer_url:
             if self.block_target:
                 return {
@@ -152,6 +154,21 @@ class FakeBroadParcelCountTimeoutClient(FakeSpatialQueryClient):
         if "parcels" in layer_url and not kwargs.get("geometry"):
             raise SpatialQueryError("Timed out running bounded ArcGIS query.")
         return super().query_count(layer_url, **kwargs)
+
+
+class FakeMultiFloodClient(FakeSpatialQueryClient):
+    def query_features(self, layer_url, **kwargs):
+        if "flood100" in layer_url or "floodway" in layer_url:
+            return {
+                "status": "ok",
+                "count": 3,
+                "features": [
+                    FLOOD100,
+                    feature("Flood B", [[5, 2], [6, 2], [6, 3], [5, 3], [5, 2]], OBJECTID=11),
+                    feature("Flood C", [[7, 2], [8, 2], [8, 3], [7, 3], [7, 2]], OBJECTID=12),
+                ],
+            }
+        return super().query_features(layer_url, **kwargs)
 
 
 def isolate_outputs(monkeypatch, tmp_path):
@@ -261,6 +278,34 @@ def test_optimizer_avoids_broad_parcel_download_and_deduplicates_ids():
     assert plan["candidate_object_ids"] == [100, 101]
     assert not any("parcels" in url for url in fake.feature_queries)
     assert deduplicate_feature_ids([1, "1", 2, 2, 3]) == [1, 2, 3]
+
+
+def test_optimizer_uses_one_multipart_query_per_constraint_chunk():
+    fake = FakeMultiFloodClient()
+    recipe = build_analysis_plan(
+        "Show parcels in Concord that are in the 100-year floodplain.",
+        catalog_records=sample_catalog(),
+        query_client=fake,
+        estimate_counts=False,
+    )["recipe"]
+
+    plan = optimize_intersection_query_plan(
+        recipe,
+        catalog_record("parcels", "Tax Parcels", "parcel"),
+        catalog_record("municipal", "MunicipalDistrict", "jurisdiction"),
+        catalog_record("flood100", "FloodPlain100year", "flood"),
+        query_client=fake,
+        include_object_ids=True,
+    )
+
+    parcel_queries = [
+        geometry
+        for url, geometry in zip(fake.object_id_queries, fake.object_id_query_geometries)
+        if "parcels" in url
+    ]
+    assert len(parcel_queries) == 1
+    assert parcel_queries[0]["type"] == "MultiPolygon"
+    assert plan["chunk_receipts"][0]["geometry_mode"] == "multipart_constraint_chunk"
 
 
 def test_geometry_intersection_function_works_on_small_mock_features():

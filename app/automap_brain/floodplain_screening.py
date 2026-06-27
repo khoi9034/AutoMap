@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from app.automap_brain.cartography_engine import cartography_for_role
-from app.analysis_models import DEFAULT_MAX_FEATURES
+from app.analysis_models import HARD_MAX_FEATURES
 from app.geometry_utils import buffer_extent, geojson_extent
 from app.spatial_query_client import SpatialQueryClient
 from app.ui_models import output_file_url
@@ -178,7 +178,7 @@ def attach_floodplain_screening_result(
     *,
     catalog_records: list[dict[str, Any]] | None = None,
     query_client: Any | None = None,
-    max_features: int = DEFAULT_MAX_FEATURES,
+    max_features: int = HARD_MAX_FEATURES,
 ) -> dict[str, Any]:
     """Execute and attach a bounded affected-parcels layer when appropriate."""
     next_recipe = deepcopy(recipe)
@@ -228,7 +228,7 @@ def attach_floodplain_screening_result(
         result = execute_analysis(
             next_recipe,
             catalog_records=analysis_catalog,
-            query_client=query_client or SpatialQueryClient(max_features=max_features, timeout=12),
+            query_client=query_client or SpatialQueryClient(max_features=max_features, timeout=30),
             max_features=max_features,
             estimate_counts=False,
         )

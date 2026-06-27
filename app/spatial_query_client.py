@@ -316,8 +316,10 @@ class SpatialQueryClient:
         object_ids: list[Any],
         out_fields: str,
         return_geometry: bool,
-        batch_size: int = 100,
+        batch_size: int = 250,
         result_record_count: int | None = None,
+        max_allowable_offset: float | None = None,
+        geometry_precision: int | None = None,
     ) -> dict[str, Any]:
         """Fetch bounded features by explicit object IDs."""
         limit = _bounded_limit(result_record_count or self.max_features, hard_max=self.hard_max_features)
@@ -345,6 +347,8 @@ class SpatialQueryClient:
                 "outFields": out_fields,
                 "returnGeometry": "true" if return_geometry else "false",
                 "outSR": 4326 if return_geometry else None,
+                "maxAllowableOffset": max_allowable_offset if return_geometry else None,
+                "geometryPrecision": geometry_precision if return_geometry else None,
             }
             data, metadata = _fetch_layer_query(layer_url, params, timeout=self.timeout)
             methods.append(metadata["request_method"])
@@ -378,6 +382,8 @@ class SpatialQueryClient:
         out_fields: str = "*",
         return_geometry: bool = True,
         result_record_count: int | None = None,
+        max_allowable_offset: float | None = None,
+        geometry_precision: int | None = None,
     ) -> dict[str, Any]:
         """Query bounded feature results, preferring ArcGIS GeoJSON output."""
         limit = _bounded_limit(result_record_count or self.max_features, hard_max=self.hard_max_features)
@@ -417,6 +423,8 @@ class SpatialQueryClient:
             "outSR": 4326 if return_geometry else None,
             "spatialRel": spatial_rel,
             "resultRecordCount": limit,
+            "maxAllowableOffset": max_allowable_offset if return_geometry else None,
+            "geometryPrecision": geometry_precision if return_geometry else None,
         }
         format_used = params["f"]
         fallback_warning = None
@@ -438,6 +446,8 @@ class SpatialQueryClient:
                 out_fields=out_fields,
                 return_geometry=return_geometry,
                 result_record_count=limit,
+                max_allowable_offset=max_allowable_offset,
+                geometry_precision=geometry_precision,
             )
             data = {
                 "type": "FeatureCollection",

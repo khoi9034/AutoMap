@@ -21,6 +21,8 @@ from app.spatial_query_client import SpatialQueryClient, SpatialQueryError
 
 
 SPATIAL_REL_INTERSECTS = "esriSpatialRelIntersects"
+CONSTRAINT_GEOMETRY_OFFSET = 0.00002
+CONSTRAINT_GEOMETRY_PRECISION = 6
 
 
 def _layer_ref(layer: dict[str, Any] | AnalysisLayerRef | None) -> AnalysisLayerRef:
@@ -80,6 +82,20 @@ def deduplicate_feature_ids(object_ids: list[Any]) -> list[Any]:
         seen.add(marker)
         deduped.append(object_id)
     return deduped
+
+
+def _multipart_polygon_geometry(features: list[dict[str, Any]]) -> dict[str, Any] | None:
+    polygons: list[Any] = []
+    for feature in features:
+        geometry = feature.get("geometry") or {}
+        geometry_type = geometry.get("type")
+        if geometry_type == "Polygon":
+            polygons.append(geometry.get("coordinates") or [])
+        elif geometry_type == "MultiPolygon":
+            polygons.extend(geometry.get("coordinates") or [])
+    if not polygons:
+        return None
+    return {"type": "MultiPolygon", "coordinates": polygons}
 
 
 def build_geometry_first_strategy() -> dict[str, Any]:
@@ -195,8 +211,12 @@ def _query_constraint_features(
         constraint_layer.layer_url or "",
         geometry=geography_envelope,
         spatial_rel=SPATIAL_REL_INTERSECTS,
+        out_fields=constraint_layer.object_id_field or "OBJECTID",
         return_geometry=True,
         result_record_count=min(limits["max_constraint_features"], limits["hard_max_download_features"]),
+        # ponytail: simplify public floodplain geometry enough to avoid REST timeouts; use unsimplified geometry if this becomes official analysis.
+        max_allowable_offset=CONSTRAINT_GEOMETRY_OFFSET,
+        geometry_precision=CONSTRAINT_GEOMETRY_PRECISION,
     )
     features = filter_features_by_polygon(constraint_result.get("features") or [], geography_features)
     return features, constraint_result
@@ -216,10 +236,13 @@ def estimate_candidate_counts(
     for chunk_index, chunk in enumerate(constraint_chunks):
         raw_ids: list[Any] = []
         methods: list[str] = []
-        for feature in chunk:
+        geometry = _multipart_polygon_geometry(chunk)
+        query_features = [chunk[0]] if geometry else chunk
+        for feature in query_features:
+            query_geometry = geometry or feature.get("geometry")
             result = client.query_object_ids(
                 target_layer.layer_url or "",
-                geometry=feature.get("geometry"),
+                geometry=query_geometry,
                 spatial_rel=SPATIAL_REL_INTERSECTS,
             )
             raw_ids.extend(result.get("object_ids") or [])
@@ -237,6 +260,7 @@ def estimate_candidate_counts(
                 "candidate_object_id_count": len(raw_ids),
                 "deduplicated_candidate_count": len(deduped_chunk_ids),
                 "request_methods": sorted(set(methods)),
+                "geometry_mode": "multipart_constraint_chunk" if geometry else "per_feature_constraint_geometry",
                 "status": "ok" if check["passed"] else "blocked",
             }
         )
