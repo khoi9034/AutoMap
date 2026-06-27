@@ -266,6 +266,7 @@ def test_map_composer_is_primary_simple_workflow():
     exhibit_reports_page = read("app/reports/exhibits/page.tsx")
     exhibit_reports_client = read("components/exhibit-report-center-client.tsx")
     api = read("lib/api.ts")
+    automap_proxy = read("app/api/automap/[...path]/route.ts")
     automap_presets = read("lib/automap-presets.ts")
     types = read("types/automap.ts")
 
@@ -697,7 +698,8 @@ def test_map_composer_is_primary_simple_workflow():
     assert "`/api/composer/${encodeURIComponent(payload.composer_session_id)}/save-map-state`" in api
     assert "`/api/composer/${encodeURIComponent(payload.composer_session_id)}/export-exhibit`" in api
     assert "`/api/composer/${encodeURIComponent(composerSessionId)}/route-refine`" in api
-    assert "timeoutMs: 180000" in api
+    assert "timeoutMs: 240000" in api
+    assert 'target.pathname === "/api/composer/generate" ? 240000 : 60000' in automap_proxy
     assert '"/api/composer/adjust"' in api
     assert '"/api/composer/export"' in api
     assert "ComposerResponse" in types
@@ -1456,7 +1458,7 @@ def test_static_demo_fallback_is_available_for_slow_composer_requests():
     assert "setShowStaticDemoOffer(true)" in client
     assert "setStaticDemoPanelVisible(true" in client
     assert "elapsed >= FALLBACK_OFFER_DELAY_SECONDS" in client
-    assert "PUBLIC_DEMO_TIMEOUT_MS = 150000" in client
+    assert "PUBLIC_DEMO_TIMEOUT_MS = 240000" in client
     assert "pendingLiveResponse" in client
     assert "Switch to live result" in request_step
     assert "public_demo_timeout" in client

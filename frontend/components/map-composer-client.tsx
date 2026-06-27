@@ -49,7 +49,7 @@ type ComposerLoadingState = "generate" | "adjust" | "export" | "exhibit" | "rout
 type StaticDemoReason = "manual" | "failed" | "timeout" | "canceled" | "still_running" | null;
 
 const FALLBACK_OFFER_DELAY_SECONDS = 45;
-const PUBLIC_DEMO_TIMEOUT_MS = 150000;
+const PUBLIC_DEMO_TIMEOUT_MS = 240000;
 
 const defaultReportConfig: ReportSectionConfig = {
   include_map_summary: true,

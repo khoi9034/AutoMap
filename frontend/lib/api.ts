@@ -850,7 +850,7 @@ export async function generateComposerDraft(prompt: string): Promise<ComposerRes
 
   return apiFetch<ComposerResponse>("/api/composer/generate", {
     method: "POST",
-    timeoutMs: 180000,
+    timeoutMs: 240000,
     body: JSON.stringify({ prompt, ...presetMetadata }),
   });
 }

@@ -55,7 +55,7 @@ async function proxyAutomapRequest(request: NextRequest, context: RouteContext):
   }
 
   const controller = new AbortController();
-  const timeoutMs = target.pathname === "/api/composer/generate" ? 180000 : 60000;
+  const timeoutMs = target.pathname === "/api/composer/generate" ? 240000 : 60000;
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
