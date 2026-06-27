@@ -241,6 +241,38 @@ def _primary_result_blocker(recipe: dict[str, Any]) -> str | None:
     )
 
 
+def _result_state(recipe: dict[str, Any], can_preview: bool, blockers: list[str]) -> str:
+    screening = recipe.get("floodplain_screening") if isinstance(recipe.get("floodplain_screening"), dict) else None
+    if screening:
+        status = str(screening.get("status") or "")
+        affected_count = int(screening.get("affected_feature_count") or 0)
+        if status == "completed" and affected_count > 0:
+            return "ready"
+        if status == "no_matches":
+            return "no_matches"
+        return "partial"
+    origin_context = recipe.get("origin_context") or {}
+    parcel_context = recipe.get("parcel_context") or {}
+    if origin_context.get("origin_match_status") == "unsupported_area" or parcel_context.get("match_status") == "unsupported_area":
+        return "unsupported"
+    if blockers:
+        return "blocked"
+    return "ready" if can_preview else "blocked"
+
+
+def _result_truth_summary(recipe: dict[str, Any], result_state: str) -> dict[str, Any]:
+    screening = recipe.get("floodplain_screening") if isinstance(recipe.get("floodplain_screening"), dict) else None
+    if not screening:
+        return {}
+    context = ["100-year floodplain", f"{screening.get('aoi_name') or 'Concord'} boundary"]
+    return {
+        "requested_result": "Parcels in 100-year floodplain",
+        "available_context": context if result_state in {"partial", "no_matches"} else [],
+        "missing_operation": "Parcel-floodplain intersection" if result_state == "partial" else None,
+        "primary_result_role": "affected_parcels" if result_state == "ready" else None,
+    }
+
+
 def _can_preview(recipe: dict[str, Any], webmap_json: dict[str, Any]) -> bool:
     if _preview_blockers(recipe):
         return False
@@ -256,7 +288,9 @@ def _can_analyze(recipe: dict[str, Any]) -> bool:
     return bool(analysis.get("executable"))
 
 
-def _next_action(can_preview: bool, blockers: list[str]) -> str:
+def _next_action(can_preview: bool, blockers: list[str], result_state: str = "") -> str:
+    if result_state in {"partial", "no_matches"}:
+        return "context_preview"
     if blockers:
         lowered = " ".join(blockers).lower()
         if "address" in lowered:
@@ -1042,6 +1076,8 @@ def _base_session_response(
     can_preview = _can_preview(recipe, webmap_json)
     if blockers:
         can_preview = False
+    result_state = _result_state(recipe, can_preview, blockers)
+    result_truth = _result_truth_summary(recipe, result_state)
     packet_path = adjusted_packet_path or review_packet_path
     packet_id = packet_path.name if packet_path else None
     webmap_path = session_folder / ("adjusted_webmap.json" if (session_folder / "adjusted_webmap.json").exists() else "webmap.json")
@@ -1058,6 +1094,8 @@ def _base_session_response(
         "related_parcel": origin_context.get("related_parcel"),
         "proximity_result": proximity_result,
         "analysis_type": screening.get("analysis_type"),
+        "result_state": result_state,
+        **result_truth,
         "analysis_status": (recipe.get("analysis_execution") or {}).get("analysis_status") or screening.get("status"),
         "spatial_relationship": screening.get("spatial_relationship"),
         "result_layer_role": screening.get("result_layer_role"),
@@ -1091,12 +1129,12 @@ def _base_session_response(
         "can_analyze": _can_analyze(recipe),
         "can_report": bool(packet_path),
         "preview_blockers": blockers,
-        "next_action": _next_action(can_preview, blockers),
+        "next_action": _next_action(can_preview, blockers, result_state),
         "simple_steps": [
             {"step": "Request", "status": "complete"},
-            {"step": "Preview", "status": "blocked" if blockers else "complete" if can_preview else "pending"},
-            {"step": "Adjust", "status": "pending" if can_preview else "blocked"},
-            {"step": "Print / Export", "status": "pending" if can_preview else "blocked"},
+            {"step": "Preview", "status": "complete" if result_state == "ready" else "blocked" if result_state in {"blocked", "unsupported"} else "pending"},
+            {"step": "Adjust", "status": "pending" if result_state == "ready" else "blocked"},
+            {"step": "Print / Export", "status": "pending" if result_state == "ready" else "blocked"},
         ],
         "debug_details": {"recipe_timing": recipe.get("recipe_timing")},
         "review_packet_id": review_packet_path.name if review_packet_path else None,

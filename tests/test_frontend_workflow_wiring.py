@@ -227,6 +227,7 @@ def test_map_composer_is_primary_simple_workflow():
     step_types = read("components/map-composer/types.ts")
     composer_map_state_lib = read("lib/composer-map-state.ts")
     print_options = read("types/print-options.ts")
+    automap_types = read("types/automap.ts")
     print_preview_panel = read("components/print-preview/print-preview-panel.tsx")
     map_sheet_document = read("components/print-preview/map-sheet-document.tsx")
     print_document_preview = read("components/print-preview/print-document-preview.tsx")
@@ -300,6 +301,12 @@ def test_map_composer_is_primary_simple_workflow():
     assert "ExportStep" in client
     assert "PrintExportStep" in export_step
     assert "hasPreviewMapPayload" in composer_utils
+    assert "composerResultState" in composer_utils
+    assert "context_preview" in composer_utils
+    assert "result_state" in automap_types
+    assert "requested_result" in automap_types
+    assert "available_context" in automap_types
+    assert "missing_operation" in automap_types
     assert "const previewReady = hasPreviewMapPayload(response)" in client
     assert "const previewReady = hasPreviewMapPayload(response)" in preview_step
     assert "if (!hasPreviewMapPayload(response))" in adjust_step
@@ -475,12 +482,16 @@ def test_map_composer_is_primary_simple_workflow():
     assert "Interpreted request" in preview_step
     assert "AOI" in preview_step
     assert "100-year floodplain context" in preview_step
-    assert "Affected parcel extraction unavailable; showing floodplain context" in preview_step
     assert "Affected parcel extraction unavailable; showing 100-year floodplain context" in preview_step
-    assert "Partial result" in preview_step
+    assert "composerResultState" in preview_step
+    assert "Partial" in preview_step
     assert "Parcel intersection unavailable" in preview_step
     assert "Show context map anyway" in preview_step
     assert "setShowPartialContext(true)" in preview_step
+    assert "Requested result" in preview_step
+    assert "Available context" in preview_step
+    assert "Missing operation" in preview_step
+    assert "Context map available" in preview_step
     assert "Display complexity" in preview_step
     assert "clipped to AOI" in preview_step
     assert "Visible map QA" in preview_step

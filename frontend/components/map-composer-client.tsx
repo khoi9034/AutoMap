@@ -12,6 +12,7 @@ import type { ComposerLayerEdit, ComposerStepDisabled, ComposerStepId, ComposerS
 import {
   composerDisplaySubtitle,
   composerDisplayTitle,
+  composerResultState,
   defaultComposerPrompt,
   hasPreviewMapPayload,
   layerEditsFromResponse,
@@ -76,14 +77,13 @@ function composerStepStatuses(
   response: ComposerResponse | null,
   exported: boolean,
 ): ComposerStepStatuses {
-  const previewBlocked = Boolean(response?.preview_blockers?.length);
-  const previewReady = Boolean(response?.can_preview);
+  const resultState = composerResultState(response);
   const adjusted = Boolean(response?.adjusted_packet_id || response?.applied_adjustments);
   return {
     request: activeStep === "request" ? "active" : response ? "complete" : "pending",
-    preview: previewBlocked ? "blocked" : activeStep === "preview" ? "active" : previewReady ? "complete" : "pending",
-    adjust: activeStep === "adjust" ? "active" : adjusted ? "complete" : previewReady ? "pending" : "pending",
-    export: activeStep === "export" ? "active" : exported ? "complete" : previewReady ? "pending" : "pending",
+    preview: activeStep === "preview" ? "active" : resultState === "ready" ? "complete" : resultState === "blocked" || resultState === "unsupported" ? "blocked" : "pending",
+    adjust: activeStep === "adjust" ? "active" : adjusted ? "complete" : resultState === "ready" ? "pending" : "blocked",
+    export: activeStep === "export" ? "active" : exported ? "complete" : resultState === "ready" ? "pending" : "blocked",
   };
 }
 
@@ -151,7 +151,7 @@ export function MapComposerClient() {
       setReportConfig(printOptionsToReportConfig(stored.print_options));
     }
     setPrompt(stored.original_prompt || stored.response.raw_prompt || stored.response.prompt || defaultComposerPrompt);
-    setActiveStep(stored.response.can_preview ? "preview" : "request");
+    setActiveStep(composerResultState(stored.response) === "blocked" ? "request" : "preview");
     setToast({ tone: "default", message: "Restored the most recent live map session." });
   }, []);
 
@@ -274,6 +274,7 @@ export function MapComposerClient() {
       print_options: nextPrintOptions,
     });
     setActiveStep("preview");
+    const resultState = composerResultState(result);
     mergeWorkflowState({
       rawPrompt: prompt,
       recipe: result.recipe,
@@ -282,12 +283,14 @@ export function MapComposerClient() {
       selectedPacketId: result.packet_id || undefined,
       warnings: result.warnings || [],
       missingData: result.missing_data || [],
-      activeStep: result.can_preview ? "preview" : "recipe",
+      activeStep: resultState === "ready" ? "preview" : "recipe",
     });
     setToast({
-      tone: result.can_preview ? "success" : "warning",
-      message: result.can_preview
+      tone: resultState === "ready" ? "success" : "warning",
+      message: resultState === "ready"
         ? "Draft map and preview are ready."
+        : resultState === "partial"
+          ? "Draft created as a partial context map. The requested result is not complete."
         : "Draft created, but preview is blocked until the address or parcel matches.",
     });
   }

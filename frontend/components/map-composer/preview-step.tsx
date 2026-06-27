@@ -8,7 +8,7 @@ import { StatusChip } from "@/components/status-chip";
 import { isRoadRouteMode } from "@/lib/map-symbols";
 import type { ComposerResponse, ProximityResult } from "@/types/automap";
 
-import { actionLabel, composerDisplayTitle, hasPreviewMapPayload, identifierText, isAddressFocused } from "./utils";
+import { actionLabel, composerDisplayTitle, composerResultState, hasContextMapPayload, hasPreviewMapPayload, identifierText, isAddressFocused } from "./utils";
 
 type PreviewStepProps = {
   loading?: boolean;
@@ -33,10 +33,7 @@ const PREVIEW_DETAIL_TABS: Array<{ id: PreviewDetailsTab; label: string }> = [
 ];
 
 function isPartialFloodplainContext(response: ComposerResponse): boolean {
-  const screening = response.floodplain_screening;
-  if (!screening) return false;
-  const status = String(screening.status || response.analysis_status || response.preview_quality || "");
-  return status !== "completed" && status !== "no_matches";
+  return Boolean(response.floodplain_screening && composerResultState(response) === "partial");
 }
 
 export function PreviewBlocker({
@@ -290,6 +287,7 @@ function PreviewSummaryPanel({
 }) {
   const proximity = response.proximity_result;
   const target = proximity?.target_name || "Needs review";
+  const partialContext = composerResultState(response) === "partial";
   return (
     <section className="composer-preview-summary-card">
       <div className="panel-title-row">
@@ -307,7 +305,7 @@ function PreviewSummaryPanel({
         </div>
         <div>
           <span>Next</span>
-          <strong>{actionLabel(response.next_action)}</strong>
+          <strong>{partialContext ? "Context map available" : actionLabel(response.next_action)}</strong>
         </div>
       </div>
       {proximity ? (
@@ -380,16 +378,14 @@ function WhyThisMapPanel({ response }: { response: ComposerResponse }) {
   const plan = planFromResponse(response);
   const params = planParameters(response);
   const screening = response.floodplain_screening;
+  const resultState = composerResultState(response);
   const totalFeatures = visibleFeatureCount(response);
   const fallbackUsed = Boolean(response.preview_config?.visible_map_qa?.fallback_used);
-  const affectedCount =
-    typeof response.affected_feature_count === "number"
-      ? response.affected_feature_count
-      : typeof screening?.affected_feature_count === "number"
-        ? screening.affected_feature_count
-        : null;
-  const screeningFallback = Boolean(screening && (screening.status !== "completed" || affectedCount === 0));
+  const screeningPartial = Boolean(screening && resultState === "partial");
   const aoi = aoiSummary(response);
+  const requestedResult = response.requested_result || "Parcels in 100-year floodplain";
+  const availableContext = response.available_context?.length ? response.available_context.join(", ") : "100-year floodplain, Concord boundary";
+  const missingOperation = response.missing_operation || "Parcel-floodplain intersection";
   const requestLabel =
     response.analysis_type === "floodplain_parcel_screening" || screening
       ? "Floodplain parcel screening"
@@ -412,17 +408,34 @@ function WhyThisMapPanel({ response }: { response: ComposerResponse }) {
             <dd>{aoi}</dd>
           </div>
         ) : null}
-        <div>
-          <dt>Main layer</dt>
-          <dd>{screeningFallback ? "100-year floodplain context" : screening ? "Parcels in 100-year floodplain" : valueList(params.feature_type)}</dd>
-        </div>
+        {screeningPartial ? (
+          <>
+            <div>
+              <dt>Requested result</dt>
+              <dd>{requestedResult}</dd>
+            </div>
+            <div>
+              <dt>Available context</dt>
+              <dd>{availableContext}</dd>
+            </div>
+            <div>
+              <dt>Missing operation</dt>
+              <dd>{missingOperation}</dd>
+            </div>
+          </>
+        ) : (
+          <div>
+            <dt>Primary result</dt>
+            <dd>{screening ? "Parcels in 100-year floodplain" : valueList(params.feature_type)}</dd>
+          </div>
+        )}
         <div>
           <dt>Filter</dt>
           <dd>{screening ? "100-year / 1% annual chance floodplain" : valueList(params.subtype_filter)}</dd>
         </div>
         <div>
           <dt>Status</dt>
-          <dd>{screeningFallback ? "Affected parcel extraction unavailable; showing floodplain context" : fallbackUsed ? "Live result with fallback" : "Live result"}</dd>
+          <dd>{screeningPartial ? "Partial context map" : resultState === "no_matches" ? "No matching parcels found" : fallbackUsed ? "Live result with fallback" : "Live result"}</dd>
         </div>
         {totalFeatures !== null ? (
           <div>
@@ -446,7 +459,9 @@ function FloodplainScreeningPanel({ response }: { response: ComposerResponse }) 
         : null;
   const area = response.aoi_name || (typeof screening?.aoi_name === "string" ? screening.aoi_name : "Concord");
   const warning = typeof screening?.warning === "string" ? screening.warning : null;
-  const fallback = Boolean(screening && (screening.status !== "completed" || affectedCount === 0));
+  const resultState = composerResultState(response);
+  const partial = resultState === "partial";
+  const noMatches = resultState === "no_matches";
   return (
     <section className="panel floodplain-screening-summary">
       <div className="panel-title-row">
@@ -454,12 +469,14 @@ function FloodplainScreeningPanel({ response }: { response: ComposerResponse }) 
           <p className="eyebrow">Spatial screening</p>
           <h3>Floodplain parcel screening</h3>
           <p className="muted">
-            {fallback
+            {partial
               ? `Affected parcel extraction unavailable; showing 100-year floodplain context in ${area}, NC.`
+              : noMatches
+                ? `No parcels were found intersecting the 100-year floodplain in ${area}, NC.`
               : `Parcels intersecting the 100-year floodplain in ${area}, NC.`}
           </p>
         </div>
-        <StatusChip tone={fallback || warning ? "warning" : "success"}>{fallback || warning ? "Fallback" : "Live result"}</StatusChip>
+        <StatusChip tone={partial || noMatches || warning ? "warning" : "success"}>{partial ? "Partial" : noMatches ? "No matches" : warning ? "Needs review" : "Live result"}</StatusChip>
       </div>
       <div className="result-strip">
         <div>
@@ -761,11 +778,13 @@ export function PreviewStep({
 
   const previewReady = hasPreviewMapPayload(response);
   const tableRequest = Boolean(response.table_context?.table_requested);
+  const resultState = composerResultState(response);
   const floodplainPartial = isPartialFloodplainContext(response);
-  const partialContextAvailable = floodplainPartial && Boolean(response.preview_config || response.composer_map_state?.preview_config);
-  const showMap = previewReady || (showPartialContext && partialContextAvailable);
-  const statusLabel = previewReady ? "Ready" : tableRequest ? "Table draft" : floodplainPartial ? "Partial result" : "Blocked";
-  const statusTone = previewReady || tableRequest ? "success" : floodplainPartial ? "warning" : "danger";
+  const noMatches = resultState === "no_matches";
+  const partialContextAvailable = floodplainPartial && hasContextMapPayload(response);
+  const showMap = previewReady || (noMatches && hasContextMapPayload(response)) || (showPartialContext && partialContextAvailable);
+  const statusLabel = resultState === "ready" ? "Ready" : tableRequest ? "Table draft" : resultState === "no_matches" ? "No matches" : floodplainPartial ? "Partial" : resultState === "unsupported" ? "Unsupported" : "Blocked";
+  const statusTone = resultState === "ready" ? "success" : tableRequest || resultState === "partial" || resultState === "no_matches" ? "warning" : "danger";
   return (
     <section className="composer-preview-layout">
       <div className="composer-preview-main">

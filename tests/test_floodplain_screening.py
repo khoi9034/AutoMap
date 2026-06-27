@@ -115,6 +115,10 @@ def test_composer_floodplain_preview_promotes_affected_parcels(monkeypatch, tmp_
     result = generate_composer_draft("show parcels in Concord that are in the 100-year floodplain")
 
     assert result["request_type"] == "floodplain_screening"
+    assert result["result_state"] == "ready"
+    assert result["can_preview"] is True
+    assert result["requested_result"] == "Parcels in 100-year floodplain"
+    assert result["primary_result_role"] == "affected_parcels"
     assert result["analysis_type"] == "floodplain_parcel_screening"
     assert result["affected_feature_count"] == 1
     assert result["result_layer_role"] == "affected_parcels"
@@ -157,12 +161,17 @@ def test_floodplain_context_only_fallback_is_not_ready(monkeypatch, tmp_path):
     result = generate_composer_draft("show parcels in Concord that are in the 100-year floodplain")
 
     assert result["can_preview"] is False
+    assert result["result_state"] == "partial"
+    assert result["requested_result"] == "Parcels in 100-year floodplain"
+    assert result["available_context"] == ["100-year floodplain", "Concord boundary"]
+    assert result["missing_operation"] == "Parcel-floodplain intersection"
     assert result["analysis_status"] == "partial_context_only"
     assert result["preview_quality"] == "partial_context_only"
     assert result["preview_blockers"]
     assert result["map_layout"]["title"] == "Concord Floodplain Context"
     assert result["map_layout"]["subtitle"] == "Affected parcel extraction unavailable. Showing 100-year floodplain context only."
     assert result["map_layout"]["print_ready"] is False
+    assert result["next_action"] == "context_preview"
     labels = {item["label"] for item in result["map_layout"]["legend_items"]}
     assert "Parcels in 100-year floodplain" not in labels
     assert {"100-year floodplain", "Concord boundary"}.issubset(labels)

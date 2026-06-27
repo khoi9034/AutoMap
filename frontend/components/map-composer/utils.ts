@@ -16,10 +16,47 @@ export function localFileUrl(path?: string | null): string {
 export function actionLabel(action?: string): string {
   if (action === "correct_address") return "Correct address";
   if (action === "correct_parcel_identifier") return "Correct parcel/PIN/address";
+  if (action === "context_preview") return "Context map available";
   if (action === "preview_map") return "Preview Map";
   if (action === "preview_adjusted_map") return "Preview Adjusted Map";
   if (action === "print_or_export") return "Print / Export";
   return "Review Draft";
+}
+
+export type ComposerResultState = "ready" | "partial" | "blocked" | "no_matches" | "unsupported";
+
+function hasMapPayload(response: ComposerResponse | null): boolean {
+  const preview = response?.preview_config || response?.composer_map_state?.preview_config;
+  return Boolean(
+    packetIdForPreview(response) ||
+      preview?.derived_overlays?.length ||
+      preview?.context_layers?.length ||
+      preview?.operational_layers?.length ||
+      preview?.focus_extent ||
+      preview?.initial_extent ||
+      response?.proximity_result?.derived_overlays?.length,
+  );
+}
+
+export function composerResultState(response: ComposerResponse | null): ComposerResultState {
+  const explicit = String(response?.result_state || "").toLowerCase();
+  if (["ready", "partial", "blocked", "no_matches", "unsupported"].includes(explicit)) return explicit as ComposerResultState;
+  const screening = response?.floodplain_screening;
+  if (screening) {
+    const status = String(screening.status || response?.analysis_status || response?.preview_quality || "");
+    const affectedCount =
+      typeof response?.affected_feature_count === "number"
+        ? response.affected_feature_count
+        : typeof screening.affected_feature_count === "number"
+          ? screening.affected_feature_count
+          : 0;
+    if (status === "completed" && affectedCount > 0) return "ready";
+    if (status === "no_matches" || response?.analysis_status === "no_matching_parcels") return "no_matches";
+    return "partial";
+  }
+  if (response?.origin_match_status === "unsupported_area" || response?.parcel_context?.match_status === "unsupported_area") return "unsupported";
+  if (response?.preview_blockers?.length) return "blocked";
+  return response?.can_preview ? "ready" : "blocked";
 }
 
 export function isAddressFocused(response: ComposerResponse): boolean {
@@ -109,17 +146,11 @@ export function packetIdForPreview(response: ComposerResponse | null): string {
 }
 
 export function hasPreviewMapPayload(response: ComposerResponse | null): response is ComposerResponse {
-  if (!response?.can_preview) return false;
-  const preview = response.preview_config || response.composer_map_state?.preview_config;
-  return Boolean(
-    packetIdForPreview(response) ||
-      preview?.derived_overlays?.length ||
-      preview?.context_layers?.length ||
-      preview?.operational_layers?.length ||
-      preview?.focus_extent ||
-      preview?.initial_extent ||
-      response.proximity_result?.derived_overlays?.length,
-  );
+  return Boolean(response?.can_preview && composerResultState(response) === "ready" && hasMapPayload(response));
+}
+
+export function hasContextMapPayload(response: ComposerResponse | null): response is ComposerResponse {
+  return hasMapPayload(response);
 }
 
 export function composerDisplayTitle(response: ComposerResponse | null): string {

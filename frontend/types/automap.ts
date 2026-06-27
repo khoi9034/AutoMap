@@ -1348,6 +1348,11 @@ export type ComposerResponse = {
   related_parcel?: Record<string, JsonValue> | null;
   proximity_result?: ProximityResult | null;
   analysis_type?: string | null;
+  result_state?: "ready" | "partial" | "blocked" | "no_matches" | "unsupported" | string | null;
+  requested_result?: string | null;
+  available_context?: string[] | null;
+  missing_operation?: string | null;
+  primary_result_role?: string | null;
   analysis_status?: string | null;
   spatial_relationship?: string | null;
   result_layer_role?: string | null;
