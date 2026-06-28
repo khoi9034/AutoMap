@@ -70,7 +70,7 @@ function absoluteApiUrl(url?: string): string | null {
 }
 
 function overlayIsGeneratedGraphic(overlay: DerivedOverlay): boolean {
-  const blob = `${overlay.kind || ""} ${overlay.layer_type || ""} ${overlay.role || ""} ${overlay.geometry_role || ""} ${overlay.symbol_key || ""}`.toLowerCase();
+  const blob = `${overlay.source_kind || ""} ${overlay.kind || ""} ${overlay.layer_type || ""} ${overlay.role || ""} ${overlay.geometry_role || ""} ${overlay.symbol_key || ""}`.toLowerCase();
   return (
     blob.includes("generated_graphic") ||
     blob.includes("graphics_overlay") ||
@@ -80,6 +80,11 @@ function overlayIsGeneratedGraphic(overlay: DerivedOverlay): boolean {
     blob.includes("target") ||
     blob.includes("route")
   );
+}
+
+function overlayIsClientRendered(overlay: DerivedOverlay): boolean {
+  const blob = `${overlay.source_kind || ""} ${overlay.kind || ""} ${overlay.layer_type || ""}`.toLowerCase();
+  return overlayIsGeneratedGraphic(overlay) || blob.includes("derived_feature_collection") || blob.includes("derived_overlay");
 }
 
 function featureCollectionFromOverlay(overlay: DerivedOverlay): GeoJsonFeatureCollection | null {
@@ -496,9 +501,9 @@ export function ComposerMapPreview({
       derivedOverlays.map(async (overlay) => {
         const inline = featureCollectionFromOverlay(overlay);
         if (inline) return { overlay, collection: inline };
+        if (overlayIsClientRendered(overlay)) return null;
         const url = absoluteApiUrl(overlay.url);
         if (!url) {
-          if (overlayIsGeneratedGraphic(overlay)) return null;
           throw new Error(`Missing local GeoJSON URL for ${overlay.title || overlay.id}.`);
         }
         try {
@@ -506,7 +511,6 @@ export function ComposerMapPreview({
           if (!response.ok) throw new Error(`${overlay.title || overlay.id} failed to load (${response.status}).`);
           return { overlay, collection: (await response.json()) as GeoJsonFeatureCollection };
         } catch (exc) {
-          if (overlayIsGeneratedGraphic(overlay)) return null;
           throw exc;
         }
       }),

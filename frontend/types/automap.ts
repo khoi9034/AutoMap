@@ -985,6 +985,7 @@ export type PreviewLayer = {
 export type DerivedOverlay = {
   id?: string;
   title?: string;
+  source_kind?: "arcgis_source_layer" | "derived_feature_collection" | "generated_graphic_overlay" | "route_overlay" | "marker_overlay" | "diagnostics_only" | string;
   kind?: "source_layer" | "generated_graphic" | "derived_overlay" | string;
   layer_type?: "arcgis_feature_layer" | "arcgis_map_image_layer" | "graphics_overlay" | "route_overlay" | "point_marker" | string;
   type?: "geojson" | string;

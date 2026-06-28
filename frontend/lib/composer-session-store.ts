@@ -8,7 +8,7 @@ const SESSION_PREFIX = "automap-composer-session:";
 const LOCKED_STATE_PREFIX = "automap-locked-map-state:";
 const PRINT_SNAPSHOT_PREFIX = "automap-print-snapshot:";
 const MOST_RECENT_KEY = "automap-composer-most-recent-session";
-const SCHEMA_VERSION = 3;
+const SCHEMA_VERSION = 4;
 const TTL_MS = 24 * 60 * 60 * 1000;
 
 export type StoredComposerSession = {

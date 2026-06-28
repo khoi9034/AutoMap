@@ -51,7 +51,7 @@ def test_composer_sessions_and_print_snapshots_are_durable():
     assert "response?.composer_map_state || (sessionId ? loadLockedMapState(sessionId) : null) || currentComposerPayload()?.map_state" in client
     assert "window.localStorage.setItem(storageKey" in client
     assert "Print snapshot could not be created yet" in client
-    assert "SCHEMA_VERSION = 3" in store
+    assert "SCHEMA_VERSION = 4" in store
     assert "hasRenderableMapPayload" in store
     assert "isUsableSession" in store
     assert "session.schema_version === SCHEMA_VERSION" in store
@@ -358,9 +358,10 @@ def test_map_composer_is_primary_simple_workflow():
     assert "composer-map-grid" not in composer_preview
     assert "arcgisSymbolForOverlay" in composer_preview
     assert "overlayIsGeneratedGraphic" in composer_preview
+    assert "overlayIsClientRendered" in composer_preview
     assert "featureCollectionFromOverlay" in composer_preview
     assert "if (inline) return { overlay, collection: inline }" in composer_preview
-    assert "if (overlayIsGeneratedGraphic(overlay)) return null" in composer_preview
+    assert "if (overlayIsClientRendered(overlay)) return null" in composer_preview
     assert "MapLegend" in composer_preview
     assert "Commercial zoning" in map_legend
     assert "Zoning context" in map_legend
@@ -425,6 +426,7 @@ def test_map_composer_is_primary_simple_workflow():
     assert "svgDataUrl" in map_symbols
     assert "options: { casing?: boolean }" in map_symbols
     assert "kind?: \"source_layer\" | \"generated_graphic\"" in types
+    assert "source_kind?: \"arcgis_source_layer\" | \"derived_feature_collection\"" in types
     assert "layer_type?: \"arcgis_feature_layer\"" in types
     assert "geojson?: Record<string, JsonValue>" in types
     assert "isRoadRouteMode" in map_symbols

@@ -139,23 +139,41 @@ def _display_metadata(result: dict[str, Any]) -> dict[str, Any]:
     return metadata
 
 
+def _feature_collection_from_path(path: str | Path | None) -> dict[str, Any] | None:
+    if not path:
+        return None
+    try:
+        data = json.loads(_resolve_output_path(path).read_text(encoding="utf-8"))
+    except Exception:
+        return None
+    return data if isinstance(data, dict) and data.get("type") == "FeatureCollection" and isinstance(data.get("features"), list) else None
+
+
 def _derived_overlay(
     result: dict[str, Any],
     extent: dict[str, Any] | None,
     display: dict[str, Any] | None = None,
     recipe: dict[str, Any] | None = None,
+    feature_collection: dict[str, Any] | None = None,
 ) -> dict[str, Any] | None:
     display = display or _display_metadata(result)
     path = display.get("path") or result.get("output_geojson_path")
     if not path:
         return None
+    feature_collection = feature_collection or _feature_collection_from_path(path)
+    if not feature_collection:
+        return None
     style = cartography_for_role("affected_parcels", map_purpose=map_purpose_for_recipe(recipe or {}))
     return {
         "id": f"affected_floodplain_parcels_{result.get('analysis_run_id') or 'analysis'}",
         "title": "Parcels in 100-year floodplain",
+        "source_kind": "derived_feature_collection",
+        "kind": "derived_overlay",
+        "layer_type": "graphics_overlay",
         "type": "geojson",
-        "url": output_file_url(path),
         "path": path,
+        "geojson": feature_collection,
+        "feature_collection": feature_collection,
         "analysis_geojson_path": display.get("analysis_geojson_path") or result.get("output_geojson_path"),
         "display_geojson_path": display.get("display_geojson_path") or path,
         "role": "affected_parcels",
@@ -351,9 +369,26 @@ def attach_floodplain_screening_result(
     output_count = int(result.get("output_count") or 0)
     if result.get("status") == "completed" and output_count > 0 and result.get("output_geojson_path"):
         display = _display_metadata(result)
+        feature_collection = _feature_collection_from_path(display.get("path") or result["output_geojson_path"])
+        if not feature_collection:
+            warning = "Affected parcel display geometry unavailable; showing 100-year floodplain context only."
+            next_recipe.setdefault("review_reasons", [])
+            _append_unique(next_recipe["review_reasons"], warning)
+            next_recipe["needs_review"] = True
+            next_recipe["floodplain_screening"] = _screening_summary(next_recipe, status="partial_context_only", warning=warning)
+            next_recipe.setdefault("analysis_execution", {}).update(
+                {
+                    "analysis_status": "partial_context_only",
+                    "operation_type": "floodplain_parcel_screening",
+                    "blocked_reasons": [warning],
+                    "derived_outputs": [],
+                    "output_count": 0,
+                }
+            )
+            return next_recipe
         extent = buffer_extent(_geojson_extent_from_result(result["output_geojson_path"]), ratio=0.06, minimum=0.002)
         derived_output = _derived_output(result, extent, display, next_recipe)
-        overlay = _derived_overlay(result, extent, display, next_recipe)
+        overlay = _derived_overlay(result, extent, display, next_recipe, feature_collection=feature_collection)
         if derived_output:
             outputs = next_recipe.setdefault("analysis_execution", {}).setdefault("derived_outputs", [])
             outputs[:] = [
@@ -362,14 +397,13 @@ def attach_floodplain_screening_result(
                 if not (isinstance(item, dict) and item.get("type") == "floodplain_affected_parcels_geojson")
             ]
             outputs.append(derived_output)
-        if overlay:
-            overlays = next_recipe.setdefault("derived_overlays", [])
-            overlays[:] = [
-                item
-                for item in overlays
-                if not (isinstance(item, dict) and item.get("role") == "affected_parcels")
-            ]
-            overlays.append(overlay)
+        overlays = next_recipe.setdefault("derived_overlays", [])
+        overlays[:] = [
+            item
+            for item in overlays
+            if not (isinstance(item, dict) and item.get("role") == "affected_parcels")
+        ]
+        overlays.append(overlay)
         next_recipe["floodplain_screening"] = _screening_summary(
             next_recipe,
             status="completed",

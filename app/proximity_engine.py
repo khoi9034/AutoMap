@@ -1392,6 +1392,7 @@ def _proximity_overlay(
     return {
         "id": overlay_id,
         "title": title,
+        "source_kind": "route_overlay" if geometry_type == "line" else "generated_graphic_overlay",
         "kind": "generated_graphic",
         "layer_type": "graphics_overlay" if geometry_type != "line" else "route_overlay",
         "type": "geojson",

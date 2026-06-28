@@ -67,6 +67,12 @@ def test_floodplain_screening_attaches_affected_parcel_overlay(monkeypatch, tmp_
     assert screened["analysis_execution"]["operation_type"] == "floodplain_parcel_screening"
     assert output_geojson["features"][0]["properties"]["PIN"] == "A"
     assert overlay["role"] == "affected_parcels"
+    assert overlay["source_kind"] == "derived_feature_collection"
+    assert overlay["kind"] == "derived_overlay"
+    assert overlay["layer_type"] == "graphics_overlay"
+    assert "url" not in overlay
+    assert overlay["geojson"]["type"] == "FeatureCollection"
+    assert overlay["geojson"]["features"]
     assert overlay["symbol_key"] == "affected_floodplain_parcel"
     assert overlay["legend_label"] == "Parcels in 100-year floodplain"
     assert overlay["relationship_role"] == "target_result"
@@ -135,6 +141,9 @@ def test_composer_floodplain_preview_promotes_affected_parcels(monkeypatch, tmp_
     assert result["map_layout"]["subtitle"].startswith("Parcels intersecting the 100-year floodplain")
     overlays = result["preview_config"]["derived_overlays"]
     assert overlays[0]["legend_label"] == "Parcels in 100-year floodplain"
+    assert overlays[0]["source_kind"] == "derived_feature_collection"
+    assert overlays[0]["geojson"]["type"] == "FeatureCollection"
+    assert overlays[0]["geojson"]["features"]
     assert overlays[0]["relationship_role"] == "target_result"
     assert overlays[0]["draw_order"] == 34
     legend_items = result["map_layout"]["legend_items"]
@@ -215,6 +224,8 @@ def test_dense_floodplain_result_uses_generalized_display_geojson(monkeypatch, t
 
     assert overlay["display_mode"] == "dissolved_result_area"
     assert overlay["display_generalized"] is True
+    assert overlay["source_kind"] == "derived_feature_collection"
+    assert overlay["geojson"]["features"][0]["properties"]["automap_source_feature_count"] == 120
     assert overlay["feature_count"] == 120
     assert overlay["display_feature_count"] == 1
     assert overlay["analysis_geojson_path"] == "outputs/analysis_runs/run/affected_parcels.geojson"
@@ -223,6 +234,34 @@ def test_dense_floodplain_result_uses_generalized_display_geojson(monkeypatch, t
     assert derived_output["display_path"] == overlay["display_geojson_path"]
     assert screened["focus_mode"] == "result_focused_with_aoi_context"
     assert screened["analysis_execution"]["display_generalized"] is True
+
+
+def test_floodplain_completed_without_display_geometry_is_partial(monkeypatch, tmp_path):
+    isolate_outputs(monkeypatch, tmp_path)
+    recipe = build_recipe(
+        "show parcels in Concord that are in the 100-year floodplain",
+        sample_catalog(),
+        persist_data_gaps=False,
+    )
+    monkeypatch.setattr(
+        "app.analysis_executor.execute_analysis",
+        lambda *_args, **_kwargs: {
+            "status": "completed",
+            "analysis_run_id": "missing",
+            "output_count": 1,
+            "output_geojson_path": "outputs/analysis_runs/missing/affected_parcels.geojson",
+        },
+    )
+
+    screened = attach_floodplain_screening_result(
+        recipe,
+        catalog_records=sample_catalog(),
+        query_client=FakeSpatialQueryClient(),
+    )
+
+    assert screened["floodplain_screening"]["status"] == "partial_context_only"
+    assert screened.get("derived_overlays") in (None, [])
+    assert screened["analysis_execution"]["analysis_status"] == "partial_context_only"
 
 
 def test_floodplain_context_only_fallback_is_not_ready(monkeypatch, tmp_path):
