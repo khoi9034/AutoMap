@@ -766,6 +766,8 @@ def _augment_preview_config(preview_config: dict[str, Any] | None, recipe: dict[
     config = apply_aoi_to_preview_config(config, recipe)
     qa = visible_map_qa(config, recipe)
     config = brain_apply_visible_qa_fallbacks(config, qa, recipe)
+    if qa.get("fallback_used"):
+        qa = visible_map_qa(config, recipe)
     config["visible_feature_summary"] = qa.get("visible_feature_summary") or []
     config["visible_feature_total"] = qa.get("visible_feature_total")
     config["visible_map_qa"] = {
@@ -1091,7 +1093,12 @@ def _base_session_response(
     if blockers:
         can_preview = False
     result_state = _result_state(recipe, can_preview, blockers)
+    visible_map_qa = (preview_config or {}).get("visible_map_qa") if isinstance(preview_config, dict) else {}
+    if can_preview and preview_config and (visible_map_qa or {}).get("qa_status") == "no_visible_features":
+        result_state = "no_matches"
     result_truth = _result_truth_summary(recipe, result_state)
+    if result_state in {"partial", "no_matches"} and "context_map_available" not in result_truth:
+        result_truth["context_map_available"] = bool(preview_config)
     map_available = result_state == "ready" or bool(result_truth.get("context_map_available"))
     packet_path = adjusted_packet_path or review_packet_path
     packet_id = packet_path.name if packet_path else None
@@ -1133,6 +1140,8 @@ def _base_session_response(
         "preview_quality": recipe.get("preview_quality"),
         "map_layout": (preview_config or {}).get("map_layout") if isinstance(preview_config, dict) else None,
         "visible_feature_summary": (preview_config or {}).get("visible_feature_summary") if isinstance(preview_config, dict) else [],
+        "visible_feature_total": (preview_config or {}).get("visible_feature_total") if isinstance(preview_config, dict) else None,
+        "visible_map_qa": visible_map_qa or None,
         "selected_layers": _selected_layers(recipe),
         "warnings": sorted(
             {

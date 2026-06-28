@@ -546,6 +546,8 @@ def test_composer_commercial_zoning_preview_carries_visible_qa(monkeypatch, tmp_
     assert result["can_preview"] is True
     assert result["visible_feature_summary"][0]["feature_count"] == 18
     assert result["visible_feature_summary"][0]["opacity"] == 0.48
+    assert result["visible_feature_total"] == 59
+    assert result["visible_map_qa"]["fallback_used"] is True
     assert result["preview_config"]["visible_feature_total"] == 59
     assert result["preview_config"]["focus_extent"]["xmin"] == -80.7
     assert result["preview_config"]["aoi"]["type"] == "municipality"
@@ -597,9 +599,31 @@ def test_commercial_zoning_empty_filter_fallback_is_visible_on_map(monkeypatch, 
             ],
         },
     )
-    monkeypatch.setattr(
-        "app.map_composer.visible_map_qa",
-        lambda config, recipe: {
+    qa_calls = []
+
+    def fake_visible_map_qa(config, recipe):
+        qa_calls.append(config["context_layers"][0].get("definition_expression"))
+        if config["context_layers"][0].get("definition_expression"):
+            return {
+                "visible_feature_summary": [
+                    {
+                        "layer_id": "zoning",
+                        "layer_title": "Commercial zoning",
+                        "expected_role": "zoning",
+                        "feature_count": 0,
+                        "visible": True,
+                        "opacity": 0.48,
+                        "fallback_used": True,
+                        "warning": "Commercial zoning values were not confidently identified; showing zoning context around Concord.",
+                    }
+                ],
+                "visible_feature_total": 0,
+                "visible_extent": None,
+                "warnings": ["Commercial zoning values were not confidently identified; showing zoning context around Concord."],
+                "fallback_used": True,
+                "qa_status": "no_visible_features",
+            }
+        return {
             "visible_feature_summary": [
                 {
                     "layer_id": "zoning",
@@ -616,8 +640,10 @@ def test_commercial_zoning_empty_filter_fallback_is_visible_on_map(monkeypatch, 
             "visible_extent": {"xmin": -80.7, "ymin": 35.31, "xmax": -80.47, "ymax": 35.48, "spatialReference": {"wkid": 4326}},
             "warnings": ["Commercial zoning values were not confidently identified; showing zoning context around Concord."],
             "fallback_used": True,
-        },
-    )
+            "qa_status": "visible",
+        }
+
+    monkeypatch.setattr("app.map_composer.visible_map_qa", fake_visible_map_qa)
 
     result = generate_composer_draft("show commercial zoning around Concord")
 
@@ -628,6 +654,57 @@ def test_commercial_zoning_empty_filter_fallback_is_visible_on_map(monkeypatch, 
     assert zoning_layer["opacity"] == 0.22
     assert zoning_layer["fallback_used"] is True
     assert "definition_expression" not in zoning_layer
+    assert qa_calls == ["ZONING_GEN = 'COMMERCIAL'", None]
+    assert result["visible_feature_total"] == 27
+    assert result["visible_map_qa"]["qa_status"] == "visible"
+
+
+def test_composer_no_visible_features_is_not_ready(monkeypatch, tmp_path):
+    monkeypatch.setattr("app.map_composer._session_root", lambda: tmp_path / "composer_sessions")
+    monkeypatch.setattr(
+        "app.map_composer.build_recipe",
+        lambda prompt: build_recipe(prompt, sample_catalog(), persist_data_gaps=False),
+    )
+    packet_path = tmp_path / "review_packets" / "packet"
+    packet_path.mkdir(parents=True)
+    monkeypatch.setattr("app.map_composer.save_review_packet", lambda prompt, recipe, webmap: packet_path)
+    monkeypatch.setattr(
+        "app.map_composer._preview_config_for",
+        lambda path, can_preview: {
+            "initial_extent": {"xmin": -80.72, "ymin": 35.30, "xmax": -80.46, "ymax": 35.49, "spatialReference": {"wkid": 4326}},
+            "operational_layers": [
+                {
+                    "layer_key": "zoning",
+                    "title": "Commercial zoning",
+                    "category": "zoning",
+                    "role": "constraint_overlay",
+                    "url": "https://example.test/Zoning/0",
+                    "visibility": True,
+                    "definition_expression": "ZONING_GEN = 'NOPE'",
+                }
+            ],
+        },
+    )
+    monkeypatch.setattr(
+        "app.map_composer.visible_map_qa",
+        lambda config, recipe: {
+            "visible_feature_summary": [
+                {"layer_id": "zoning", "layer_title": "Commercial zoning", "expected_role": "zoning", "feature_count": 0, "visible": True, "warning": None}
+            ],
+            "visible_feature_total": 0,
+            "visible_extent": None,
+            "warnings": ["AutoMap found the relevant layers but the filter returned no visible features."],
+            "fallback_used": False,
+            "qa_status": "no_visible_features",
+        },
+    )
+
+    result = generate_composer_draft("show commercial zoning around Concord")
+
+    assert result["can_preview"] is True
+    assert result["result_state"] == "no_matches"
+    assert result["next_action"] == "context_preview"
+    assert result["visible_map_qa"]["qa_status"] == "no_visible_features"
 
 
 def test_composer_adjust_changes_title_visibility_opacity_and_order(monkeypatch, tmp_path):
