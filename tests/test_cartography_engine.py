@@ -91,9 +91,13 @@ def test_relationship_overlay_composites_constraint_between_result_and_boundary(
     assert affected["relationship_role"] == "target_result"
     assert flood["relationship_role"] == "constraint_overlay"
     assert affected["draw_order"] < flood["draw_order"] < boundary["draw_order"]
-    assert affected["drawing_info"]["renderer"]["symbol"]["color"] == [245, 158, 11, 82]
-    assert flood["drawing_info"]["renderer"]["symbol"]["color"] == [14, 165, 233, 96]
-    assert flood["drawing_info"]["renderer"]["symbol"]["outline"]["width"] >= 2
+    affected_symbol = affected["drawing_info"]["renderer"]["symbol"]
+    flood_symbol = flood["drawing_info"]["renderer"]["symbol"]
+    assert affected_symbol["color"] == [245, 158, 11, 62]
+    assert affected_symbol["outline"]["width"] <= 1.25
+    assert flood_symbol["color"] == [14, 165, 233, 128]
+    assert flood_symbol["color"][3] > affected_symbol["color"][3]
+    assert flood_symbol["outline"]["width"] >= 2.2
 
 
 def test_dense_primary_polygons_use_generalized_display_mode():

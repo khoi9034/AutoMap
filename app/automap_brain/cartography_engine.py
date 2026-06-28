@@ -217,26 +217,26 @@ def _apply_relationship_compositing(style: dict[str, Any]) -> dict[str, Any]:
     role = str(next_style.get("map_role") or next_style.get("cartography_role") or "")
     symbol = (((next_style.get("drawing_info") or {}).get("renderer") or {}).get("symbol") or {})
     if role == "affected_parcels":
-        symbol["color"] = [245, 158, 11, 82]
+        symbol["color"] = [245, 158, 11, 62]
         if isinstance(symbol.get("outline"), dict):
-            symbol["outline"]["color"] = [146, 64, 14, 230]
-            symbol["outline"]["width"] = 1.35
+            symbol["outline"]["color"] = [146, 64, 14, 205]
+            symbol["outline"]["width"] = 1.1
         next_style.update(
             {
-                "opacity": 0.86,
+                "opacity": 0.74,
                 "draw_order": ROLE_DRAW_ORDER["affected_parcels"],
                 "relationship_role": "target_result",
                 "compositing_mode": "target_fill_constraint_overlay",
             }
         )
     elif role == "floodplain_overlay":
-        symbol["color"] = [14, 165, 233, 96]
+        symbol["color"] = [14, 165, 233, 128]
         if isinstance(symbol.get("outline"), dict):
-            symbol["outline"]["color"] = [2, 132, 199, 245]
-            symbol["outline"]["width"] = 2.0
+            symbol["outline"]["color"] = [2, 132, 199, 255]
+            symbol["outline"]["width"] = 2.25
         next_style.update(
             {
-                "opacity": 0.58,
+                "opacity": 0.68,
                 "draw_order": ROLE_DRAW_ORDER["affected_parcels"] + 1,
                 "relationship_role": "constraint_overlay",
                 "compositing_mode": "constraint_visible_above_target",
