@@ -29,6 +29,14 @@ ALLOWED_ORIGIN_REGEX=^https://(?:auto-map-cyan|auto-[a-z0-9-]+-(?:khoi9034|khoi-
 FRONTEND_ORIGIN=https://auto-map-cyan.vercel.app
 AUTOMAP_PUBLISH_DRY_RUN=true
 AUTOMAP_ALLOW_REAL_PUBLISH=false
+AUTOMAP_AI_ENABLED=false
+AUTOMAP_AI_PROVIDER=openai
+AUTOMAP_AI_MODEL=gpt-5.5
+AUTOMAP_AI_TIMEOUT_SECONDS=20
+AUTOMAP_AI_MAX_RETRIES=1
+AUTOMAP_AI_PLANNER_MODE=structured_map_plan
+AUTOMAP_AI_FALLBACK_TO_DETERMINISTIC=true
+# OPENAI_API_KEY=<Render secret only, set only when enabling AI>
 ```
 
 For local machines that can reach Supabase Direct, this SQLAlchemy URL is valid:
@@ -51,6 +59,8 @@ The important parts are:
 - URL is stored only in Render's secret environment variable
 
 Do not expose `DATABASE_URL` to the Vercel frontend. Do not use `NEXT_PUBLIC_SUPABASE_URL` as the backend database URL. Do not use a Supabase service role key for this backend database connection.
+
+The optional OpenAI planner is disabled unless `AUTOMAP_AI_ENABLED=true` is set on Render. Store `OPENAI_API_KEY` only as a Render secret. The AI returns a validated MapPlan; the deterministic backend still executes all map operations and real publish remains disabled.
 
 The backend also includes a restricted default CORS regex for the `auto-map` Vercel production and deployment URLs. Keep Render's `ALLOWED_ORIGINS` on the canonical production frontend and use `ALLOWED_ORIGIN_REGEX` only for this project's Vercel preview/deployment hosts. Do not use a wildcard origin in production.
 

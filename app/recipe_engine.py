@@ -406,6 +406,7 @@ def build_recipe(
     persist_data_gaps: bool = True,
     match_parcel_context: bool | None = None,
     fetch_parcel_geometry: bool = True,
+    request_plan_override: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Build a structured map recipe from a plain-English GIS request."""
     total_start = perf_counter()
@@ -435,7 +436,7 @@ def build_recipe(
     stage_start = perf_counter()
     initial_intelligence = build_request_intelligence(prompt, parsed_request)
     timing["intelligence_ms"] += _elapsed_ms(stage_start)
-    request_plan = build_request_plan(prompt, parsed_request)
+    request_plan = request_plan_override or build_request_plan(prompt, parsed_request)
 
     stage_start = perf_counter()
     matching = match_layers(parsed_request, layer_catalog, request_intelligence=initial_intelligence)

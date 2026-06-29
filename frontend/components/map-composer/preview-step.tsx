@@ -624,6 +624,7 @@ function PreviewDiagnosticsPanel({ response }: { response: ComposerResponse }) {
   const qaWarnings = (response.preview_config?.visible_map_qa?.warnings as string[] | undefined) || [];
   const complexity = response.preview_config?.display_complexity || response.preview_config?.visible_map_qa?.display_complexity;
   const complexityRecord = complexity && typeof complexity === "object" && !Array.isArray(complexity) ? complexity : null;
+  const planSummary = response.map_plan_summary && typeof response.map_plan_summary === "object" && !Array.isArray(response.map_plan_summary) ? response.map_plan_summary : null;
   return (
     <section className="composer-preview-diagnostics">
       <div className="result-strip compact-result-strip">
@@ -643,6 +644,22 @@ function PreviewDiagnosticsPanel({ response }: { response: ComposerResponse }) {
           <span>AOI</span>
           <strong>{aoiSummary(response) || "n/a"}</strong>
         </div>
+      </div>
+      <div className="definition-box">
+        <strong>Planner</strong>
+        <p>
+          {String(response.planner_used || "deterministic")}
+          {response.ai_status ? ` · ${response.ai_status}` : ""}
+          {typeof response.ai_confidence === "number" ? ` · ${Math.round(response.ai_confidence * 100)}% confidence` : ""}
+        </p>
+        {planSummary ? (
+          <ul className="compact-list">
+            {planSummary.interpreted_request ? <li>Interpreted request: {String(planSummary.interpreted_request)}</li> : null}
+            {planSummary.main_operation ? <li>Main operation: {String(planSummary.main_operation)}</li> : null}
+            {planSummary.primary_result ? <li>Primary result: {String(planSummary.primary_result)}</li> : null}
+            {planSummary.fallback_strategy ? <li>Fallback: {String(planSummary.fallback_strategy)}</li> : null}
+          </ul>
+        ) : null}
       </div>
       {complexityRecord ? (
         <div className="definition-box">

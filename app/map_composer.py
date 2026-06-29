@@ -30,6 +30,7 @@ from app.automap_brain.floodplain_screening import (
 )
 from app.automap_brain.request_parser import build_brain_plan
 from app.automap_brain.visible_map_qa import run_visible_map_qa
+from app.ai.map_planner import plan_with_ai
 from app.composer_state_models import (
     default_north_arrow_config,
     default_scale_bar_config,
@@ -92,6 +93,17 @@ def _elapsed_ms(start: float) -> int:
 
 def _new_composer_timing() -> dict[str, Any]:
     return {key: 0 for key in COMPOSER_TIMING_KEYS}
+
+
+def _planner_response_fields(planner_context: dict[str, Any] | None) -> dict[str, Any]:
+    context = planner_context or {}
+    return {
+        "planner_used": context.get("planner_used") or "deterministic",
+        "ai_status": context.get("ai_status"),
+        "ai_confidence": context.get("ai_confidence"),
+        "ai_error_category": context.get("ai_error_category"),
+        "map_plan_summary": context.get("map_plan_summary"),
+    }
 
 
 def _finalize_composer_timing(timing: dict[str, Any], started_at: float) -> dict[str, Any]:
@@ -1553,8 +1565,18 @@ def generate_composer_draft(prompt: str) -> dict[str, Any]:
     session_folder = _session_path(session_id)
     session_folder.mkdir(parents=True, exist_ok=False)
 
+    planner_started = time.perf_counter()
+    planner_context = plan_with_ai(prompt)
+    request_plan_override = planner_context.get("request_plan") if isinstance(planner_context, dict) else None
+    ai_request_type = str((request_plan_override or {}).get("request_type") or "")
+    if planner_context.get("planner_used") != "deterministic":
+        timing["intelligence_ms"] += _elapsed_ms(planner_started)
+
     parse_started = time.perf_counter()
     table_classification = classify_table_request(prompt)
+    if ai_request_type == "table_request":
+        table_classification["table_requested"] = True
+        table_classification.setdefault("map_and_table", (request_plan_override or {}).get("output_mode") == "map_and_table")
     timing["parse_ms"] = _elapsed_ms(parse_started)
     table_context: dict[str, Any] | None = None
     if table_classification.get("table_requested"):
@@ -1600,6 +1622,7 @@ def generate_composer_draft(prompt: str) -> dict[str, Any]:
                 "published": False,
                 "created_at": _utc_now(),
             }
+            response.update(_planner_response_fields(planner_context))
             response = _attach_timing(response, timing, started_at)
             _save_session_payload(session_folder, response)
             return response
@@ -1620,9 +1643,12 @@ def generate_composer_draft(prompt: str) -> dict[str, Any]:
             )
 
     recipe_started = time.perf_counter()
-    recipe = build_recipe(prompt)
+    recipe = build_recipe(prompt, request_plan_override=request_plan_override) if request_plan_override else build_recipe(prompt)
+    recipe["planner_used"] = planner_context.get("planner_used") or "deterministic"
+    if planner_context.get("map_plan_summary"):
+        recipe["map_plan_summary"] = planner_context["map_plan_summary"]
     timing["recipe_ms"] = _elapsed_ms(recipe_started)
-    if _is_proximity_prompt(prompt):
+    if _is_proximity_prompt(prompt) or ai_request_type == "proximity":
         try:
             proximity_started = time.perf_counter()
             proximity_result = run_proximity_request(
@@ -1670,6 +1696,7 @@ def generate_composer_draft(prompt: str) -> dict[str, Any]:
         preview_config=preview_config,
         review_packet_path=review_packet_path,
     )
+    response.update(_planner_response_fields(planner_context))
     if table_context:
         response["table_context"] = table_context
         response["warnings"] = sorted({*[str(item) for item in response.get("warnings") or []], *[str(item) for item in table_context.get("warnings") or []]})

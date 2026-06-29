@@ -1356,6 +1356,11 @@ export type ComposerResponse = {
   analysis_type?: string | null;
   map_purpose?: string | null;
   relationship_type?: string | null;
+  planner_used?: "ai" | "deterministic" | "fallback" | string | null;
+  ai_status?: string | null;
+  ai_confidence?: number | null;
+  ai_error_category?: string | null;
+  map_plan_summary?: Record<string, JsonValue> | null;
   result_state?: "ready" | "partial" | "blocked" | "no_matches" | "unsupported" | string | null;
   requested_result?: string | null;
   available_context?: string[] | null;

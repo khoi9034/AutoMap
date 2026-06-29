@@ -74,6 +74,21 @@ def test_composer_sessions_and_print_snapshots_are_durable():
     assert "preview_config: response?.preview_config || mapState.preview_config" in shared_renderer
 
 
+def test_ai_planner_diagnostics_are_safe_frontend_fields():
+    preview = read("components/map-composer/preview-step.tsx")
+    types = read("types/automap.ts")
+    api = read("lib/api.ts")
+
+    assert "planner_used" in types
+    assert "ai_status" in types
+    assert "ai_confidence" in types
+    assert "map_plan_summary" in types
+    assert "Planner" in preview
+    assert "interpreted_request" in preview
+    assert "OPENAI_API_KEY" not in api
+    assert ("NEXT_PUBLIC_" + "OPENAI") not in (api + types + preview)
+
+
 def test_packet_picker_supports_resume_workflows():
     source = read("components/packet-picker.tsx")
 

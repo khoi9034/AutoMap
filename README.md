@@ -254,7 +254,9 @@ Map Composer surfaces request intelligence details such as detected intents, con
 
 The clarification engine turns those clarifying questions into an interactive local review loop behind the composer. Staff can answer distance, flood-scope, missing-data, recent-time, and zoning-code questions, then AutoMap regenerates request intelligence, the analysis plan, selected layers, filters, warnings, and the map recipe. The original recipe remains available for comparison, and the refined recipe records what changed.
 
-The Learning page stores approved local workflows as reviewable defaults. AutoMap can suggest common distances, flood-scope choices, preferred layers, accepted assumptions, and missing-data decisions from approved patterns. These learned suggestions are deterministic, local, and reviewable. They do not train a model, call external AI APIs, invent layers, or override the verified catalog.
+The Learning page stores approved local workflows as reviewable defaults. AutoMap can suggest common distances, flood-scope choices, preferred layers, accepted assumptions, and missing-data decisions from approved patterns. These learned suggestions are deterministic, local, and reviewable. They do not train a model, invent layers, or override the verified catalog.
+
+Optional OpenAI planning can be enabled on the backend only with `AUTOMAP_AI_ENABLED=true` and a secret `OPENAI_API_KEY`. The model proposes a strict JSON MapPlan; AutoMap validates it against Cabarrus scope, known domains, allowed operations, and field safety before the existing deterministic engine executes anything. The key must never be committed, placed in Vercel, or exposed through `NEXT_PUBLIC_*`.
 
 The Analysis page plans and runs safe bounded local GIS analysis for supported operations. v2.1 optimizes parcel selection by geography/constraint intersection, such as parcels in Concord intersecting the 100-year floodplain. It counts first, uses server-side spatial filtering to collect parcel ObjectIDs before downloading parcel geometry, blocks oversized requests, writes local GeoJSON under `outputs/analysis/`, and marks derived outputs as local review results only.
 

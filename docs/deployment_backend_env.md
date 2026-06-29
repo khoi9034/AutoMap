@@ -10,6 +10,14 @@ ALLOWED_ORIGIN_REGEX=^https://(?:auto-map-cyan|auto-[a-z0-9-]+-(?:khoi9034|khoi-
 FRONTEND_ORIGIN=https://auto-map-cyan.vercel.app
 AUTOMAP_PUBLISH_DRY_RUN=true
 AUTOMAP_ALLOW_REAL_PUBLISH=false
+AUTOMAP_AI_ENABLED=false
+AUTOMAP_AI_PROVIDER=openai
+AUTOMAP_AI_MODEL=gpt-5.5
+AUTOMAP_AI_TIMEOUT_SECONDS=20
+AUTOMAP_AI_MAX_RETRIES=1
+AUTOMAP_AI_PLANNER_MODE=structured_map_plan
+AUTOMAP_AI_FALLBACK_TO_DETERMINISTIC=true
+# OPENAI_API_KEY=<Render/backend secret only, set only when enabling AI>
 ```
 
 `DATABASE_URL` must use a Supabase SQLAlchemy URL for the Automap project. Store it as a backend secret only.
@@ -27,6 +35,12 @@ http://localhost:3010,http://127.0.0.1:3010
 Never set frontend variables to the Supabase database password or service role key.
 Do not expose `DATABASE_URL` to Vercel and do not put it in any `NEXT_PUBLIC_*` variable.
 Do not use `NEXT_PUBLIC_SUPABASE_URL` or a Supabase publishable key as the FastAPI database connection string.
+
+## Optional AI Planner
+
+The OpenAI planner is backend-only and disabled by default. To enable it later on Render, add `OPENAI_API_KEY` as a secret and set `AUTOMAP_AI_ENABLED=true`. The model returns a structured MapPlan only; AutoMap validates the plan against the catalog/domain allowlist and the deterministic backend still performs layer resolution, spatial operations, cartography, visible QA, and publishing safety.
+
+Never put `OPENAI_API_KEY` in Vercel, `NEXT_PUBLIC_*`, docs, or tracked files.
 
 ## Startup Command
 
