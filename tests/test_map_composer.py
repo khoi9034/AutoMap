@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 from fastapi.testclient import TestClient
 
-from app.map_composer import apply_composer_adjustments, export_composer_session, generate_composer_draft
+from app.map_composer import _apply_legend_truth_from_qa, apply_composer_adjustments, export_composer_session, generate_composer_draft
 from app.print_options_models import export_manifest_metadata, normalize_print_options
 from app.report_statistics_builder import build_report_statistics
 from app.recipe_engine import build_recipe
@@ -759,6 +759,28 @@ def test_composer_no_visible_features_is_not_ready(monkeypatch, tmp_path):
     assert result["preview_config"]["map_layout"]["legend_items"] == []
     assert result["preview_config"]["context_layers"][0]["visibility"] is False
     assert result["visible_feature_summary"][0]["legend_included"] is False
+
+
+def test_query_failed_context_layer_is_removed_from_mixed_result_legend():
+    config = {
+        "context_layers": [
+            {"layer_key": "flood", "title": "100-year floodplain", "visibility": True},
+            {"layer_key": "boundary", "title": "Concord boundary", "visibility": True},
+        ]
+    }
+    qa = {
+        "qa_status": "visible",
+        "visible_feature_summary": [
+            {"layer_id": "affected", "layer_title": "Parcels in 100-year floodplain", "query_status": "generated", "feature_count": 12, "visible": True},
+            {"layer_id": "flood", "layer_title": "100-year floodplain", "query_status": "query_failed", "feature_count": None, "visible": True},
+            {"layer_id": "boundary", "layer_title": "Concord boundary", "query_status": "query_failed", "feature_count": None, "visible": True},
+        ],
+    }
+
+    patched, patched_qa = _apply_legend_truth_from_qa(config, qa)
+
+    assert all(layer["legend_included"] is False for layer in patched["context_layers"])
+    assert all(row["legend_included"] is False for row in patched_qa["visible_feature_summary"] if row["layer_id"] in {"flood", "boundary"})
 
 
 def test_composer_adjust_changes_title_visibility_opacity_and_order(monkeypatch, tmp_path):

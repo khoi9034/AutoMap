@@ -520,6 +520,8 @@ def _is_zero_feature_row(row: dict[str, Any], qa_status: str | None) -> bool:
     if row.get("visible") is False:
         return False
     feature_count = row.get("feature_count")
+    if row.get("query_status") in {"zero_features", "query_failed", "source_unavailable"} and feature_count in {None, 0, "0"}:
+        return True
     if feature_count == 0:
         return True
     return feature_count is None and qa_status in {"no_visible_features", "query_failed"}
