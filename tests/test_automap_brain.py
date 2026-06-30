@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 
 from app.automap_brain.domain_ontology import DOMAIN_ONTOLOGY
-from app.automap_brain.aoi_planner import apply_aoi_to_preview_config, build_aoi_plan, visual_complexity_score
+from app.automap_brain.aoi_planner import apply_aoi_to_preview_config, build_aoi_plan, request_wants_major_roads, visual_complexity_score
 from app.automap_brain.layer_ranker import rank_candidate_layers
 from app.automap_brain.normalizer import normalize_prompt
 from app.automap_brain.request_parser import build_brain_plan
@@ -139,6 +139,13 @@ def test_aoi_planner_detects_concord_around_buffer():
     assert aoi["summary"] == "Concord boundary + 2 mile buffer"
     assert aoi["extent"]["xmin"] < -80.72
     assert aoi["extent"]["xmax"] > -80.46
+
+
+def test_major_roads_require_prompt_intent_not_advisory_filter():
+    recipe = build_recipe("commercial zoning around Concord", sample_catalog(), persist_data_gaps=False)
+    recipe["request_plan"].setdefault("filters", []).append({"domain": "transportation", "value": "major roads"})
+
+    assert request_wants_major_roads(recipe) is False
 
 
 def test_aoi_application_clips_local_zoning_layers_and_hides_extra_context():

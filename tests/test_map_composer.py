@@ -710,6 +710,86 @@ def test_commercial_zoning_empty_filter_fallback_is_visible_on_map(monkeypatch, 
     assert result["visible_map_qa"]["qa_status"] == "visible"
 
 
+def test_commercial_zoning_query_failure_promotes_context_fallback(monkeypatch, tmp_path):
+    monkeypatch.setattr("app.map_composer._session_root", lambda: tmp_path / "composer_sessions")
+    monkeypatch.setattr(
+        "app.map_composer.build_recipe",
+        lambda prompt: build_recipe(prompt, sample_catalog(), persist_data_gaps=False),
+    )
+    packet_path = tmp_path / "review_packets" / "packet"
+    packet_path.mkdir(parents=True)
+    monkeypatch.setattr("app.map_composer.save_review_packet", lambda prompt, recipe, webmap: packet_path)
+    monkeypatch.setattr(
+        "app.map_composer._preview_config_for",
+        lambda path, can_preview: {
+            "initial_extent": {"xmin": -80.72, "ymin": 35.30, "xmax": -80.46, "ymax": 35.49, "spatialReference": {"wkid": 4326}},
+            "operational_layers": [
+                {
+                    "layer_key": "zoning_primary",
+                    "title": "Commercial zoning",
+                    "category": "zoning",
+                    "url": "https://example.test/Zoning/0",
+                    "visibility": True,
+                    "definition_expression": "ZONING_GEN = 'COMMERCIAL'",
+                },
+                {
+                    "layer_key": "municipal_zoning",
+                    "title": "Zoning context",
+                    "category": "zoning",
+                    "url": "https://example.test/MunicipalZoning/0",
+                    "visibility": True,
+                },
+            ],
+        },
+    )
+    qa_calls = []
+
+    def fake_visible_map_qa(config, recipe):
+        fallback_layer = next((layer for layer in config["context_layers"] if layer["layer_key"] == "municipal_zoning"), {})
+        promoted = fallback_layer.get("visibility") is True and fallback_layer.get("fallback_used")
+        qa_calls.append(promoted)
+        if promoted:
+            return {
+                "visible_feature_summary": [
+                    {"layer_id": "zoning_primary", "layer_title": "Commercial zoning", "expected_role": "zoning", "feature_count": None, "visible": True, "query_status": "query_failed"},
+                    {"layer_id": "municipal_zoning", "layer_title": "Zoning context", "expected_role": "zoning", "feature_count": 27, "visible": True, "query_status": "visible", "fallback_used": True},
+                ],
+                "visible_feature_total": 27,
+                "visible_extent": {"xmin": -80.7, "ymin": 35.31, "xmax": -80.47, "ymax": 35.48, "spatialReference": {"wkid": 4326}},
+                "warnings": ["Commercial zoning values were not confidently identified; showing zoning context around Concord."],
+                "fallback_used": True,
+                "qa_status": "visible",
+            }
+        return {
+            "visible_feature_summary": [
+                {"layer_id": "zoning_primary", "layer_title": "Commercial zoning", "expected_role": "zoning", "feature_count": None, "visible": True, "query_status": "query_failed"},
+                {"layer_id": "municipal_zoning", "layer_title": "Zoning context", "expected_role": "zoning", "feature_count": None, "visible": False, "query_status": "hidden"},
+            ],
+            "visible_feature_total": 0,
+            "visible_extent": None,
+            "warnings": ["Feature count check unavailable for Commercial zoning: Timed out running bounded ArcGIS query."],
+            "fallback_used": False,
+            "qa_status": "query_failed",
+        }
+
+    monkeypatch.setattr("app.map_composer.visible_map_qa", fake_visible_map_qa)
+
+    result = generate_composer_draft("commercial zoning around Concord")
+
+    fallback_layer = next(layer for layer in result["preview_config"]["context_layers"] if layer["layer_key"] == "municipal_zoning")
+    legend_labels = {item["label"] for item in result["preview_config"]["map_layout"]["legend_items"]}
+    assert qa_calls == [False, True]
+    assert result["result_state"] == "partial"
+    assert result["can_preview"] is True
+    assert result["context_map_available"] is True
+    assert fallback_layer["title"] == "Zoning context"
+    assert fallback_layer["visibility"] is True
+    assert fallback_layer["fallback_used"] is True
+    assert "definition_expression" not in fallback_layer
+    assert "Zoning context" in legend_labels
+    assert "Commercial zoning" not in legend_labels
+
+
 def test_composer_no_visible_features_is_not_ready(monkeypatch, tmp_path):
     monkeypatch.setattr("app.map_composer._session_root", lambda: tmp_path / "composer_sessions")
     monkeypatch.setattr(

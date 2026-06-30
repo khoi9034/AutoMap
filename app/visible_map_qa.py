@@ -9,7 +9,7 @@ from app.geometry_utils import buffer_extent
 from app.spatial_query_client import SpatialQueryClient
 
 
-DEFAULT_QA_TIMEOUT_SECONDS = 4
+DEFAULT_QA_TIMEOUT_SECONDS = 12
 SPATIAL_REL_INTERSECTS = "esriSpatialRelIntersects"
 ENVELOPE_GEOMETRY_TYPE = "esriGeometryEnvelope"
 CONCORD_FALLBACK_EXTENT = {

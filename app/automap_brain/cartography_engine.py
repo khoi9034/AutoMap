@@ -330,6 +330,11 @@ def request_is_commercial_zoning(recipe: dict[str, Any]) -> bool:
     return plan.get("request_type") == "zoning_context" and (plan.get("zoning_category") == "commercial" or "commercial" in (parsed.get("topic_details", {}).get("zoning_modifiers") or []))
 
 
+def _commercial_zoning_fallback_warning(recipe: dict[str, Any]) -> str:
+    geography = ((recipe.get("request_plan") or {}).get("parameters") or {}).get("geography") or "requested area"
+    return f"Commercial zoning values were not confidently identified; showing zoning context around {geography}."
+
+
 def context_role(layer: dict[str, Any]) -> str:
     if layer.get("diagnostics_only") or layer.get("map_role") == "diagnostics_only" or layer.get("display_role") == "diagnostics_only":
         return "diagnostics_only"
@@ -437,12 +442,28 @@ def style_context_layer(layer: dict[str, Any], recipe: dict[str, Any]) -> dict[s
 
 
 def apply_visible_qa_fallbacks(config: dict[str, Any], qa: dict[str, Any], recipe: dict[str, Any]) -> dict[str, Any]:
-    if not qa.get("fallback_used"):
-        return config
     by_id = {str(row.get("layer_id")): row for row in qa.get("visible_feature_summary") or [] if isinstance(row, dict) and row.get("fallback_used")}
-    if not by_id:
+    zoning_failed = request_is_commercial_zoning(recipe) and any(
+        isinstance(row, dict)
+        and row.get("expected_role") == "zoning"
+        and row.get("visible") is not False
+        and row.get("query_status") in {"query_failed", "source_unavailable", "zero_features"}
+        for row in qa.get("visible_feature_summary") or []
+    )
+    if not by_id and not zoning_failed:
         return config
     patched = deepcopy(config)
+    fallback_key: str | None = None
+    if zoning_failed and not by_id:
+        zoning_layers = [
+            layer
+            for layer in patched.get("context_layers") or []
+            if isinstance(layer, dict) and "zoning" in layer_text(layer) and (layer.get("layer_url") or layer.get("url") or layer.get("service_url"))
+        ]
+        preferred = next((layer for layer in zoning_layers if not layer.get("definition_expression") and not layer.get("visibility", True)), None)
+        fallback_layer = preferred or next((layer for layer in zoning_layers if not layer.get("definition_expression")), None) or (zoning_layers[0] if zoning_layers else None)
+        if fallback_layer:
+            fallback_key = str(fallback_layer.get("layer_key") or fallback_layer.get("id") or fallback_layer.get("title") or "")
     next_layers: list[dict[str, Any]] = []
     for layer in patched.get("context_layers") or []:
         if not isinstance(layer, dict):
@@ -450,12 +471,12 @@ def apply_visible_qa_fallbacks(config: dict[str, Any], qa: dict[str, Any], recip
             continue
         key = str(layer.get("layer_key") or layer.get("id") or layer.get("title") or "")
         row = by_id.get(key)
-        if row and row.get("expected_role") == "zoning":
+        if (row and row.get("expected_role") == "zoning") or (fallback_key and key == fallback_key):
             layer = deepcopy(layer)
             layer.pop("definition_expression", None)
-            layer.update({"title": "Zoning context", "fallback_used": True, **cartography_for_role("zoning")})
+            layer.update({"title": "Zoning context", "fallback_used": True, "visibility": True, "default_visible": True, "visible_by_default": True, "diagnostics_only": False, **cartography_for_role("zoning")})
             warnings = list(layer.get("review_warnings") or [])
-            warning = row.get("warning")
+            warning = row.get("warning") if row else _commercial_zoning_fallback_warning(recipe)
             if warning and warning not in warnings:
                 warnings.append(str(warning))
             layer["review_warnings"] = warnings

@@ -236,8 +236,7 @@ def major_road_definition_expression(layer: dict[str, Any]) -> str | None:
 
 def request_wants_major_roads(recipe: dict[str, Any]) -> bool:
     text = _prompt_text(recipe)
-    plan = recipe.get("request_plan") or {}
-    return "major road" in text or "high traffic" in text or any((item or {}).get("value") == "major roads" for item in plan.get("filters") or [])
+    return "major road" in text or "high traffic" in text or any(term in text for term in ("highway", "arterial", "corridor"))
 
 
 def _is_commercial_zoning_request(recipe: dict[str, Any]) -> bool:

@@ -922,9 +922,12 @@ def _augment_preview_config(preview_config: dict[str, Any] | None, recipe: dict[
             config["focus_extent"] = extent
     config = apply_aoi_to_preview_config(config, recipe)
     qa = visible_map_qa(config, recipe)
-    config = brain_apply_visible_qa_fallbacks(config, qa, recipe)
-    if qa.get("fallback_used"):
+    patched_config = brain_apply_visible_qa_fallbacks(config, qa, recipe)
+    if qa.get("fallback_used") or patched_config != config:
+        config = patched_config
         qa = visible_map_qa(config, recipe)
+    else:
+        config = patched_config
     config, qa = _apply_legend_truth_from_qa(config, qa)
     config["visible_feature_summary"] = qa.get("visible_feature_summary") or []
     config["visible_feature_total"] = qa.get("visible_feature_total")
