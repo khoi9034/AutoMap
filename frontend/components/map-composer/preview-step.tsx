@@ -667,12 +667,71 @@ function PreviewNotesPanel({ response }: { response: ComposerResponse }) {
   );
 }
 
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+}
+
+function auditVisible(layer: Record<string, unknown>): boolean {
+  return (layer.default_visible ?? layer.visible ?? layer.visibility ?? true) !== false;
+}
+
+function auditLayerUrl(layer: Record<string, unknown>): boolean {
+  return Boolean(layer.layer_url || layer.url || layer.service_url);
+}
+
+function auditGeometry(layer: Record<string, unknown>): boolean {
+  const geojson = asRecord(layer.geojson || layer.feature_collection);
+  const features = geojson.features;
+  return Boolean((Array.isArray(features) && features.length) || layer.geometry || layer.feature);
+}
+
+function auditRenderer(layer: Record<string, unknown>): boolean {
+  const drawingInfo = asRecord(layer.drawing_info);
+  const renderer = asRecord(drawingInfo.renderer);
+  return Boolean(renderer.symbol || renderer.defaultSymbol || Array.isArray(renderer.uniqueValueInfos) || Array.isArray(renderer.classBreakInfos) || layer.symbol);
+}
+
+function renderAuditRows(response: ComposerResponse) {
+  const context = (response.preview_config?.context_layers || response.preview_config?.operational_layers || []) as unknown[];
+  const overlays = (response.preview_config?.derived_overlays || response.proximity_result?.derived_overlays || []) as unknown[];
+  return [...context, ...overlays].map((raw) => {
+    const layer = asRecord(raw);
+    const sourceKind = String(layer.source_kind || (auditLayerUrl(layer) ? "arcgis_source_layer" : layer.local_output ? "generated_graphic_overlay" : "unknown"));
+    const visible = auditVisible(layer);
+    const urlAvailable = auditLayerUrl(layer);
+    const geometryAvailable = auditGeometry(layer);
+    const rendererAvailable = auditRenderer(layer);
+    const diagnosticsOnly = layer.diagnostics_only === true || layer.map_role === "diagnostics_only";
+    const renderable = visible && !diagnosticsOnly && (urlAvailable || geometryAvailable) && rendererAvailable;
+    return {
+      title: String(layer.title || layer.legend_label || layer.layer_key || layer.id || "Layer"),
+      sourceKind,
+      renderStatus: !visible || diagnosticsOnly ? "skipped" : renderable ? "rendered" : "failed",
+      featureCount: layer.feature_count,
+      geometryAvailable,
+      urlAvailable,
+      rendererAvailable,
+      legendIncluded: layer.legend_included !== false,
+      failureReason: !visible
+        ? "hidden"
+        : diagnosticsOnly
+          ? "diagnostics only"
+          : !urlAvailable && !geometryAvailable
+            ? "missing URL or geometry"
+            : !rendererAvailable
+              ? "renderer missing"
+              : "",
+    };
+  });
+}
+
 function PreviewDiagnosticsPanel({ response }: { response: ComposerResponse }) {
   const qaRows = response.visible_feature_summary || response.preview_config?.visible_feature_summary || [];
   const qaWarnings = (response.preview_config?.visible_map_qa?.warnings as string[] | undefined) || [];
   const complexity = response.preview_config?.display_complexity || response.preview_config?.visible_map_qa?.display_complexity;
   const complexityRecord = complexity && typeof complexity === "object" && !Array.isArray(complexity) ? complexity : null;
   const planSummary = response.map_plan_summary && typeof response.map_plan_summary === "object" && !Array.isArray(response.map_plan_summary) ? response.map_plan_summary : null;
+  const renderRows = renderAuditRows(response);
   return (
     <section className="composer-preview-diagnostics">
       <div className="result-strip compact-result-strip">
@@ -732,6 +791,23 @@ function PreviewDiagnosticsPanel({ response }: { response: ComposerResponse }) {
                   {row.clipped_to_aoi ? " · clipped to AOI" : ""}
                   {row.fallback_used ? " · fallback used" : ""}
                   {row.simplification_applied ? " · simplified" : ""}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+      {renderRows.length ? (
+        <div className="definition-box">
+          <strong>Render audit</strong>
+          <ul className="compact-list">
+            {renderRows.slice(0, 8).map((row, index) => (
+              <li key={`${row.title}-${index}`}>
+                <strong>{row.title}</strong>
+                <span>
+                  {row.renderStatus} · {row.sourceKind} · features {String(row.featureCount ?? "unchecked")} · url {row.urlAvailable ? "yes" : "no"} ·
+                  geometry {row.geometryAvailable ? "yes" : "no"} · renderer {row.rendererAvailable ? "yes" : "no"} · legend {row.legendIncluded ? "yes" : "no"}
+                  {row.failureReason ? ` · ${row.failureReason}` : ""}
                 </span>
               </li>
             ))}

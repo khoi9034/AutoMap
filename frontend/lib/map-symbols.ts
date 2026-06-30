@@ -66,7 +66,7 @@ export function isRoadRouteMode(routeMode?: string | null): boolean {
   return ["road_network", "road_network_route", "road_following_draft"].includes((routeMode || "").toLowerCase());
 }
 
-function arcgisColor(value: unknown): unknown {
+export function arcgisColor(value: unknown): unknown {
   if (!Array.isArray(value) || value.length < 3) return value;
   const [r, g, b] = value;
   if (typeof r !== "number" || typeof g !== "number" || typeof b !== "number") return value;
@@ -75,18 +75,74 @@ function arcgisColor(value: unknown): unknown {
   return [r, g, b, Math.max(0, Math.min(1, alpha))];
 }
 
+type RendererSymbol = {
+  type?: string;
+  style?: string;
+  color?: unknown;
+  width?: unknown;
+  size?: unknown;
+  outline?: RendererSymbol | null;
+};
+
+function symbolStyle(value: unknown): string | undefined {
+  const style = String(value || "").toLowerCase();
+  if (!style) return undefined;
+  if (style.includes("dash")) return "dash";
+  if (style.includes("dot")) return "dot";
+  if (style.includes("diamond")) return "diamond";
+  if (style.includes("square")) return "square";
+  if (style.includes("triangle")) return "triangle";
+  if (style.includes("x")) return "x";
+  if (style.includes("cross")) return "cross";
+  if (style.includes("circle")) return "circle";
+  if (style.includes("null") || style.includes("none")) return "none";
+  return "solid";
+}
+
+function rendererType(value: unknown): unknown {
+  const type = String(value || "");
+  if (type === "uniqueValue") return "unique-value";
+  if (type === "classBreaks") return "class-breaks";
+  return value;
+}
+
+export function normalizeArcgisSymbol(symbol: unknown): Record<string, unknown> | undefined {
+  if (!symbol || typeof symbol !== "object") return undefined;
+  const item = symbol as RendererSymbol;
+  const outline = item.outline ? normalizeArcgisSymbol({ type: item.outline.type || "esriSLS", ...item.outline }) : undefined;
+  if (item.type === "esriSFS" || item.type === "simple-fill") {
+    return { ...item, type: "simple-fill", style: symbolStyle(item.style) || "solid", color: arcgisColor(item.color), outline };
+  }
+  if (item.type === "esriSLS" || item.type === "simple-line" || (!item.type && (item.color || item.width))) {
+    return { ...item, type: "simple-line", style: symbolStyle(item.style) || "solid", color: arcgisColor(item.color), width: item.width ?? 1 };
+  }
+  if (item.type === "esriSMS" || item.type === "simple-marker") {
+    return { ...item, type: "simple-marker", style: symbolStyle(item.style) || "circle", color: arcgisColor(item.color), size: item.size, outline };
+  }
+  return { ...item, color: arcgisColor(item.color), outline };
+}
+
+export function normalizeArcgisRenderer(renderer: unknown): Record<string, unknown> | undefined {
+  if (!renderer || typeof renderer !== "object") return undefined;
+  const item = renderer as Record<string, unknown>;
+  const normalized: Record<string, unknown> = { ...item, type: rendererType(item.type) };
+  if (item.symbol) normalized.symbol = normalizeArcgisSymbol(item.symbol);
+  if (item.defaultSymbol) normalized.defaultSymbol = normalizeArcgisSymbol(item.defaultSymbol);
+  for (const key of ["uniqueValueInfos", "classBreakInfos"] as const) {
+    if (Array.isArray(item[key])) {
+      normalized[key] = item[key].map((info) =>
+        info && typeof info === "object" ? { ...info, symbol: normalizeArcgisSymbol((info as Record<string, unknown>).symbol) } : info,
+      );
+    }
+  }
+  return normalized;
+}
+
 function polygonSymbolFromRenderer(overlay: DerivedOverlay): Record<string, unknown> | null {
   const drawingInfo = overlay.drawing_info as { renderer?: { symbol?: { type?: string; color?: unknown; outline?: { color?: unknown; width?: unknown } } } } | null | undefined;
   const symbol = drawingInfo?.renderer?.symbol;
   if (symbol?.type !== "esriSFS") return null;
-  return {
-    type: "simple-fill",
-    color: arcgisColor(symbol.color),
-    outline: {
-      color: arcgisColor(symbol.outline?.color),
-      width: typeof symbol.outline?.width === "number" ? symbol.outline.width : 1.5,
-    },
-  };
+  return normalizeArcgisSymbol(symbol) || null;
 }
 
 export function arcgisSymbolForOverlay(

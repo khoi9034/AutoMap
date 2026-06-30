@@ -12,7 +12,7 @@ import { MapScaleBar } from "@/components/map-scale-bar";
 import { NorthArrow } from "@/components/north-arrow";
 import { StatusChip } from "@/components/status-chip";
 import { API_BASE_URL } from "@/lib/api";
-import { arcgisSymbolForOverlay, isRoadRouteMode } from "@/lib/map-symbols";
+import { arcgisSymbolForOverlay, isRoadRouteMode, normalizeArcgisRenderer } from "@/lib/map-symbols";
 import { validatePrintSnapshot } from "@/lib/print-snapshot";
 import type { ComposerMapState, ComposerResponse, DerivedOverlay, JsonValue, PreviewLayer } from "@/types/automap";
 
@@ -239,6 +239,12 @@ function contextLayerUrl(layer: PreviewLayer): string {
   return layer.service_url || "";
 }
 
+function contextLayerRenderable(layer: PreviewLayer): boolean {
+  if ((layer.default_visible ?? layer.visibility ?? true) === false) return false;
+  if (layer.diagnostics_only || layer.map_role === "diagnostics_only" || layer.legend_included === false) return false;
+  return Boolean(contextLayerUrl(layer));
+}
+
 function graphicsForFeature(
   feature: GeoJsonFeature,
   overlay: DerivedOverlay,
@@ -368,7 +374,7 @@ function addContextLayers(map: ArcMap, contextLayers: PreviewLayer[], modules: A
             ? 0.58
             : 0.62;
     const definitionExpression = layer.definition_expression || undefined;
-    const renderer = layer.drawing_info?.renderer;
+    const renderer = normalizeArcgisRenderer(layer.drawing_info?.renderer);
     try {
       if (layerUrl) {
         map.add(
@@ -479,6 +485,7 @@ export function ComposerMapPreview({
     () => (response.preview_config?.context_layers || response.preview_config?.operational_layers || []).filter((layer: PreviewLayer) => !layer.derived_local_analysis && !layer.local_output),
     [response.preview_config?.context_layers, response.preview_config?.operational_layers],
   );
+  const renderableContextLayers = useMemo(() => contextLayers.filter(contextLayerRenderable), [contextLayers]);
   const [loaded, setLoaded] = useState<LoadedOverlay[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -486,6 +493,12 @@ export function ComposerMapPreview({
   const [viewScale, setViewScale] = useState<number | null>(null);
   const [viewWidth, setViewWidth] = useState<number | null>(null);
   const locked = isLockedMode(interactionMode);
+
+  useEffect(() => {
+    if (!loading && !loadError && !renderableContextLayers.length && !loaded.length && contextLayers.length && !derivedOverlays.length) {
+      setMapError("AutoMap generated a plan, but the visible layer could not be rendered.");
+    }
+  }, [contextLayers.length, derivedOverlays.length, loadError, loaded.length, loading, renderableContextLayers.length]);
 
   useEffect(() => {
     if (!derivedOverlays.length) {
@@ -530,7 +543,7 @@ export function ComposerMapPreview({
   }, [derivedOverlays]);
 
   useEffect(() => {
-    if ((!derivedOverlays.length && !contextLayers.length) || loading || loadError || !containerRef.current) return;
+    if ((!derivedOverlays.length && !renderableContextLayers.length) || loading || loadError || !containerRef.current) return;
     let cancelled = false;
     let view: ArcView | undefined;
     let scaleHandle: { remove?: () => void } | undefined;
@@ -548,11 +561,11 @@ export function ComposerMapPreview({
         const map = new modules.EsriMap({
           basemap: response.preview_config?.basemap || "streets-vector",
         });
-        addContextLayers(map, contextLayers.filter((layer) => contextDrawRank(layer) < RESULT_OVERLAY_DRAW_RANK), modules);
+        addContextLayers(map, renderableContextLayers.filter((layer) => contextDrawRank(layer) < RESULT_OVERLAY_DRAW_RANK), modules);
         addDerivedOverlayLayers(map, loaded, modules, ["parcel", "other"]);
-        addContextLayers(map, contextLayers.filter((layer) => contextDrawRank(layer) >= RESULT_OVERLAY_DRAW_RANK && contextDrawRank(layer) < BOUNDARY_DRAW_RANK), modules);
-        addContextLayers(map, contextLayers.filter((layer) => contextDrawRank(layer) === BOUNDARY_DRAW_RANK), modules);
-        addContextLayers(map, contextLayers.filter((layer) => contextDrawRank(layer) > BOUNDARY_DRAW_RANK), modules);
+        addContextLayers(map, renderableContextLayers.filter((layer) => contextDrawRank(layer) >= RESULT_OVERLAY_DRAW_RANK && contextDrawRank(layer) < BOUNDARY_DRAW_RANK), modules);
+        addContextLayers(map, renderableContextLayers.filter((layer) => contextDrawRank(layer) === BOUNDARY_DRAW_RANK), modules);
+        addContextLayers(map, renderableContextLayers.filter((layer) => contextDrawRank(layer) > BOUNDARY_DRAW_RANK), modules);
         addDerivedOverlayLayers(map, loaded, modules, ["route", "origin", "target"]);
 
         const configuredExtent = numericExtent(response.preview_config?.focus_extent || response.preview_config?.initial_extent);
@@ -633,7 +646,7 @@ export function ComposerMapPreview({
       }
     };
   }, [
-    contextLayers,
+    renderableContextLayers,
     derivedOverlays.length,
     interactionMode,
     loadError,
@@ -774,7 +787,7 @@ export function ComposerMapPreview({
           ) : null}
           <NorthArrow />
           <MapScaleBar scale={viewScale} mapWidth={viewWidth} />
-          <MapLegend overlays={derivedOverlays} contextLayers={contextLayers} />
+          <MapLegend overlays={loaded.map((item) => item.overlay)} contextLayers={renderableContextLayers} />
         </MapFrame>
       </section>
 

@@ -381,6 +381,7 @@ def test_map_composer_is_primary_simple_workflow():
     assert "Map preview failed to load." in composer_preview
     assert "composer-map-grid" not in composer_preview
     assert "arcgisSymbolForOverlay" in composer_preview
+    assert "normalizeArcgisRenderer" in composer_preview
     assert "overlayIsGeneratedGraphic" in composer_preview
     assert "overlayIsClientRendered" in composer_preview
     assert "featureCollectionFromOverlay" in composer_preview
@@ -408,7 +409,7 @@ def test_map_composer_is_primary_simple_workflow():
     assert "Locked preview" in composer_preview
     assert "Locked for print" in composer_preview
     assert "components: locked ? [\"attribution\"] : [\"attribution\", \"zoom\"]" in composer_preview
-    assert "if ((!derivedOverlays.length && !contextLayers.length)" in composer_preview
+    assert "if ((!derivedOverlays.length && !renderableContextLayers.length)" in composer_preview
     assert "if (!derivedOverlays.length && !contextLayers.length && packetId)" in composer_preview
     assert "mouseWheelZoomEnabled: false" in composer_preview
     assert "browserTouchPanEnabled: false" in composer_preview
@@ -417,19 +418,22 @@ def test_map_composer_is_primary_simple_workflow():
     assert "map-frame-title" in map_frame_title
     assert "data-testid=\"map-frame-title\"" in map_frame_title
     assert "<MapScaleBar scale={viewScale} mapWidth={viewWidth}" in composer_preview
-    assert "<MapLegend overlays={derivedOverlays} contextLayers={contextLayers} />" in composer_preview
+    assert "<MapLegend overlays={loaded.map((item) => item.overlay)} contextLayers={renderableContextLayers} />" in composer_preview
+    assert "contextLayerRenderable" in composer_preview
+    assert "renderableContextLayers" in composer_preview
+    assert "AutoMap generated a plan, but the visible layer could not be rendered." in composer_preview
     assert "contextDrawRank" in composer_preview
     assert 'typeof layer.draw_order === "number"' in composer_preview
     assert 'return layer.draw_order' in composer_preview
     assert "RESULT_OVERLAY_DRAW_RANK" in composer_preview
     assert "BOUNDARY_DRAW_RANK" in composer_preview
-    assert "addContextLayers(map, contextLayers.filter((layer) => contextDrawRank(layer) < RESULT_OVERLAY_DRAW_RANK), modules)" in composer_preview
+    assert "addContextLayers(map, renderableContextLayers.filter((layer) => contextDrawRank(layer) < RESULT_OVERLAY_DRAW_RANK), modules)" in composer_preview
     assert 'addDerivedOverlayLayers(map, loaded, modules, ["parcel", "other"])' in composer_preview
     assert "contextDrawRank(layer) >= RESULT_OVERLAY_DRAW_RANK && contextDrawRank(layer) < BOUNDARY_DRAW_RANK" in composer_preview
-    assert "addContextLayers(map, contextLayers.filter((layer) => contextDrawRank(layer) === BOUNDARY_DRAW_RANK), modules)" in composer_preview
+    assert "addContextLayers(map, renderableContextLayers.filter((layer) => contextDrawRank(layer) === BOUNDARY_DRAW_RANK), modules)" in composer_preview
     assert 'addDerivedOverlayLayers(map, loaded, modules, ["route", "origin", "target"])' in composer_preview
     frame_index = composer_preview.index("<MapFrame")
-    legend_index = composer_preview.index("<MapLegend overlays={derivedOverlays} contextLayers={contextLayers} />")
+    legend_index = composer_preview.index("<MapLegend overlays={loaded.map((item) => item.overlay)} contextLayers={renderableContextLayers} />")
     assert frame_index < legend_index
     assert "addDerivedOverlayLayers" in composer_preview
     assert "casing" in composer_preview
@@ -450,6 +454,12 @@ def test_map_composer_is_primary_simple_workflow():
     assert "route_road_following" in map_symbols
     assert "route_straight_line" in map_symbols
     assert "svgDataUrl" in map_symbols
+    assert "normalizeArcgisSymbol" in map_symbols
+    assert "normalizeArcgisRenderer" in map_symbols
+    assert "unique-value" in map_symbols
+    assert "class-breaks" in map_symbols
+    assert "simple-fill" in map_symbols
+    assert "simple-line" in map_symbols
     assert "options: { casing?: boolean }" in map_symbols
     assert "kind?: \"source_layer\" | \"generated_graphic\"" in types
     assert "source_kind?: \"arcgis_source_layer\" | \"derived_feature_collection\"" in types
