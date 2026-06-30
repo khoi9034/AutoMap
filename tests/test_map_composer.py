@@ -783,6 +783,47 @@ def test_query_failed_context_layer_is_removed_from_mixed_result_legend():
     assert all(row["legend_included"] is False for row in patched_qa["visible_feature_summary"] if row["layer_id"] in {"flood", "boundary"})
 
 
+def test_zoning_context_boundary_only_result_is_not_ready(monkeypatch, tmp_path):
+    monkeypatch.setattr("app.map_composer._session_root", lambda: tmp_path / "composer_sessions")
+    monkeypatch.setattr(
+        "app.map_composer.build_recipe",
+        lambda prompt: build_recipe(prompt, sample_catalog(), persist_data_gaps=False),
+    )
+    packet_path = tmp_path / "review_packets" / "packet"
+    packet_path.mkdir(parents=True)
+    monkeypatch.setattr("app.map_composer.save_review_packet", lambda prompt, recipe, webmap: packet_path)
+    monkeypatch.setattr(
+        "app.map_composer._preview_config_for",
+        lambda path, can_preview: {
+            "initial_extent": {"xmin": -80.72, "ymin": 35.30, "xmax": -80.46, "ymax": 35.49, "spatialReference": {"wkid": 4326}},
+            "operational_layers": [
+                {"layer_key": "zoning", "title": "Commercial zoning", "category": "zoning", "url": "https://example.test/Zoning/0", "visibility": True},
+                {"layer_key": "municipal", "title": "Municipal District", "category": "jurisdiction", "url": "https://example.test/Municipal/0", "visibility": True},
+            ],
+        },
+    )
+    monkeypatch.setattr(
+        "app.map_composer.visible_map_qa",
+        lambda config, recipe: {
+            "visible_feature_summary": [
+                {"layer_id": "zoning", "layer_title": "Commercial zoning", "expected_role": "zoning", "feature_count": None, "visible": True, "query_status": "query_failed"},
+                {"layer_id": "municipal", "layer_title": "Concord boundary", "expected_role": "boundary", "feature_count": 35, "visible": True, "query_status": "visible"},
+            ],
+            "visible_feature_total": 35,
+            "visible_extent": {"xmin": -80.7, "ymin": 35.31, "xmax": -80.47, "ymax": 35.48, "spatialReference": {"wkid": 4326}},
+            "warnings": ["Feature count check unavailable for Commercial zoning: timeout"],
+            "fallback_used": False,
+            "qa_status": "visible",
+        },
+    )
+
+    result = generate_composer_draft("show commercial zoning around Concord with nearby major roads")
+
+    assert result["result_state"] == "blocked"
+    assert result["can_preview"] is False
+    assert "could not load usable zoning features" in result["preview_blockers"][0]
+
+
 def test_composer_adjust_changes_title_visibility_opacity_and_order(monkeypatch, tmp_path):
     session_root = tmp_path / "composer_sessions"
     packet_path = tmp_path / "review_packets" / "packet"

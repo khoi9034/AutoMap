@@ -583,6 +583,33 @@ def _has_partial_context_map(preview_config: dict[str, Any] | None) -> bool:
         return False
 
 
+def _has_visible_feature_role(preview_config: dict[str, Any] | None, roles: set[str]) -> bool:
+    if not isinstance(preview_config, dict):
+        return False
+    for row in preview_config.get("visible_feature_summary") or []:
+        if not isinstance(row, dict) or row.get("visible") is False:
+            continue
+        if str(row.get("expected_role") or row.get("map_role") or "").lower() not in roles:
+            continue
+        try:
+            if int(row.get("feature_count") or 0) > 0:
+                return True
+        except (TypeError, ValueError):
+            continue
+    return False
+
+
+def _role_query_failed(preview_config: dict[str, Any] | None, roles: set[str]) -> bool:
+    if not isinstance(preview_config, dict):
+        return False
+    return any(
+        isinstance(row, dict)
+        and str(row.get("expected_role") or row.get("map_role") or "").lower() in roles
+        and row.get("query_status") in {"query_failed", "source_unavailable"}
+        for row in preview_config.get("visible_feature_summary") or []
+    )
+
+
 def _has_local_map_output(recipe: dict[str, Any], preview_config: dict[str, Any] | None) -> bool:
     if isinstance(preview_config, dict) and preview_config.get("derived_overlays"):
         return True
@@ -1234,6 +1261,22 @@ def _base_session_response(
                 *blockers,
                 "AutoMap found relevant layers but could not verify visible features for the requested area/filter.",
             ]
+    elif result_state == "ready" and (
+        recipe.get("request_type") or (recipe.get("request_plan") or {}).get("request_type")
+    ) == "zoning_context" and not recipe.get("parcel_context") and not _has_visible_feature_role(preview_config, {"zoning"}):
+        result_state = "blocked" if _role_query_failed(preview_config, {"zoning"}) else "no_matches"
+        can_preview = False
+        geography = (
+            ((preview_config or {}).get("aoi") or {}).get("geography_name")
+            or (((recipe.get("request_plan") or {}).get("parameters") or {}).get("geography"))
+            or "requested"
+        )
+        blockers = [
+            *blockers,
+            f"AutoMap found the {geography} area but could not load usable zoning features for this request."
+            if result_state == "blocked"
+            else "No visible zoning features found for this request.",
+        ]
     elif result_state == "ready" and _zoning_context_fallback_used(preview_config):
         result_state = "partial"
     result_truth = _result_truth_summary(recipe, result_state)
