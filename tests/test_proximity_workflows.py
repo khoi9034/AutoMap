@@ -281,6 +281,7 @@ def test_proximity_result_writes_origin_target_and_line_geojson(monkeypatch, tmp
     assert origin_overlay["geojson"]["features"][0]["geometry"]["type"] == "Point"
     assert target_overlay["source_kind"] == "generated_graphic_overlay"
     assert target_overlay["kind"] == "generated_graphic"
+    assert target_overlay["legend_label"] == "Nearest Fire Station"
     assert target_overlay["geojson"]["features"][0]["geometry"]["type"] == "Point"
     assert "selected_parcel" not in {overlay["role"] for overlay in result["derived_overlays"]}
     assert result["property_match_status"] == "not_resolved"

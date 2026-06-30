@@ -1383,6 +1383,7 @@ def _proximity_overlay(
     route_warning: str | None = None,
     facility_type: str | None = None,
     facility_display_name: str | None = None,
+    legend_label: str | None = None,
     default_visible: bool = True,
 ) -> dict[str, Any] | None:
     url = result.get(f"{key_prefix}_geojson_url")
@@ -1392,6 +1393,7 @@ def _proximity_overlay(
     return {
         "id": overlay_id,
         "title": title,
+        "legend_label": legend_label or title,
         "source_kind": "route_overlay" if geometry_type == "line" else "generated_graphic_overlay",
         "kind": "generated_graphic",
         "layer_type": "graphics_overlay" if geometry_type != "line" else "route_overlay",
@@ -1435,6 +1437,17 @@ def _target_symbol_key(result: dict[str, Any]) -> str:
     return "target_facility"
 
 
+def _target_legend_label(result: dict[str, Any]) -> str:
+    target_type = str(result.get("target_type") or "")
+    if "fire" in target_type:
+        return "Nearest Fire Station"
+    if "school" in target_type:
+        return "Nearest School"
+    if "library" in target_type:
+        return "Nearest Library"
+    return "Nearest Facility"
+
+
 def _build_derived_overlays(result: dict[str, Any]) -> list[dict[str, Any]]:
     route_prefix = "route_line" if result.get("route_line_geojson_url") else "straight_line" if result.get("straight_line_geojson_url") else "line"
     route_mode = _canonical_route_mode(result.get("route_mode") or ("road_network" if route_prefix == "route_line" else "straight_line_fallback"))
@@ -1467,6 +1480,7 @@ def _build_derived_overlays(result: dict[str, Any]) -> list[dict[str, Any]]:
             symbol_key=_target_symbol_key(result),
             facility_type=result.get("target_type"),
             facility_display_name=result.get("target_name"),
+            legend_label=_target_legend_label(result),
             symbol={"style": "diamond", "color": "#dc2626", "outline": "#ffffff", "size": 15},
         ),
         _proximity_overlay(
