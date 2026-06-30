@@ -974,6 +974,9 @@ export type PreviewLayer = {
   simplification_applied?: boolean;
   diagnostics_only?: boolean;
   fallback_used?: boolean;
+  legend_included?: boolean;
+  feature_count?: number | null;
+  query_status?: string | null;
   review_warnings?: string[];
   derived_local_analysis?: boolean;
   local_output?: boolean;

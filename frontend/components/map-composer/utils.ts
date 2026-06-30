@@ -158,7 +158,7 @@ export function isPartialContextMap(response: ComposerResponse | null): response
 }
 
 export function canShowComposerMap(response: ComposerResponse | null): response is ComposerResponse {
-  return Boolean(hasPreviewMapPayload(response) || isPartialContextMap(response) || (composerResultState(response) === "no_matches" && hasContextMapPayload(response)));
+  return Boolean(hasPreviewMapPayload(response) || isPartialContextMap(response));
 }
 
 export function composerDisplayTitle(response: ComposerResponse | null): string {

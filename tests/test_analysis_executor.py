@@ -8,6 +8,7 @@ from app.analysis_executor import build_analysis_plan, execute_analysis
 from app.analysis_chunker import chunk_constraint_features, enforce_chunk_limits, split_extent_into_tiles
 from app.analysis_models import DEFAULT_MAX_FEATURES
 from app.geometry_utils import compute_basic_stats, intersect_features
+from app import spatial_query_client
 from app.spatial_query_client import SpatialQueryClient
 from app.spatial_query_client import SpatialQueryError
 from app.spatial_query_optimizer import deduplicate_feature_ids, optimize_intersection_query_plan
@@ -303,9 +304,27 @@ def test_optimizer_uses_one_multipart_query_per_constraint_chunk():
         for url, geometry in zip(fake.object_id_queries, fake.object_id_query_geometries)
         if "parcels" in url
     ]
+
     assert len(parcel_queries) == 1
     assert parcel_queries[0]["type"] == "MultiPolygon"
     assert plan["chunk_receipts"][0]["geometry_mode"] == "multipart_constraint_chunk"
+
+
+def test_arcgis_status_error_payload_raises_spatial_query_error(monkeypatch):
+    class FakeResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def read(self):
+            return b'{"status":"error","messages":["Could not access any server machines."]}'
+
+    monkeypatch.setattr(spatial_query_client, "urlopen", lambda *_args, **_kwargs: FakeResponse())
+
+    with pytest.raises(SpatialQueryError, match="Could not access any server machines"):
+        spatial_query_client._fetch_json_or_geojson("https://example.test/query")
 
 
 def test_geometry_intersection_function_works_on_small_mock_features():

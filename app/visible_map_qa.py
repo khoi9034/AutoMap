@@ -218,6 +218,8 @@ def visible_map_qa(
             "drawing_info": layer.get("drawing_info"),
             "feature_count": None,
             "visible": visible,
+            "query_status": "hidden" if not visible else "pending",
+            "legend_included": False,
             "visible_by_default": layer.get("visible_by_default", visible),
             "opacity": layer.get("opacity"),
             "fallback_used": False,
@@ -265,12 +267,15 @@ def visible_map_qa(
             warnings.append(row["warning"])
         if _is_route_or_derived(layer):
             row["feature_count"] = int(layer.get("feature_count") or layer.get("output_count") or 1)
+            row["query_status"] = "generated"
+            row["legend_included"] = row["feature_count"] > 0
             if isinstance(layer.get("extent"), dict):
                 extents.append(layer["extent"])
             summary.append(row)
             continue
         if not url:
             row["warning"] = "Layer source URL unavailable for preview QA."
+            row["query_status"] = "source_unavailable"
             warnings.append(row["warning"])
             summary.append(row)
             continue
@@ -283,6 +288,8 @@ def visible_map_qa(
                 spatial_rel=SPATIAL_REL_INTERSECTS,
             )
             row["feature_count"] = int(count.get("count") or 0)
+            row["query_status"] = "visible" if row["feature_count"] > 0 else "zero_features"
+            row["legend_included"] = row["feature_count"] > 0
             if row["feature_count"] > 0:
                 try:
                     extent_result = client.query_extent(
@@ -308,6 +315,8 @@ def visible_map_qa(
                     row["feature_count"] = int(fallback_count["count"])
                     row["where"] = None
                     row["fallback_used"] = True
+                    row["query_status"] = "fallback_context"
+                    row["legend_included"] = True
                     row["warning"] = _zoning_fallback_warning(recipe)
                     warnings.append(row["warning"])
                     fallback_used = True
@@ -325,6 +334,7 @@ def visible_map_qa(
                     pass
         except Exception as exc:
             row["warning"] = f"Feature count check unavailable for {layer_title}: {exc}"
+            row["query_status"] = "query_failed"
             warnings.append(row["warning"])
         summary.append(row)
 

@@ -98,7 +98,7 @@ export function MapLegend({
   contextLayers?: PreviewLayer[];
 }) {
   const visibleOverlays = overlays.filter(isVisible);
-  const visibleContextLayers = contextLayers.filter(isVisible);
+  const visibleContextLayers = contextLayers.filter((layer) => isVisible(layer) && layer.legend_included !== false && layer.feature_count !== 0);
   if (!visibleOverlays.length && !visibleContextLayers.length) return null;
 
   const seen = new Set<string>();

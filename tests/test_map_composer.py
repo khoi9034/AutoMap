@@ -655,6 +655,9 @@ def test_commercial_zoning_empty_filter_fallback_is_visible_on_map(monkeypatch, 
     assert zoning_layer["fallback_used"] is True
     assert "definition_expression" not in zoning_layer
     assert qa_calls == ["ZONING_GEN = 'COMMERCIAL'", None]
+    assert result["result_state"] == "partial"
+    assert result["can_preview"] is True
+    assert result["next_action"] == "context_preview"
     assert result["visible_feature_total"] == 27
     assert result["visible_map_qa"]["qa_status"] == "visible"
 
@@ -701,10 +704,13 @@ def test_composer_no_visible_features_is_not_ready(monkeypatch, tmp_path):
 
     result = generate_composer_draft("show commercial zoning around Concord")
 
-    assert result["can_preview"] is True
+    assert result["can_preview"] is False
     assert result["result_state"] == "no_matches"
-    assert result["next_action"] == "context_preview"
+    assert result["next_action"] == "review_recipe"
     assert result["visible_map_qa"]["qa_status"] == "no_visible_features"
+    assert result["preview_config"]["map_layout"]["legend_items"] == []
+    assert result["preview_config"]["context_layers"][0]["visibility"] is False
+    assert result["visible_feature_summary"][0]["legend_included"] is False
 
 
 def test_composer_adjust_changes_title_visibility_opacity_and_order(monkeypatch, tmp_path):

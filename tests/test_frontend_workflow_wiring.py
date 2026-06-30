@@ -320,6 +320,10 @@ def test_map_composer_is_primary_simple_workflow():
     assert "canShowComposerMap" in composer_utils
     assert "composerResultState" in composer_utils
     assert "context_preview" in composer_utils
+    assert 'composerResultState(response) === "no_matches" && hasContextMapPayload(response)' not in composer_utils
+    assert "No matching features found" in preview_step
+    assert "Map data could not be shown" in preview_step
+    assert "Try broader request" in preview_step
     assert "result_state" in automap_types
     assert "requested_result" in automap_types
     assert "available_context" in automap_types
@@ -327,6 +331,8 @@ def test_map_composer_is_primary_simple_workflow():
     assert "context_map_available" in automap_types
     assert "primary_result_available" in automap_types
     assert "requested_result_missing" in automap_types
+    assert "legend_included?: boolean" in automap_types
+    assert "query_status?: string | null" in automap_types
     assert "const previewReady = canShowComposerMap(response)" in client
     assert "const previewReady = canShowComposerMap(response)" in preview_step
     assert "if (!canShowComposerMap(response))" in adjust_step
@@ -383,6 +389,8 @@ def test_map_composer_is_primary_simple_workflow():
     assert "Major roads" in map_legend
     assert "Road context" in map_legend
     assert "contextSwatchStyle" in map_legend
+    assert "layer.legend_included !== false" in map_legend
+    assert "layer.feature_count !== 0" in map_legend
     assert "drawing_info as { renderer?: { symbol?: EsriSymbol } }" in map_legend
     assert "borderTopColor: color" in map_legend
     assert "background: color" in map_legend

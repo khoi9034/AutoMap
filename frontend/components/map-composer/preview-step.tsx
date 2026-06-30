@@ -44,6 +44,37 @@ export function PreviewBlocker({
   onGoToRequest: () => void;
 }) {
   const floodplainPartial = isPartialFloodplainContext(response);
+  const resultState = composerResultState(response);
+  if (resultState === "no_matches") {
+    const triedRows = response.visible_feature_summary || response.preview_config?.visible_feature_summary || [];
+    return (
+      <section className="panel parcel-preview-blocked" role="status">
+        <p className="eyebrow">No matches</p>
+        <h3>No matching features found</h3>
+        <p>
+          AutoMap found relevant catalog layers, but the requested filter/AOI returned no visible features. A normal map preview is hidden so the
+          legend does not imply layers were successfully drawn.
+        </p>
+        {triedRows.length ? (
+          <div className="definition-box">
+            <strong>What AutoMap tried</strong>
+            <ul className="compact-list">
+              {triedRows.slice(0, 4).map((row, index) => (
+                <li key={`${String(row.layer_id || row.layer_title || "layer")}-${index}`}>
+                  {String(row.layer_title || row.layer_id || "Layer")}: {String(row.feature_count ?? "unchecked")} features
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+        <div className="button-row">
+          <button className="button" type="button" onClick={onGoToRequest}>
+            Try broader request
+          </button>
+        </div>
+      </section>
+    );
+  }
   if (floodplainPartial) {
     const blockerText =
       response.preview_blockers?.[0] ||
@@ -71,6 +102,21 @@ export function PreviewBlocker({
           <strong>What AutoMap found</strong>
           <p>Concord boundary and 100-year floodplain context are available, but the requested affected parcel result is missing.</p>
         </div>
+        <div className="button-row">
+          <button className="button" type="button" onClick={onGoToRequest}>
+            Try broader request
+          </button>
+        </div>
+      </section>
+    );
+  }
+  if (resultState === "blocked" && !response.parcel_context && !isAddressFocused(response)) {
+    const blockerText = response.preview_blockers?.[0] || "AutoMap could not build a visible map preview for this request.";
+    return (
+      <section className="panel parcel-preview-blocked" role="alert">
+        <p className="eyebrow">Preview blocked</p>
+        <h3>Map data could not be shown</h3>
+        <p>{blockerText}</p>
         <div className="button-row">
           <button className="button" type="button" onClick={onGoToRequest}>
             Try broader request

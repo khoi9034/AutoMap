@@ -309,8 +309,10 @@ def _can_analyze(recipe: dict[str, Any]) -> bool:
 
 
 def _next_action(can_preview: bool, blockers: list[str], result_state: str = "") -> str:
-    if result_state in {"partial", "no_matches"}:
+    if result_state == "partial":
         return "context_preview"
+    if result_state == "no_matches":
+        return "review_recipe"
     if blockers:
         lowered = " ".join(blockers).lower()
         if "address" in lowered:
@@ -482,6 +484,8 @@ def _legend_items_from_preview(config: dict[str, Any] | None) -> list[dict[str, 
     for layer in config.get("context_layers") or []:
         if not isinstance(layer, dict):
             continue
+        if layer.get("legend_included") is False:
+            continue
         visible = layer.get("default_visible", layer.get("visibility", True))
         if visible is False:
             continue
@@ -506,6 +510,106 @@ def _legend_items_from_preview(config: dict[str, Any] | None) -> list[dict[str, 
             }
         )
     return items
+
+
+def _layer_key_for_qa(layer: dict[str, Any]) -> str:
+    return str(layer.get("layer_key") or layer.get("id") or layer.get("title") or "")
+
+
+def _is_zero_feature_row(row: dict[str, Any], qa_status: str | None) -> bool:
+    if row.get("visible") is False:
+        return False
+    feature_count = row.get("feature_count")
+    if feature_count == 0:
+        return True
+    return feature_count is None and qa_status in {"no_visible_features", "query_failed"}
+
+
+def _apply_legend_truth_from_qa(config: dict[str, Any], qa: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Hide zero-feature planned source layers so the legend mirrors the map."""
+    patched = deepcopy(config)
+    summary = deepcopy(qa.get("visible_feature_summary") or [])
+    qa_status = qa.get("qa_status")
+    rows_by_id = {str(row.get("layer_id") or ""): row for row in summary if isinstance(row, dict)}
+    legend_keys: set[str] = set()
+    next_layers: list[dict[str, Any]] = []
+    for layer in patched.get("context_layers") or []:
+        if not isinstance(layer, dict):
+            next_layers.append(layer)
+            continue
+        item = deepcopy(layer)
+        key = _layer_key_for_qa(item)
+        row = rows_by_id.get(key)
+        if row and _is_zero_feature_row(row, str(qa_status or "")):
+            item["visibility"] = False
+            item["default_visible"] = False
+            item["visible_by_default"] = False
+            item["legend_included"] = False
+            item["query_status"] = row.get("query_status") or "zero_features"
+            warnings = list(item.get("review_warnings") or [])
+            warning = row.get("warning") or "Layer returned no visible features for the requested area/filter."
+            if warning not in warnings:
+                warnings.append(str(warning))
+            item["review_warnings"] = warnings
+        else:
+            visible = item.get("default_visible", item.get("visibility", True)) is not False
+            item["legend_included"] = visible
+            if visible:
+                legend_keys.add(key)
+        next_layers.append(item)
+    for row in summary:
+        if not isinstance(row, dict):
+            continue
+        key = str(row.get("layer_id") or "")
+        if row.get("query_status") is None:
+            row["query_status"] = "hidden" if row.get("visible") is False else "visible"
+        row["legend_included"] = (
+            row.get("query_status") == "generated"
+            or (key in legend_keys and not _is_zero_feature_row(row, str(qa_status or "")))
+        )
+        row["renderer_label"] = row.get("legend_label") or row.get("layer_title")
+    patched["context_layers"] = next_layers
+    return patched, {**qa, "visible_feature_summary": summary}
+
+
+def _has_partial_context_map(preview_config: dict[str, Any] | None) -> bool:
+    if not isinstance(preview_config, dict):
+        return False
+    try:
+        return int(preview_config.get("visible_feature_total") or 0) > 0
+    except (TypeError, ValueError):
+        return False
+
+
+def _has_local_map_output(recipe: dict[str, Any], preview_config: dict[str, Any] | None) -> bool:
+    if isinstance(preview_config, dict) and preview_config.get("derived_overlays"):
+        return True
+    if recipe.get("derived_overlays"):
+        return True
+    if (recipe.get("analysis_execution") or {}).get("derived_outputs"):
+        return True
+    if (recipe.get("proximity_result") or {}).get("status") == "ok":
+        return True
+    screening = recipe.get("floodplain_screening") if isinstance(recipe.get("floodplain_screening"), dict) else {}
+    try:
+        affected_count = int(screening.get("affected_feature_count") or 0)
+    except (TypeError, ValueError):
+        affected_count = 0
+    if screening.get("status") == "completed" and affected_count > 0:
+        return True
+    parcel_context = recipe.get("parcel_context") or {}
+    return bool(parcel_context.get("can_focus_map") and parcel_context.get("selected_parcel_geojson_path"))
+
+
+def _zoning_context_fallback_used(preview_config: dict[str, Any] | None) -> bool:
+    if not isinstance(preview_config, dict):
+        return False
+    return any(
+        isinstance(layer, dict)
+        and layer.get("fallback_used")
+        and str(layer.get("cartography_role") or layer.get("map_role") or "").lower() in {"zoning", "context_polygon_muted"}
+        for layer in preview_config.get("context_layers") or []
+    )
 
 
 def _build_map_layout(recipe: dict[str, Any], config: dict[str, Any] | None) -> dict[str, Any]:
@@ -784,6 +888,7 @@ def _augment_preview_config(preview_config: dict[str, Any] | None, recipe: dict[
     config = brain_apply_visible_qa_fallbacks(config, qa, recipe)
     if qa.get("fallback_used"):
         qa = visible_map_qa(config, recipe)
+    config, qa = _apply_legend_truth_from_qa(config, qa)
     config["visible_feature_summary"] = qa.get("visible_feature_summary") or []
     config["visible_feature_total"] = qa.get("visible_feature_total")
     config["visible_map_qa"] = {
@@ -1110,12 +1215,23 @@ def _base_session_response(
         can_preview = False
     result_state = _result_state(recipe, can_preview, blockers)
     visible_map_qa = (preview_config or {}).get("visible_map_qa") if isinstance(preview_config, dict) else {}
-    if can_preview and preview_config and (visible_map_qa or {}).get("qa_status") == "no_visible_features":
-        result_state = "no_matches"
+    qa_status = (visible_map_qa or {}).get("qa_status")
+    if can_preview and preview_config and qa_status in {"no_visible_features", "query_failed"} and not _has_local_map_output(recipe, preview_config):
+        result_state = "blocked" if qa_status == "query_failed" else "no_matches"
+        can_preview = False
+        if result_state == "blocked":
+            blockers = [
+                *blockers,
+                "AutoMap found relevant layers but could not verify visible features for the requested area/filter.",
+            ]
+    elif result_state == "ready" and _zoning_context_fallback_used(preview_config):
+        result_state = "partial"
     result_truth = _result_truth_summary(recipe, result_state)
     if result_state in {"partial", "no_matches"} and "context_map_available" not in result_truth:
-        result_truth["context_map_available"] = bool(preview_config)
-    map_available = result_state == "ready" or bool(result_truth.get("context_map_available"))
+        result_truth["context_map_available"] = result_state == "partial" and _has_partial_context_map(preview_config)
+    if result_state == "no_matches":
+        result_truth["context_map_available"] = False
+    map_available = result_state == "ready" or (result_state == "partial" and bool(result_truth.get("context_map_available")))
     packet_path = adjusted_packet_path or review_packet_path
     packet_id = packet_path.name if packet_path else None
     webmap_path = session_folder / ("adjusted_webmap.json" if (session_folder / "adjusted_webmap.json").exists() else "webmap.json")
@@ -1174,7 +1290,7 @@ def _base_session_response(
         "next_action": _next_action(can_preview, blockers, result_state),
         "simple_steps": [
             {"step": "Request", "status": "complete"},
-            {"step": "Preview", "status": "complete" if result_state == "ready" else "blocked" if result_state in {"blocked", "unsupported"} else "pending"},
+            {"step": "Preview", "status": "complete" if map_available else "blocked"},
             {"step": "Adjust", "status": "pending" if map_available else "blocked"},
             {"step": "Print / Export", "status": "pending" if map_available else "blocked"},
         ],

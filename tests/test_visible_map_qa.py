@@ -58,6 +58,30 @@ def test_brain_visible_map_qa_flags_empty_preview():
     assert any("filter returned no visible features" in warning for warning in qa["warnings"])
 
 
+def test_brain_visible_map_qa_distinguishes_query_failure():
+    class FakeClient:
+        def query_count(self, *_args, **_kwargs):
+            raise RuntimeError("count unavailable")
+
+    recipe = {"request_plan": {"request_type": "zoning_context", "parameters": {"geography": "Concord"}}}
+    preview = {
+        "context_layers": [
+            {
+                "layer_key": "zoning",
+                "title": "Commercial zoning",
+                "category": "zoning",
+                "url": "https://example.test/zoning/0",
+                "visibility": True,
+            }
+        ],
+    }
+
+    qa = run_visible_map_qa(preview, recipe, query_client=FakeClient())
+
+    assert qa["qa_status"] == "query_failed"
+    assert qa["visible_feature_summary"][0]["query_status"] == "query_failed"
+
+
 def test_brain_visible_map_qa_preserves_aoi_clipping_metadata():
     class FakeClient:
         def query_count(self, *_args, **_kwargs):

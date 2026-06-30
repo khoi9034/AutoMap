@@ -82,6 +82,10 @@ def _fetch_json_or_geojson(
         message = error.get("message", "ArcGIS REST query error") if isinstance(error, dict) else str(error)
         details = error.get("details") if isinstance(error, dict) else None
         raise SpatialQueryError(f"{message}: {details or 'no details'}")
+    if data.get("status") == "error":
+        messages = data.get("messages")
+        detail = "; ".join(str(item) for item in messages) if isinstance(messages, list) else str(messages or "no details")
+        raise SpatialQueryError(f"ArcGIS REST query error: {detail}")
     return data
 
 
