@@ -8,7 +8,7 @@ import { StatusChip } from "@/components/status-chip";
 import { isRoadRouteMode } from "@/lib/map-symbols";
 import type { ComposerResponse, ProximityResult } from "@/types/automap";
 
-import { actionLabel, canShowComposerMap, composerDisplayTitle, composerResultState, identifierText, isAddressFocused, isPartialContextMap } from "./utils";
+import { actionLabel, canShowComposerMap, composerDisplayTitle, composerResultState, identifierText, isAddressFocused, isParcelFocused, isPartialContextMap } from "./utils";
 
 type PreviewStepProps = {
   loading?: boolean;
@@ -110,7 +110,9 @@ export function PreviewBlocker({
       </section>
     );
   }
-  if (resultState === "blocked" && !response.parcel_context && !isAddressFocused(response)) {
+  const addressFocused = isAddressFocused(response);
+  const parcelFocused = isParcelFocused(response);
+  if (resultState === "blocked" && !addressFocused && !parcelFocused) {
     const blockerText = response.preview_blockers?.[0] || "AutoMap could not build a visible map preview for this request.";
     return (
       <section className="panel parcel-preview-blocked" role="alert">
@@ -126,7 +128,7 @@ export function PreviewBlocker({
     );
   }
   const context = response.parcel_context;
-  const isAddress = isAddressFocused(response);
+  const isAddress = addressFocused;
   const blockerText = response.preview_blockers?.[0] || context?.reason_if_not_focusable || "";
   if (!response.preview_blockers?.length && context?.can_focus_map !== false && response.recipe?.origin_context?.can_preview !== false) return null;
   const candidates = [...(response.origin_candidates || []), ...(context?.candidate_matches || [])];

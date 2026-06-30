@@ -71,6 +71,20 @@ export function isAddressFocused(response: ComposerResponse): boolean {
   );
 }
 
+export function isParcelFocused(response: ComposerResponse): boolean {
+  const requestType = String(response.request_type || response.request_plan?.request_type || response.parcel_context?.request_type || "").toLowerCase();
+  const context = response.parcel_context;
+  return (
+    requestType === "parcel_lookup" ||
+    requestType === "parcel_context" ||
+    context?.origin_type === "parcel" ||
+    context?.input_type === "pin" ||
+    context?.input_type === "parcel" ||
+    context?.can_focus_map === false ||
+    Boolean(context?.parsed_identifiers?.length || context?.unmatched_identifiers?.length || context?.matched_count)
+  );
+}
+
 export function identifierText(value: unknown): string {
   if (!value || typeof value !== "object") return String(value || "");
   const item = value as {

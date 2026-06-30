@@ -319,10 +319,13 @@ def test_map_composer_is_primary_simple_workflow():
     assert "hasPreviewMapPayload" in composer_utils
     assert "canShowComposerMap" in composer_utils
     assert "composerResultState" in composer_utils
+    assert "isParcelFocused" in composer_utils
+    assert 'requestType === "parcel_context"' in composer_utils
     assert "context_preview" in composer_utils
     assert 'composerResultState(response) === "no_matches" && hasContextMapPayload(response)' not in composer_utils
     assert "No matching features found" in preview_step
     assert "Map data could not be shown" in preview_step
+    assert "!addressFocused && !parcelFocused" in preview_step
     assert "Try broader request" in preview_step
     assert "result_state" in automap_types
     assert "requested_result" in automap_types
