@@ -102,6 +102,10 @@ def _planner_response_fields(planner_context: dict[str, Any] | None) -> dict[str
         "ai_status": context.get("ai_status"),
         "ai_confidence": context.get("ai_confidence"),
         "ai_error_category": context.get("ai_error_category"),
+        "ai_error_code": context.get("ai_error_code"),
+        "ai_error_type": context.get("ai_error_type"),
+        "ai_error_message_safe": context.get("ai_error_message_safe"),
+        "ai_model_used": context.get("ai_model_used"),
         "map_plan_summary": context.get("map_plan_summary"),
     }
 

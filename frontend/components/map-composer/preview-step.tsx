@@ -650,8 +650,10 @@ function PreviewDiagnosticsPanel({ response }: { response: ComposerResponse }) {
         <p>
           {String(response.planner_used || "deterministic")}
           {response.ai_status ? ` · ${response.ai_status}` : ""}
+          {response.ai_model_used ? ` · ${response.ai_model_used}` : ""}
           {typeof response.ai_confidence === "number" ? ` · ${Math.round(response.ai_confidence * 100)}% confidence` : ""}
         </p>
+        {response.ai_error_message_safe ? <p className="muted">{response.ai_error_type || response.ai_error_category}: {response.ai_error_message_safe}</p> : null}
         {planSummary ? (
           <ul className="compact-list">
             {planSummary.interpreted_request ? <li>Interpreted request: {String(planSummary.interpreted_request)}</li> : null}

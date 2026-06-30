@@ -1,5 +1,8 @@
 import pytest
+from types import SimpleNamespace
+import sys
 
+from app.ai.openai_client import AISettings, request_structured_map_plan
 from app.ai.map_plan_validator import MapPlanValidationError, map_plan_to_request_plan, validate_map_plan
 from app.ai.map_planner import plan_with_ai
 from app.recipe_engine import build_recipe
@@ -50,7 +53,7 @@ def valid_floodplain_plan():
         "cabarrus_scope_check": "in_scope",
         "user_intent_summary": "Floodplain parcel screening in Concord",
         "geography": {"name": "Concord", "type": "municipality"},
-        "aoi": {"type": "municipality", "name": "Concord"},
+        "aoi": {"type": "municipality", "name": "Concord", "buffer_distance": "none"},
         "output_mode": "map",
         "target_layers": [
             {
@@ -84,7 +87,7 @@ def valid_floodplain_plan():
             },
         ],
         "spatial_operations": ["intersect", "clip_to_aoi"],
-        "filters": [{"domain": "floodplain", "value": "100_year"}],
+        "filters": [{"domain": "floodplain", "field_role": "flood_type", "operator": "equals", "value": "100_year", "confidence": 0.9}],
         "result_expectation": "Parcels intersecting the 100-year floodplain",
         "cartography_roles": ["primary_result", "supporting_context", "boundary_context"],
         "legend_expectation": ["Parcels in 100-year floodplain", "100-year floodplain", "Concord boundary"],
@@ -190,3 +193,56 @@ def test_mock_ai_timeout_falls_back(monkeypatch):
 
     assert result["planner_used"] == "fallback"
     assert result["ai_error_category"] == "timeout"
+
+
+def test_openai_bad_request_returns_safe_details(monkeypatch):
+    class FakeBadRequest(Exception):
+        status_code = 400
+        body = {"error": {"type": "invalid_request_error", "code": "invalid_json_schema", "message": "Invalid schema for response format."}}
+
+    monkeypatch.setitem(sys.modules, "openai", SimpleNamespace(OpenAI=lambda **kwargs: object()))
+    monkeypatch.setattr("app.ai.openai_client._create_response", lambda client, model, messages: (_ for _ in ()).throw(FakeBadRequest()))
+
+    result = request_structured_map_plan(
+        [{"role": "user", "content": "commercial zoning around Concord"}],
+        AISettings(True, "openai", "gpt-5.5", None, 20, 0, "structured_map_plan", True, True),
+    )
+
+    assert result["ai_status"] == "unavailable"
+    assert result["error_status_code"] == 400
+    assert result["error_type"] == "invalid_request_error"
+    assert result["error_code"] == "invalid_json_schema"
+    assert "Invalid schema" in result["error_message_safe"]
+    assert "sk-" not in result["error_message_safe"]
+
+
+def test_openai_model_error_uses_configured_fallback(monkeypatch):
+    calls = []
+
+    class FakeModelError(Exception):
+        status_code = 400
+        body = {"error": {"type": "invalid_request_error", "code": "model_not_found", "message": "The model does not exist or you do not have access."}}
+
+    class FakeResponse:
+        output_text = None
+
+        def model_dump_json(self):
+            return "{}"
+
+    def fake_create(client, model, messages):
+        calls.append(model)
+        if model == "gpt-5.5":
+            raise FakeModelError()
+        return FakeResponse()
+
+    monkeypatch.setitem(sys.modules, "openai", SimpleNamespace(OpenAI=lambda **kwargs: object()))
+    monkeypatch.setattr("app.ai.openai_client._create_response", fake_create)
+
+    result = request_structured_map_plan(
+        [{"role": "user", "content": "commercial zoning around Concord"}],
+        AISettings(True, "openai", "gpt-5.5", "gpt-5.4-mini", 20, 0, "structured_map_plan", True, True),
+    )
+
+    assert result["ai_status"] == "ok"
+    assert result["model_used"] == "gpt-5.4-mini"
+    assert calls == ["gpt-5.5", "gpt-5.4-mini"]

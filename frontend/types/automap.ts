@@ -1360,6 +1360,10 @@ export type ComposerResponse = {
   ai_status?: string | null;
   ai_confidence?: number | null;
   ai_error_category?: string | null;
+  ai_error_code?: string | null;
+  ai_error_type?: string | null;
+  ai_error_message_safe?: string | null;
+  ai_model_used?: string | null;
   map_plan_summary?: Record<string, JsonValue> | null;
   result_state?: "ready" | "partial" | "blocked" | "no_matches" | "unsupported" | string | null;
   requested_result?: string | null;

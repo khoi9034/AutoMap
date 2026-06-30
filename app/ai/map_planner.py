@@ -66,6 +66,9 @@ def plan_with_ai(prompt: str, catalog_records: list[dict[str, Any]] | None = Non
             "planner_used": "fallback" if settings.fallback_to_deterministic else "deterministic",
             "ai_status": result.get("ai_status") or "unavailable",
             "ai_error_category": result.get("error_category"),
+            "ai_error_code": result.get("error_code"),
+            "ai_error_type": result.get("error_type"),
+            "ai_error_message_safe": result.get("error_message_safe"),
             "request_plan": None,
         }
     try:
@@ -82,6 +85,7 @@ def plan_with_ai(prompt: str, catalog_records: list[dict[str, Any]] | None = Non
         "planner_used": "ai",
         "ai_status": "ok",
         "ai_confidence": plan.get("confidence"),
+        "ai_model_used": result.get("model_used"),
         "map_plan": plan,
         "map_plan_summary": {
             "interpreted_request": plan.get("user_intent_summary"),
@@ -96,4 +100,3 @@ def plan_with_ai(prompt: str, catalog_records: list[dict[str, Any]] | None = Non
         },
         "request_plan": request_plan,
     }
-
