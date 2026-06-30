@@ -1478,6 +1478,19 @@ def test_recruiter_safe_landing_and_health_fallback_are_present():
     assert "parcel table preset" in smoke_script
 
 
+def test_production_prompt_smoke_checks_visible_results():
+    prompt_smoke = (ROOT / "scripts" / "production_prompt_smoke.py").read_text(encoding="utf-8")
+
+    assert "visible_feature_count" in prompt_smoke
+    assert "legend item has no matching visible feature" in prompt_smoke
+    assert "result_state=ready and visible_feature_count=0" in prompt_smoke
+    assert "commercial zoning prompt returned ready without visible zoning features" in prompt_smoke
+    assert "commercial zoning prompt included road context when roads were not requested" in prompt_smoke
+    assert "proximity prompt did not return a ready road-network route" in prompt_smoke
+    assert "DATABASE" + "_URL" not in prompt_smoke
+    assert "OPENAI" + "_API_KEY" not in prompt_smoke
+
+
 def test_static_demo_fallback_is_available_for_slow_composer_requests():
     client = read("components/map-composer-client.tsx")
     request_step = read("components/map-composer/request-step.tsx")

@@ -572,6 +572,54 @@ def test_composer_commercial_zoning_preview_carries_visible_qa(monkeypatch, tmp_
     assert "Major-road classification was unavailable" in " ".join(result["warnings"])
 
 
+def test_composer_plain_commercial_zoning_hides_unrequested_roads(monkeypatch, tmp_path):
+    monkeypatch.setattr("app.map_composer._session_root", lambda: tmp_path / "composer_sessions")
+    monkeypatch.setattr(
+        "app.map_composer.build_recipe",
+        lambda prompt: build_recipe(prompt, sample_catalog(), persist_data_gaps=False),
+    )
+    packet_path = tmp_path / "review_packets" / "packet"
+    packet_path.mkdir(parents=True)
+    monkeypatch.setattr("app.map_composer.save_review_packet", lambda prompt, recipe, webmap: packet_path)
+    monkeypatch.setattr(
+        "app.map_composer._preview_config_for",
+        lambda path, can_preview: {
+            "initial_extent": {"xmin": -80.72, "ymin": 35.30, "xmax": -80.46, "ymax": 35.49, "spatialReference": {"wkid": 4326}},
+            "operational_layers": [
+                {"layer_key": "zoning", "title": "Cabarrus County Zoning", "category": "zoning", "role": "constraint_overlay", "url": "https://example.test/Zoning/0", "visibility": True, "definition_expression": "ZONING_GEN IN ('COMMERCIAL', 'OFFICE')"},
+                {"layer_key": "roads", "title": "Road Centerlines", "category": "transportation", "role": "transportation_layer", "url": "https://example.test/Roads/0", "visibility": True},
+            ],
+        },
+    )
+
+    def fake_visible_map_qa(config, recipe):
+        roads_layer = next(layer for layer in config["context_layers"] if layer["layer_key"] == "roads")
+        assert roads_layer["visibility"] is False
+        return {
+            "visible_feature_summary": [
+                {"layer_id": "zoning", "layer_title": "Cabarrus County Zoning", "expected_role": "zoning", "feature_count": 18, "visible": True, "opacity": 0.48, "fallback_used": False, "warning": None},
+                {"layer_id": "roads", "layer_title": "Road Centerlines", "expected_role": "roads", "feature_count": None, "visible": False, "opacity": 0.82, "fallback_used": False, "warning": None},
+            ],
+            "visible_feature_total": 18,
+            "visible_extent": {"xmin": -80.7, "ymin": 35.31, "xmax": -80.47, "ymax": 35.48, "spatialReference": {"wkid": 4326}},
+            "warnings": [],
+            "fallback_used": False,
+        }
+
+    monkeypatch.setattr("app.map_composer.visible_map_qa", fake_visible_map_qa)
+
+    result = generate_composer_draft("commercial zoning around Concord")
+
+    roads_layer = next(layer for layer in result["preview_config"]["context_layers"] if layer["layer_key"] == "roads")
+    legend_labels = {item["label"] for item in result["preview_config"]["map_layout"]["legend_items"]}
+    assert result["result_state"] == "ready"
+    assert roads_layer["visibility"] is False
+    assert roads_layer["legend_included"] is False
+    assert roads_layer["diagnostics_only"] is True
+    assert "Road context" not in legend_labels
+    assert "Major roads" not in legend_labels
+
+
 def test_commercial_zoning_empty_filter_fallback_is_visible_on_map(monkeypatch, tmp_path):
     monkeypatch.setattr("app.map_composer._session_root", lambda: tmp_path / "composer_sessions")
     monkeypatch.setattr(

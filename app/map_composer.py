@@ -700,6 +700,10 @@ def _composer_context_layers(layers: list[dict[str, Any]], recipe: dict[str, Any
     """Reduce non-proximity preview clutter while preserving metadata."""
     request_type = str((recipe.get("request_plan") or {}).get("request_type") or recipe.get("request_type") or "")
     parsed_topics = set((recipe.get("parsed_request") or {}).get("topics") or [])
+    prompt_text = str(recipe.get("user_intent") or recipe.get("raw_prompt") or "").lower()
+    roads_requested = "transportation" in parsed_topics or any(
+        term in prompt_text for term in ("road", "street", "highway", "traffic", "corridor")
+    )
     cleaned: list[dict[str, Any]] = []
     for layer in layers:
         item = deepcopy(layer)
@@ -717,6 +721,10 @@ def _composer_context_layers(layers: list[dict[str, Any]], recipe: dict[str, Any
         hide_reason = None
         if request_type == "zoning_context" and (item.get("category") == "parcel" or "parcel" in blob) and "parcel" not in parsed_topics:
             hide_reason = "Full parcel layer hidden because this request is a zoning/road context map."
+        elif request_type == "zoning_context" and not roads_requested and (
+            item.get("category") == "transportation" or any(term in blob for term in ("road", "street", "centerline", "highway"))
+        ):
+            hide_reason = "Road context hidden because this zoning request did not ask for roads."
         elif request_type == "floodplain_screening" and (item.get("category") == "parcel" or "parcel" in blob):
             has_affected_overlay = any(
                 isinstance(overlay, dict) and overlay.get("role") == "affected_parcels"
